@@ -59,4 +59,22 @@ You can also view the documentation using Swagger UI at `/doc`.
 
 ---
 
+## 🤖 Agentic Orchestration
+
+This worker includes a powerful agentic orchestration layer that can interpret natural language queries and take autonomous actions through the GitHub API.
+
+### Workflow
+
+1.  **Start a Session**: Send a `POST` request to `/api/agents/session` with a natural language prompt (e.g., "find repos using Cloudflare Agents SDK with active commits").
+2.  **Orchestration**: The `OrchestratorAgent` creates a new session, generates a series of search queries from your prompt, and triggers a `GithubSearchWorkflow` for each query.
+3.  **Execution**: Each workflow enqueues a task to a Cloudflare Queue. A queue consumer in the main worker processes these tasks, executing the GitHub search, analyzing the results with an LLM, and persisting the analysis to a D1 database.
+4.  **Get Results**: Send a `GET` request to `/api/agents/session/:id` to retrieve the aggregated results for your session.
+
+### API Endpoints
+
+-   `POST /api/agents/session`: Start a new orchestration session.
+-   `GET /api/agents/session/:id`: Get the status and results of a session.
+
+---
+
 _This project was built by an AI agent._
