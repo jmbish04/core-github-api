@@ -1,5 +1,5 @@
 {
-  "name": "core-github-api",
+  "name": "cloudflare-worker-github-proxy",
   "version": "1.0.0",
   "description": "A Cloudflare Worker that proxies the GitHub API.",
   "main": "src/index.ts",
@@ -9,13 +9,16 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
+    "@cloudflare/ai": "^1.1.2",
     "@hono/swagger-ui": "^0.5.2",
     "@hono/zod-openapi": "^0.9.0",
     "@octokit/graphql": "^7.0.0",
     "@octokit/plugin-retry": "^8.0.2",
     "@octokit/plugin-throttling": "^11.0.2",
     "@octokit/rest": "^20.0.0",
+    "agents": "^0.2.20",
     "hono": "^4.0.0",
+    "workflows": "^1.0.1",
     "zod": "^3.23.0"
   },
   "devDependencies": {

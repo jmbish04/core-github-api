@@ -8,10 +8,12 @@ import { OpenAPIHono } from '@hono/zod-openapi'
 import type { MiddlewareHandler } from 'hono'
 import { swaggerUI } from '@hono/swagger-ui'
 import { app, Bindings } from './utils/hono'
+import { Ai } from '@cloudflare/ai'
 
 // Import routes
 import octokitApi from './octokit'
 import toolsApi from './tools'
+import agentsApi from './routes/api/agents'
 
 // --- 1. Middleware ---
 
@@ -148,6 +150,7 @@ app.get('/doc', swaggerUI({ url: '/openapi.json' }))
 const sharedApi = new OpenAPIHono<{ Bindings: Bindings }>()
 sharedApi.route('/octokit', octokitApi)
 sharedApi.route('/tools', toolsApi)
+sharedApi.route('/agents', agentsApi)
 
 // Mount the shared router under all three top-level paths
 app.route('/api', sharedApi)
@@ -157,7 +160,101 @@ app.route('/a2a', sharedApi)
 
 // --- 4. Export the app ---
 
-export default app
+export default {
+  fetch: app.fetch,
+  async queue(
+    batch: MessageBatch,
+    env: Env,
+    ctx: ExecutionContext
+  ): Promise<void> {
+    const ai = new Ai(env.AI)
+
+    for (const message of batch.messages) {
+      const { sessionId, searchId, searchTerm } = message.body
+
+      // 1. Execute the search
+      const searchResults = await searchRepositoriesWithRetry(searchTerm, env, ctx)
+
+      // 2. Analyze each repository
+      for (const repo of searchResults.items) {
+        // 2a. Check if the repository has already been analyzed for this session
+        const { results } = await env.DB.prepare(
+          'SELECT id FROM repo_analysis WHERE session_id = ? AND repo_full_name = ?'
+        ).bind(sessionId, repo.full_name).all()
+
+        if (results.length > 0) {
+          continue
+        }
+
+        // 2b. Analyze the repository
+        const analysis = await analyzeRepository(repo, searchTerm, ai)
+
+        // 2c. Persist the analysis to D1
+        await env.DB.prepare(
+          'INSERT INTO repo_analysis (session_id, search_id, repo_full_name, repo_url, description, relevancy_score) VALUES (?, ?, ?, ?, ?, ?)'
+        ).bind(
+          sessionId,
+          searchId,
+          repo.full_name,
+          repo.html_url,
+          repo.description,
+          analysis.relevancyScore
+        ).run()
+      }
+
+      // 3. Update the search status
+      await env.DB.prepare(
+        'UPDATE searches SET status = ? WHERE id = ?'
+      ).bind('completed', searchId).run()
+
+      // 4. Notify the orchestrator that the workflow is complete
+      const orchestrator = env.ORCHESTRATOR.get(
+        env.ORCHESTRATOR.idFromName('orchestrator')
+      )
+      await orchestrator.workflowComplete(searchId)
+
+      message.ack()
+    }
+  }
+}
+
+async function searchRepositoriesWithRetry(
+  searchTerm: string,
+  env: Env,
+  ctx: ExecutionContext,
+  retries = 3
+): Promise<any> {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const request = new Request(`http://localhost/api/octokit/search/repos?q=${encodeURIComponent(searchTerm)}`, {
+        headers: {
+          'x-api-key': env.WORKER_API_KEY,
+          'User-Agent': 'Cloudflare-Worker'
+        },
+      })
+      const response = await app.fetch(request, env, ctx)
+      if (response.status === 200) {
+        return await response.json()
+      }
+    } catch (error) {
+      if (i === retries - 1) {
+        throw error
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1000 * (i + 1)))
+    }
+  }
+}
+
+async function analyzeRepository(repo: any, searchTerm: string, ai: Ai): Promise<{ relevancyScore: number }> {
+  const response = await ai.run('@cf/meta/llama-2-7b-chat-int8', {
+    prompt: `Given the following repository description, rate its relevancy to the search term "${searchTerm}" on a scale of 0 to 1, where 1 is highly relevant and 0 is not relevant at all. Return only the score.\n\nDescription: ${repo.description}`,
+  })
+
+  // For simplicity, we'll just parse the response as a float.
+  // In a real-world scenario, you'd want to use a more robust parsing method.
+  return { relevancyScore: parseFloat(response.response) }
+}
+
 
 /**
  * @extension_point

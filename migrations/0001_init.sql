@@ -1,20 +1,18 @@
--- Migration: Initialize request_logs table for observability data
+-- migrations/0001_init.sql
+
 CREATE TABLE IF NOT EXISTS request_logs (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  timestamp TEXT NOT NULL,
+  timestamp DATETIME NOT NULL,
   level TEXT NOT NULL,
   message TEXT NOT NULL,
-  method TEXT,
-  path TEXT,
-  status INTEGER,
-  latency_ms INTEGER,
-  payload_size_bytes INTEGER,
-  correlation_id TEXT,
+  method TEXT NOT NULL,
+  path TEXT NOT NULL,
+  status INTEGER NOT NULL,
+  latency_ms INTEGER NOT NULL,
+  payload_size_bytes INTEGER NOT NULL,
+  correlation_id TEXT NOT NULL,
   metadata TEXT
 );
 
-CREATE INDEX IF NOT EXISTS idx_request_logs_timestamp
-  ON request_logs (timestamp);
-
-CREATE INDEX IF NOT EXISTS idx_request_logs_correlation
-  ON request_logs (correlation_id);
+CREATE INDEX IF NOT EXISTS idx_request_logs_timestamp ON request_logs (timestamp);
+CREATE INDEX IF NOT EXISTS idx_request_logs_correlation_id ON request_logs (correlation_id);
