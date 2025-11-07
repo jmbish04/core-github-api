@@ -8,12 +8,14 @@ import { OpenAPIHono } from '@hono/zod-openapi'
 import type { MiddlewareHandler } from 'hono'
 import { swaggerUI } from '@hono/swagger-ui'
 import { app, Bindings } from './utils/hono'
-import { Ai } from '@cloudflare/ai'
 
 // Import routes
 import octokitApi from './octokit'
 import toolsApi from './tools'
 import agentsApi from './routes/api/agents'
+import retrofitApi from './retrofit'
+import { webhookHandler } from './routes/webhook-handler'
+import { healthHandler } from './routes/health'
 
 // --- 1. Middleware ---
 
@@ -21,7 +23,6 @@ import agentsApi from './routes/api/agents'
 app.use('*', async (c, next) => {
   const startTime = Date.now()
   const correlationId = c.req.header('X-Correlation-ID') || crypto.randomUUID()
-  c.set('correlationId', correlationId)
 
   await next()
 
@@ -79,6 +80,7 @@ app.use('*', async (c, next) => {
           userAgent: c.req.header('user-agent') || null,
           referer: c.req.header('referer') || null,
           host: c.req.header('host') || null,
+          correlationId,
         })
       )
       .run()
@@ -120,12 +122,10 @@ app.use('/a2a/*', requireApiKey)
 // --- 2. Route Definitions ---
 
 // Health check endpoint
-app.get(
-  '/healthz',
-  (c) => {
-    return c.json({ ok: true })
-  },
-)
+app.get('/healthz', healthHandler)
+
+// Webhook endpoint (no API key required, uses GitHub signature verification)
+app.post('/webhook', webhookHandler)
 
 // The OpenAPI documentation will be available at /doc
 app.doc('/openapi.json', {
@@ -151,6 +151,7 @@ const sharedApi = new OpenAPIHono<{ Bindings: Bindings }>()
 sharedApi.route('/octokit', octokitApi)
 sharedApi.route('/tools', toolsApi)
 sharedApi.route('/agents', agentsApi)
+sharedApi.route('/retrofit', retrofitApi)
 
 // Mount the shared router under all three top-level paths
 app.route('/api', sharedApi)
@@ -160,6 +161,10 @@ app.route('/a2a', sharedApi)
 
 // --- 4. Export the app ---
 
+type WorkersAiBinding = {
+  run(model: string, request: Record<string, unknown>): Promise<unknown>
+}
+
 export default {
   fetch: app.fetch,
   async queue(
@@ -167,7 +172,11 @@ export default {
     env: Env,
     ctx: ExecutionContext
   ): Promise<void> {
-    const ai = new Ai(env.AI)
+    const aiBinding = env.AI as WorkersAiBinding | undefined
+
+    if (!aiBinding || typeof aiBinding.run !== 'function') {
+      throw new Error('AI binding is not configured on the environment')
+    }
 
     for (const message of batch.messages) {
       const { sessionId, searchId, searchTerm } = message.body
@@ -187,7 +196,7 @@ export default {
         }
 
         // 2b. Analyze the repository
-        const analysis = await analyzeRepository(repo, searchTerm, ai)
+        const analysis = await analyzeRepository(repo, searchTerm, aiBinding)
 
         // 2c. Persist the analysis to D1
         await env.DB.prepare(
@@ -245,16 +254,57 @@ async function searchRepositoriesWithRetry(
   }
 }
 
-async function analyzeRepository(repo: any, searchTerm: string, ai: Ai): Promise<{ relevancyScore: number }> {
+async function analyzeRepository(
+  repo: any,
+  searchTerm: string,
+  ai: WorkersAiBinding
+): Promise<{ relevancyScore: number }> {
   const response = await ai.run('@cf/meta/llama-2-7b-chat-int8', {
     prompt: `Given the following repository description, rate its relevancy to the search term "${searchTerm}" on a scale of 0 to 1, where 1 is highly relevant and 0 is not relevant at all. Return only the score.\n\nDescription: ${repo.description}`,
   })
 
-  // For simplicity, we'll just parse the response as a float.
-  // In a real-world scenario, you'd want to use a more robust parsing method.
-  return { relevancyScore: parseFloat(response.response) }
+  const scoreText = extractAiText(response)
+  const score = Number.parseFloat(scoreText)
+
+  return { relevancyScore: Number.isFinite(score) ? score : 0 }
 }
 
+function extractAiText(result: unknown): string {
+  if (typeof result === 'string') {
+    return result
+  }
+
+  if (result && typeof result === 'object') {
+    const record = result as Record<string, unknown>
+    if (typeof record.response === 'string') {
+      return record.response
+    }
+    if (typeof record.content === 'string') {
+      return record.content
+    }
+    if (Array.isArray(record.output_text)) {
+      return record.output_text.join('')
+    }
+    if (typeof record.output_text === 'string') {
+      return record.output_text
+    }
+    if (Array.isArray(record.responses) && record.responses.length > 0) {
+      const first = record.responses[0]
+      if (typeof first === 'string') {
+        return first
+      }
+      if (first && typeof first === 'object' && typeof (first as Record<string, unknown>).response === 'string') {
+        return (first as Record<string, unknown>).response as string
+      }
+    }
+  }
+
+  return ''
+}
+
+
+// Export RetrofitAgent for Durable Objects
+export { RetrofitAgent } from './retrofit/RetrofitAgent'
 
 /**
  * @extension_point
