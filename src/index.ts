@@ -8,6 +8,7 @@ import { OpenAPIHono } from '@hono/zod-openapi'
 import type { MiddlewareHandler } from 'hono'
 import { swaggerUI } from '@hono/swagger-ui'
 import { app, Bindings } from './utils/hono'
+import { GitHubWorkerRPC } from './rpc'
 
 // Import routes
 import octokitApi from './octokit'
@@ -165,13 +166,43 @@ type WorkersAiBinding = {
   run(model: string, request: Record<string, unknown>): Promise<unknown>
 }
 
-export default {
-  fetch: app.fetch,
-  async queue(
-    batch: MessageBatch,
-    env: Env,
-    ctx: ExecutionContext
-  ): Promise<void> {
+/**
+ * GitHubWorker - Main worker class with RPC support
+ *
+ * This class can be used in two ways:
+ * 1. As an HTTP worker (via the fetch method)
+ * 2. As an RPC service binding (via the exposed RPC methods)
+ *
+ * Example usage as service binding in another worker's wrangler.jsonc:
+ * {
+ *   "services": [
+ *     {
+ *       "binding": "GITHUB_WORKER",
+ *       "service": "github-worker"
+ *     }
+ *   ]
+ * }
+ *
+ * Then in the other worker:
+ * const result = await env.GITHUB_WORKER.upsertFile({ owner: '...', repo: '...', ... })
+ */
+export default class GitHubWorker {
+  private rpc: GitHubWorkerRPC | null = null
+  private env: Env | null = null
+
+  /**
+   * HTTP fetch handler
+   */
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    this.env = env
+    return app.fetch(request, env, ctx)
+  }
+
+  /**
+   * Queue message handler
+   */
+  async queue(batch: MessageBatch, env: Env, ctx: ExecutionContext): Promise<void> {
+    this.env = env
     const aiBinding = env.AI as WorkersAiBinding | undefined
 
     if (!aiBinding || typeof aiBinding.run !== 'function') {
@@ -224,6 +255,101 @@ export default {
 
       message.ack()
     }
+  }
+
+  // ==================== RPC Methods ====================
+  // These methods can be called directly when this worker is used as a service binding
+
+  private getRPC(env: Env): GitHubWorkerRPC {
+    if (!this.rpc || this.env !== env) {
+      this.env = env
+      this.rpc = new GitHubWorkerRPC(env)
+    }
+    return this.rpc
+  }
+
+  /**
+   * Check the health status of the worker
+   */
+  async health(env: Env) {
+    return this.getRPC(env).health()
+  }
+
+  /**
+   * Create or update a file in a GitHub repository
+   */
+  async upsertFile(request: Parameters<GitHubWorkerRPC['upsertFile']>[0], env: Env) {
+    return this.getRPC(env).upsertFile(request)
+  }
+
+  /**
+   * List repository contents with a tree-style representation
+   */
+  async listRepoTree(request: Parameters<GitHubWorkerRPC['listRepoTree']>[0], env: Env) {
+    return this.getRPC(env).listRepoTree(request)
+  }
+
+  /**
+   * Open a new pull request
+   */
+  async openPullRequest(request: Parameters<GitHubWorkerRPC['openPullRequest']>[0], env: Env) {
+    return this.getRPC(env).openPullRequest(request)
+  }
+
+  /**
+   * Create a new issue
+   */
+  async createIssue(request: Parameters<GitHubWorkerRPC['createIssue']>[0], env: Env) {
+    return this.getRPC(env).createIssue(request)
+  }
+
+  /**
+   * Generic proxy for GitHub REST API calls
+   */
+  async octokitRest(request: Parameters<GitHubWorkerRPC['octokitRest']>[0], env: Env) {
+    return this.getRPC(env).octokitRest(request)
+  }
+
+  /**
+   * Execute a GraphQL query against the GitHub API
+   */
+  async octokitGraphQL(request: Parameters<GitHubWorkerRPC['octokitGraphQL']>[0], env: Env) {
+    return this.getRPC(env).octokitGraphQL(request)
+  }
+
+  /**
+   * Create a new agent session for GitHub search and analysis
+   */
+  async createSession(request: Parameters<GitHubWorkerRPC['createSession']>[0], env: Env) {
+    return this.getRPC(env).createSession(request)
+  }
+
+  /**
+   * Get the status of an agent session
+   */
+  async getSessionStatus(request: Parameters<GitHubWorkerRPC['getSessionStatus']>[0], env: Env) {
+    return this.getRPC(env).getSessionStatus(request)
+  }
+
+  /**
+   * Search for GitHub repositories
+   */
+  async searchRepositories(request: Parameters<GitHubWorkerRPC['searchRepositories']>[0], env: Env) {
+    return this.getRPC(env).searchRepositories(request)
+  }
+
+  /**
+   * Batch upsert multiple files in a single call
+   */
+  async batchUpsertFiles(requests: Parameters<GitHubWorkerRPC['batchUpsertFiles']>[0], env: Env) {
+    return this.getRPC(env).batchUpsertFiles(requests)
+  }
+
+  /**
+   * Batch create multiple issues in a single call
+   */
+  async batchCreateIssues(requests: Parameters<GitHubWorkerRPC['batchCreateIssues']>[0], env: Env) {
+    return this.getRPC(env).batchCreateIssues(requests)
   }
 }
 
@@ -303,8 +429,12 @@ function extractAiText(result: unknown): string {
 }
 
 
-// Export RetrofitAgent for Durable Objects
+// Export Durable Objects
 export { RetrofitAgent } from './retrofit/RetrofitAgent'
+export { OrchestratorAgent } from './agents/orchestrator'
+
+// Export Workflows
+export { GithubSearchWorkflow } from './workflows/search'
 
 /**
  * @extension_point

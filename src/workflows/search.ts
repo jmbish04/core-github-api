@@ -5,7 +5,7 @@
  * @owner AI-Builder
  */
 
-import { workflow } from '@cloudflare/workflows'
+import { workflow } from 'cloudflare:workflows'
 
 export const GithubSearchWorkflow = workflow(
   async (sessionId: string, searchId: number, searchTerm: string) => {

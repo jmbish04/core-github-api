@@ -1,7 +1,7 @@
 {
   "name": "core-github-api",
   "main": "src/index.ts",
-  "compatibility_date": "2023-07-01",
+  "compatibility_date": "2024-09-23",
   "compatibility_flags": [
     "nodejs_compat"
   ],
