@@ -4,11 +4,21 @@ This is a modular, extensible Cloudflare Worker that proxies the GitHub API, bui
 
 ## 🚀 Usage
 
-The worker exposes three main sets of endpoints:
+The worker exposes four main sets of endpoints:
 
+-   `/api/flows`: High-level flows for repository setup and bulk operations.
 -   `/api/tools`: High-level tools for common agent workflows, such as creating files and opening pull requests.
 -   `/api/octokit/rest`: A generic proxy for the GitHub REST API.
 -   `/api/octokit/graphql`: A proxy for the GitHub GraphQL API.
+
+### Flows API
+
+The Flows API provides high-level operations for managing GitHub repositories at scale.
+
+-   `POST /api/flows/create-new-repo`: Create a new repository with default workflows.
+-   `POST /api/flows/retrofit-workflows`: Add workflows to existing repositories.
+
+📖 **[Full Flows API Documentation](./docs/FLOWS.md)**
 
 ### Tools API
 
