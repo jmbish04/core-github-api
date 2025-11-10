@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF--8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>System Health - Vibe App</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/@heroicons/react@1.0.6/dist/index.css">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body class="bg-gray-900 text-white font-sans">
+  <div id="nav-container"></div>
+
+  <main class="container mx-auto px-4 py-8">
+    <header class="mb-8">
+      <h1 class="text-4xl font-bold">System Health Dashboard</h1>
+      <p class="text-gray-400">Live monitoring of system components and dependencies.</p>
+    </header>
+
+    <div class="mb-8">
+      <button id="run-tests-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg">Run Health Tests</button>
+    </div>
+
+    <section id="test-results" class="space-y-4">
+      <!-- Test results will be dynamically inserted here -->
+    </section>
+  </main>
+
+  <script src="/client.js"></script>
+  <script>
+    loadNav();
+    loadHealthDashboard();
+  </script>
+</body>
+</html>

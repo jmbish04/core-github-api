@@ -1,38 +1,26 @@
 {
-  "name": "cloudflare-worker-github-proxy",
+  "name": "multi-protocol-worker",
   "version": "1.0.0",
-  "description": "A Cloudflare Worker that proxies the GitHub API.",
-  "main": "src/index.ts",
+  "private": true,
   "scripts": {
-    "start": "wrangler dev",
+    "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "test": "vitest --run"
+    "db:gen": "drizzle-kit generate:sqlite",
+    "db:migrate": "wrangler d1 migrations apply vibe-db --local"
   },
   "dependencies": {
-    "@cloudflare/ai": "^1.1.2",
-    "@cloudflare/containers": "latest",
-    "@cloudflare/sandbox": "latest",
-    "@hono/swagger-ui": "^0.5.2",
-    "@hono/zod-openapi": "^0.9.0",
-    "@octokit/graphql": "^7.0.0",
-    "@octokit/plugin-retry": "^8.0.2",
-    "@octokit/plugin-throttling": "^11.0.2",
-    "@octokit/rest": "^20.0.0",
-    "@octokit/webhooks-methods": "^4.1.0",
-    "@tsndr/cloudflare-worker-jwt": "^3.2.0",
-    "agents": "^0.2.20",
-    "drizzle-orm": "latest",
-    "hono": "^4.0.0",
-    "kysely": "latest",
-    "kysely-d1": "latest",
-    "workflows": "^1.0.1",
-    "zod": "^3.23.0"
+    "hono": "^4.2.7",
+    "zod": "^3.22.4",
+    "@asteasolutions/zod-to-openapi": "^7.0.0",
+    "yaml": "^2.3.4",
+    "kysely": "^0.27.3",
+    "drizzle-orm": "^0.30.8",
+    "kysely-d1": "^0.3.0"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "^0.10.5",
-    "@types/node": "^20.14.10",
-    "typescript": "^5.6.0",
-    "vitest": "~3.2.0",
-    "wrangler": "^4.45.0"
+    "@cloudflare/workers-types": "^4.20240405.0",
+    "wrangler": "^3.47.0",
+    "drizzle-kit": "^0.20.17",
+    "typescript": "^5.4.5"
   }
 }
