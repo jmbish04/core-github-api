@@ -15,6 +15,7 @@ import octokitApi from './octokit'
 import toolsApi from './tools'
 import agentsApi from './routes/api/agents'
 import retrofitApi from './retrofit'
+import flowsApi from './flows'
 import { webhookHandler } from './routes/webhook-handler'
 import { healthHandler } from './routes/health'
 
@@ -153,6 +154,7 @@ sharedApi.route('/octokit', octokitApi)
 sharedApi.route('/tools', toolsApi)
 sharedApi.route('/agents', agentsApi)
 sharedApi.route('/retrofit', retrofitApi)
+sharedApi.route('/flows', flowsApi)
 
 // Mount the shared router under all three top-level paths
 app.route('/api', sharedApi)

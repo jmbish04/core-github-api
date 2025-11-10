@@ -15,6 +15,8 @@ export type Bindings = {
   ETAG_KV: KVNamespace
   WORKER_API_KEY: string
   CORE_GITHUB_API: D1Database
+  CLOUDFLARE_API_TOKEN?: string
+  GITHUB_ACTION_CLOUDFLARE_ACCOUNT_ID?: string
 }
 
 // Create a new OpenAPIHono app with the defined Bindings
