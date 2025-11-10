@@ -6,15 +6,11 @@
  */
 
 import { Agent } from 'agents'
-import { Ai } from '@cloudflare/ai'
 import { GithubSearchWorkflow } from '../workflows/search'
 
 export class OrchestratorAgent extends Agent {
-  ai: Ai
-
   constructor(ctx, env) {
     super(ctx, env)
-    this.ai = new Ai(env.AI)
   }
 
   async start(prompt: string) {
@@ -72,12 +68,13 @@ export class OrchestratorAgent extends Agent {
   }
 
   async generateSearchTerms(prompt: string): Promise<string[]> {
-    const response = await this.ai.run('@cf/meta/llama-2-7b-chat-int8', {
+    const response = await this.env.AI.run('@cf/meta/llama-2-7b-chat-int8', {
       prompt: `Given the following prompt, generate up to 5 diverse and relevant GitHub search queries: "${prompt}"`,
     })
 
     // For simplicity, we'll just split the response by newlines.
     // In a real-world scenario, you'd want to use a more robust parsing method.
-    return response.response.split('\n').filter(term => term.trim() !== '').slice(0, 5)
+    const responseText = typeof response === 'string' ? response : (response as any).response || ''
+    return responseText.split('\n').filter(term => term.trim() !== '').slice(0, 5)
   }
 }

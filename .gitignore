@@ -4,6 +4,7 @@ node_modules/
 # Cloudflare Wrangler
 .wrangler/
 .dev.vars
+dist/
 
 # Logs
 *.log
