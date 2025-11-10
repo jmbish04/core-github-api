@@ -1,313 +1,66 @@
-/**
- * @file src/index.ts
- * @description This is the main entry point for the Cloudflare Worker.
- * @owner AI-Builder
-*/
+import { buildRouter } from "./router";
+import { RoomDO } from "./do/RoomDO";
+import { buildOpenAPIDocument } from "./utils/openapi";
+import { mcpRoutes } from "./mcp";
+import { stringify } from "yaml";
+import { runAllTests } from "./tests/runner";
+import type { Env } from "./types";
 
-import { OpenAPIHono } from '@hono/zod-openapi'
-import type { MiddlewareHandler } from 'hono'
-import { swaggerUI } from '@hono/swagger-ui'
-import { app, Bindings } from './utils/hono'
-
-// Import routes
-import octokitApi from './octokit'
-import toolsApi from './tools'
-import agentsApi from './routes/api/agents'
-import retrofitApi from './retrofit'
-import { webhookHandler } from './routes/webhook-handler'
-import { healthHandler } from './routes/health'
-
-// --- 1. Middleware ---
-
-// Logging middleware
-app.use('*', async (c, next) => {
-  const startTime = Date.now()
-  const correlationId = c.req.header('X-Correlation-ID') || crypto.randomUUID()
-
-  await next()
-
-  c.res.headers.set('X-Correlation-ID', correlationId)
-  const endTime = Date.now()
-  const latency = endTime - startTime
-  const payloadSizeHeader = c.req.header('content-length') || '0'
-  const payloadSizeBytes = Number.parseInt(payloadSizeHeader, 10) || 0
-  const logEntry = {
-    level: 'info' as const,
-    message: `[route] ${c.req.method} ${c.req.path}`,
-    method: c.req.method,
-    path: c.req.path,
-    status: c.res.status,
-    latency,
-    payloadSizeBytes,
-    correlationId,
-    timestamp: new Date().toISOString(),
-  }
-
-  console.log(
-    JSON.stringify({
-      ...logEntry,
-      latency: `${latency}ms`,
-      payloadSize: `${payloadSizeBytes} bytes`,
-    })
-  )
-
-  try {
-    await c.env.CORE_GITHUB_API.prepare(
-      `INSERT INTO request_logs (
-        timestamp,
-        level,
-        message,
-        method,
-        path,
-        status,
-        latency_ms,
-        payload_size_bytes,
-        correlation_id,
-        metadata
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    )
-      .bind(
-        logEntry.timestamp,
-        logEntry.level,
-        logEntry.message,
-        logEntry.method,
-        logEntry.path,
-        logEntry.status,
-        logEntry.latency,
-        logEntry.payloadSizeBytes,
-        logEntry.correlationId,
-        JSON.stringify({
-          userAgent: c.req.header('user-agent') || null,
-          referer: c.req.header('referer') || null,
-          host: c.req.header('host') || null,
-          correlationId,
-        })
-      )
-      .run()
-  } catch (error) {
-    console.error('Failed to persist request log to D1', error)
-  }
-})
-
-const requireApiKey: MiddlewareHandler<{ Bindings: Bindings }> = async (c, next) => {
-  if (c.req.method === 'OPTIONS') {
-    await next()
-    return
-  }
-
-  const expectedApiKey = c.env.WORKER_API_KEY
-
-  if (!expectedApiKey) {
-    console.error('WORKER_API_KEY is not configured')
-    return c.json({ error: 'Service misconfigured' }, 500)
-  }
-
-  const providedApiKey = c.req.header('x-api-key')
-    || (c.req.header('authorization')?.startsWith('Bearer ')
-      ? c.req.header('authorization')?.slice('Bearer '.length)
-      : undefined)
-
-  if (providedApiKey !== expectedApiKey) {
-    return c.json({ error: 'Unauthorized' }, 401)
-  }
-
-  await next()
-}
-
-app.use('/api/*', requireApiKey)
-app.use('/mcp/*', requireApiKey)
-app.use('/a2a/*', requireApiKey)
-
-
-// --- 2. Route Definitions ---
-
-// Health check endpoint
-app.get('/healthz', healthHandler)
-
-// Webhook endpoint (no API key required, uses GitHub signature verification)
-app.post('/webhook', webhookHandler)
-
-// The OpenAPI documentation will be available at /doc
-app.doc('/openapi.json', {
-  openapi: '3.0.0',
-  info: {
-    version: '1.0.0',
-    title: 'Cloudflare Worker GitHub Proxy',
-  },
-  servers: [
-    { url: '/api', description: 'API Interface' },
-    { url: '/mcp', description: 'Machine-to-Cloud Interface' },
-    { url: '/a2a', description: 'Agent-to-Agent Interface' },
-  ],
-})
-
-// Optional: Add swagger UI
-app.get('/doc', swaggerUI({ url: '/openapi.json' }))
-
-// --- 3. API Routes ---
-
-// Create ONE shared router instance for all business logic
-const sharedApi = new OpenAPIHono<{ Bindings: Bindings }>()
-sharedApi.route('/octokit', octokitApi)
-sharedApi.route('/tools', toolsApi)
-sharedApi.route('/agents', agentsApi)
-sharedApi.route('/retrofit', retrofitApi)
-
-// Mount the shared router under all three top-level paths
-app.route('/api', sharedApi)
-app.route('/mcp', sharedApi)
-app.route('/a2a', sharedApi)
-
-
-// --- 4. Export the app ---
-
-type WorkersAiBinding = {
-  run(model: string, request: Record<string, unknown>): Promise<unknown>
-}
+const app = buildRouter();
 
 export default {
-  fetch: app.fetch,
-  async queue(
-    batch: MessageBatch,
-    env: Env,
-    ctx: ExecutionContext
-  ): Promise<void> {
-    const aiBinding = env.AI as WorkersAiBinding | undefined
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    const url = new URL(request.url);
 
-    if (!aiBinding || typeof aiBinding.run !== 'function') {
-      throw new Error('AI binding is not configured on the environment')
-    }
-
-    for (const message of batch.messages) {
-      const { sessionId, searchId, searchTerm } = message.body
-
-      // 1. Execute the search
-      const searchResults = await searchRepositoriesWithRetry(searchTerm, env, ctx)
-
-      // 2. Analyze each repository
-      for (const repo of searchResults.items) {
-        // 2a. Check if the repository has already been analyzed for this session
-        const { results } = await env.DB.prepare(
-          'SELECT id FROM repo_analysis WHERE session_id = ? AND repo_full_name = ?'
-        ).bind(sessionId, repo.full_name).all()
-
-        if (results.length > 0) {
-          continue
+    // API and WebSocket routes
+    if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/mcp/") || url.pathname === "/ws" || url.pathname === "/rpc" || url.pathname === "/openapi.json" || url.pathname === "/openapi.yaml") {
+        if (url.pathname === "/openapi.json") {
+            const doc = buildOpenAPIDocument(`${url.origin}`);
+            return new Response(JSON.stringify(doc, null, 2), {
+              headers: { "content-type": "application/json;charset=UTF-8" },
+            });
         }
 
-        // 2b. Analyze the repository
-        const analysis = await analyzeRepository(repo, searchTerm, aiBinding)
+        if (url.pathname === "/openapi.yaml") {
+            const doc = buildOpenAPIDocument(`${url.origin}`);
+            const yaml = stringify(doc);
+            return new Response(yaml, { headers: { "content-type": "application/yaml" } });
+        }
 
-        // 2c. Persist the analysis to D1
-        await env.DB.prepare(
-          'INSERT INTO repo_analysis (session_id, search_id, repo_full_name, repo_url, description, relevancy_score) VALUES (?, ?, ?, ?, ?, ?)'
-        ).bind(
-          sessionId,
-          searchId,
-          repo.full_name,
-          repo.html_url,
-          repo.description,
-          analysis.relevancyScore
-        ).run()
-      }
+        if (url.pathname === "/ws" && request.headers.get("Upgrade") === "websocket") {
+            const projectId = url.searchParams.get("projectId") ?? "default";
+            const id = env.ROOM_DO.idFromName(projectId);
+            const stub = env.ROOM_DO.get(id);
+            return stub.fetch(request);
+        }
 
-      // 3. Update the search status
-      await env.DB.prepare(
-        'UPDATE searches SET status = ? WHERE id = ?'
-      ).bind('completed', searchId).run()
+        if (url.pathname.startsWith("/mcp/")) {
+            const routes = mcpRoutes();
+            if (url.pathname === "/mcp/tools" && request.method === "GET") {
+                return Response.json(await routes.tools());
+            }
+            if (url.pathname === "/mcp/execute" && request.method === "POST") {
+                try {
+                    const body = await request.json();
+                    const res = await routes.execute(env, ctx, body);
+                    return Response.json(res);
+                } catch (e: any) {
+                    return Response.json({ success: false, error: e?.message ?? "MCP error" }, { status: 400 });
+                }
+            }
+        }
 
-      // 4. Notify the orchestrator that the workflow is complete
-      const orchestrator = env.ORCHESTRATOR.get(
-        env.ORCHESTRATOR.idFromName('orchestrator')
-      )
-      await orchestrator.workflowComplete(searchId)
-
-      message.ack()
+        return app.fetch(request, env, ctx);
     }
-  }
-}
-
-async function searchRepositoriesWithRetry(
-  searchTerm: string,
-  env: Env,
-  ctx: ExecutionContext,
-  retries = 3
-): Promise<any> {
-  for (let i = 0; i < retries; i++) {
-    try {
-      const request = new Request(`http://localhost/api/octokit/search/repos?q=${encodeURIComponent(searchTerm)}`, {
-        headers: {
-          'x-api-key': env.WORKER_API_KEY,
-          'User-Agent': 'Cloudflare-Worker'
-        },
-      })
-      const response = await app.fetch(request, env, ctx)
-      if (response.status === 200) {
-        return await response.json()
-      }
-    } catch (error) {
-      if (i === retries - 1) {
-        throw error
-      }
-      await new Promise((resolve) => setTimeout(resolve, 1000 * (i + 1)))
-    }
-  }
-}
-
-async function analyzeRepository(
-  repo: any,
-  searchTerm: string,
-  ai: WorkersAiBinding
-): Promise<{ relevancyScore: number }> {
-  const response = await ai.run('@cf/meta/llama-2-7b-chat-int8', {
-    prompt: `Given the following repository description, rate its relevancy to the search term "${searchTerm}" on a scale of 0 to 1, where 1 is highly relevant and 0 is not relevant at all. Return only the score.\n\nDescription: ${repo.description}`,
-  })
-
-  const scoreText = extractAiText(response)
-  const score = Number.parseFloat(scoreText)
-
-  return { relevancyScore: Number.isFinite(score) ? score : 0 }
-}
-
-function extractAiText(result: unknown): string {
-  if (typeof result === 'string') {
-    return result
-  }
-
-  if (result && typeof result === 'object') {
-    const record = result as Record<string, unknown>
-    if (typeof record.response === 'string') {
-      return record.response
-    }
-    if (typeof record.content === 'string') {
-      return record.content
-    }
-    if (Array.isArray(record.output_text)) {
-      return record.output_text.join('')
-    }
-    if (typeof record.output_text === 'string') {
-      return record.output_text
-    }
-    if (Array.isArray(record.responses) && record.responses.length > 0) {
-      const first = record.responses[0]
-      if (typeof first === 'string') {
-        return first
-      }
-      if (first && typeof first === 'object' && typeof (first as Record<string, unknown>).response === 'string') {
-        return (first as Record<string, unknown>).response as string
-      }
-    }
-  }
-
-  return ''
-}
 
 
-// Export RetrofitAgent for Durable Objects
-export { RetrofitAgent } from './retrofit/RetrofitAgent'
+    // Serve static assets
+    return env.ASSETS.fetch(request);
+  },
 
-/**
- * @extension_point
- * This is a good place to add new top-level routes or middleware.
- * For example, you could add an authentication middleware here.
- */
+  async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
+    ctx.waitUntil(runAllTests(env));
+  },
+};
+
+export { RoomDO };

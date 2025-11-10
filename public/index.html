@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vibe App</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body class="bg-gray-900 text-white font-sans">
+  <div id="nav-container"></div>
+
+  <main class="container mx-auto px-4 py-8">
+    <section id="hero" class="text-center py-20">
+      <h1 class="text-5xl font-bold mb-4">Welcome to the Vibe App</h1>
+      <p class="text-xl text-gray-400 mb-8">A multi-protocol Cloudflare Worker for the modern web.</p>
+      <a href="/health.html" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg">View System Health</a>
+    </section>
+  </main>
+
+  <script src="/client.js"></script>
+  <script>
+    loadNav();
+  </script>
+</body>
+</html>
