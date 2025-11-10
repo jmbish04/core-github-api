@@ -41,6 +41,20 @@ describe('Flows API', () => {
       expect(deployWorkflow?.content).toContain('CLOUDFLARE_ACCOUNT_ID')
     })
 
+    it('should have Auto-Apply Gemini workflow template', async () => {
+      const { DEFAULT_WORKFLOWS } = await import('../src/flows/workflowTemplates')
+      
+      const geminiWorkflow = DEFAULT_WORKFLOWS.find((w) => 
+        w.path.includes('auto-apply-gemini')
+      )
+      
+      expect(geminiWorkflow).toBeDefined()
+      expect(geminiWorkflow?.content).toContain('Auto-Apply Gemini Suggestions')
+      expect(geminiWorkflow?.content).toContain('gemini-code-assist[bot]')
+      expect(geminiWorkflow?.content).toContain('pull_request_review_comment')
+      expect(geminiWorkflow?.content).toContain('git apply')
+    })
+
     it('should detect wrangler config files correctly', async () => {
       const { shouldIncludeCloudflareWorkflow } = await import('../src/flows/workflowTemplates')
       

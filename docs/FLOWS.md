@@ -74,6 +74,14 @@ Creates a new GitHub repository with default GitHub Actions workflows pre-config
    - Requires: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` secrets
    - Triggers on: push to `main` branch
 
+3. **Auto-Apply Gemini Suggestions** (`.github/workflows/auto-apply-gemini.yml`)
+   - Automatically applies code suggestions from Gemini bot
+   - Extracts code from ` ```suggestion ` blocks in PR review comments
+   - Validates patch before applying
+   - Auto-commits and pushes changes to the PR branch
+   - Posts confirmation or error messages
+   - Triggers on: `pull_request_review_comment` from `gemini-code-assist[bot]`
+
 **Example:**
 ```bash
 curl -X POST https://your-worker.workers.dev/api/flows/create-new-repo \
@@ -263,6 +271,44 @@ gh secret set CLOUDFLARE_ACCOUNT_ID -b "your-account-id" -R owner/repo
 
 **Permissions Required:**
 - None (uses repository secrets)
+
+---
+
+### Auto-Apply Gemini Suggestions Workflow
+
+**Purpose:** Automatically applies code suggestions from Gemini bot on pull requests.
+
+**Features:**
+- Triggers only on comments from `gemini-code-assist[bot]`
+- Waits 10 seconds to batch multiple suggestions
+- Extracts code from ` ```suggestion ` blocks in PR review comments
+- Validates patch with dry-run before applying
+- Auto-commits and pushes changes to the PR branch
+- Posts detailed status messages:
+  - Success: Confirms application with guidance
+  - No suggestion: Notifies when no ` ```suggestion ` blocks found
+  - Invalid patch: Warns when patch cannot be applied cleanly
+- Can be disabled by adding `[skip-auto-apply]` to PR description
+
+**Permissions Required:**
+- `contents: write`
+- `pull-requests: write`
+
+**How It Works:**
+1. Gemini bot posts a review comment with a ` ```suggestion ` code block
+2. Workflow extracts the suggested code changes
+3. Validates the patch with `git apply --check`
+4. If valid, applies the patch, commits, and pushes
+5. Posts confirmation comment on the PR
+
+**Example Gemini Comment:**
+````
+Consider using a more descriptive variable name:
+
+```suggestion
+const userAuthToken = generateToken()
+```
+````
 
 ---
 
