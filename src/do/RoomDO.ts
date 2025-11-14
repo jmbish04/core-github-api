@@ -7,13 +7,7 @@
 import { DurableObject } from "cloudflare:workers";
 import { z } from "zod";
 
-// WebSocket message schemas
-const InboundMessageSchema = z.object({
-  type: z.string().min(1),
-  payload: z.any().optional(),
-  meta: z.any().optional(),
-});
-
+// WebSocket message schemas with discriminated union
 const PingMessageSchema = z.object({
   type: z.literal("ping"),
   payload: z.any().optional(),
@@ -29,12 +23,38 @@ const ListClientsMessageSchema = z.object({
   type: z.literal("list_clients"),
 });
 
+const GenericMessageSchema = z.object({
+  type: z.string().min(1),
+  payload: z.any().optional(),
+  meta: z.any().optional(),
+});
+
+// Discriminated union of all possible inbound messages
+const InboundMessageSchema = z.discriminatedUnion("type", [
+  PingMessageSchema,
+  BroadcastMessageSchema,
+  ListClientsMessageSchema,
+  // Fallback for unknown message types
+  z.object({
+    type: z.string().refine((val) => !["ping", "broadcast", "list_clients"].includes(val)),
+    payload: z.any().optional(),
+    meta: z.any().optional(),
+  }),
+]);
+
 interface WebSocketMeta {
   id: string;
   connectedAt: string;
   projectId: string;
   clientInfo?: Record<string, unknown>;
+  messageCount: number;
+  lastMessageTime: number;
 }
+
+// Security constants
+const MAX_MESSAGE_SIZE = 64 * 1024; // 64KB max message size
+const MAX_MESSAGES_PER_SECOND = 10; // Rate limiting
+const RATE_LIMIT_WINDOW_MS = 1000; // 1 second window
 
 export class RoomDO extends DurableObject {
   private socketMeta: WeakMap<WebSocket, WebSocketMeta> = new WeakMap();
@@ -66,6 +86,8 @@ export class RoomDO extends DurableObject {
       connectedAt: new Date().toISOString(),
       projectId,
       clientInfo: clientInfo ? z.record(z.unknown()).parse(JSON.parse(clientInfo)) : undefined,
+      messageCount: 0,
+      lastMessageTime: Date.now(),
     };
     this.socketMeta.set(server, meta);
 
@@ -105,6 +127,53 @@ export class RoomDO extends DurableObject {
    */
   async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer) {
     try {
+      // Get sender metadata
+      const senderMeta = this.socketMeta.get(ws);
+      if (!senderMeta) {
+        console.error("WebSocket metadata not found");
+        return;
+      }
+
+      // Check message size (DoS prevention)
+      const messageSize = typeof message === "string" ? message.length : message.byteLength;
+      if (messageSize > MAX_MESSAGE_SIZE) {
+        console.warn(`Message too large: ${messageSize} bytes from ${senderMeta.id}`);
+        ws.send(JSON.stringify({
+          type: "error",
+          payload: {
+            error: "Message too large",
+            maxSize: MAX_MESSAGE_SIZE,
+            actualSize: messageSize,
+          },
+          meta: { timestamp: new Date().toISOString() },
+        }));
+        return;
+      }
+
+      // Rate limiting (DoS prevention)
+      const now = Date.now();
+      const timeSinceLastMessage = now - senderMeta.lastMessageTime;
+
+      if (timeSinceLastMessage < RATE_LIMIT_WINDOW_MS) {
+        senderMeta.messageCount++;
+        if (senderMeta.messageCount > MAX_MESSAGES_PER_SECOND) {
+          console.warn(`Rate limit exceeded for ${senderMeta.id}`);
+          ws.send(JSON.stringify({
+            type: "error",
+            payload: {
+              error: "Rate limit exceeded",
+              maxMessagesPerSecond: MAX_MESSAGES_PER_SECOND,
+            },
+            meta: { timestamp: new Date().toISOString() },
+          }));
+          return;
+        }
+      } else {
+        // Reset counter after window expires
+        senderMeta.messageCount = 1;
+        senderMeta.lastMessageTime = now;
+      }
+
       // Convert ArrayBuffer to string if needed
       const text = typeof message === "string"
         ? message
@@ -138,10 +207,7 @@ export class RoomDO extends DurableObject {
 
       const parsed = validationResult.data;
 
-      // Get sender metadata
-      const senderMeta = this.socketMeta.get(ws);
-
-      // Enhance message with metadata
+      // Enhance message with metadata (senderMeta already retrieved above)
       const enrichedMessage = {
         ...parsed,
         meta: {

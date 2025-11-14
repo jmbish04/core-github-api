@@ -5,6 +5,7 @@
  */
 
 import { z } from "zod";
+import { zodToJsonSchema } from "zod-to-json-schema";
 import * as S from "../schemas/apiSchemas";
 
 /**
@@ -20,49 +21,6 @@ export interface MCPTool {
   }>;
   category: string;
   tags?: string[];
-}
-
-/**
- * Convert a Zod schema to JSON Schema format for MCP tool listing
- */
-function zodToJsonSchema(schema: z.ZodType<any, any, any>): any {
-  // This is a simplified converter for basic schemas
-  // For production, consider using a library like zod-to-json-schema
-  if (schema instanceof z.ZodObject) {
-    const shape = schema._def.shape();
-    const properties: Record<string, any> = {};
-    const required: string[] = [];
-
-    for (const [key, value] of Object.entries(shape)) {
-      if (value instanceof z.ZodString) {
-        properties[key] = { type: "string", description: value.description };
-      } else if (value instanceof z.ZodNumber) {
-        properties[key] = { type: "number", description: value.description };
-      } else if (value instanceof z.ZodBoolean) {
-        properties[key] = { type: "boolean", description: value.description };
-      } else if (value instanceof z.ZodArray) {
-        properties[key] = { type: "array", description: value.description, items: { type: "string" } };
-      if (value instanceof z.ZodOptional) {
-        properties[key] = zodToJsonSchema(value.unwrap());
-        continue;
-      }
-      } else {
-        properties[key] = { type: "any", description: value.description };
-      }
-
-      if (!(value instanceof z.ZodOptional)) {
-        required.push(key);
-      }
-    }
-
-    return {
-      type: "object",
-      properties,
-      required: required.length > 0 ? required : undefined,
-    };
-  }
-
-  return { type: "any" };
 }
 
 /**
@@ -244,7 +202,10 @@ export function serializeTools(): Array<{
 }> {
   return MCP_TOOLS.map(tool => ({
     ...tool,
-    inputSchema: zodToJsonSchema(tool.inputSchema),
+    inputSchema: zodToJsonSchema(tool.inputSchema, {
+      target: "jsonSchema7",
+      $refStrategy: "none",
+    }),
   }));
 }
 

@@ -140,8 +140,14 @@ curl -X GET "$BASE_URL/healthz" | jq
       const data = JSON.parse(event.data);
       console.log('Received:', data);
 
+      // Safely append message using DOM methods (prevents XSS)
       const messagesDiv = document.getElementById('messages');
-      messagesDiv.innerHTML += `<p><strong>${data.type}:</strong> ${JSON.stringify(data.payload)}</p>`;
+      const p = document.createElement('p');
+      const strong = document.createElement('strong');
+      strong.textContent = `${data.type}:`;
+      p.appendChild(strong);
+      p.appendChild(document.createTextNode(` ${JSON.stringify(data.payload)}`));
+      messagesDiv.appendChild(p);
     };
 
     ws.onclose = () => {
@@ -579,7 +585,7 @@ wrangler dev --var LOG_LEVEL:debug
 
 ## Next Steps
 
-- Explore the [OpenAPI documentation](https://your-worker.workers.dev/doc)
-- Read the [Architecture Guide](./ARCHITECTURE.md)
-- Check out the [Deployment Guide](./DEPLOYMENT.md)
-- View the [Cinematic Landing Page](../landing.html)
+- Explore the [OpenAPI documentation](/doc)
+- Read the [Deployment Guide](./DEPLOYMENT.md)
+- View the [Cinematic Landing Page](/landing.html)
+- Check the [GitHub Repository](https://github.com/jmbish04/github-worker)

@@ -200,7 +200,20 @@ app.post('/mcp-execute', async (c) => {
   const startTime = Date.now()
 
   try {
+    // Validate request size (DoS prevention)
+    const contentLength = c.req.header('content-length')
+    const MAX_REQUEST_SIZE = 1024 * 1024 // 1MB
+    if (contentLength && parseInt(contentLength) > MAX_REQUEST_SIZE) {
+      return c.json({
+        success: false,
+        error: 'Request too large',
+        maxSize: MAX_REQUEST_SIZE,
+      }, 413)
+    }
+
     const body = await c.req.json()
+
+    // Validate JSON structure
     const parsed = MCPExecuteRequest.parse(body)
 
     // Get the tool
