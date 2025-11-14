@@ -57,7 +57,7 @@
     {
       "name": "GithubSearchWorkflow",
       "binding": "GITHUB_SEARCH_WORKFLOW",
-      "entrypoint": "GitHubWorker"
+      "class_name": "GithubSearchWorkflow"
     }
   ],
   "kv_namespaces": [
