@@ -75,8 +75,15 @@ export class OrchestratorAgent extends Agent {
   }
 
   async generateSearchTerms(prompt: string): Promise<string[]> {
-    const response = await this.env.AI.run('@cf/meta/llama-2-7b-chat-int8', {
-      prompt: `Given the following prompt, generate up to 5 diverse and relevant GitHub search queries: "${prompt}"`,
+    const instructions = ```
+      You are an expert GitHub search query generator. 
+      You will be given a natural language prompt and must generate up to 5 diverse and relevant GitHub search queries. 
+      Return *only* the queries, each on a new line.
+    ```;
+    
+    const response = await this.env.AI.run('@cf/openai/gpt-oss-120b', {
+      instructions: instructions,
+      input: prompt,
     })
 
     // For simplicity, we'll just split the response by newlines.
