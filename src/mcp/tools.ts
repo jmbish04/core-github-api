@@ -42,9 +42,10 @@ function zodToJsonSchema(schema: z.ZodType<any, any, any>): any {
         properties[key] = { type: "boolean", description: value.description };
       } else if (value instanceof z.ZodArray) {
         properties[key] = { type: "array", description: value.description, items: { type: "string" } };
-      } else if (value instanceof z.ZodOptional) {
-        // Handle optional fields
+      if (value instanceof z.ZodOptional) {
+        properties[key] = zodToJsonSchema(value.unwrap());
         continue;
+      }
       } else {
         properties[key] = { type: "any", description: value.description };
       }
