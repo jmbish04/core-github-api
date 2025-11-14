@@ -65,7 +65,7 @@ export class RoomDO extends DurableObject {
       id: crypto.randomUUID(),
       connectedAt: new Date().toISOString(),
       projectId,
-      clientInfo: clientInfo ? JSON.parse(clientInfo) : undefined,
+      clientInfo: clientInfo ? z.record(z.unknown()).parse(JSON.parse(clientInfo)) : undefined,
     };
     this.socketMeta.set(server, meta);
 
