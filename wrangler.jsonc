@@ -57,7 +57,13 @@
     {
       "name": "GithubSearchWorkflow",
       "binding": "GITHUB_SEARCH_WORKFLOW",
-      "class_name": "GithubSearchWorkflow"
+      "class_name": "GithubSearchWorkflow",
+      "queue_bindings": [
+        {
+          "binding": "SEARCH_QUEUE",
+          "queue": "github-search-queue"
+        }
+      ]
     }
   ],
   "kv_namespaces": [
