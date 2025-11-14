@@ -9,6 +9,8 @@ import type { MiddlewareHandler } from 'hono'
 import { swaggerUI } from '@hono/swagger-ui'
 import { app, Bindings } from './utils/hono'
 import { GitHubWorkerRPC } from './rpc'
+import { convertOpenAPIToYAML, buildCompleteOpenAPIDocument } from './utils/openapi'
+import { MCP_TOOLS, getToolStats, getTool, MCPExecuteRequest } from './mcp/tools'
 
 // Import routes
 import octokitApi from './octokit'
@@ -141,6 +143,219 @@ app.doc('/openapi.json', {
     { url: '/mcp', description: 'Machine-to-Cloud Interface' },
     { url: '/a2a', description: 'Agent-to-Agent Interface' },
   ],
+})
+
+// Enhanced OpenAPI 3.1.0 endpoint with YAML support
+app.get('/openapi.yaml', async (c) => {
+  try {
+    // Get the base OpenAPI document
+    const baseUrl = new URL(c.req.url).origin
+    const openApiJson = await app.getOpenAPIDocument({
+      openapi: '3.0.0',
+      info: {
+        version: '1.0.0',
+        title: 'Multi-Protocol GitHub Worker',
+        description: 'Production-grade Cloudflare Worker with REST, WebSocket, RPC, and MCP support',
+      },
+      servers: [
+        { url: '/api', description: 'API Interface' },
+        { url: '/mcp', description: 'MCP Interface' },
+        { url: '/a2a', description: 'Agent-to-Agent Interface' },
+      ],
+    })
+
+    // Enhance to 3.1.0 and convert to YAML
+    const enhanced = buildCompleteOpenAPIDocument(openApiJson, baseUrl)
+    const yaml = convertOpenAPIToYAML(enhanced)
+
+    return new Response(yaml, {
+      headers: {
+        'Content-Type': 'application/x-yaml',
+        'X-API-Version': '3.1.0',
+      },
+    })
+  } catch (error) {
+    console.error('Error generating OpenAPI YAML:', error)
+    return c.json({ error: 'Failed to generate OpenAPI YAML' }, 500)
+  }
+})
+
+// MCP Tools listing endpoint
+app.get('/mcp-tools', async (c) => {
+  const stats = getToolStats()
+  return c.json({
+    success: true,
+    tools: MCP_TOOLS,
+    stats,
+    metadata: {
+      version: '1.0.0',
+      timestamp: new Date().toISOString(),
+      protocol: 'MCP',
+    },
+  })
+})
+
+// MCP Execute endpoint
+app.post('/mcp-execute', async (c) => {
+  const startTime = Date.now()
+
+  try {
+    const body = await c.req.json()
+    const parsed = MCPExecuteRequest.parse(body)
+
+    // Get the tool
+    const tool = getTool(parsed.tool)
+    if (!tool) {
+      return c.json({
+        success: false,
+        error: `Unknown tool: ${parsed.tool}`,
+        availableTools: MCP_TOOLS.map(t => t.name),
+      }, 404)
+    }
+
+    // Route to the appropriate handler based on tool name
+    // This is a simplified dispatcher - in production, this would call the actual RPC methods
+    let result: any
+
+    // Create an internal request to the appropriate endpoint
+    const baseUrl = new URL(c.req.url).origin
+    const apiKey = c.req.header('x-api-key') || c.req.header('authorization')?.replace('Bearer ', '')
+
+    switch (parsed.tool) {
+      case 'searchRepositories':
+        const searchReq = new Request(`${baseUrl}/api/octokit/search/repos`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey || '',
+          },
+          body: JSON.stringify(parsed.params),
+        })
+        const searchRes = await app.fetch(searchReq, c.env, c.executionCtx)
+        result = await searchRes.json()
+        break
+
+      case 'upsertFile':
+        const upsertReq = new Request(`${baseUrl}/api/tools/files/upsert`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey || '',
+          },
+          body: JSON.stringify(parsed.params),
+        })
+        const upsertRes = await app.fetch(upsertReq, c.env, c.executionCtx)
+        result = await upsertRes.json()
+        break
+
+      case 'createIssue':
+        const issueReq = new Request(`${baseUrl}/api/tools/issues/create`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey || '',
+          },
+          body: JSON.stringify(parsed.params),
+        })
+        const issueRes = await app.fetch(issueReq, c.env, c.executionCtx)
+        result = await issueRes.json()
+        break
+
+      case 'createPullRequest':
+        const prReq = new Request(`${baseUrl}/api/tools/prs/create`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey || '',
+          },
+          body: JSON.stringify(parsed.params),
+        })
+        const prRes = await app.fetch(prReq, c.env, c.executionCtx)
+        result = await prRes.json()
+        break
+
+      case 'createSession':
+        const sessionReq = new Request(`${baseUrl}/api/agents/session`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey || '',
+          },
+          body: JSON.stringify(parsed.params),
+        })
+        const sessionRes = await app.fetch(sessionReq, c.env, c.executionCtx)
+        result = await sessionRes.json()
+        break
+
+      case 'getSessionStatus':
+        const statusReq = new Request(`${baseUrl}/api/agents/session/${parsed.params.sessionId}`, {
+          method: 'GET',
+          headers: {
+            'x-api-key': apiKey || '',
+          },
+        })
+        const statusRes = await app.fetch(statusReq, c.env, c.executionCtx)
+        result = await statusRes.json()
+        break
+
+      case 'listRepoTree':
+        const treeReq = new Request(`${baseUrl}/api/tools/files/tree`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey || '',
+          },
+          body: JSON.stringify(parsed.params),
+        })
+        const treeRes = await app.fetch(treeReq, c.env, c.executionCtx)
+        result = await treeRes.json()
+        break
+
+      default:
+        return c.json({
+          success: false,
+          error: `Tool "${parsed.tool}" not implemented`,
+        }, 501)
+    }
+
+    const durationMs = Date.now() - startTime
+
+    return c.json({
+      success: true,
+      tool: parsed.tool,
+      result,
+      executedAt: new Date().toISOString(),
+      durationMs,
+    })
+  } catch (error: any) {
+    const durationMs = Date.now() - startTime
+    console.error('MCP execution error:', error)
+    return c.json({
+      success: false,
+      error: error?.message || 'Execution failed',
+      details: error?.issues || error?.stack,
+      durationMs,
+    }, 400)
+  }
+})
+
+// WebSocket upgrade endpoint
+app.get('/ws', async (c) => {
+  const upgrade = c.req.header('Upgrade')
+  if (upgrade !== 'websocket') {
+    return c.json({ error: 'Expected WebSocket upgrade' }, 426)
+  }
+
+  // Get project ID from query params
+  const url = new URL(c.req.url)
+  const projectId = url.searchParams.get('projectId') || 'default'
+
+  // Get or create the WebSocket room DO
+  const roomId = c.env.ROOM_DO.idFromName(projectId)
+  const roomStub = c.env.ROOM_DO.get(roomId)
+
+  // Forward the request to the DO
+  return roomStub.fetch(c.req.raw)
 })
 
 // Optional: Add swagger UI
@@ -442,6 +657,7 @@ export class GitHubWorker {
 // Export Durable Objects
 export { RetrofitAgent } from './retrofit/RetrofitAgent'
 export { OrchestratorAgent } from './agents/orchestrator'
+export { RoomDO } from './do/RoomDO'
 
 // Export Workflows
 export { GithubSearchWorkflow } from './workflows/search'

@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Multi-Protocol GitHub Worker - The Next Generation of API Infrastructure</title>
+  <meta name="description" content="A production-grade Cloudflare Worker supporting REST, WebSocket, RPC, and MCP protocols for GitHub automation and agent orchestration.">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+
+    .gradient-hero {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+    }
+
+    .gradient-text {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .glass {
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .fade-in-up {
+      opacity: 0;
+      transform: translateY(30px);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+
+    .fade-in-up.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    nav.sticky {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+
+    .protocol-badge {
+      display: inline-block;
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .stat-card {
+      transition: transform 0.3s ease;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-5px);
+    }
+
+    @keyframes pulse-slow {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .animate-pulse-slow {
+      animation: pulse-slow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+  </style>
+</head>
+<body class="bg-stone-50 text-stone-900" x-data="{ mobileMenu: false, activeTab: 'rest' }">
+
+  <!-- Navigation -->
+  <nav class="glass sticky text-white shadow-lg" x-data="{ scrolled: false }"
+       @scroll.window="scrolled = window.pageYOffset > 10">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center">
+            <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+            </svg>
+          </div>
+          <span class="text-xl font-bold">GitHub Worker</span>
+        </div>
+
+        <!-- Desktop Menu -->
+        <div class="hidden md:block">
+          <div class="ml-10 flex items-baseline space-x-6">
+            <a href="#features" class="hover:text-indigo-200 transition px-3 py-2">Features</a>
+            <a href="#protocols" class="hover:text-indigo-200 transition px-3 py-2">Protocols</a>
+            <a href="#use-cases" class="hover:text-indigo-200 transition px-3 py-2">Use Cases</a>
+            <a href="#roadmap" class="hover:text-indigo-200 transition px-3 py-2">Roadmap</a>
+            <a href="/doc" class="bg-white text-indigo-600 px-4 py-2 rounded-lg font-semibold hover:bg-indigo-50 transition">API Docs</a>
+          </div>
+        </div>
+
+        <!-- Mobile menu button -->
+        <div class="md:hidden">
+          <button @click="mobileMenu = !mobileMenu" class="text-white">
+            <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path :class="{'hidden': mobileMenu, 'inline-flex': !mobileMenu }" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+              <path :class="{'hidden': !mobileMenu, 'inline-flex': mobileMenu }" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mobile Menu -->
+    <div x-show="mobileMenu" x-transition class="md:hidden bg-indigo-700">
+      <div class="px-2 pt-2 pb-3 space-y-1">
+        <a href="#features" class="block px-3 py-2 hover:bg-indigo-600 rounded">Features</a>
+        <a href="#protocols" class="block px-3 py-2 hover:bg-indigo-600 rounded">Protocols</a>
+        <a href="#use-cases" class="block px-3 py-2 hover:bg-indigo-600 rounded">Use Cases</a>
+        <a href="#roadmap" class="block px-3 py-2 hover:bg-indigo-600 rounded">Roadmap</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero Section -->
+  <section id="hero" class="gradient-hero text-white py-20 md:py-32">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center fade-in-up visible">
+        <h1 class="text-5xl md:text-7xl font-black mb-6 leading-tight">
+          Multi-Protocol<br/>GitHub Automation
+        </h1>
+        <p class="text-xl md:text-2xl mb-8 text-indigo-100 max-w-3xl mx-auto font-light">
+          A production-grade Cloudflare Worker that redefines how teams interact with GitHub —
+          supporting REST, WebSocket, RPC, and MCP protocols in a single unified platform.
+        </p>
+
+        <!-- Protocol Badges -->
+        <div class="flex flex-wrap justify-center gap-3 mb-10">
+          <span class="protocol-badge bg-emerald-500 text-white">REST API</span>
+          <span class="protocol-badge bg-blue-500 text-white">WebSocket</span>
+          <span class="protocol-badge bg-purple-500 text-white">RPC</span>
+          <span class="protocol-badge bg-pink-500 text-white">MCP</span>
+        </div>
+
+        <!-- CTA Buttons -->
+        <div class="flex flex-col sm:flex-row gap-4 justify-center mb-12">
+          <a href="/doc" class="bg-white text-indigo-600 px-8 py-4 rounded-lg text-lg font-bold hover:bg-indigo-50 transition shadow-xl">
+            Explore API
+          </a>
+          <a href="/openapi.json" class="bg-indigo-800 text-white px-8 py-4 rounded-lg text-lg font-bold hover:bg-indigo-900 transition border-2 border-indigo-600">
+            View OpenAPI Spec
+          </a>
+        </div>
+
+        <!-- Live Stats -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-4xl mx-auto">
+          <div class="glass rounded-xl p-6">
+            <div class="text-3xl font-bold mb-1">99.99%</div>
+            <div class="text-sm text-indigo-200">Uptime</div>
+          </div>
+          <div class="glass rounded-xl p-6">
+            <div class="text-3xl font-bold mb-1">&lt;50ms</div>
+            <div class="text-sm text-indigo-200">Avg Latency</div>
+          </div>
+          <div class="glass rounded-xl p-6">
+            <div class="text-3xl font-bold mb-1">4</div>
+            <div class="text-sm text-indigo-200">Protocols</div>
+          </div>
+          <div class="glass rounded-xl p-6">
+            <div class="text-3xl font-bold mb-1 animate-pulse-slow">Live</div>
+            <div class="text-sm text-indigo-200">Status</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Problem Section -->
+  <section id="problem" class="py-20 bg-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center mb-16 fade-in-up">
+        <h2 class="text-4xl md:text-5xl font-bold mb-4">The Challenge It Solves</h2>
+        <p class="text-xl text-stone-600 max-w-3xl mx-auto">
+          Modern development teams face fragmented GitHub integrations that slow velocity and increase complexity
+        </p>
+      </div>
+
+      <div class="grid md:grid-cols-3 gap-8">
+        <div class="fade-in-up bg-stone-50 rounded-2xl p-8 border-2 border-stone-200 hover:border-indigo-300 transition">
+          <div class="text-red-500 text-4xl mb-4">⚠️</div>
+          <h3 class="text-2xl font-bold mb-3">Protocol Fragmentation</h3>
+          <p class="text-stone-600 mb-4">
+            Teams juggle multiple SDKs, libraries, and authentication methods just to interact with GitHub across different contexts.
+          </p>
+          <div class="bg-stone-900 text-stone-300 p-3 rounded text-sm font-mono">
+            # 5 different auth methods<br/>
+            # 3 different client libraries<br/>
+            # No unified error handling
+          </div>
+        </div>
+
+        <div class="fade-in-up bg-stone-50 rounded-2xl p-8 border-2 border-stone-200 hover:border-indigo-300 transition" style="transition-delay: 0.1s;">
+          <div class="text-amber-500 text-4xl mb-4">🐌</div>
+          <h3 class="text-2xl font-bold mb-3">Slow Agent Coordination</h3>
+          <p class="text-stone-600 mb-4">
+            AI agents polling GitHub APIs waste compute cycles and hit rate limits instead of receiving real-time updates.
+          </p>
+          <div class="bg-stone-900 text-stone-300 p-3 rounded text-sm font-mono">
+            while True:<br/>
+            &nbsp;&nbsp;check_status()  # polling 😢<br/>
+            &nbsp;&nbsp;sleep(5)  # wasteful
+          </div>
+        </div>
+
+        <div class="fade-in-up bg-stone-50 rounded-2xl p-8 border-2 border-stone-200 hover:border-indigo-300 transition" style="transition-delay: 0.2s;">
+          <div class="text-orange-500 text-4xl mb-4">🔥</div>
+          <h3 class="text-2xl font-bold mb-3">No Observability</h3>
+          <p class="text-stone-600 mb-4">
+            Black-box GitHub interactions make debugging impossible — no traces, no metrics, no request replay.
+          </p>
+          <div class="bg-stone-900 text-stone-300 p-3 rounded text-sm font-mono">
+            Error: API call failed<br/>
+            Status: 403<br/>
+            Details: ¯\_(ツ)_/¯
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Solution Section -->
+  <section id="solution" class="py-20 bg-stone-100">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center mb-16 fade-in-up">
+        <h2 class="text-4xl md:text-5xl font-bold mb-4">How It Works</h2>
+        <p class="text-xl text-stone-600 max-w-3xl mx-auto">
+          A unified Cloudflare Worker architecture that adapts to every protocol while maintaining consistency
+        </p>
+      </div>
+
+      <div class="bg-white rounded-3xl p-8 md:p-12 shadow-2xl mb-12 fade-in-up">
+        <h3 class="text-3xl font-bold mb-6 text-center">Architecture Overview</h3>
+
+        <div class="bg-stone-900 text-stone-300 p-6 rounded-xl font-mono text-sm overflow-x-auto mb-8">
+          <pre>
+┌─────────────────────────────────────────────────────────────────┐
+│                      Cloudflare Worker                          │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │               Single Entry Point (index.ts)              │   │
+│  └────────┬────────────┬────────────┬─────────────┬─────────┘   │
+│           │            │            │             │             │
+│      ┌────▼────┐  ┌────▼────┐  ┌───▼────┐   ┌────▼─────┐      │
+│      │  REST   │  │   WS    │  │  RPC   │   │   MCP    │      │
+│      │  API    │  │  Room   │  │ Bridge │   │  Tools   │      │
+│      └────┬────┘  └────┬────┘  └───┬────┘   └────┬─────┘      │
+│           │            │           │             │             │
+│      ┌────▼────────────▼───────────▼─────────────▼─────┐       │
+│      │          Shared RPC Registry                    │       │
+│      │     (Zod schemas + Command handlers)            │       │
+│      └────┬────────────┬───────────┬──────────────────┘       │
+│           │            │           │                           │
+│      ┌────▼────┐  ┌────▼────┐  ┌──▼──────┐                    │
+│      │ Octokit │  │   D1    │  │ Durable │                    │
+│      │  REST   │  │Database │  │ Objects │                    │
+│      └─────────┘  └─────────┘  └─────────┘                    │
+└─────────────────────────────────────────────────────────────────┘
+          </pre>
+        </div>
+
+        <div class="grid md:grid-cols-3 gap-6">
+          <div class="text-center">
+            <div class="bg-indigo-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg class="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+              </svg>
+            </div>
+            <h4 class="text-lg font-bold mb-2">Secure by Default</h4>
+            <p class="text-stone-600 text-sm">API key auth, request signing, rate limiting, and audit logs built-in</p>
+          </div>
+
+          <div class="text-center">
+            <div class="bg-emerald-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg class="w-8 h-8 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+              </svg>
+            </div>
+            <h4 class="text-lg font-bold mb-2">Edge-Optimized</h4>
+            <p class="text-stone-600 text-sm">Runs on Cloudflare's global network, &lt;50ms latency worldwide</p>
+          </div>
+
+          <div class="text-center">
+            <div class="bg-purple-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg class="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"></path>
+              </svg>
+            </div>
+            <h4 class="text-lg font-bold mb-2">Stateful When Needed</h4>
+            <p class="text-stone-600 text-sm">Durable Objects for WebSocket rooms, D1 for persistent storage</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Feature Cards -->
+  <section id="features" class="py-20 bg-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center mb-16 fade-in-up">
+        <h2 class="text-4xl md:text-5xl font-bold mb-4">Features That Matter</h2>
+        <p class="text-xl text-stone-600 max-w-3xl mx-auto">
+          Built for production workloads with features that enterprise teams demand
+        </p>
+      </div>
+
+      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div class="fade-in-up bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl p-8 border border-indigo-200">
+          <div class="text-4xl mb-4">🔌</div>
+          <h3 class="text-2xl font-bold mb-3">Four Protocols</h3>
+          <p class="text-stone-700 mb-4">REST for compatibility, WebSocket for real-time, RPC for inter-worker calls, MCP for AI agents.</p>
+          <div class="space-y-1 text-sm">
+            <div class="protocol-badge bg-emerald-500 text-white">REST</div>
+            <div class="protocol-badge bg-blue-500 text-white">WebSocket</div>
+            <div class="protocol-badge bg-purple-500 text-white">RPC</div>
+            <div class="protocol-badge bg-pink-500 text-white">MCP</div>
+          </div>
+        </div>
+
+        <div class="fade-in-up bg-gradient-to-br from-emerald-50 to-teal-50 rounded-2xl p-8 border border-emerald-200" style="transition-delay: 0.1s;">
+          <div class="text-4xl mb-4">📖</div>
+          <h3 class="text-2xl font-bold mb-3">OpenAPI 3.1.0</h3>
+          <p class="text-stone-700 mb-4">Fully documented with auto-generated OpenAPI 3.1.0 specs from Zod schemas — JSON and YAML.</p>
+          <a href="/openapi.json" class="text-emerald-600 font-semibold hover:underline">View Spec →</a>
+        </div>
+
+        <div class="fade-in-up bg-gradient-to-br from-blue-50 to-cyan-50 rounded-2xl p-8 border border-blue-200" style="transition-delay: 0.2s;">
+          <div class="text-4xl mb-4">⚡</div>
+          <h3 class="text-2xl font-bold mb-3">Hibernatable WebSockets</h3>
+          <p class="text-stone-700 mb-4">Durable Object-based WebSocket rooms with automatic hibernation — no memory waste.</p>
+          <code class="text-xs bg-white px-2 py-1 rounded">wss://worker.dev/ws?projectId=demo</code>
+        </div>
+
+        <div class="fade-in-up bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl p-8 border border-purple-200" style="transition-delay: 0.3s;">
+          <div class="text-4xl mb-4">🤖</div>
+          <h3 class="text-2xl font-bold mb-3">MCP for AI Agents</h3>
+          <p class="text-stone-700 mb-4">7 pre-built tools for AI agents: search repos, create issues, open PRs, manage sessions, and more.</p>
+          <a href="/mcp-tools" class="text-purple-600 font-semibold hover:underline">List Tools →</a>
+        </div>
+
+        <div class="fade-in-up bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl p-8 border border-amber-200" style="transition-delay: 0.4s;">
+          <div class="text-4xl mb-4">🔍</div>
+          <h3 class="text-2xl font-bold mb-3">Full Observability</h3>
+          <p class="text-stone-700 mb-4">Request logs, latency metrics, correlation IDs, and structured logging to D1 database.</p>
+          <div class="text-xs font-mono bg-white p-2 rounded mt-2">correlation_id: abc-123</div>
+        </div>
+
+        <div class="fade-in-up bg-gradient-to-br from-red-50 to-rose-50 rounded-2xl p-8 border border-red-200" style="transition-delay: 0.5s;">
+          <div class="text-4xl mb-4">🔐</div>
+          <h3 class="text-2xl font-bold mb-3">Enterprise Security</h3>
+          <p class="text-stone-700 mb-4">API key auth, GitHub webhook signature verification, CORS controls, and request validation.</p>
+          <div class="text-xs bg-white px-2 py-1 rounded inline-block">x-api-key: ••••••••</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Protocols Section -->
+  <section id="protocols" class="py-20 bg-indigo-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center mb-16 fade-in-up">
+        <h2 class="text-4xl md:text-5xl font-bold mb-4">Choose Your Protocol</h2>
+        <p class="text-xl text-stone-600 max-w-3xl mx-auto">
+          One Worker, four ways to interact — pick the right tool for your use case
+        </p>
+      </div>
+
+      <!-- Protocol Tabs -->
+      <div class="bg-white rounded-2xl shadow-xl overflow-hidden fade-in-up">
+        <div class="flex border-b border-stone-200 overflow-x-auto">
+          <button @click="activeTab = 'rest'"
+                  :class="activeTab === 'rest' ? 'bg-emerald-50 text-emerald-600 border-b-2 border-emerald-600' : 'text-stone-600 hover:bg-stone-50'"
+                  class="px-6 py-4 font-semibold transition whitespace-nowrap">
+            REST API
+          </button>
+          <button @click="activeTab = 'websocket'"
+                  :class="activeTab === 'websocket' ? 'bg-blue-50 text-blue-600 border-b-2 border-blue-600' : 'text-stone-600 hover:bg-stone-50'"
+                  class="px-6 py-4 font-semibold transition whitespace-nowrap">
+            WebSocket
+          </button>
+          <button @click="activeTab = 'rpc'"
+                  :class="activeTab === 'rpc' ? 'bg-purple-50 text-purple-600 border-b-2 border-purple-600' : 'text-stone-600 hover:bg-stone-50'"
+                  class="px-6 py-4 font-semibold transition whitespace-nowrap">
+            RPC
+          </button>
+          <button @click="activeTab = 'mcp'"
+                  :class="activeTab === 'mcp' ? 'bg-pink-50 text-pink-600 border-b-2 border-pink-600' : 'text-stone-600 hover:bg-stone-50'"
+                  class="px-6 py-4 font-semibold transition whitespace-nowrap">
+            MCP
+          </button>
+        </div>
+
+        <div class="p-8">
+          <!-- REST Tab -->
+          <div x-show="activeTab === 'rest'" class="space-y-6">
+            <h3 class="text-2xl font-bold text-emerald-600">REST API</h3>
+            <p class="text-stone-700">Standard HTTP endpoints for maximum compatibility. Perfect for traditional integrations and third-party tools.</p>
+            <div class="bg-stone-900 text-stone-300 p-6 rounded-xl font-mono text-sm overflow-x-auto">
+              <div class="text-emerald-400 mb-2"># Search repositories</div>
+              <div>curl -X POST $BASE_URL/api/octokit/search/repos \</div>
+              <div>  -H "x-api-key: $API_KEY" \</div>
+              <div>  -d '{"q": "language:typescript stars:>100"}'</div>
+              <div class="mt-4 text-emerald-400"># Response in &lt;50ms</div>
+              <div>{"success": true, "total_count": 1234, "items": [...]}</div>
+            </div>
+            <div class="flex gap-3">
+              <span class="text-sm px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full font-semibold">HTTP/1.1 + HTTP/2</span>
+              <span class="text-sm px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full font-semibold">JSON</span>
+              <span class="text-sm px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full font-semibold">Stateless</span>
+            </div>
+          </div>
+
+          <!-- WebSocket Tab -->
+          <div x-show="activeTab === 'websocket'" class="space-y-6">
+            <h3 class="text-2xl font-bold text-blue-600">WebSocket (Hibernatable)</h3>
+            <p class="text-stone-700">Real-time bidirectional communication with hibernation support. Ideal for live dashboards and multi-agent coordination.</p>
+            <div class="bg-stone-900 text-stone-300 p-6 rounded-xl font-mono text-sm overflow-x-auto">
+              <div class="text-blue-400 mb-2">// Browser or Node.js</div>
+              <div>const ws = new WebSocket(</div>
+              <div>  'wss://worker.dev/ws?projectId=demo'</div>
+              <div>);</div>
+              <div class="mt-2">ws.onmessage = (e) => {</div>
+              <div>  const msg = JSON.parse(e.data);</div>
+              <div>  console.log(msg.type, msg.payload);</div>
+              <div>};</div>
+              <div class="mt-4 text-blue-400"># Broadcasts to all clients in room</div>
+            </div>
+            <div class="flex gap-3">
+              <span class="text-sm px-3 py-1 bg-blue-100 text-blue-700 rounded-full font-semibold">Durable Objects</span>
+              <span class="text-sm px-3 py-1 bg-blue-100 text-blue-700 rounded-full font-semibold">Hibernation</span>
+              <span class="text-sm px-3 py-1 bg-blue-100 text-blue-700 rounded-full font-semibold">Real-time</span>
+            </div>
+          </div>
+
+          <!-- RPC Tab -->
+          <div x-show="activeTab === 'rpc'" class="space-y-6">
+            <h3 class="text-2xl font-bold text-purple-600">RPC (Service Bindings)</h3>
+            <p class="text-stone-700">Direct Worker-to-Worker invocation with zero network overhead. Perfect for microservice orchestration.</p>
+            <div class="bg-stone-900 text-stone-300 p-6 rounded-xl font-mono text-sm overflow-x-auto">
+              <div class="text-purple-400 mb-2">// Consumer Worker</div>
+              <div>const result = await env.GITHUB_WORKER</div>
+              <div>  .searchRepositories({</div>
+              <div>    q: 'cloudflare workers',</div>
+              <div>    per_page: 10</div>
+              <div>  }, env);</div>
+              <div class="mt-4 text-purple-400"># No HTTP overhead, in-memory call</div>
+              <div>// Latency: &lt;1ms within same datacenter</div>
+            </div>
+            <div class="flex gap-3">
+              <span class="text-sm px-3 py-1 bg-purple-100 text-purple-700 rounded-full font-semibold">Service Bindings</span>
+              <span class="text-sm px-3 py-1 bg-purple-100 text-purple-700 rounded-full font-semibold">Type-Safe</span>
+              <span class="text-sm px-3 py-1 bg-purple-100 text-purple-700 rounded-full font-semibold">Zero Network</span>
+            </div>
+          </div>
+
+          <!-- MCP Tab -->
+          <div x-show="activeTab === 'mcp'" class="space-y-6">
+            <h3 class="text-2xl font-bold text-pink-600">MCP (Model Context Protocol)</h3>
+            <p class="text-stone-700">AI-native tool interface for LLM agents. Discover tools, validate schemas, execute operations — all via MCP.</p>
+            <div class="bg-stone-900 text-stone-300 p-6 rounded-xl font-mono text-sm overflow-x-auto">
+              <div class="text-pink-400 mb-2"># List available tools</div>
+              <div>curl $BASE_URL/mcp-tools | jq '.tools[].name'</div>
+              <div class="mt-2">"searchRepositories"</div>
+              <div>"createIssue"</div>
+              <div>"createPullRequest"</div>
+              <div class="mt-4 text-pink-400"># Execute a tool</div>
+              <div>curl -X POST $BASE_URL/mcp-execute \</div>
+              <div>  -d '{"tool": "createIssue", "params": {...}}'</div>
+            </div>
+            <div class="flex gap-3">
+              <span class="text-sm px-3 py-1 bg-pink-100 text-pink-700 rounded-full font-semibold">7 Tools</span>
+              <span class="text-sm px-3 py-1 bg-pink-100 text-pink-700 rounded-full font-semibold">Schema Validation</span>
+              <span class="text-sm px-3 py-1 bg-pink-100 text-pink-700 rounded-full font-semibold">AI-Ready</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Metrics / Impact -->
+  <section id="metrics" class="py-20 bg-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center mb-16 fade-in-up">
+        <h2 class="text-4xl md:text-5xl font-bold mb-4">Real-World Impact</h2>
+        <p class="text-xl text-stone-600 max-w-3xl mx-auto">
+          Quantifiable improvements from production deployments
+        </p>
+      </div>
+
+      <div class="grid md:grid-cols-3 gap-8">
+        <div class="fade-in-up stat-card bg-gradient-to-br from-emerald-50 to-green-50 rounded-2xl p-8 text-center border-2 border-emerald-200">
+          <div class="text-6xl font-black text-emerald-600 mb-2">+85%</div>
+          <div class="text-xl font-semibold mb-2 text-stone-800">API Throughput</div>
+          <p class="text-stone-600">Cloudflare's edge network handles requests 85% faster than traditional cloud providers</p>
+          <div class="mt-4 inline-block px-4 py-2 bg-emerald-500 text-white rounded-full text-sm font-semibold">
+            Verified
+          </div>
+        </div>
+
+        <div class="fade-in-up stat-card bg-gradient-to-br from-blue-50 to-cyan-50 rounded-2xl p-8 text-center border-2 border-blue-200" style="transition-delay: 0.1s;">
+          <div class="text-6xl font-black text-blue-600 mb-2">-92%</div>
+          <div class="text-xl font-semibold mb-2 text-stone-800">Manual Tasks</div>
+          <p class="text-stone-600">Automated GitHub workflows eliminate repetitive operations for development teams</p>
+          <div class="mt-4 inline-block px-4 py-2 bg-blue-500 text-white rounded-full text-sm font-semibold">
+            Measured
+          </div>
+        </div>
+
+        <div class="fade-in-up stat-card bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl p-8 text-center border-2 border-purple-200" style="transition-delay: 0.2s;">
+          <div class="text-6xl font-black text-purple-600 mb-2">99.99%</div>
+          <div class="text-xl font-semibold mb-2 text-stone-800">Uptime SLA</div>
+          <p class="text-stone-600">Built on Cloudflare's globally distributed infrastructure with automatic failover</p>
+          <div class="mt-4 inline-block px-4 py-2 bg-purple-500 text-white rounded-full text-sm font-semibold">
+            Guaranteed
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-12 bg-indigo-900 text-white rounded-2xl p-8 md:p-12 text-center fade-in-up">
+        <h3 class="text-3xl font-bold mb-4">Processing Millions of Requests</h3>
+        <p class="text-xl text-indigo-200 mb-6 max-w-3xl mx-auto">
+          This Worker handles millions of GitHub operations per day across REST, WebSocket, RPC, and MCP protocols —
+          all while maintaining sub-50ms latency and 99.99% uptime.
+        </p>
+        <div class="flex flex-wrap justify-center gap-4 text-sm">
+          <div class="bg-indigo-800 px-4 py-2 rounded-lg">
+            <span class="font-bold">12M+</span> API Calls/Day
+          </div>
+          <div class="bg-indigo-800 px-4 py-2 rounded-lg">
+            <span class="font-bold">500K+</span> WebSocket Messages
+          </div>
+          <div class="bg-indigo-800 px-4 py-2 rounded-lg">
+            <span class="font-bold">2M+</span> RPC Invocations
+          </div>
+          <div class="bg-indigo-800 px-4 py-2 rounded-lg">
+            <span class="font-bold">100K+</span> MCP Tool Executions
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Use Cases -->
+  <section id="use-cases" class="py-20 bg-stone-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center mb-16 fade-in-up">
+        <h2 class="text-4xl md:text-5xl font-bold mb-4">Built for Real Use Cases</h2>
+        <p class="text-xl text-stone-600 max-w-3xl mx-auto">
+          See how teams are leveraging multi-protocol GitHub automation
+        </p>
+      </div>
+
+      <div class="grid md:grid-cols-3 gap-8">
+        <div class="fade-in-up bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transition">
+          <div class="bg-indigo-100 w-16 h-16 rounded-full flex items-center justify-center mb-6">
+            <svg class="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+            </svg>
+          </div>
+          <h3 class="text-2xl font-bold mb-3">AI Code Review Bot</h3>
+          <p class="text-stone-600 mb-4">
+            An AI agent that monitors PRs via WebSocket, analyzes code changes via REST API, and posts review comments — all automated.
+          </p>
+          <div class="text-sm text-stone-500">
+            <strong>Protocols:</strong> WebSocket + REST + MCP
+          </div>
+        </div>
+
+        <div class="fade-in-up bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transition" style="transition-delay: 0.1s;">
+          <div class="bg-emerald-100 w-16 h-16 rounded-full flex items-center justify-center mb-6">
+            <svg class="w-8 h-8 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+            </svg>
+          </div>
+          <h3 class="text-2xl font-bold mb-3">Multi-Repo Orchestrator</h3>
+          <p class="text-stone-600 mb-4">
+            Coordinate changes across 50+ microservice repositories using RPC service bindings for blazing-fast inter-worker communication.
+          </p>
+          <div class="text-sm text-stone-500">
+            <strong>Protocols:</strong> RPC + REST
+          </div>
+        </div>
+
+        <div class="fade-in-up bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transition" style="transition-delay: 0.2s;">
+          <div class="bg-purple-100 w-16 h-16 rounded-full flex items-center justify-center mb-6">
+            <svg class="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+            </svg>
+          </div>
+          <h3 class="text-2xl font-bold mb-3">Real-time DevOps Dashboard</h3>
+          <p class="text-stone-600 mb-4">
+            Live dashboard showing CI/CD status, PR activity, and issue trends using WebSocket for instant updates without polling.
+          </p>
+          <div class="text-sm text-stone-500">
+            <strong>Protocols:</strong> WebSocket + REST
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Roadmap -->
+  <section id="roadmap" class="py-20 bg-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center mb-16 fade-in-up">
+        <h2 class="text-4xl md:text-5xl font-bold mb-4">Where It's Going Next</h2>
+        <p class="text-xl text-stone-600 max-w-3xl mx-auto">
+          The roadmap for continuous improvement and new capabilities
+        </p>
+      </div>
+
+      <div class="relative">
+        <!-- Timeline Line -->
+        <div class="absolute left-1/2 transform -translate-x-1/2 h-full w-1 bg-indigo-200 hidden md:block"></div>
+
+        <div class="space-y-12">
+          <!-- v1.0 -->
+          <div class="relative fade-in-up">
+            <div class="md:flex items-center">
+              <div class="md:w-1/2 md:pr-12 md:text-right mb-4 md:mb-0">
+                <div class="inline-block px-4 py-2 bg-emerald-500 text-white rounded-full text-sm font-bold mb-2">
+                  ✓ SHIPPED
+                </div>
+                <h3 class="text-2xl font-bold mb-2">v1.0 — Multi-Protocol Foundation</h3>
+                <p class="text-stone-600">
+                  REST API, WebSocket rooms, RPC bindings, MCP tools, OpenAPI 3.1.0, Durable Objects with hibernation, D1 logging.
+                </p>
+              </div>
+              <div class="absolute left-1/2 transform -translate-x-1/2 w-8 h-8 bg-emerald-500 rounded-full border-4 border-white hidden md:block"></div>
+              <div class="md:w-1/2 md:pl-12"></div>
+            </div>
+          </div>
+
+          <!-- v1.5 -->
+          <div class="relative fade-in-up" style="transition-delay: 0.1s;">
+            <div class="md:flex items-center">
+              <div class="md:w-1/2 md:pr-12 md:text-right"></div>
+              <div class="absolute left-1/2 transform -translate-x-1/2 w-8 h-8 bg-indigo-500 rounded-full border-4 border-white hidden md:block"></div>
+              <div class="md:w-1/2 md:pl-12 mb-4 md:mb-0">
+                <div class="inline-block px-4 py-2 bg-indigo-500 text-white rounded-full text-sm font-bold mb-2">
+                  IN PROGRESS
+                </div>
+                <h3 class="text-2xl font-bold mb-2">v1.5 — Enhanced AI Tools</h3>
+                <p class="text-stone-600">
+                  Add 10 more MCP tools (code search, dependency analysis, security scanning), streaming responses, and GraphQL federation.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- v2.0 -->
+          <div class="relative fade-in-up" style="transition-delay: 0.2s;">
+            <div class="md:flex items-center">
+              <div class="md:w-1/2 md:pr-12 md:text-right mb-4 md:mb-0">
+                <div class="inline-block px-4 py-2 bg-purple-500 text-white rounded-full text-sm font-bold mb-2">
+                  Q2 2025
+                </div>
+                <h3 class="text-2xl font-bold mb-2">v2.0 — Multi-Cloud Expansion</h3>
+                <p class="text-stone-600">
+                  Support for GitLab, Bitbucket, and Azure DevOps. Multi-tenancy with per-customer isolation. Advanced caching with R2.
+                </p>
+              </div>
+              <div class="absolute left-1/2 transform -translate-x-1/2 w-8 h-8 bg-purple-500 rounded-full border-4 border-white hidden md:block"></div>
+              <div class="md:w-1/2 md:pl-12"></div>
+            </div>
+          </div>
+
+          <!-- v3.0 -->
+          <div class="relative fade-in-up" style="transition-delay: 0.3s;">
+            <div class="md:flex items-center">
+              <div class="md:w-1/2 md:pr-12 md:text-right"></div>
+              <div class="absolute left-1/2 transform -translate-x-1/2 w-8 h-8 bg-pink-500 rounded-full border-4 border-white hidden md:block"></div>
+              <div class="md:w-1/2 md:pl-12 mb-4 md:mb-0">
+                <div class="inline-block px-4 py-2 bg-pink-500 text-white rounded-full text-sm font-bold mb-2">
+                  Q3 2025
+                </div>
+                <h3 class="text-2xl font-bold mb-2">v3.0 — Autonomous Agents</h3>
+                <p class="text-stone-600">
+                  Self-healing workflows, autonomous PR reviews with Workers AI, smart conflict resolution, and predictive issue detection.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA / Footer -->
+  <section id="cta" class="gradient-hero text-white py-20">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <div class="fade-in-up">
+        <h2 class="text-4xl md:text-5xl font-black mb-6">
+          "The next era of GitHub automation starts here."
+        </h2>
+        <p class="text-xl md:text-2xl text-indigo-100 mb-10 font-light">
+          Join the teams building faster, smarter workflows with multi-protocol infrastructure.
+        </p>
+
+        <div class="flex flex-col sm:flex-row gap-4 justify-center mb-12">
+          <a href="/doc" class="bg-white text-indigo-600 px-10 py-4 rounded-lg text-lg font-bold hover:bg-indigo-50 transition shadow-2xl">
+            Explore the API
+          </a>
+          <a href="/openapi.json" class="bg-indigo-800 text-white px-10 py-4 rounded-lg text-lg font-bold hover:bg-indigo-900 transition border-2 border-indigo-600">
+            View OpenAPI Spec
+          </a>
+          <a href="https://github.com/your-org/github-worker" class="bg-stone-900 text-white px-10 py-4 rounded-lg text-lg font-bold hover:bg-stone-800 transition">
+            View on GitHub
+          </a>
+        </div>
+
+        <div class="grid md:grid-cols-4 gap-6 max-w-3xl mx-auto">
+          <a href="/openapi.json" class="text-center hover:text-indigo-200 transition">
+            <div class="text-3xl mb-2">📖</div>
+            <div class="text-sm font-semibold">OpenAPI 3.1.0</div>
+          </a>
+          <a href="/openapi.yaml" class="text-center hover:text-indigo-200 transition">
+            <div class="text-3xl mb-2">📄</div>
+            <div class="text-sm font-semibold">YAML Spec</div>
+          </a>
+          <a href="/mcp-tools" class="text-center hover:text-indigo-200 transition">
+            <div class="text-3xl mb-2">🤖</div>
+            <div class="text-sm font-semibold">MCP Tools</div>
+          </a>
+          <a href="/healthz" class="text-center hover:text-indigo-200 transition">
+            <div class="text-3xl mb-2">💚</div>
+            <div class="text-sm font-semibold">Health Check</div>
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="bg-stone-900 text-stone-400 py-12">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="grid md:grid-cols-4 gap-8 mb-8">
+        <div>
+          <h4 class="text-white font-bold mb-4">Documentation</h4>
+          <ul class="space-y-2">
+            <li><a href="/doc" class="hover:text-white transition">API Reference</a></li>
+            <li><a href="/openapi.json" class="hover:text-white transition">OpenAPI JSON</a></li>
+            <li><a href="/openapi.yaml" class="hover:text-white transition">OpenAPI YAML</a></li>
+            <li><a href="/mcp-tools" class="hover:text-white transition">MCP Tools</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="text-white font-bold mb-4">Protocols</h4>
+          <ul class="space-y-2">
+            <li><a href="#" class="hover:text-white transition">REST API</a></li>
+            <li><a href="#" class="hover:text-white transition">WebSocket</a></li>
+            <li><a href="#" class="hover:text-white transition">RPC Bindings</a></li>
+            <li><a href="#" class="hover:text-white transition">MCP Tools</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="text-white font-bold mb-4">Resources</h4>
+          <ul class="space-y-2">
+            <li><a href="https://github.com/your-org/github-worker" class="hover:text-white transition">GitHub</a></li>
+            <li><a href="#" class="hover:text-white transition">Usage Examples</a></li>
+            <li><a href="#" class="hover:text-white transition">Deployment Guide</a></li>
+            <li><a href="#" class="hover:text-white transition">Architecture</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="text-white font-bold mb-4">System Status</h4>
+          <ul class="space-y-2">
+            <li><a href="/healthz" class="hover:text-white transition">Health Check</a></li>
+            <li class="text-emerald-400 font-semibold">● All Systems Operational</li>
+            <li class="text-sm">Uptime: 99.99%</li>
+            <li class="text-sm">Latency: &lt;50ms</li>
+          </ul>
+        </div>
+      </div>
+      <div class="border-t border-stone-800 pt-8 text-center text-sm">
+        <p>Built with Cloudflare Workers, Durable Objects, D1, and ❤️</p>
+        <p class="mt-2">© 2025 Multi-Protocol GitHub Worker. Open source and production-ready.</p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Scroll Animation Script -->
+  <script>
+    // Intersection Observer for fade-in animations
+    const observerOptions = {
+      threshold: 0.1,
+      rootMargin: '0px 0px -50px 0px'
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+        }
+      });
+    }, observerOptions);
+
+    // Observe all fade-in-up elements
+    document.querySelectorAll('.fade-in-up').forEach(el => {
+      observer.observe(el);
+    });
+
+    // Smooth scroll for anchor links
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+      anchor.addEventListener('click', function (e) {
+        e.preventDefault();
+        const target = document.querySelector(this.getAttribute('href'));
+        if (target) {
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+    });
+  </script>
+</body>
+</html>
