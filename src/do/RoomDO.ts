@@ -23,11 +23,12 @@ const ListClientsMessageSchema = z.object({
   type: z.literal("list_clients"),
 });
 
-const GenericMessageSchema = z.object({
-  type: z.string().min(1),
-  payload: z.any().optional(),
-  meta: z.any().optional(),
-});
+// Known message types for validation
+const KNOWN_MESSAGE_TYPES = [
+  "ping",
+  "broadcast",
+  "list_clients",
+] as const;
 
 // Discriminated union of all possible inbound messages
 const InboundMessageSchema = z.discriminatedUnion("type", [
@@ -36,7 +37,10 @@ const InboundMessageSchema = z.discriminatedUnion("type", [
   ListClientsMessageSchema,
   // Fallback for unknown message types
   z.object({
-    type: z.string().refine((val) => !["ping", "broadcast", "list_clients"].includes(val)),
+    type: z.string().refine(
+      (val) => !(KNOWN_MESSAGE_TYPES as readonly string[]).includes(val),
+      { message: "Unknown message type should not match known types" }
+    ),
     payload: z.any().optional(),
     meta: z.any().optional(),
   }),
@@ -85,7 +89,18 @@ export class RoomDO extends DurableObject {
       id: crypto.randomUUID(),
       connectedAt: new Date().toISOString(),
       projectId,
-      clientInfo: clientInfo ? z.record(z.unknown()).parse(JSON.parse(clientInfo)) : undefined,
+      clientInfo: (() => {
+        if (!clientInfo) return undefined;
+        try {
+          const parsed = JSON.parse(clientInfo);
+          const result = z.record(z.unknown()).safeParse(parsed);
+          if (result.success) return result.data;
+          console.warn('Invalid clientInfo schema:', result.error);
+        } catch (error) {
+          console.warn('Failed to parse clientInfo JSON:', error);
+        }
+        return undefined; // Gracefully handle parse errors
+      })(),
       messageCount: 0,
       lastMessageTime: Date.now(),
     };
