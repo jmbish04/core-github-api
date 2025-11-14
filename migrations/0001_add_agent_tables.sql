@@ -1,13 +1,13 @@
 -- migrations/0001_init.sql
 
-CREATE TABLE sessions (
+CREATE TABLE IF NOT EXISTS sessions (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   session_id TEXT UNIQUE,
   prompt TEXT,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE searches (
+CREATE TABLE IF NOT EXISTS searches (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   session_id TEXT,
   search_term TEXT,
@@ -15,7 +15,7 @@ CREATE TABLE searches (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE repo_analysis (
+CREATE TABLE IF NOT EXISTS repo_analysis (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   session_id TEXT,
   search_id INTEGER,
