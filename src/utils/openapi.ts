@@ -71,7 +71,7 @@ export function enhanceToOpenAPI31(doc: Record<string, any>): Record<string, any
     ],
     externalDocs: {
       description: "GitHub Worker Documentation",
-      url: "https://github.com/your-org/github-worker",
+      url: "https://github.com/jmbish04/github-worker",
     },
     webhooks: doc.webhooks || {},
   };

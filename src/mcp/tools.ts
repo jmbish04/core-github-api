@@ -13,17 +13,55 @@ import * as S from "../schemas/apiSchemas";
 export interface MCPTool {
   name: string;
   description: string;
-  inputSchema: {
-    type: string;
-    properties: Record<string, any>;
-    required?: string[];
-  };
+  inputSchema: z.ZodType<any, any, any>; // Zod schema for validation
   examples?: Array<{
     input: Record<string, any>;
     output: Record<string, any>;
   }>;
   category: string;
   tags?: string[];
+}
+
+/**
+ * Convert a Zod schema to JSON Schema format for MCP tool listing
+ */
+function zodToJsonSchema(schema: z.ZodType<any, any, any>): any {
+  // This is a simplified converter for basic schemas
+  // For production, consider using a library like zod-to-json-schema
+  if (schema instanceof z.ZodObject) {
+    const shape = schema._def.shape();
+    const properties: Record<string, any> = {};
+    const required: string[] = [];
+
+    for (const [key, value] of Object.entries(shape)) {
+      if (value instanceof z.ZodString) {
+        properties[key] = { type: "string", description: value.description };
+      } else if (value instanceof z.ZodNumber) {
+        properties[key] = { type: "number", description: value.description };
+      } else if (value instanceof z.ZodBoolean) {
+        properties[key] = { type: "boolean", description: value.description };
+      } else if (value instanceof z.ZodArray) {
+        properties[key] = { type: "array", description: value.description, items: { type: "string" } };
+      } else if (value instanceof z.ZodOptional) {
+        // Handle optional fields
+        continue;
+      } else {
+        properties[key] = { type: "any", description: value.description };
+      }
+
+      if (!(value instanceof z.ZodOptional)) {
+        required.push(key);
+      }
+    }
+
+    return {
+      type: "object",
+      properties,
+      required: required.length > 0 ? required : undefined,
+    };
+  }
+
+  return { type: "any" };
 }
 
 /**
@@ -35,39 +73,7 @@ export const MCP_TOOLS: MCPTool[] = [
     description: "Search for GitHub repositories using advanced query syntax",
     category: "GitHub Search",
     tags: ["github", "search", "repositories"],
-    inputSchema: {
-      type: "object",
-      properties: {
-        q: {
-          type: "string",
-          description: "Search query (supports GitHub search syntax)",
-        },
-        sort: {
-          type: "string",
-          enum: ["stars", "forks", "help-wanted-issues", "updated"],
-          description: "Sort field",
-        },
-        order: {
-          type: "string",
-          enum: ["asc", "desc"],
-          description: "Sort order",
-        },
-        per_page: {
-          type: "number",
-          description: "Results per page (1-100)",
-          minimum: 1,
-          maximum: 100,
-          default: 30,
-        },
-        page: {
-          type: "number",
-          description: "Page number",
-          minimum: 1,
-          default: 1,
-        },
-      },
-      required: ["q"],
-    },
+    inputSchema: S.SearchRepositoriesRequest,
     examples: [
       {
         input: {
@@ -89,40 +95,7 @@ export const MCP_TOOLS: MCPTool[] = [
     description: "Create or update a file in a GitHub repository",
     category: "GitHub Files",
     tags: ["github", "files", "write"],
-    inputSchema: {
-      type: "object",
-      properties: {
-        owner: {
-          type: "string",
-          description: "Repository owner",
-        },
-        repo: {
-          type: "string",
-          description: "Repository name",
-        },
-        path: {
-          type: "string",
-          description: "File path in the repository",
-        },
-        content: {
-          type: "string",
-          description: "File content (will be base64 encoded)",
-        },
-        message: {
-          type: "string",
-          description: "Commit message",
-        },
-        branch: {
-          type: "string",
-          description: "Branch name (optional)",
-        },
-        sha: {
-          type: "string",
-          description: "SHA of existing file (required for updates)",
-        },
-      },
-      required: ["owner", "repo", "path", "content", "message"],
-    },
+    inputSchema: S.UpsertFileRequest,
     examples: [
       {
         input: {
@@ -148,38 +121,7 @@ export const MCP_TOOLS: MCPTool[] = [
     description: "Create a new issue in a GitHub repository",
     category: "GitHub Issues",
     tags: ["github", "issues", "create"],
-    inputSchema: {
-      type: "object",
-      properties: {
-        owner: {
-          type: "string",
-          description: "Repository owner",
-        },
-        repo: {
-          type: "string",
-          description: "Repository name",
-        },
-        title: {
-          type: "string",
-          description: "Issue title",
-        },
-        body: {
-          type: "string",
-          description: "Issue body",
-        },
-        labels: {
-          type: "array",
-          items: { type: "string" },
-          description: "Issue labels",
-        },
-        assignees: {
-          type: "array",
-          items: { type: "string" },
-          description: "Usernames to assign",
-        },
-      },
-      required: ["owner", "repo", "title"],
-    },
+    inputSchema: S.CreateIssueRequest,
     examples: [
       {
         input: {
@@ -205,40 +147,7 @@ export const MCP_TOOLS: MCPTool[] = [
     description: "Create a new pull request in a GitHub repository",
     category: "GitHub Pull Requests",
     tags: ["github", "pull-requests", "create"],
-    inputSchema: {
-      type: "object",
-      properties: {
-        owner: {
-          type: "string",
-          description: "Repository owner",
-        },
-        repo: {
-          type: "string",
-          description: "Repository name",
-        },
-        title: {
-          type: "string",
-          description: "Pull request title",
-        },
-        body: {
-          type: "string",
-          description: "Pull request body",
-        },
-        head: {
-          type: "string",
-          description: "Branch with changes",
-        },
-        base: {
-          type: "string",
-          description: "Branch to merge into",
-        },
-        draft: {
-          type: "boolean",
-          description: "Create as draft PR",
-        },
-      },
-      required: ["owner", "repo", "title", "head", "base"],
-    },
+    inputSchema: S.CreatePullRequestRequest,
     examples: [
       {
         input: {
@@ -264,25 +173,7 @@ export const MCP_TOOLS: MCPTool[] = [
     description: "Create a new agent session for GitHub search and analysis",
     category: "Agent Orchestration",
     tags: ["agents", "sessions", "orchestration"],
-    inputSchema: {
-      type: "object",
-      properties: {
-        projectId: {
-          type: "string",
-          description: "Project identifier",
-        },
-        searchTerms: {
-          type: "array",
-          items: { type: "string" },
-          description: "Search terms to process",
-        },
-        options: {
-          type: "object",
-          description: "Additional options",
-        },
-      },
-      required: ["projectId", "searchTerms"],
-    },
+    inputSchema: S.CreateSessionRequest,
     examples: [
       {
         input: {
@@ -307,16 +198,9 @@ export const MCP_TOOLS: MCPTool[] = [
     description: "Get the status of an agent session",
     category: "Agent Orchestration",
     tags: ["agents", "sessions", "status"],
-    inputSchema: {
-      type: "object",
-      properties: {
-        sessionId: {
-          type: "string",
-          description: "Session ID (UUID)",
-        },
-      },
-      required: ["sessionId"],
-    },
+    inputSchema: z.object({
+      sessionId: z.string().uuid().describe("Session ID (UUID)"),
+    }),
     examples: [
       {
         input: {
@@ -337,30 +221,31 @@ export const MCP_TOOLS: MCPTool[] = [
     description: "List repository contents with a tree-style representation",
     category: "GitHub Files",
     tags: ["github", "files", "tree"],
-    inputSchema: {
-      type: "object",
-      properties: {
-        owner: {
-          type: "string",
-          description: "Repository owner",
-        },
-        repo: {
-          type: "string",
-          description: "Repository name",
-        },
-        path: {
-          type: "string",
-          description: "Path in repository (optional)",
-        },
-        branch: {
-          type: "string",
-          description: "Branch name (optional)",
-        },
-      },
-      required: ["owner", "repo"],
-    },
+    inputSchema: z.object({
+      owner: z.string().describe("Repository owner"),
+      repo: z.string().describe("Repository name"),
+      path: z.string().optional().describe("Path in repository (optional)"),
+      branch: z.string().optional().describe("Branch name (optional)"),
+    }),
   },
 ];
+
+/**
+ * Serialize MCP tools for JSON output (converting Zod schemas to JSON Schema)
+ */
+export function serializeTools(): Array<{
+  name: string;
+  description: string;
+  inputSchema: any;
+  examples?: Array<{ input: Record<string, any>; output: Record<string, any> }>;
+  category: string;
+  tags?: string[];
+}> {
+  return MCP_TOOLS.map(tool => ({
+    ...tool,
+    inputSchema: zodToJsonSchema(tool.inputSchema),
+  }));
+}
 
 /**
  * Get all MCP tools grouped by category
@@ -475,3 +360,47 @@ export const MCPToolsListResponse = z.object({
 export type TMCPExecuteRequest = z.infer<typeof MCPExecuteRequest>;
 export type TMCPExecuteResponse = z.infer<typeof MCPExecuteResponse>;
 export type TMCPToolsListResponse = z.infer<typeof MCPToolsListResponse>;
+
+/**
+ * Tool routing configuration
+ */
+export interface ToolRoute {
+  path: string;
+  method: "GET" | "POST";
+  pathBuilder?: (params: any) => string;
+}
+
+/**
+ * Mapping of MCP tool names to their corresponding API routes
+ */
+export const TOOL_ROUTES: Record<string, ToolRoute> = {
+  searchRepositories: {
+    path: "/api/octokit/search/repos",
+    method: "POST",
+  },
+  upsertFile: {
+    path: "/api/tools/files/upsert",
+    method: "POST",
+  },
+  createIssue: {
+    path: "/api/tools/issues/create",
+    method: "POST",
+  },
+  createPullRequest: {
+    path: "/api/tools/prs/create",
+    method: "POST",
+  },
+  createSession: {
+    path: "/api/agents/session",
+    method: "POST",
+  },
+  getSessionStatus: {
+    path: "/api/agents/session",
+    method: "GET",
+    pathBuilder: (params: any) => `/api/agents/session/${params.sessionId}`,
+  },
+  listRepoTree: {
+    path: "/api/tools/files/tree",
+    method: "POST",
+  },
+};

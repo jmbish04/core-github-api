@@ -10,7 +10,7 @@ import { swaggerUI } from '@hono/swagger-ui'
 import { app, Bindings } from './utils/hono'
 import { GitHubWorkerRPC } from './rpc'
 import { convertOpenAPIToYAML, buildCompleteOpenAPIDocument } from './utils/openapi'
-import { MCP_TOOLS, getToolStats, getTool, MCPExecuteRequest } from './mcp/tools'
+import { MCP_TOOLS, getToolStats, getTool, MCPExecuteRequest, TOOL_ROUTES, serializeTools } from './mcp/tools'
 
 // Import routes
 import octokitApi from './octokit'
@@ -185,7 +185,7 @@ app.get('/mcp-tools', async (c) => {
   const stats = getToolStats()
   return c.json({
     success: true,
-    tools: MCP_TOOLS,
+    tools: serializeTools(), // Serialize Zod schemas to JSON Schema
     stats,
     metadata: {
       version: '1.0.0',
@@ -213,110 +213,55 @@ app.post('/mcp-execute', async (c) => {
       }, 404)
     }
 
-    // Route to the appropriate handler based on tool name
-    // This is a simplified dispatcher - in production, this would call the actual RPC methods
-    let result: any
+    // Validate params against the tool's Zod schema
+    const paramsValidation = tool.inputSchema.safeParse(parsed.params)
+    if (!paramsValidation.success) {
+      return c.json({
+        success: false,
+        error: 'Invalid parameters for tool',
+        tool: parsed.tool,
+        details: paramsValidation.error.errors,
+      }, 400)
+    }
+
+    // Use validated params
+    const validatedParams = paramsValidation.data
+
+    // Get the route configuration for this tool
+    const route = TOOL_ROUTES[parsed.tool];
+    if (!route) {
+      return c.json({
+        success: false,
+        error: `Tool "${parsed.tool}" not implemented`,
+        availableTools: MCP_TOOLS.map(t => t.name),
+      }, 501);
+    }
 
     // Create an internal request to the appropriate endpoint
-    const baseUrl = new URL(c.req.url).origin
-    const apiKey = c.req.header('x-api-key') || c.req.header('authorization')?.replace('Bearer ', '')
+    const baseUrl = new URL(c.req.url).origin;
+    const apiKey = c.req.header('x-api-key') || c.req.header('authorization')?.replace('Bearer ', '');
 
-    switch (parsed.tool) {
-      case 'searchRepositories':
-        const searchReq = new Request(`${baseUrl}/api/octokit/search/repos`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': apiKey || '',
-          },
-          body: JSON.stringify(parsed.params),
-        })
-        const searchRes = await app.fetch(searchReq, c.env, c.executionCtx)
-        result = await searchRes.json()
-        break
+    // Build the path (use custom path builder if available)
+    const path = route.pathBuilder ? route.pathBuilder(validatedParams) : route.path;
+    const url = `${baseUrl}${path}`;
 
-      case 'upsertFile':
-        const upsertReq = new Request(`${baseUrl}/api/tools/files/upsert`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': apiKey || '',
-          },
-          body: JSON.stringify(parsed.params),
-        })
-        const upsertRes = await app.fetch(upsertReq, c.env, c.executionCtx)
-        result = await upsertRes.json()
-        break
-
-      case 'createIssue':
-        const issueReq = new Request(`${baseUrl}/api/tools/issues/create`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': apiKey || '',
-          },
-          body: JSON.stringify(parsed.params),
-        })
-        const issueRes = await app.fetch(issueReq, c.env, c.executionCtx)
-        result = await issueRes.json()
-        break
-
-      case 'createPullRequest':
-        const prReq = new Request(`${baseUrl}/api/tools/prs/create`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': apiKey || '',
-          },
-          body: JSON.stringify(parsed.params),
-        })
-        const prRes = await app.fetch(prReq, c.env, c.executionCtx)
-        result = await prRes.json()
-        break
-
-      case 'createSession':
-        const sessionReq = new Request(`${baseUrl}/api/agents/session`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': apiKey || '',
-          },
-          body: JSON.stringify(parsed.params),
-        })
-        const sessionRes = await app.fetch(sessionReq, c.env, c.executionCtx)
-        result = await sessionRes.json()
-        break
-
-      case 'getSessionStatus':
-        const statusReq = new Request(`${baseUrl}/api/agents/session/${parsed.params.sessionId}`, {
-          method: 'GET',
-          headers: {
-            'x-api-key': apiKey || '',
-          },
-        })
-        const statusRes = await app.fetch(statusReq, c.env, c.executionCtx)
-        result = await statusRes.json()
-        break
-
-      case 'listRepoTree':
-        const treeReq = new Request(`${baseUrl}/api/tools/files/tree`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': apiKey || '',
-          },
-          body: JSON.stringify(parsed.params),
-        })
-        const treeRes = await app.fetch(treeReq, c.env, c.executionCtx)
-        result = await treeRes.json()
-        break
-
-      default:
-        return c.json({
-          success: false,
-          error: `Tool "${parsed.tool}" not implemented`,
-        }, 501)
+    // Build request headers
+    const headers: Record<string, string> = {
+      'x-api-key': apiKey || '',
+    };
+    if (route.method === 'POST') {
+      headers['Content-Type'] = 'application/json';
     }
+
+    // Create and execute the request
+    const internalReq = new Request(url, {
+      method: route.method,
+      headers,
+      body: route.method === 'POST' ? JSON.stringify(validatedParams) : undefined,
+    });
+
+    const response = await app.fetch(internalReq, c.env, c.executionCtx);
+    const result = await response.json();
 
     const durationMs = Date.now() - startTime
 

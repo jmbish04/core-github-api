@@ -5,6 +5,29 @@
  */
 
 import { DurableObject } from "cloudflare:workers";
+import { z } from "zod";
+
+// WebSocket message schemas
+const InboundMessageSchema = z.object({
+  type: z.string().min(1),
+  payload: z.any().optional(),
+  meta: z.any().optional(),
+});
+
+const PingMessageSchema = z.object({
+  type: z.literal("ping"),
+  payload: z.any().optional(),
+});
+
+const BroadcastMessageSchema = z.object({
+  type: z.literal("broadcast"),
+  payload: z.any(),
+  meta: z.any().optional(),
+});
+
+const ListClientsMessageSchema = z.object({
+  type: z.literal("list_clients"),
+});
 
 interface WebSocketMeta {
   id: string;
@@ -87,14 +110,33 @@ export class RoomDO extends DurableObject {
         ? message
         : new TextDecoder().decode(message);
 
-      // Parse the message
-      let parsed: any;
+      // Parse and validate the message
+      let rawMessage: any;
       try {
-        parsed = JSON.parse(text);
-      } catch {
-        // If not JSON, treat as plain text
-        parsed = { type: "message", payload: { text } };
+        rawMessage = JSON.parse(text);
+      } catch (parseError) {
+        // If not JSON, treat as plain text and create a default message
+        rawMessage = { type: "message", payload: { text } };
       }
+
+      // Validate message structure with Zod
+      const validationResult = InboundMessageSchema.safeParse(rawMessage);
+      if (!validationResult.success) {
+        console.error("Invalid WebSocket message format:", validationResult.error);
+        ws.send(JSON.stringify({
+          type: "error",
+          payload: {
+            error: "Invalid message format",
+            details: validationResult.error.errors,
+          },
+          meta: {
+            timestamp: new Date().toISOString(),
+          },
+        }));
+        return;
+      }
+
+      const parsed = validationResult.data;
 
       // Get sender metadata
       const senderMeta = this.socketMeta.get(ws);
