@@ -359,7 +359,7 @@ export const TOOL_ROUTES: Record<string, ToolRoute> = {
   getSessionStatus: {
     path: "/api/agents/session",
     method: "GET",
-    pathBuilder: (params: any) => `/api/agents/session/${params.sessionId}`,
+    pathBuilder: (params: { sessionId: string }) => `/api/agents/session/${params.sessionId}`,
   },
   listRepoTree: {
     path: "/api/tools/files/tree",
