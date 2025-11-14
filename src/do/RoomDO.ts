@@ -79,7 +79,7 @@ export class RoomDO extends DurableObject {
 
     // Create WebSocket pair
     const pair = new WebSocketPair();
-    const [client, server] = Object.values(pair);
+    const { 0: client, 1: server } = pair;
 
     // Accept the WebSocket using the hibernatable API
     this.ctx.acceptWebSocket(server);
