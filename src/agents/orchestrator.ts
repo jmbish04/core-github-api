@@ -6,7 +6,8 @@
  */
 
 import { Agent } from 'agents'
-import { GithubSearchWorkflow } from '../workflows/search'
+// We no longer need to import the workflow class definition to call it
+// import { GithubSearchWorkflow } from '../workflows/search'
 
 export class OrchestratorAgent extends Agent {
   constructor(ctx, env) {
@@ -33,11 +34,17 @@ export class OrchestratorAgent extends Agent {
       const searchId = search.meta.last_row_id
       searchIds.push(searchId)
 
-      await GithubSearchWorkflow(this.env.GITHUB_SEARCH_WORKFLOW).run(
-        sessionId,
-        searchId,
-        searchTerm
-      )
+      // ** FIX: Call the workflow using the binding's .create() method **
+      await this.env.GITHUB_SEARCH_WORKFLOW.create({
+        // Workflows are idempotent by ID, so using the searchId ensures it only runs once
+        id: `search-${searchId}`, 
+        // Pass the parameters as a 'params' object
+        params: {
+          sessionId,
+          searchId,
+          searchTerm
+        }
+      });
     }
 
     // 4. Store the list of pending search IDs
