@@ -261,6 +261,9 @@ app.post('/mcp-execute', async (c) => {
     });
 
     const response = await app.fetch(internalReq, c.env, c.executionCtx);
+    if (!response.ok) {
+      return response; // Forward the error response
+    }
     const result = await response.json();
 
     const durationMs = Date.now() - startTime
