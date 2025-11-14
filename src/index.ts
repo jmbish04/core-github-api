@@ -170,7 +170,7 @@ app.get('/openapi.yaml', async (c) => {
 
     return new Response(yaml, {
       headers: {
-        'Content-Type': 'application/x-yaml',
+        'Content-Type': 'application/yaml',
         'X-API-Version': '3.1.0',
       },
     })
