@@ -64,6 +64,25 @@ export class RoomDO extends DurableObject {
   private socketMeta: WeakMap<WebSocket, WebSocketMeta> = new WeakMap();
 
   /**
+   * Parse and validate clientInfo from query parameter
+   * @private
+   */
+  private parseClientInfo(clientInfo: string | null): Record<string, unknown> | undefined {
+    if (!clientInfo) return undefined;
+
+    try {
+      const parsed = JSON.parse(clientInfo);
+      const result = z.record(z.unknown()).safeParse(parsed);
+      if (result.success) return result.data;
+      console.warn('Invalid clientInfo schema:', result.error);
+    } catch (error) {
+      console.warn('Failed to parse clientInfo JSON:', error);
+    }
+
+    return undefined; // Gracefully handle parse errors
+  }
+
+  /**
    * Handle incoming HTTP requests and upgrade to WebSocket if appropriate
    */
   async fetch(request: Request): Promise<Response> {
@@ -89,18 +108,7 @@ export class RoomDO extends DurableObject {
       id: crypto.randomUUID(),
       connectedAt: new Date().toISOString(),
       projectId,
-      clientInfo: (() => {
-        if (!clientInfo) return undefined;
-        try {
-          const parsed = JSON.parse(clientInfo);
-          const result = z.record(z.unknown()).safeParse(parsed);
-          if (result.success) return result.data;
-          console.warn('Invalid clientInfo schema:', result.error);
-        } catch (error) {
-          console.warn('Failed to parse clientInfo JSON:', error);
-        }
-        return undefined; // Gracefully handle parse errors
-      })(),
+      clientInfo: this.parseClientInfo(clientInfo),
       messageCount: 0,
       lastMessageTime: Date.now(),
     };
@@ -266,8 +274,19 @@ export class RoomDO extends DurableObject {
           break;
 
         default:
-          // Default: broadcast to all other clients
-          this.broadcast(ws, enrichedMessage);
+          // Unknown message type, send an error back to the client
+          console.warn(`Unknown message type received: ${parsed.type}`);
+          ws.send(JSON.stringify({
+            type: "error",
+            payload: {
+              error: "Unknown command",
+              type: parsed.type,
+            },
+            meta: {
+              timestamp: new Date().toISOString(),
+            },
+          }));
+          break;
       }
     } catch (error) {
       console.error("Error handling WebSocket message:", error);
