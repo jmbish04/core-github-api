@@ -207,8 +207,8 @@ export class RoomDO extends DurableObject {
       try {
         rawMessage = JSON.parse(text);
       } catch (parseError) {
-        // If not JSON, treat as plain text and create a default message
-        rawMessage = { type: "message", payload: { text } };
+        // If not JSON, wrap as a broadcast message to be sent to the room.
+        rawMessage = { type: "broadcast", payload: { text } };
       }
 
       // Validate message structure with Zod
