@@ -9,6 +9,8 @@ import type { MiddlewareHandler } from 'hono'
 import { swaggerUI } from '@hono/swagger-ui'
 import { app, Bindings } from './utils/hono'
 import { GitHubWorkerRPC } from './rpc'
+import { convertOpenAPIToYAML, buildCompleteOpenAPIDocument } from './utils/openapi'
+import { MCP_TOOLS, getToolStats, getTool, MCPExecuteRequest, TOOL_ROUTES, serializeTools } from './mcp/tools'
 
 // Import routes
 import octokitApi from './octokit'
@@ -141,6 +143,180 @@ app.doc('/openapi.json', {
     { url: '/mcp', description: 'Machine-to-Cloud Interface' },
     { url: '/a2a', description: 'Agent-to-Agent Interface' },
   ],
+})
+
+// Enhanced OpenAPI 3.1.0 endpoint with YAML support
+app.get('/openapi.yaml', async (c) => {
+  try {
+    // Get the base OpenAPI document
+    const baseUrl = new URL(c.req.url).origin
+    const openApiJson = await app.getOpenAPIDocument({
+      openapi: '3.0.0',
+      info: {
+        version: '1.0.0',
+        title: 'Multi-Protocol GitHub Worker',
+        description: 'Production-grade Cloudflare Worker with REST, WebSocket, RPC, and MCP support',
+      },
+      servers: [
+        { url: '/api', description: 'API Interface' },
+        { url: '/mcp', description: 'MCP Interface' },
+        { url: '/a2a', description: 'Agent-to-Agent Interface' },
+      ],
+    })
+
+    // Enhance to 3.1.0 and convert to YAML
+    const enhanced = buildCompleteOpenAPIDocument(openApiJson, baseUrl)
+    const yaml = convertOpenAPIToYAML(enhanced)
+
+    return new Response(yaml, {
+      headers: {
+        'Content-Type': 'application/yaml',
+        'X-API-Version': '3.1.0',
+      },
+    })
+  } catch (error) {
+    console.error('Error generating OpenAPI YAML:', error)
+    return c.json({ error: 'Failed to generate OpenAPI YAML' }, 500)
+  }
+})
+
+// MCP Tools listing endpoint
+app.get('/mcp-tools', async (c) => {
+  const stats = getToolStats()
+  return c.json({
+    success: true,
+    tools: serializeTools(), // Serialize Zod schemas to JSON Schema
+    stats,
+    metadata: {
+      version: '1.0.0',
+      timestamp: new Date().toISOString(),
+      protocol: 'MCP',
+    },
+  })
+})
+
+// MCP Execute endpoint
+app.post('/mcp-execute', async (c) => {
+  const startTime = Date.now()
+
+  try {
+    // Validate request size (DoS prevention)
+    const contentLength = c.req.header('content-length')
+    const MAX_REQUEST_SIZE = 1024 * 1024 // 1MB
+    if (contentLength && parseInt(contentLength) > MAX_REQUEST_SIZE) {
+      return c.json({
+        success: false,
+        error: 'Request too large',
+        maxSize: MAX_REQUEST_SIZE,
+      }, 413)
+    }
+
+    const body = await c.req.json()
+
+    // Validate JSON structure
+    const parsed = MCPExecuteRequest.parse(body)
+
+    // Get the tool
+    const tool = getTool(parsed.tool)
+    if (!tool) {
+      return c.json({
+        success: false,
+        error: `Unknown tool: ${parsed.tool}`,
+        availableTools: MCP_TOOLS.map(t => t.name),
+      }, 404)
+    }
+
+    // Validate params against the tool's Zod schema
+    const paramsValidation = tool.inputSchema.safeParse(parsed.params)
+    if (!paramsValidation.success) {
+      return c.json({
+        success: false,
+        error: 'Invalid parameters for tool',
+        tool: parsed.tool,
+        details: paramsValidation.error.errors,
+      }, 400)
+    }
+
+    // Use validated params
+    const validatedParams = paramsValidation.data
+
+    // Get the route configuration for this tool
+    const route = TOOL_ROUTES[parsed.tool];
+    if (!route) {
+      return c.json({
+        success: false,
+        error: `Tool "${parsed.tool}" not implemented`,
+        availableTools: MCP_TOOLS.map(t => t.name),
+      }, 501);
+    }
+
+    // Create an internal request to the appropriate endpoint
+    const baseUrl = new URL(c.req.url).origin;
+    const apiKey = c.req.header('x-api-key') || c.req.header('authorization')?.replace('Bearer ', '');
+
+    // Build the path (use custom path builder if available)
+    const path = route.pathBuilder ? route.pathBuilder(validatedParams) : route.path;
+    const url = `${baseUrl}${path}`;
+
+    // Build request headers
+    const headers: Record<string, string> = {
+      'x-api-key': apiKey || '',
+    };
+    if (route.method === 'POST') {
+      headers['Content-Type'] = 'application/json';
+    }
+
+    // Create and execute the request
+    const internalReq = new Request(url, {
+      method: route.method,
+      headers,
+      body: route.method === 'POST' ? JSON.stringify(validatedParams) : undefined,
+    });
+
+    const response = await app.fetch(internalReq, c.env, c.executionCtx);
+    if (!response.ok) {
+      return response; // Forward the error response
+    }
+    const result = await response.json();
+
+    const durationMs = Date.now() - startTime
+
+    return c.json({
+      success: true,
+      tool: parsed.tool,
+      result,
+      executedAt: new Date().toISOString(),
+      durationMs,
+    })
+  } catch (error: any) {
+    const durationMs = Date.now() - startTime
+    console.error('MCP execution error:', error)
+    return c.json({
+      success: false,
+      error: error?.message || 'Execution failed',
+      details: error?.issues || error?.stack,
+      durationMs,
+    }, 400)
+  }
+})
+
+// WebSocket upgrade endpoint
+app.get('/ws', async (c) => {
+  const upgrade = c.req.header('Upgrade')
+  if (upgrade !== 'websocket') {
+    return c.json({ error: 'Expected WebSocket upgrade' }, 426)
+  }
+
+  // Get project ID from query params
+  const url = new URL(c.req.url)
+  const projectId = url.searchParams.get('projectId') || 'default'
+
+  // Get or create the WebSocket room DO
+  const roomId = c.env.ROOM_DO.idFromName(projectId)
+  const roomStub = c.env.ROOM_DO.get(roomId)
+
+  // Forward the request to the DO
+  return roomStub.fetch(c.req.raw)
 })
 
 // Optional: Add swagger UI
@@ -442,6 +618,7 @@ export class GitHubWorker {
 // Export Durable Objects
 export { RetrofitAgent } from './retrofit/RetrofitAgent'
 export { OrchestratorAgent } from './agents/orchestrator'
+export { RoomDO } from './do/RoomDO'
 
 // Export Workflows
 export { GithubSearchWorkflow } from './workflows/search'
