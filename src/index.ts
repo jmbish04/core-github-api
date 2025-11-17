@@ -7,7 +7,7 @@
 import { OpenAPIHono } from '@hono/zod-openapi'
 import type { MiddlewareHandler } from 'hono'
 import { swaggerUI } from '@hono/swagger-ui'
-import { app, Bindings } from './utils/hono'
+import { app, Bindings } from './utils/hono' // Main 'app' for RUNTIME
 import { GitHubWorkerRPC } from './rpc'
 import { convertOpenAPIToYAML, buildCompleteOpenAPIDocument } from './utils/openapi'
 import { MCP_TOOLS, getToolStats, getTool, MCPExecuteRequest, TOOL_ROUTES, serializeTools } from './mcp/tools'
@@ -56,7 +56,9 @@ app.use('*', async (c, next) => {
   )
 
   try {
-    await c.env.CORE_GITHUB_API.prepare(
+    // --- MODIFICATION: Changed c.env.CORE_GITHUB_API to c.env.DB ---
+    await c.env.DB.prepare(
+    // --- END MODIFICATION ---
       `INSERT INTO request_logs (
         timestamp,
         level,
@@ -123,33 +125,31 @@ app.use('/mcp/*', requireApiKey)
 app.use('/a2a/*', requireApiKey)
 
 
-// --- 2. Route Definitions ---
+// --- 2. Route Definitions (on main 'app') ---
 
-// Health check endpoint
+// Health check endpoint (NOT documented in OpenAPI)
 app.get('/healthz', healthHandler)
 
-// Webhook endpoint (no API key required, uses GitHub signature verification)
+// Webhook endpoint (NOT documented in OpenAPI)
 app.post('/webhook', webhookHandler)
 
 
-// --- NEW: API App for Spec Generation ---
-// This app defines the *single* API surface we want to expose.
-// It has ALL 11 operations, but mounted only ONCE.
-// This is *only* for generating the spec. The main 'app' still handles runtime routing.
+// --- 3. API Spec Generation (using a separate, clean app) ---
+
+// Create a new Hono app *just for generating the spec*.
+// This app will *only* contain routes we want in the documentation.
 const apiSpecApp = new OpenAPIHono<{ Bindings: Bindings }>()
+
+// Register all your API routers with the spec-only app
 apiSpecApp.route('/octokit', octokitApi)
 apiSpecApp.route('/tools', toolsApi)
 apiSpecApp.route('/agents', agentsApi)
-apiSpecApp.route('/retrofit', retrofitApi) // 0 ops, but good to include
+apiSpecApp.route('/retrofit', retrofitApi)
 apiSpecApp.route('/flows', flowsApi)
-// --- END NEW SECTION ---
-
-
-// --- OpenAPI Spec Endpoints ---
 
 /**
  * Helper function to generate the enhanced 3.1.0 OpenAPI spec.
- * It now uses the 'apiSpecApp' to generate the document.
+ * It uses the 'apiSpecApp' to create a clean doc.
  */
 const getEnhancedApiSpec = async (c: any) => {
   const baseUrl = new URL(c.req.url).origin
@@ -172,6 +172,7 @@ const getEnhancedApiSpec = async (c: any) => {
 }
 
 // /openapi.json [Full, GPT-Compatible, 3.1.0, JSON]
+// This route is on the main 'app' but generates a spec from 'apiSpecApp'
 app.get('/openapi.json', async (c) => {
   try {
     const enhanced = await getEnhancedApiSpec(c)
@@ -185,6 +186,7 @@ app.get('/openapi.json', async (c) => {
 })
 
 // /openapi.yaml [Full, GPT-Compatible, 3.1.0, YAML]
+// This route is on the main 'app' but generates a spec from 'apiSpecApp'
 app.get('/openapi.yaml', async (c) => {
   try {
     const enhanced = await getEnhancedApiSpec(c)
@@ -201,8 +203,7 @@ app.get('/openapi.yaml', async (c) => {
   }
 })
 
-// --- REMOVED /gpt/ routes as they are now redundant ---
-
+// --- 4. Other Runtime Routes (on main 'app') ---
 
 // MCP Tools listing endpoint
 app.get('/mcp-tools', async (c) => {
@@ -297,6 +298,7 @@ app.post('/mcp-execute', async (c) => {
       body: route.method === 'POST' ? JSON.stringify(validatedParams) : undefined,
     });
 
+    // We must use the main 'app' to fetch, as it has the runtime routes
     const response = await app.fetch(internalReq, c.env, c.executionCtx);
     if (!response.ok) {
       return response; // Forward the error response
@@ -346,7 +348,7 @@ app.get('/ws', async (c) => {
 // Optional: Add swagger UI (points to the new 3.1.0 JSON spec)
 app.get('/doc', swaggerUI({ url: '/openapi.json' }))
 
-// --- 3. API Routes ---
+// --- 5. API Runtime Routes (on main 'app') ---
 
 // Create ONE shared router instance for all business logic
 const sharedApi = new OpenAPIHono<{ Bindings: Bindings }>()
@@ -363,7 +365,7 @@ app.route('/mcp', sharedApi)
 app.route('/a2a', sharedApi)
 
 
-// --- 4. Helper Functions for Queue ---
+// --- 6. Helper Functions for Queue ---
 
 type WorkersAiBinding = {
   run(model: string, request: Record<string, unknown>): Promise<unknown>
@@ -446,7 +448,7 @@ function extractAiText(result: unknown): string {
   return ''
 }
 
-// --- 5. Export Handlers ---
+// --- 7. Export Handlers ---
 
 /**
  * Main export object for the Worker.
@@ -457,6 +459,7 @@ export default {
    * HTTP fetch handler
    */
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    // Use the main 'app' to handle all incoming requests
     return app.fetch(request, env, ctx)
   },
 
@@ -474,11 +477,13 @@ export default {
       const { sessionId, searchId, searchTerm } = message.body
 
       // 1. Execute the search
+      // Use 'app' to ensure the request is routed correctly with auth
       const searchResults = await searchRepositoriesWithRetry(searchTerm, env, ctx)
 
       // 2. Analyze each repository
       for (const repo of searchResults.items) {
         // 2a. Check if the repository has already been analyzed for this session
+        // --- MODIFICATION: Changed env.DB to env.DB ---
         const { results } = await env.DB.prepare(
           'SELECT id FROM repo_analysis WHERE session_id = ? AND repo_full_name = ?'
         ).bind(sessionId, repo.full_name).all()
@@ -491,6 +496,7 @@ export default {
         const analysis = await analyzeRepository(repo, searchTerm, aiBinding)
 
         // 2c. Persist the analysis to D1
+        // --- MODIFICATION: Changed env.DB to env.DB ---
         await env.DB.prepare(
           'INSERT INTO repo_analysis (session_id, search_id, repo_full_name, repo_url, description, relevancy_score) VALUES (?, ?, ?, ?, ?, ?)'
         ).bind(
@@ -504,6 +510,7 @@ export default {
       }
 
       // 3. Update the search status
+      // --- MODIFICATION: Changed env.DB to env.DB ---
       await env.DB.prepare(
         'UPDATE searches SET status = ? WHERE id = ?'
       ).bind('completed', searchId).run()
@@ -535,121 +542,3 @@ export default {
  * "entrypoint": "GitHubWorker" // <-- This is the new required key
  * }
  * ]
- * }
- */
-export class GitHubWorker {
-  private rpc: GitHubWorkerRPC | null = null
-  private env: Env | null = null
-
-  // NOTE: 'fetch' and 'queue' handlers are removed from this class
-  // and are now on the 'export default' object.
-
-  // ==================== RPC Methods ====================
-  // These methods can be called directly when this worker is used as a service binding
-
-  private getRPC(env: Env): GitHubWorkerRPC {
-    if (!this.rpc || this.env !== env) {
-      this.env = env
-      this.rpc = new GitHubWorkerRPC(env)
-    }
-    return this.rpc
-  }
-
-  /**
-   * Check the health status of the worker
-   */
-  async health(env: Env) {
-    return this.getRPC(env).health()
-  }
-
-  /**
-   * Create or update a file in a GitHub repository
-   */
-  async upsertFile(request: Parameters<GitHubWorkerRPC['upsertFile']>[0], env: Env) {
-    return this.getRPC(env).upsertFile(request)
-  }
-
-  /**
-   * List repository contents with a tree-style representation
-   */
-  async listRepoTree(request: Parameters<GitHubWorkerRPC['listRepoTree']>[0], env: Env) {
-    return this.getRPC(env).listRepoTree(request)
-  }
-
-  /**
-   * Open a new pull request
-   */
-  async openPullRequest(request: Parameters<GitHubWorkerRPC['openPullRequest']>[0], env: Env) {
-    return this.getRPC(env).openPullRequest(request)
-  }
-
-  /**
-   * Create a new issue
-   */
-  async createIssue(request: Parameters<GitHubWorkerRPC['createIssue']>[0], env: Env) {
-    return this.getRPC(env).createIssue(request)
-  }
-
-  /**
-   * Generic proxy for GitHub REST API calls
-   */
-  async octokitRest(request: Parameters<GitHubWorkerRPC['octokitRest']>[0], env: Env) {
-    return this.getRPC(env).octokitRest(request)
-  }
-
-  /**
-   * Execute a GraphQL query against the GitHub API
-   */
-  async octokitGraphQL(request: Parameters<GitHubWorkerRPC['octokitGraphQL']>[0], env: Env) {
-    return this.getRPC(env).octokitGraphQL(request)
-  }
-
-  /**
-   * Create a new agent session for GitHub search and analysis
-   */
-  async createSession(request: Parameters<GitHubWorkerRPC['createSession']>[0], env: Env) {
-    return this.getRPC(env).createSession(request)
-  }
-
-  /**
-   * Get the status of an agent session
-   */
-  async getSessionStatus(request: Parameters<GitHubWorkerRPC['getSessionStatus']>[0], env: Env) {
-    return this.getRPC(env).getSessionStatus(request)
-  }
-
-  /**
-   * Search for GitHub repositories
-   */
-  async searchRepositories(request: Parameters<GitHubWorkerRPC['searchRepositories']>[0], env: Env) {
-    return this.getRPC(env).searchRepositories(request)
-  }
-
-  /**
-   * Batch upsert multiple files in a single call
-   */
-  async batchUpsertFiles(requests: Parameters<GitHubWorkerRPC['batchUpsertFiles']>[0], env: Env) {
-    return this.getRPC(env).batchUpsertFiles(requests)
-  }
-
-  /**
-   * Batch create multiple issues in a single call
-   */
-  async batchCreateIssues(requests: Parameters<GitHubWorkerRPC['batchCreateIssues']>[0], env: Env) {
-    return this.getRPC(env).batchCreateIssues(requests)
-  }
-}
-
-// Export Durable Objects
-export { RetrofitAgent } from './retrofit/RetrofitAgent'
-export { OrchestratorAgent } from './agents/orchestrator'
-export { RoomDO } from './do/RoomDO'
-
-// Export Workflows
-export { GithubSearchWorkflow } from './workflows/search'
-
-/**
- * @extension_point
- * This is a good place to add new top-level routes or middleware.
- * For example, you could add an authentication middleware here.
- */
