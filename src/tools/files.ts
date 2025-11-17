@@ -79,6 +79,7 @@ const ListRepoTreeResponseSchema = z.object({
 const upsertFileRoute = createRoute({
   method: 'post',
   path: '/files/upsert',
+  operationId: 'upsertFile',
   request: {
     body: {
       content: {
@@ -146,6 +147,7 @@ files.openapi(upsertFileRoute, async (c) => {
 const listRepoTreeRoute = createRoute({
   method: 'post',
   path: '/files/tree',
+  operationId: 'listRepoTree',
   request: {
     body: {
       content: {

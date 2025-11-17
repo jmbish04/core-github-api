@@ -7,7 +7,7 @@
 import { OpenAPIHono } from '@hono/zod-openapi'
 import type { MiddlewareHandler } from 'hono'
 import { swaggerUI } from '@hono/swagger-ui'
-import { app, Bindings } from './utils/hono'
+import { app, Bindings } from './utils/hono' // Main 'app' for RUNTIME
 import { GitHubWorkerRPC } from './rpc'
 import { convertOpenAPIToYAML, buildCompleteOpenAPIDocument } from './utils/openapi'
 import { MCP_TOOLS, getToolStats, getTool, MCPExecuteRequest, TOOL_ROUTES, serializeTools } from './mcp/tools'
@@ -56,7 +56,7 @@ app.use('*', async (c, next) => {
   )
 
   try {
-    await c.env.CORE_GITHUB_API.prepare(
+    await c.env.DB.prepare(
       `INSERT INTO request_logs (
         timestamp,
         level,
@@ -123,62 +123,85 @@ app.use('/mcp/*', requireApiKey)
 app.use('/a2a/*', requireApiKey)
 
 
-// --- 2. Route Definitions ---
+// --- 2. Route Definitions (on main 'app') ---
 
-// Health check endpoint
+// Health check endpoint (NOT documented in OpenAPI)
 app.get('/healthz', healthHandler)
 
-// Webhook endpoint (no API key required, uses GitHub signature verification)
+// Webhook endpoint (NOT documented in OpenAPI)
 app.post('/webhook', webhookHandler)
 
-// The OpenAPI documentation will be available at /doc
-app.doc('/openapi.json', {
-  openapi: '3.0.0',
-  info: {
-    version: '1.0.0',
-    title: 'Cloudflare Worker GitHub Proxy',
-  },
-  servers: [
-    { url: '/api', description: 'API Interface' },
-    { url: '/mcp', description: 'Machine-to-Cloud Interface' },
-    { url: '/a2a', description: 'Agent-to-Agent Interface' },
-  ],
+
+// --- 3. API Spec Generation (using a separate, clean app) ---
+
+// Create a new Hono app *just for generating the spec*.
+// This app will *only* contain routes we want in the documentation.
+const apiSpecApp = new OpenAPIHono<{ Bindings: Bindings }>()
+
+// Register all your API routers with the spec-only app
+apiSpecApp.route('/octokit', octokitApi)
+apiSpecApp.route('/tools', toolsApi)
+apiSpecApp.route('/agents', agentsApi)
+apiSpecApp.route('/retrofit', retrofitApi)
+apiSpecApp.route('/flows', flowsApi)
+
+/**
+ * Helper function to generate the enhanced 3.1.0 OpenAPI spec.
+ * It uses the 'apiSpecApp' to create a clean doc.
+ */
+const getEnhancedApiSpec = async (c: any) => {
+  const baseUrl = new URL(c.req.url).origin
+  
+  // Generate the spec from 'apiSpecApp', NOT the main 'app'
+  const openApiJson = await apiSpecApp.getOpenAPIDocument({
+    openapi: '3.0.0', // Base doc is 3.0.0, will be enhanced
+    info: { 
+      version: '1.0.0', 
+      title: 'GitHub API Worker',
+      description: 'A GPT-compatible spec for the GitHub API Worker (11 operations).'
+    },
+    // This 'servers' block is a placeholder. 
+    // buildCompleteOpenAPIDocument will overwrite it with the correct, single, absolute URL.
+    servers: [{ url: '/api' }], 
+  })
+  
+  // This function adds 3.1.0, single security scheme, and a single absolute server URL
+  return buildCompleteOpenAPIDocument(openApiJson, baseUrl)
+}
+
+// /openapi.json [Full, GPT-Compatible, 3.1.0, JSON]
+// This route is on the main 'app' but generates a spec from 'apiSpecApp'
+app.get('/openapi.json', async (c) => {
+  try {
+    const enhanced = await getEnhancedApiSpec(c)
+    return c.json(enhanced, 200, {
+      'X-API-Version': '3.1.0',
+    })
+  } catch (error: any) {
+    console.error('Error generating OpenAPI 3.1 JSON:', error)
+    return c.json({ error: 'Failed to generate OpenAPI 3.1 JSON', details: error.message }, 500)
+  }
 })
 
-// Enhanced OpenAPI 3.1.0 endpoint with YAML support
+// /openapi.yaml [Full, GPT-Compatible, 3.1.0, YAML]
+// This route is on the main 'app' but generates a spec from 'apiSpecApp'
 app.get('/openapi.yaml', async (c) => {
   try {
-    // Get the base OpenAPI document
-    const baseUrl = new URL(c.req.url).origin
-    const openApiJson = await app.getOpenAPIDocument({
-      openapi: '3.0.0',
-      info: {
-        version: '1.0.0',
-        title: 'Multi-Protocol GitHub Worker',
-        description: 'Production-grade Cloudflare Worker with REST, WebSocket, RPC, and MCP support',
-      },
-      servers: [
-        { url: '/api', description: 'API Interface' },
-        { url: '/mcp', description: 'MCP Interface' },
-        { url: '/a2a', description: 'Agent-to-Agent Interface' },
-      ],
-    })
-
-    // Enhance to 3.1.0 and convert to YAML
-    const enhanced = buildCompleteOpenAPIDocument(openApiJson, baseUrl)
+    const enhanced = await getEnhancedApiSpec(c)
     const yaml = convertOpenAPIToYAML(enhanced)
-
     return new Response(yaml, {
       headers: {
         'Content-Type': 'application/yaml',
         'X-API-Version': '3.1.0',
       },
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error generating OpenAPI YAML:', error)
-    return c.json({ error: 'Failed to generate OpenAPI YAML' }, 500)
+    return c.json({ error: 'Failed to generate OpenAPI YAML', details: error.message }, 500)
   }
 })
+
+// --- 4. Other Runtime Routes (on main 'app') ---
 
 // MCP Tools listing endpoint
 app.get('/mcp-tools', async (c) => {
@@ -273,6 +296,7 @@ app.post('/mcp-execute', async (c) => {
       body: route.method === 'POST' ? JSON.stringify(validatedParams) : undefined,
     });
 
+    // We must use the main 'app' to fetch, as it has the runtime routes
     const response = await app.fetch(internalReq, c.env, c.executionCtx);
     if (!response.ok) {
       return response; // Forward the error response
@@ -319,10 +343,10 @@ app.get('/ws', async (c) => {
   return roomStub.fetch(c.req.raw)
 })
 
-// Optional: Add swagger UI
+// Optional: Add swagger UI (points to the new 3.1.0 JSON spec)
 app.get('/doc', swaggerUI({ url: '/openapi.json' }))
 
-// --- 3. API Routes ---
+// --- 5. API Runtime Routes (on main 'app') ---
 
 // Create ONE shared router instance for all business logic
 const sharedApi = new OpenAPIHono<{ Bindings: Bindings }>()
@@ -333,12 +357,13 @@ sharedApi.route('/retrofit', retrofitApi)
 sharedApi.route('/flows', flowsApi)
 
 // Mount the shared router under all three top-level paths
+// This is what handles the *actual requests*
 app.route('/api', sharedApi)
 app.route('/mcp', sharedApi)
 app.route('/a2a', sharedApi)
 
 
-// --- 4. Helper Functions for Queue ---
+// --- 6. Helper Functions for Queue ---
 
 type WorkersAiBinding = {
   run(model: string, request: Record<string, unknown>): Promise<unknown>
@@ -421,7 +446,7 @@ function extractAiText(result: unknown): string {
   return ''
 }
 
-// --- 5. Export Handlers ---
+// --- 7. Export Handlers ---
 
 /**
  * Main export object for the Worker.
@@ -432,7 +457,18 @@ export default {
    * HTTP fetch handler
    */
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    return app.fetch(request, env, ctx)
+    
+    // --- MODIFICATION: Add ASSETS handling ---
+    try {
+      // 1. First, try to fetch the request as a static asset.
+      // This will serve public/landing.html at /landing.html
+      return await env.ASSETS.fetch(request);
+    } catch (e) {
+      // 2. If it's not a static asset (e.g., 404), fall back to the Hono API app.
+      // The Hono app handles /api, /mcp, /a2a, /openapi.json, etc.
+      return app.fetch(request, env, ctx);
+    }
+    // --- END MODIFICATION ---
   },
 
   /**
@@ -449,6 +485,7 @@ export default {
       const { sessionId, searchId, searchTerm } = message.body
 
       // 1. Execute the search
+      // Use 'app' to ensure the request is routed correctly with auth
       const searchResults = await searchRepositoriesWithRetry(searchTerm, env, ctx)
 
       // 2. Analyze each repository

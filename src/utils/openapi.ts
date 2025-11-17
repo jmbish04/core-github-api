@@ -36,19 +36,13 @@ export function enhanceToOpenAPI31(doc: Record<string, any>): Record<string, any
         identifier: "MIT",
       },
     },
+    // This base 'servers' array is here as a default, 
+    // but will be overwritten by buildCompleteOpenAPIDocument
     servers: doc.servers || [
       {
         url: "/api",
         description: "REST API Interface",
-      },
-      {
-        url: "/mcp",
-        description: "Model Context Protocol Interface",
-      },
-      {
-        url: "/a2a",
-        description: "Agent-to-Agent Interface",
-      },
+      }
     ],
     tags: [
       ...(doc.tags || []),
@@ -86,26 +80,23 @@ export function addSecuritySchemes(doc: Record<string, any>): Record<string, any
     components: {
       ...doc.components,
       securitySchemes: {
-        ApiKeyAuth: {
-          type: "apiKey",
-          in: "header",
-          name: "x-api-key",
-          description: "API key for authentication",
-        },
+        // --- MODIFICATION ---
+        // Only define one scheme for OpenAI compatibility
         BearerAuth: {
           type: "http",
           scheme: "bearer",
-          description: "Bearer token authentication",
+          description: "Bearer token for authentication (use your WORKER_API_KEY here)",
         },
+        // --- END MODIFICATION ---
       },
     },
     security: [
-      {
-        ApiKeyAuth: [],
-      },
+      // --- MODIFICATION ---
+      // Only include the single BearerAuth scheme
       {
         BearerAuth: [],
       },
+      // --- END MODIFICATION ---
     ],
   };
 }
@@ -162,21 +153,16 @@ export function buildCompleteOpenAPIDocument(baseDoc: Record<string, any>, baseU
   // Add security schemes
   enhanced = addSecuritySchemes(enhanced);
 
-  // Override servers with actual base URL
+  // --- MODIFICATION: ---
+  // We ONLY provide the /api server to satisfy the GPT importer.
+  // The /mcp and /a2a servers are dropped from the spec.
   enhanced.servers = [
     {
       url: `${baseUrl}/api`,
-      description: "REST API Interface",
-    },
-    {
-      url: `${baseUrl}/mcp`,
-      description: "Model Context Protocol Interface",
-    },
-    {
-      url: `${baseUrl}/a2a`,
-      description: "Agent-to-Agent Interface",
+      description: "API Interface",
     },
   ];
+  // --- END MODIFICATION ---
 
   // Add x-metadata extension
   enhanced["x-metadata"] = getSystemMetadata();

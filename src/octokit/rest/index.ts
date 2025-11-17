@@ -16,11 +16,25 @@ const RestResponseSchema = z.any().openapi({
   description: 'The response from the GitHub API.',
 })
 
+// --- NEW: Define a wrapper schema for POST requests ---
+// This satisfies the OpenAI importer's need for a 'properties' field.
+const PostRequestSchema = z.object({
+  params: z.record(z.any()).optional().openapi({
+    description: "Parameters object for the Octokit method.",
+    example: { "owner": "octocat", "repo": "Hello-World", "issue_number": 1 }
+  }),
+}).openapi({
+  description: "Wrapper object for Octokit POST parameters."
+})
+// --- END NEW SCHEMA ---
+
+
 // --- 2. Route Definitions ---
 
 const getRoute = createRoute({
   method: 'get',
   path: '/:namespace/:method',
+  operationId: 'getOctokitRestProxy', // Added in previous step
   request: {
     params: z.object({
       namespace: z.string(),
@@ -46,6 +60,7 @@ const getRoute = createRoute({
 const postRoute = createRoute({
   method: 'post',
   path: '/:namespace/:method',
+  operationId: 'postOctokitRestProxy', // Added in previous step
   request: {
     params: z.object({
       namespace: z.string(),
@@ -54,7 +69,8 @@ const postRoute = createRoute({
     body: {
       content: {
         'application/json': {
-          schema: z.record(z.any()).optional(),
+          // --- MODIFICATION: Use the new wrapper schema ---
+          schema: PostRequestSchema,
         },
       },
     },
@@ -90,7 +106,10 @@ const handler = async (c: Context<{ Bindings: Bindings }>) => {
 
   let params
   if (c.req.method === 'POST') {
-    params = c.req.valid('json')
+    // --- MODIFICATION: Unwrap the params from the body object ---
+    const body = c.req.valid('json')
+    params = body.params || {}
+    // --- END MODIFICATION ---
   } else {
     params = c.req.query()
   }

@@ -71,9 +71,13 @@ export class OrchestratorAgent extends Agent {
     }
   }
 
+  /**
+   * This is the function you're asking about.
+   * It implements the two-step AI chain.
+   */
   async generateSearchTerms(prompt: string): Promise<string[]> {
     
-    // Step 1: Call gpt-oss-120b to generate the raw list of queries
+    // --- Step 1: Reasoning with @cf/openai/gpt-oss-120b ---
     const gptInstructions = ```
       You are an expert GitHub search query generator. 
       You will be given a natural language prompt and must generate up to 5 diverse and relevant GitHub search queries. 
@@ -88,8 +92,9 @@ export class OrchestratorAgent extends Agent {
     const rawQueryText = typeof gptResponse === 'string' ? gptResponse : (gptResponse as any).response || '';
 
     try {
-      // --- BEGIN: Updated section ---
-      // Step 2: Define the required JSON schema for Llama 3.3
+      // --- Step 2: Structuring with @cf/meta/llama-3.3-70b-instruct-fp8-fast ---
+      
+      // Define the JSON schema Llama 3.3 must adhere to
       const searchQueriesSchema = {
         type: "object",
         properties: {
@@ -105,7 +110,7 @@ export class OrchestratorAgent extends Agent {
         required: ["queries"]
       };
 
-      // Step 3: Call Llama 3.3 to structure the raw text into the defined schema
+      // Create the prompt for Llama 3.3, telling it to parse the raw text
       const llamaSystemPrompt = ```
         You are a text standardization assistant. 
         Your task is to parse a raw text input containing a list of GitHub search queries 
@@ -118,6 +123,7 @@ export class OrchestratorAgent extends Agent {
         { role: "user", content: `Here is the raw text:\n\n${rawQueryText}` }
       ];
 
+      // Execute the Llama 3.3 model, passing the schema in 'response_format'
       const llamaResponse = await this.env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
         messages: llamaMessages,
         response_format: { 
@@ -125,7 +131,7 @@ export class OrchestratorAgent extends Agent {
           json_schema: searchQueriesSchema // Provide the schema
         }
       });
-      // --- END: Updated section ---
+      // --- End of AI calls ---
 
       // The response from Llama 3.3 will be an object, with the JSON *string* in the 'response' property
       const structuredResponse = JSON.parse((llamaResponse as any).response);
