@@ -7,8 +7,7 @@
 import { OpenAPIHono } from '@hono/zod-openapi'
 import type { MiddlewareHandler } from 'hono'
 import { swaggerUI } from '@hono/swagger-ui'
-// 'app' is the Hono app that handles all our API routes
-import { app, Bindings } from './utils/hono' 
+import { app, Bindings } from './utils/hono' // Main 'app' for RUNTIME
 import { GitHubWorkerRPC } from './rpc'
 import { convertOpenAPIToYAML, buildCompleteOpenAPIDocument } from './utils/openapi'
 import { MCP_TOOLS, getToolStats, getTool, MCPExecuteRequest, TOOL_ROUTES, serializeTools } from './mcp/tools'
@@ -94,7 +93,6 @@ app.use('*', async (c, next) => {
   }
 })
 
-// API Key Auth Middleware
 const requireApiKey: MiddlewareHandler<{ Bindings: Bindings }> = async (c, next) => {
   if (c.req.method === 'OPTIONS') {
     await next()
@@ -120,7 +118,6 @@ const requireApiKey: MiddlewareHandler<{ Bindings: Bindings }> = async (c, next)
   await next()
 }
 
-// Apply auth middleware to all API routes
 app.use('/api/*', requireApiKey)
 app.use('/mcp/*', requireApiKey)
 app.use('/a2a/*', requireApiKey)
@@ -137,7 +134,8 @@ app.post('/webhook', webhookHandler)
 
 // --- 3. API Spec Generation Apps ---
 
-// App 1: Full Spec (for /openapi.json)
+// --- App 1: Full Spec (for /openapi.json) ---
+// This app contains *all* API routes for a complete spec.
 const fullSpecApp = new OpenAPIHono<{ Bindings: Bindings }>()
 fullSpecApp.route('/octokit', octokitApi)
 fullSpecApp.route('/tools', toolsApi)
@@ -145,7 +143,8 @@ fullSpecApp.route('/agents', agentsApi)
 fullSpecApp.route('/retrofit', retrofitApi)
 fullSpecApp.route('/flows', flowsApi)
 
-// App 2: GPT-Specific Spec (for /gpt/openapi.json)
+// --- App 2: GPT-Specific Spec (for /gpt/openapi.json) ---
+// This app contains *only* the 7 methods you requested.
 const gptSpecApp = new OpenAPIHono<{ Bindings: Bindings }>()
 gptSpecApp.route('/octokit', octokitApi) // 3 methods
 gptSpecApp.route('/agents', agentsApi)   // 2 methods
@@ -167,7 +166,9 @@ const getEnhancedApiSpec = async (
   const openApiJson = await honoApp.getOpenAPIDocument({
     openapi: '3.0.0', // Base doc is 3.0.0, will be enhanced
     info: { version: '1.0.0', title, description },
-    servers: [{ url: '/api' }], // Placeholder, will be overwritten
+    // This 'servers' block is a placeholder. 
+    // buildCompleteOpenAPIDocument will overwrite it with the correct, single, absolute URL.
+    servers: [{ url: '/api' }], 
   })
   
   // This function adds 3.1.0, single security scheme, and a single absolute server URL
@@ -271,9 +272,23 @@ app.post('/mcp-execute', async (c) => {
   const startTime = Date.now()
 
   try {
-    // ... (rest of mcp-execute handler is unchanged) ...
+    // Validate request size (DoS prevention)
+    const contentLength = c.req.header('content-length')
+    const MAX_REQUEST_SIZE = 1024 * 1024 // 1MB
+    if (contentLength && parseInt(contentLength) > MAX_REQUEST_SIZE) {
+      return c.json({
+        success: false,
+        error: 'Request too large',
+        maxSize: MAX_REQUEST_SIZE,
+      }, 413)
+    }
+
     const body = await c.req.json()
+
+    // Validate JSON structure
     const parsed = MCPExecuteRequest.parse(body)
+
+    // Get the tool
     const tool = getTool(parsed.tool)
     if (!tool) {
       return c.json({
@@ -282,6 +297,8 @@ app.post('/mcp-execute', async (c) => {
         availableTools: MCP_TOOLS.map(t => t.name),
       }, 404)
     }
+
+    // Validate params against the tool's Zod schema
     const paramsValidation = tool.inputSchema.safeParse(parsed.params)
     if (!paramsValidation.success) {
       return c.json({
@@ -291,7 +308,11 @@ app.post('/mcp-execute', async (c) => {
         details: paramsValidation.error.errors,
       }, 400)
     }
+
+    // Use validated params
     const validatedParams = paramsValidation.data
+
+    // Get the route configuration for this tool
     const route = TOOL_ROUTES[parsed.tool];
     if (!route) {
       return c.json({
@@ -300,27 +321,39 @@ app.post('/mcp-execute', async (c) => {
         availableTools: MCP_TOOLS.map(t => t.name),
       }, 501);
     }
+
+    // Create an internal request to the appropriate endpoint
     const baseUrl = new URL(c.req.url).origin;
     const apiKey = c.req.header('x-api-key') || c.req.header('authorization')?.replace('Bearer ', '');
+
+    // Build the path (use custom path builder if available)
     const path = route.pathBuilder ? route.pathBuilder(validatedParams) : route.path;
     const url = `${baseUrl}${path}`;
+
+    // Build request headers
     const headers: Record<string, string> = {
       'x-api-key': apiKey || '',
     };
     if (route.method === 'POST') {
       headers['Content-Type'] = 'application/json';
     }
+
+    // Create and execute the request
     const internalReq = new Request(url, {
       method: route.method,
       headers,
       body: route.method === 'POST' ? JSON.stringify(validatedParams) : undefined,
     });
+
+    // We must use the main 'app' to fetch, as it has the runtime routes
     const response = await app.fetch(internalReq, c.env, c.executionCtx);
     if (!response.ok) {
-      return response; 
+      return response; // Forward the error response
     }
     const result = await response.json();
+
     const durationMs = Date.now() - startTime
+
     return c.json({
       success: true,
       tool: parsed.tool,
@@ -518,9 +551,25 @@ export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     
     // This is the correct "SPA Mode" pattern
+    const url = new URL(request.url);
+    if (url.pathname === '/') {
+      // This is a request for the root. 
+      // Manually create a new request for /index.html
+      const indexRequest = new Request(
+        new URL('/index.html', request.url),
+        request
+      );
+      try {
+        return await env.ASSETS.fetch(indexRequest);
+      } catch (e) {
+        // Fallback if index.html doesn't exist, just in case
+        return app.fetch(request, env, ctx);
+      }
+    }
+
     try {
       // 1. First, try to fetch the request as a static asset.
-      // This will serve public/index.html at /
+      // This will serve public/landing.html at /landing.html
       return await env.ASSETS.fetch(request);
     } catch (e) {
       // 2. If it's not a static asset (e.g., 404), fall back to the Hono API app.
