@@ -21,6 +21,7 @@ const RestResponseSchema = z.any().openapi({
 const getRoute = createRoute({
   method: 'get',
   path: '/:namespace/:method',
+  operationId: 'getOctokitRestProxy',
   request: {
     params: z.object({
       namespace: z.string(),
@@ -46,6 +47,7 @@ const getRoute = createRoute({
 const postRoute = createRoute({
   method: 'post',
   path: '/:namespace/:method',
+  operationId: 'postOctokitRestProxy',
   request: {
     params: z.object({
       namespace: z.string(),
