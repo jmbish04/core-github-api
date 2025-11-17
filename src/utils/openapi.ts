@@ -42,15 +42,7 @@ export function enhanceToOpenAPI31(doc: Record<string, any>): Record<string, any
       {
         url: "/api",
         description: "REST API Interface",
-      },
-      {
-        url: "/mcp",
-        description: "Model Context Protocol Interface",
-      },
-      {
-        url: "/a2a",
-        description: "Agent-to-Agent Interface",
-      },
+      }
     ],
     tags: [
       ...(doc.tags || []),
@@ -88,18 +80,23 @@ export function addSecuritySchemes(doc: Record<string, any>): Record<string, any
     components: {
       ...doc.components,
       securitySchemes: {
-        // Only one scheme for OpenAI compatibility
+        // --- MODIFICATION ---
+        // Only define one scheme for OpenAI compatibility
         BearerAuth: {
           type: "http",
           scheme: "bearer",
           description: "Bearer token for authentication (use your WORKER_API_KEY here)",
         },
+        // --- END MODIFICATION ---
       },
     },
     security: [
+      // --- MODIFICATION ---
+      // Only include the single BearerAuth scheme
       {
         BearerAuth: [],
       },
+      // --- END MODIFICATION ---
     ],
   };
 }
@@ -156,35 +153,15 @@ export function buildCompleteOpenAPIDocument(baseDoc: Record<string, any>, baseU
   // Add security schemes
   enhanced = addSecuritySchemes(enhanced);
 
-  // --- MODIFICATION: Conditionally set server URLs ---
-  // Check the title we set in src/index.ts to see if this is the GPT-specific spec
-  const isGptSpec = enhanced.info.title && enhanced.info.title.includes('GPT Custom Action');
-
-  if (isGptSpec) {
-    // GPTs only support one server, so we *only* provide the /api interface
-    enhanced.servers = [
-      {
-        url: `${baseUrl}/api`,
-        description: "API Interface",
-      },
-    ];
-  } else {
-    // The full spec includes all server interfaces with absolute URLs
-    enhanced.servers = [
-      {
-        url: `${baseUrl}/api`,
-        description: "REST API Interface",
-      },
-      {
-        url: `${baseUrl}/mcp`,
-        description: "Model Context Protocol Interface",
-      },
-      {
-        url: `${baseUrl}/a2a`,
-        description: "Agent-to-Agent Interface",
-      },
-    ];
-  }
+  // --- MODIFICATION: ---
+  // We ONLY provide the /api server to satisfy the GPT importer.
+  // The /mcp and /a2a servers are dropped from the spec.
+  enhanced.servers = [
+    {
+      url: `${baseUrl}/api`,
+      description: "API Interface",
+    },
+  ];
   // --- END MODIFICATION ---
 
   // Add x-metadata extension
