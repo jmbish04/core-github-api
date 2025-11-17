@@ -132,28 +132,39 @@ app.get('/healthz', healthHandler)
 app.post('/webhook', webhookHandler)
 
 
+// --- NEW: API App for Spec Generation ---
+// This app defines the *single* API surface we want to expose.
+// It has ALL 11 operations, but mounted only ONCE.
+// This is *only* for generating the spec. The main 'app' still handles runtime routing.
+const apiSpecApp = new OpenAPIHono<{ Bindings: Bindings }>()
+apiSpecApp.route('/octokit', octokitApi)
+apiSpecApp.route('/tools', toolsApi)
+apiSpecApp.route('/agents', agentsApi)
+apiSpecApp.route('/retrofit', retrofitApi) // 0 ops, but good to include
+apiSpecApp.route('/flows', flowsApi)
+// --- END NEW SECTION ---
+
+
 // --- OpenAPI Spec Endpoints ---
 
 /**
  * Helper function to generate the enhanced 3.1.0 OpenAPI spec.
- * This now uses the main 'app' and includes all routes (11 methods).
+ * It now uses the 'apiSpecApp' to generate the document.
  */
 const getEnhancedApiSpec = async (c: any) => {
   const baseUrl = new URL(c.req.url).origin
   
-  // This base spec's 'servers' block will be *overwritten* by buildCompleteOpenAPIDocument
-  const openApiJson = await app.getOpenAPIDocument({
+  // Generate the spec from 'apiSpecApp', NOT the main 'app'
+  const openApiJson = await apiSpecApp.getOpenAPIDocument({
     openapi: '3.0.0', // Base doc is 3.0.0, will be enhanced
     info: { 
       version: '1.0.0', 
-      title: 'Multi-Protocol GitHub Worker',
-      description: 'Full API Spec (3.1.0) with REST, WebSocket, RPC, and MCP support'
+      title: 'GitHub API Worker',
+      description: 'A GPT-compatible spec for the GitHub API Worker (11 operations).'
     },
-    servers: [
-      { url: '/api', description: 'API Interface' },
-      { url: '/mcp', description: 'MCP Interface' },
-      { url: '/a2a', description: 'Agent-to-Agent Interface' },
-    ],
+    // This 'servers' block is a placeholder. 
+    // buildCompleteOpenAPIDocument will overwrite it with the correct, single, absolute URL.
+    servers: [{ url: '/api' }], 
   })
   
   // This function adds 3.1.0, single security scheme, and a single absolute server URL
@@ -189,6 +200,8 @@ app.get('/openapi.yaml', async (c) => {
     return c.json({ error: 'Failed to generate OpenAPI YAML', details: error.message }, 500)
   }
 })
+
+// --- REMOVED /gpt/ routes as they are now redundant ---
 
 
 // MCP Tools listing endpoint
@@ -330,20 +343,21 @@ app.get('/ws', async (c) => {
   return roomStub.fetch(c.req.raw)
 })
 
-// Optional: Add swagger UI (points to the full 3.1.0 JSON spec)
+// Optional: Add swagger UI (points to the new 3.1.0 JSON spec)
 app.get('/doc', swaggerUI({ url: '/openapi.json' }))
 
 // --- 3. API Routes ---
 
 // Create ONE shared router instance for all business logic
 const sharedApi = new OpenAPIHono<{ Bindings: Bindings }>()
-sharedApi.route('/octokit', octokitApi) // <-- This provides the generic proxies
+sharedApi.route('/octokit', octokitApi)
 sharedApi.route('/tools', toolsApi)
 sharedApi.route('/agents', agentsApi)
 sharedApi.route('/retrofit', retrofitApi)
 sharedApi.route('/flows', flowsApi)
 
 // Mount the shared router under all three top-level paths
+// This is what handles the *actual requests*
 app.route('/api', sharedApi)
 app.route('/mcp', sharedApi)
 app.route('/a2a', sharedApi)
