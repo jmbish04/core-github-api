@@ -458,7 +458,6 @@ export class TemplateGenerator {
             <div class="grid md:grid-cols-3 gap-8 mb-8">
                 <div>
                     <div class="flex items-center space-x-2 mb-4">
-                        <div class="text-2xl">⚡</div>
                         <span class="text-xl font-bold text-white">${workerName}</span>
                     </div>
                     <p class="text-sm">Built on Cloudflare Workers, powered by edge computing.</p>
