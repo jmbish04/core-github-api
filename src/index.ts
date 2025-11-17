@@ -7,7 +7,8 @@
 import { OpenAPIHono } from '@hono/zod-openapi'
 import type { MiddlewareHandler } from 'hono'
 import { swaggerUI } from '@hono/swagger-ui'
-import { app, Bindings } from './utils/hono' // Main 'app' for RUNTIME
+// 'app' is the Hono app that handles all our API routes
+import { app, Bindings } from './utils/hono' 
 import { GitHubWorkerRPC } from './rpc'
 import { convertOpenAPIToYAML, buildCompleteOpenAPIDocument } from './utils/openapi'
 import { MCP_TOOLS, getToolStats, getTool, MCPExecuteRequest, TOOL_ROUTES, serializeTools } from './mcp/tools'
@@ -93,6 +94,7 @@ app.use('*', async (c, next) => {
   }
 })
 
+// API Key Auth Middleware
 const requireApiKey: MiddlewareHandler<{ Bindings: Bindings }> = async (c, next) => {
   if (c.req.method === 'OPTIONS') {
     await next()
@@ -118,6 +120,7 @@ const requireApiKey: MiddlewareHandler<{ Bindings: Bindings }> = async (c, next)
   await next()
 }
 
+// Apply auth middleware to all API routes
 app.use('/api/*', requireApiKey)
 app.use('/mcp/*', requireApiKey)
 app.use('/a2a/*', requireApiKey)
@@ -134,8 +137,7 @@ app.post('/webhook', webhookHandler)
 
 // --- 3. API Spec Generation Apps ---
 
-// --- App 1: Full Spec (for /openapi.json) ---
-// This app contains *all* API routes for a complete spec.
+// App 1: Full Spec (for /openapi.json)
 const fullSpecApp = new OpenAPIHono<{ Bindings: Bindings }>()
 fullSpecApp.route('/octokit', octokitApi)
 fullSpecApp.route('/tools', toolsApi)
@@ -143,8 +145,7 @@ fullSpecApp.route('/agents', agentsApi)
 fullSpecApp.route('/retrofit', retrofitApi)
 fullSpecApp.route('/flows', flowsApi)
 
-// --- App 2: GPT-Specific Spec (for /gpt/openapi.json) ---
-// This app contains *only* the 7 methods you requested.
+// App 2: GPT-Specific Spec (for /gpt/openapi.json)
 const gptSpecApp = new OpenAPIHono<{ Bindings: Bindings }>()
 gptSpecApp.route('/octokit', octokitApi) // 3 methods
 gptSpecApp.route('/agents', agentsApi)   // 2 methods
@@ -272,17 +273,6 @@ app.post('/mcp-execute', async (c) => {
   const startTime = Date.now()
 
   try {
-    // Validate request size (DoS prevention)
-    const contentLength = c.req.header('content-length')
-    const MAX_REQUEST_SIZE = 1024 * 1024 // 1MB
-    if (contentLength && parseInt(contentLength) > MAX_REQUEST_SIZE) {
-      return c.json({
-        success: false,
-        error: 'Request too large',
-        maxSize: MAX_REQUEST_SIZE,
-      }, 413)
-    }
-
     const body = await c.req.json()
 
     // Validate JSON structure
@@ -352,7 +342,7 @@ app.post('/mcp-execute', async (c) => {
     }
     const result = await response.json();
 
-    const durationMs = Date.now() - startTime
+    const durationMs = Date.Now() - startTime
 
     return c.json({
       success: true,
@@ -550,31 +540,39 @@ export default {
    */
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     
-    // This is the correct "SPA Mode" pattern
+    // --- THIS IS THE CORRECT FETCH HANDLER ---
+    // It correctly routes API calls to Hono and all other calls to ASSETS.
+    
     const url = new URL(request.url);
-    if (url.pathname === '/') {
-      // This is a request for the root. 
-      // Manually create a new request for /index.html
-      const indexRequest = new Request(
-        new URL('/index.html', request.url),
-        request
-      );
-      try {
-        return await env.ASSETS.fetch(indexRequest);
-      } catch (e) {
-        // Fallback if index.html doesn't exist, just in case
-        return app.fetch(request, env, ctx);
-      }
-    }
 
-    try {
-      // 1. First, try to fetch the request as a static asset.
-      // This will serve public/landing.html at /landing.html
-      return await env.ASSETS.fetch(request);
-    } catch (e) {
-      // 2. If it's not a static asset (e.g., 404), fall back to the Hono API app.
-      // The Hono app handles /api, /mcp, /a2a, /openapi.json, etc.
+    // List of all your API/dynamic prefixes.
+    // Any request *not* matching these will be treated as a static asset request.
+    const apiPrefixes = [
+      '/api/', 
+      '/mcp/', 
+      '/a2a/', 
+      '/openapi.json', 
+      '/openapi.yaml', 
+      '/gpt/openapi.json',
+      '/gpt/openapi.yaml',
+      '/doc', // The Swagger UI
+      '/healthz',
+      '/webhook',
+      '/mcp-tools',
+      '/ws' // WebSocket endpoint
+    ];
+
+    const isApiRoute = apiPrefixes.some(prefix => url.pathname.startsWith(prefix));
+
+    if (isApiRoute) {
+      // It's an API route. Let the Hono app handle it.
       return app.fetch(request, env, ctx);
+    } else {
+      // It's not an API route.
+      // Assume it's a static asset and let env.ASSETS handle it.
+      // env.ASSETS will automatically serve /index.html for /
+      // and a 404 for any other file it can't find.
+      return env.ASSETS.fetch(request);
     }
   },
 
@@ -596,31 +594,36 @@ export default {
       const searchResults = await searchRepositoriesWithRetry(searchTerm, env, ctx)
 
       // 2. Analyze each repository
-      for (const repo of searchResults.items) {
-        // 2a. Check if the repository has already been analyzed for this session
-        const { results } = await env.DB.prepare(
-          'SELECT id FROM repo_analysis WHERE session_id = ? AND repo_full_name = ?'
-        ).bind(sessionId, repo.full_name).all()
-
-        if (results.length > 0) {
-          continue
+      if (searchResults && searchResults.items) {
+        for (const repo of searchResults.items) {
+          // 2a. Check if the repository has already been analyzed for this session
+          const { results } = await env.DB.prepare(
+            'SELECT id FROM repo_analysis WHERE session_id = ? AND repo_full_name = ?'
+          ).bind(sessionId, repo.full_name).all()
+  
+          if (results.length > 0) {
+            continue
+          }
+  
+          // 2b. Analyze the repository
+          const analysis = await analyzeRepository(repo, searchTerm, aiBinding)
+  
+          // 2c. Persist the analysis to D1
+          await env.DB.prepare(
+            'INSERT INTO repo_analysis (session_id, search_id, repo_full_name, repo_url, description, relevancy_score) VALUES (?, ?, ?, ?, ?, ?)'
+          ).bind(
+            sessionId,
+            searchId,
+            repo.full_name,
+            repo.html_url,
+            repo.description,
+            analysis.relevancyScore
+          ).run()
         }
-
-        // 2b. Analyze the repository
-        const analysis = await analyzeRepository(repo, searchTerm, aiBinding)
-
-        // 2c. Persist the analysis to D1
-        await env.DB.prepare(
-          'INSERT INTO repo_analysis (session_id, search_id, repo_full_name, repo_url, description, relevancy_score) VALUES (?, ?, ?, ?, ?, ?)'
-        ).bind(
-          sessionId,
-          searchId,
-          repo.full_name,
-          repo.html_url,
-          repo.description,
-          analysis.relevancyScore
-        ).run()
+      } else {
+        console.warn(`No search results for term: ${searchTerm}`);
       }
+
 
       // 3. Update the search status
       await env.DB.prepare(
@@ -644,27 +647,10 @@ export default {
  *
  * This class is a NAMED export. Other workers must use this name as the 'entrypoint'
  * in their service binding configuration to call these RPC methods.
- *
- * Example consumer wrangler.jsonc:
- * {
- * "services": [
- * {
- * "binding": "GITHUB_WORKER",
- * "service": "core-github-api",
- * "entrypoint": "GitHubWorker" // <-- This is the new required key
- * }
- * ]
- * }
  */
 export class GitHubWorker {
   private rpc: GitHubWorkerRPC | null = null
   private env: Env | null = null
-
-  // NOTE: 'fetch' and 'queue' handlers are removed from this class
-  // and are now on the 'export default' object.
-
-  // ==================== RPC Methods ====================
-  // These methods can be called directly when this worker is used as a service binding
 
   private getRPC(env: Env): GitHubWorkerRPC {
     if (!this.rpc || this.env !== env) {
