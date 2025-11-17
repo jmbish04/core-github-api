@@ -33,6 +33,7 @@ const OpenPrResponseSchema = z.object({
 const openPrRoute = createRoute({
   method: 'post',
   path: '/prs/open',
+  operationId: 'openPullRequest',
   request: {
     body: {
       content: {
