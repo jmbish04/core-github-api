@@ -5,11 +5,11 @@
  */
 
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
-import type { D1Database } from '@cloudflare/workers-types'
 import { getOctokit } from '../octokit/core'
 import { Bindings } from '../utils/hono'
 import { DEFAULT_WORKFLOWS, shouldIncludeCloudflareWorkflow } from './workflowTemplates'
 import { encode } from '../utils/base64'
+import { getDb, schema } from '../db'
 
 // --- 1. Zod Schema Definitions ---
 
@@ -166,23 +166,20 @@ const flows = new OpenAPIHono<{ Bindings: Bindings }>()
  * Helper function to log retrofit operation to D1
  */
 async function logRetrofitOperation(
-  db: D1Database,
+  db: ReturnType<typeof getDb>,
   repoName: string,
   action: string,
   status: 'success' | 'skipped' | 'failure',
   statusDetails: Record<string, any>
 ): Promise<void> {
   try {
-    await db.prepare(
-      `INSERT INTO gh_management_config (timestamp, repo_name, action, status, status_details)
-       VALUES (?, ?, ?, ?, ?)`
-    ).bind(
-      new Date().toISOString(),
-      repoName,
-      action,
-      status,
-      JSON.stringify(statusDetails)
-    ).run()
+    await db.insert(schema.ghManagementConfig).values({
+      timestamp: new Date().toISOString(),
+      repoName: repoName,
+      action: action,
+      status: status,
+      statusDetails: JSON.stringify(statusDetails)
+    })
   } catch (error) {
     console.error('Failed to log retrofit operation:', error)
   }
@@ -403,10 +400,8 @@ flows.openapi(createNewRepoRoute, async (c) => {
   }
 
   // 4. Log the operation
-  // --- MODIFICATION: Changed c.env.CORE_GITHUB_API to c.env.DB ---
   await logRetrofitOperation(
-    c.env.DB,
-  // --- END MODIFICATION ---
+    getDb(c.env.DB),
     repo.full_name,
     'create_new_repo',
     'success',
@@ -561,10 +556,8 @@ flows.openapi(retrofitWorkflowsRoute, async (c) => {
       }
 
       // Log the operation
-      // --- MODIFICATION: Changed c.env.CORE_GITHUB_API to c.env.DB ---
       await logRetrofitOperation(
-        c.env.DB,
-      // --- END MODIFICATION ---
+        getDb(c.env.DB),
         repo.full_name,
         'retrofit_workflows',
         repoStatus,
@@ -585,12 +578,10 @@ flows.openapi(retrofitWorkflowsRoute, async (c) => {
     } catch (error: any) {
       const errorMessage = error.message || 'Unknown error'
       console.error(`[flows/retrofit-workflows] Error processing ${repo.full_name}:`, errorMessage)
-      
+
       failedCount++
-      // --- MODIFICATION: Changed c.env.CORE_GITHUB_API to c.env.DB ---
       await logRetrofitOperation(
-        c.env.DB,
-      // --- END MODIFICATION ---
+        getDb(c.env.DB),
         repo.full_name,
         'retrofit_workflows',
         'failure',

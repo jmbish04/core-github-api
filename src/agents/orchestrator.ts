@@ -6,6 +6,8 @@
  */
 
 import { Agent } from 'agents'
+import { getDb, schema } from '../db'
+import { eq, desc } from 'drizzle-orm'
 // No longer need a direct import of the workflow class to call it
 
 export class OrchestratorAgent extends Agent {
@@ -16,21 +18,25 @@ export class OrchestratorAgent extends Agent {
   async start(prompt: string) {
     const sessionId = crypto.randomUUID()
     const searchIds = []
+    const db = getDb(this.env.DB)
 
     // 1. Persist the session to D1
-    await this.env.DB.prepare(
-      'INSERT INTO sessions (session_id, prompt) VALUES (?, ?)'
-    ).bind(sessionId, prompt).run()
+    await db.insert(schema.sessions).values({
+      sessionId: sessionId,
+      prompt: prompt
+    })
 
     // 2. Generate search terms
     const searchTerms = await this.generateSearchTerms(prompt)
 
     // 3. Launch a workflow for each search term
     for (const searchTerm of searchTerms) {
-      const search = await this.env.DB.prepare(
-        'INSERT INTO searches (session_id, search_term) VALUES (?, ?)'
-      ).bind(sessionId, searchTerm).run()
-      const searchId = search.meta.last_row_id
+      const search = await db.insert(schema.searches).values({
+        sessionId: sessionId,
+        searchTerm: searchTerm
+      }).returning({ id: schema.searches.id })
+
+      const searchId = search[0].id
       searchIds.push(searchId)
 
       // Use the binding's .create() method to start the workflow
@@ -57,9 +63,14 @@ export class OrchestratorAgent extends Agent {
       return { status: 'pending', results: [] }
     }
 
-    const { results } = await this.env.DB.prepare(
-      'SELECT * FROM repo_analysis WHERE session_id = ? ORDER BY relevancy_score DESC LIMIT 10'
-    ).bind(sessionId).all()
+    const db = getDb(this.env.DB)
+    const results = await db.select()
+      .from(schema.repoAnalysis)
+      .where(eq(schema.repoAnalysis.sessionId, sessionId))
+      .orderBy(desc(schema.repoAnalysis.relevancyScore))
+      .limit(10)
+      .all()
+
     return { status: 'completed', results }
   }
 

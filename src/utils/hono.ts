@@ -17,6 +17,7 @@ export type Bindings = {
   // --- MODIFICATION: Changed CORE_GITHUB_API to DB to match wrangler.jsonc ---
   DB: D1Database
   // --- END MODIFICATION ---
+  ASSETS: Fetcher
   CLOUDFLARE_API_TOKEN?: string
   GITHUB_ACTION_CLOUDFLARE_ACCOUNT_ID?: string
 }
