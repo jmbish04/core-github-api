@@ -131,54 +131,111 @@ app.get('/healthz', healthHandler)
 // Webhook endpoint (no API key required, uses GitHub signature verification)
 app.post('/webhook', webhookHandler)
 
-// The OpenAPI documentation will be available at /doc
-app.doc('/openapi.json', {
-  openapi: '3.0.0',
-  info: {
-    version: '1.0.0',
-    title: 'Cloudflare Worker GitHub Proxy',
-  },
-  servers: [
-    { url: '/api', description: 'API Interface' },
-    { url: '/mcp', description: 'Machine-to-Cloud Interface' },
-    { url: '/a2a', description: 'Agent-to-Agent Interface' },
-  ],
+// --- GPT-Specific App (for 30 method limit) ---
+const gptApi = new OpenAPIHono<{ Bindings: Bindings }>()
+gptApi.route('/tools', toolsApi)
+gptApi.route('/flows', flowsApi)
+gptApi.route('/agents', agentsApi)
+// --- End GPT-Specific App ---
+
+
+// --- OpenAPI Spec Endpoints ---
+
+/**
+ * Helper function to generate an enhanced 3.1.0 OpenAPI spec
+ * from a given Hono app instance.
+ */
+const getEnhancedSpec = async (
+  c: any, 
+  honoApp: OpenAPIHono<any>,
+  title: string,
+  description: string
+) => {
+  const baseUrl = new URL(c.req.url).origin
+  const openApiJson = await honoApp.getOpenAPIDocument({
+    openapi: '3.0.0', // Base doc is 3.0.0, will be enhanced
+    info: { version: '1.0.0', title, description },
+    // This servers array will be *replaced* by buildCompleteOpenAPIDocument
+    // which correctly uses the baseUrl.
+    servers: [
+      { url: '/api', description: 'API Interface' },
+      { url: '/mcp', description: 'MCP Interface' },
+      { url: '/a2a', description: 'Agent-to-Agent Interface' },
+    ],
+  })
+  
+  // This function adds 3.1.0, security schemes, and absolute server URLs
+  return buildCompleteOpenAPIDocument(openApiJson, baseUrl)
+}
+
+// /openapi.json [Full API Schema, 3.1.0, JSON]
+app.get('/openapi.json', async (c) => {
+  try {
+    const enhanced = await getEnhancedSpec(c, app, 
+      'Multi-Protocol GitHub Worker (Full)', 
+      'Full API Spec (3.1.0) with REST, WebSocket, RPC, and MCP support'
+    )
+    return c.json(enhanced)
+  } catch (error: any) {
+    console.error('Error generating OpenAPI 3.1 JSON:', error)
+    return c.json({ error: 'Failed to generate OpenAPI 3.1 JSON', details: error.message }, 500)
+  }
 })
 
-// Enhanced OpenAPI 3.1.0 endpoint with YAML support
+// /openapi.yaml [Full API Schema, 3.1.0, YAML]
 app.get('/openapi.yaml', async (c) => {
   try {
-    // Get the base OpenAPI document
-    const baseUrl = new URL(c.req.url).origin
-    const openApiJson = await app.getOpenAPIDocument({
-      openapi: '3.0.0',
-      info: {
-        version: '1.0.0',
-        title: 'Multi-Protocol GitHub Worker',
-        description: 'Production-grade Cloudflare Worker with REST, WebSocket, RPC, and MCP support',
-      },
-      servers: [
-        { url: '/api', description: 'API Interface' },
-        { url: '/mcp', description: 'MCP Interface' },
-        { url: '/a2a', description: 'Agent-to-Agent Interface' },
-      ],
-    })
-
-    // Enhance to 3.1.0 and convert to YAML
-    const enhanced = buildCompleteOpenAPIDocument(openApiJson, baseUrl)
+    const enhanced = await getEnhancedSpec(c, app, 
+      'Multi-Protocol GitHub Worker (Full)', 
+      'Full API Spec (3.1.0) with REST, WebSocket, RPC, and MCP support'
+    )
     const yaml = convertOpenAPIToYAML(enhanced)
-
     return new Response(yaml, {
       headers: {
         'Content-Type': 'application/yaml',
         'X-API-Version': '3.1.0',
       },
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error generating OpenAPI YAML:', error)
-    return c.json({ error: 'Failed to generate OpenAPI YAML' }, 500)
+    return c.json({ error: 'Failed to generate OpenAPI YAML', details: error.message }, 500)
   }
 })
+
+// /gpt/openapi.json [Limited Schema for GPTs, 3.1.0, JSON]
+app.get('/gpt/openapi.json', async (c) => {
+  try {
+    const enhanced = await getEnhancedSpec(c, gptApi, // <-- Use gptApi
+      'GitHub Worker - GPT Custom Action', 
+      'A focused set of high-level tools for OpenAI GPTs (30 method limit)'
+    )
+    return c.json(enhanced)
+  } catch (error: any) {
+    console.error('Error generating OpenAPI GPT JSON:', error)
+    return c.json({ error: 'Failed to generate OpenAPI GPT JSON', details: error.message }, 500)
+  }
+})
+
+// /gpt/openapi.yaml [Limited Schema for GPTs, 3.1.0, YAML]
+app.get('/gpt/openapi.yaml', async (c) => {
+  try {
+    const enhanced = await getEnhancedSpec(c, gptApi, // <-- Use gptApi
+      'GitHub Worker - GPT Custom Action', 
+      'A focused set of high-level tools for OpenAI GPTs (30 method limit)'
+    )
+    const yaml = convertOpenAPIToYAML(enhanced)
+    return new Response(yaml, {
+      headers: {
+        'Content-Type': 'application/yaml',
+        'X-API-Version': '3.1.0',
+      },
+    })
+  } catch (error: any) {
+    console.error('Error generating OpenAPI GPT YAML:', error)
+    return c.json({ error: 'Failed to generate OpenAPI GPT YAML', details: error.message }, 500)
+  }
+})
+
 
 // MCP Tools listing endpoint
 app.get('/mcp-tools', async (c) => {
@@ -319,7 +376,7 @@ app.get('/ws', async (c) => {
   return roomStub.fetch(c.req.raw)
 })
 
-// Optional: Add swagger UI
+// Optional: Add swagger UI (points to the full 3.1.0 JSON spec)
 app.get('/doc', swaggerUI({ url: '/openapi.json' }))
 
 // --- 3. API Routes ---
