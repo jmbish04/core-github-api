@@ -30,21 +30,32 @@ const KNOWN_MESSAGE_TYPES = [
   "list_clients",
 ] as const;
 
-// Discriminated union of all possible inbound messages
-const InboundMessageSchema = z.discriminatedUnion("type", [
+// --- FIX START ---
+// 1. Create a discriminated union for ONLY the known message types.
+const KnownMessagesSchema = z.discriminatedUnion("type", [
   PingMessageSchema,
   BroadcastMessageSchema,
   ListClientsMessageSchema,
-  // Fallback for unknown message types
-  z.object({
-    type: z.string().refine(
-      (val) => !(KNOWN_MESSAGE_TYPES as readonly string[]).includes(val),
-      { message: "Unknown message type should not match known types" }
-    ),
-    payload: z.any().optional(),
-    meta: z.any().optional(),
-  }),
 ]);
+
+// 2. Define the fallback schema for unknown types separately.
+const UnknownMessageSchema = z.object({
+  type: z.string().refine(
+    (val) => !(KNOWN_MESSAGE_TYPES as readonly string[]).includes(val),
+    { message: "Unknown message type should not match known types" }
+  ),
+  payload: z.any().optional(),
+  meta: z.any().optional(),
+});
+
+// 3. Combine them using a standard z.union.
+// This will try the known types first, and if they fail, try the unknown type.
+// This preserves the logic in webSocketMessage's switch/default block.
+const InboundMessageSchema = z.union([
+  KnownMessagesSchema,
+  UnknownMessageSchema,
+]);
+// --- FIX END ---
 
 interface WebSocketMeta {
   id: string;
