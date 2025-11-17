@@ -132,34 +132,40 @@ app.get('/healthz', healthHandler)
 app.post('/webhook', webhookHandler)
 
 
-// --- 3. API Spec Generation (using a separate, clean app) ---
+// --- 3. API Spec Generation Apps ---
 
-// Create a new Hono app *just for generating the spec*.
-// This app will *only* contain routes we want in the documentation.
-const apiSpecApp = new OpenAPIHono<{ Bindings: Bindings }>()
+// --- App 1: Full Spec (for /openapi.json) ---
+// This app contains *all* API routes for a complete spec.
+const fullSpecApp = new OpenAPIHono<{ Bindings: Bindings }>()
+fullSpecApp.route('/octokit', octokitApi)
+fullSpecApp.route('/tools', toolsApi)
+fullSpecApp.route('/agents', agentsApi)
+fullSpecApp.route('/retrofit', retrofitApi)
+fullSpecApp.route('/flows', flowsApi)
 
-// Register all your API routers with the spec-only app
-apiSpecApp.route('/octokit', octokitApi)
-apiSpecApp.route('/tools', toolsApi)
-apiSpecApp.route('/agents', agentsApi)
-apiSpecApp.route('/retrofit', retrofitApi)
-apiSpecApp.route('/flows', flowsApi)
+// --- App 2: GPT-Specific Spec (for /gpt/openapi.json) ---
+// This app contains *only* the 7 methods you requested.
+const gptSpecApp = new OpenAPIHono<{ Bindings: Bindings }>()
+gptSpecApp.route('/octokit', octokitApi) // 3 methods
+gptSpecApp.route('/agents', agentsApi)   // 2 methods
+gptSpecApp.route('/flows', flowsApi)     // 2 methods
+// Total = 7 methods
+
 
 /**
  * Helper function to generate the enhanced 3.1.0 OpenAPI spec.
- * It uses the 'apiSpecApp' to create a clean doc.
  */
-const getEnhancedApiSpec = async (c: any) => {
+const getEnhancedApiSpec = async (
+  c: any, 
+  honoApp: OpenAPIHono<any>, // Pass in the app to generate the spec from
+  title: string,
+  description: string
+) => {
   const baseUrl = new URL(c.req.url).origin
   
-  // Generate the spec from 'apiSpecApp', NOT the main 'app'
-  const openApiJson = await apiSpecApp.getOpenAPIDocument({
+  const openApiJson = await honoApp.getOpenAPIDocument({
     openapi: '3.0.0', // Base doc is 3.0.0, will be enhanced
-    info: { 
-      version: '1.0.0', 
-      title: 'GitHub API Worker',
-      description: 'A GPT-compatible spec for the GitHub API Worker (11 operations).'
-    },
+    info: { version: '1.0.0', title, description },
     // This 'servers' block is a placeholder. 
     // buildCompleteOpenAPIDocument will overwrite it with the correct, single, absolute URL.
     servers: [{ url: '/api' }], 
@@ -169,11 +175,15 @@ const getEnhancedApiSpec = async (c: any) => {
   return buildCompleteOpenAPIDocument(openApiJson, baseUrl)
 }
 
-// /openapi.json [Full, GPT-Compatible, 3.1.0, JSON]
-// This route is on the main 'app' but generates a spec from 'apiSpecApp'
+// --- OpenAPI Endpoints ---
+
+// /openapi.json [Full API Schema, 3.1.0, JSON]
 app.get('/openapi.json', async (c) => {
   try {
-    const enhanced = await getEnhancedApiSpec(c)
+    const enhanced = await getEnhancedApiSpec(c, fullSpecApp, // Use fullSpecApp
+      'GitHub API Worker (Full Spec)', 
+      'Full API Spec (3.1.0) with all 11 operations.'
+    )
     return c.json(enhanced, 200, {
       'X-API-Version': '3.1.0',
     })
@@ -183,11 +193,13 @@ app.get('/openapi.json', async (c) => {
   }
 })
 
-// /openapi.yaml [Full, GPT-Compatible, 3.1.0, YAML]
-// This route is on the main 'app' but generates a spec from 'apiSpecApp'
+// /openapi.yaml [Full API Schema, 3.1.0, YAML]
 app.get('/openapi.yaml', async (c) => {
   try {
-    const enhanced = await getEnhancedApiSpec(c)
+    const enhanced = await getEnhancedApiSpec(c, fullSpecApp, // Use fullSpecApp
+      'GitHub API Worker (Full Spec)', 
+      'Full API Spec (3.1.0) with all 11 operations.'
+    )
     const yaml = convertOpenAPIToYAML(enhanced)
     return new Response(yaml, {
       headers: {
@@ -200,6 +212,43 @@ app.get('/openapi.yaml', async (c) => {
     return c.json({ error: 'Failed to generate OpenAPI YAML', details: error.message }, 500)
   }
 })
+
+// /gpt/openapi.json [Limited Schema for GPTs, 3.1.0, JSON]
+app.get('/gpt/openapi.json', async (c) => {
+  try {
+    const enhanced = await getEnhancedApiSpec(c, gptSpecApp, // <-- Use gptSpecApp
+      'GitHub Worker - GPT Custom Action', 
+      'A focused set of 7 high-level tools for OpenAI GPTs.'
+    )
+    return c.json(enhanced, 200, {
+      'X-API-Version': '3.1.0',
+    })
+  } catch (error: any) {
+    console.error('Error generating OpenAPI GPT JSON:', error)
+    return c.json({ error: 'Failed to generate OpenAPI GPT JSON', details: error.message }, 500)
+  }
+})
+
+// /gpt/openapi.yaml [Limited Schema for GPTs, 3.1.0, YAML]
+app.get('/gpt/openapi.yaml', async (c) => {
+  try {
+    const enhanced = await getEnhancedApiSpec(c, gptSpecApp, // <-- Use gptSpecApp
+      'GitHub Worker - GPT Custom Action', 
+      'A focused set of 7 high-level tools for OpenAI GPTs.'
+    )
+    const yaml = convertOpenAPIToYAML(enhanced)
+    return new Response(yaml, {
+      headers: {
+        'Content-Type': 'application/yaml',
+        'X-API-Version': '3.1.0',
+      },
+    })
+  } catch (error: any) {
+    console.error('Error generating OpenAPI GPT YAML:', error)
+    return c.json({ error: 'Failed to generate OpenAPI GPT YAML', details: error.message }, 500)
+  }
+})
+
 
 // --- 4. Other Runtime Routes (on main 'app') ---
 
@@ -343,7 +392,7 @@ app.get('/ws', async (c) => {
   return roomStub.fetch(c.req.raw)
 })
 
-// Optional: Add swagger UI (points to the new 3.1.0 JSON spec)
+// Optional: Add swagger UI (points to the full 3.1.0 JSON spec)
 app.get('/doc', swaggerUI({ url: '/openapi.json' }))
 
 // --- 5. API Runtime Routes (on main 'app') ---
@@ -398,7 +447,6 @@ async function searchRepositoriesWithRetry(
   }
 }
 
-// --- MODIFICATION: Updated analyzeRepository function ---
 async function analyzeRepository(
   repo: any,
   searchTerm: string,
@@ -489,7 +537,6 @@ async function analyzeRepository(
     return { relevancyScore: 0 }; // Final fallback
   }
 }
-// --- END MODIFICATION ---
 
 // --- 7. Export Handlers ---
 
@@ -504,10 +551,25 @@ export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     
     // --- MODIFICATION: Add ASSETS handling ---
+    const url = new URL(request.url);
+    if (url.pathname === '/') {
+      // This is a request for the root. 
+      // Manually create a new request for /index.html
+      const indexRequest = new Request(
+        new URL('/index.html', request.url),
+        request
+      );
+      try {
+        return await env.ASSETS.fetch(indexRequest);
+      } catch (e) {
+        // Fallback if index.html doesn't exist, just in case
+        return app.fetch(request, env, ctx);
+      }
+    }
+
     try {
       // 1. First, try to fetch the request as a static asset.
       // This will serve public/landing.html at /landing.html
-      // Or public/index.html at /
       return await env.ASSETS.fetch(request);
     } catch (e) {
       // 2. If it's not a static asset (e.g., 404), fall back to the Hono API app.
