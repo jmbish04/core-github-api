@@ -86,26 +86,23 @@ export function addSecuritySchemes(doc: Record<string, any>): Record<string, any
     components: {
       ...doc.components,
       securitySchemes: {
-        ApiKeyAuth: {
-          type: "apiKey",
-          in: "header",
-          name: "x-api-key",
-          description: "API key for authentication",
-        },
+        // --- MODIFICATION ---
+        // Only define one scheme for OpenAI compatibility
         BearerAuth: {
           type: "http",
           scheme: "bearer",
-          description: "Bearer token authentication",
+          description: "Bearer token for authentication (use your WORKER_API_KEY here)",
         },
+        // --- END MODIFICATION ---
       },
     },
     security: [
-      {
-        ApiKeyAuth: [],
-      },
+      // --- MODIFICATION ---
+      // Only include the single BearerAuth scheme
       {
         BearerAuth: [],
       },
+      // --- END MODIFICATION ---
     ],
   };
 }
