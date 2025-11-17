@@ -107,7 +107,7 @@ const RetrofitWorkflowsResponseSchema = z.object({
 const createNewRepoRoute = createRoute({
   method: 'post',
   path: '/flows/create-new-repo',
-  operationId: 'createNewRepo',
+  operationId: 'createNewRepo', // Added for OpenAPI
   request: {
     body: {
       content: {
@@ -134,7 +134,7 @@ const createNewRepoRoute = createRoute({
 const retrofitWorkflowsRoute = createRoute({
   method: 'post',
   path: '/flows/retrofit-workflows',
-  operationId: 'retrofitWorkflows',
+  operationId: 'retrofitWorkflows', // Added for OpenAPI
   request: {
     body: {
       content: {
@@ -403,8 +403,10 @@ flows.openapi(createNewRepoRoute, async (c) => {
   }
 
   // 4. Log the operation
+  // --- MODIFICATION: Changed c.env.CORE_GITHUB_API to c.env.DB ---
   await logRetrofitOperation(
-    c.env.CORE_GITHUB_API,
+    c.env.DB,
+  // --- END MODIFICATION ---
     repo.full_name,
     'create_new_repo',
     'success',
@@ -559,8 +561,10 @@ flows.openapi(retrofitWorkflowsRoute, async (c) => {
       }
 
       // Log the operation
+      // --- MODIFICATION: Changed c.env.CORE_GITHUB_API to c.env.DB ---
       await logRetrofitOperation(
-        c.env.CORE_GITHUB_API,
+        c.env.DB,
+      // --- END MODIFICATION ---
         repo.full_name,
         'retrofit_workflows',
         repoStatus,
@@ -583,8 +587,10 @@ flows.openapi(retrofitWorkflowsRoute, async (c) => {
       console.error(`[flows/retrofit-workflows] Error processing ${repo.full_name}:`, errorMessage)
       
       failedCount++
+      // --- MODIFICATION: Changed c.env.CORE_GITHUB_API to c.env.DB ---
       await logRetrofitOperation(
-        c.env.CORE_GITHUB_API,
+        c.env.DB,
+      // --- END MODIFICATION ---
         repo.full_name,
         'retrofit_workflows',
         'failure',
