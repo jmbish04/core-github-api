@@ -398,53 +398,98 @@ async function searchRepositoriesWithRetry(
   }
 }
 
+// --- MODIFICATION: Updated analyzeRepository function ---
 async function analyzeRepository(
   repo: any,
   searchTerm: string,
   ai: WorkersAiBinding
 ): Promise<{ relevancyScore: number }> {
-  const response = await ai.run('@cf/meta/llama-2-7b-chat-int8', {
-    prompt: `Given the following repository description, rate its relevancy to the search term "${searchTerm}" on a scale of 0 to 1, where 1 is highly relevant and 0 is not relevant at all. Return only the score.\n\nDescription: ${repo.description}`,
-  })
-
-  const scoreText = extractAiText(response)
-  const score = Number.parseFloat(scoreText)
-
-  return { relevancyScore: Number.isFinite(score) ? score : 0 }
-}
-
-function extractAiText(result: unknown): string {
-  if (typeof result === 'string') {
-    return result
-  }
-
-  if (result && typeof result === 'object') {
-    const record = result as Record<string, unknown>
-    if (typeof record.response === 'string') {
-      return record.response
-    }
-    if (typeof record.content === 'string') {
-      return record.content
-    }
-    if (Array.isArray(record.output_text)) {
-      return record.output_text.join('')
-    }
-    if (typeof record.output_text === 'string') {
-      return record.output_text
-    }
-    if (Array.isArray(record.responses) && record.responses.length > 0) {
-      const first = record.responses[0]
-      if (typeof first === 'string') {
-        return first
+  
+  // 1. Define the schema Llama 3.3 must return
+  const analysisSchema = {
+    type: "object",
+    properties: {
+      relevancyScore: { 
+        type: "number", 
+        minimum: 0, 
+        maximum: 1,
+        description: "A score from 0.0 to 1.0, where 1.0 is highly relevant."
+      },
+      reasoning: { 
+        type: "string",
+        description: "A brief justification for the score, explaining why the repo is or is not relevant."
       }
-      if (first && typeof first === 'object' && typeof (first as Record<string, unknown>).response === 'string') {
-        return (first as Record<string, unknown>).response as string
+    },
+    required: ["relevancyScore", "reasoning"]
+  };
+
+  // 2. Step 1: Reasoning with @cf/openai/gpt-oss-120b
+  const reasoningInstructions = `
+    You are a GitHub repository analyst. Your task is to rate the relevancy of a repository 
+    to a search term on a scale of 0.0 to 1.0.
+    Search Term: "${searchTerm}"
+    Repository: ${repo.full_name}
+    Description: "${repo.description || 'No description provided.'}"
+    
+    Provide a relevancy score (e.g., 0.8) and a *brief* justification for your score.
+    Return only the score and justification.
+  `;
+  
+  const gptResponse = await ai.run('@cf/openai/gpt-oss-120b', {
+    instructions: reasoningInstructions,
+    input: `Rate relevancy for: ${repo.full_name}`,
+  });
+  
+  const rawAnalysisText = typeof gptResponse === 'string' ? gptResponse : (gptResponse as any).response || '';
+
+  // 3. Step 2: Structuring with @cf/meta/llama-3.3-70b-instruct-fp8-fast
+  try {
+    const structuringSystemPrompt = `
+      You are a text standardization assistant. Parse the raw analysis text and return a 
+      structured JSON object that *strictly* adheres to the provided JSON schema. 
+      Return *only* the valid JSON object.
+    `;
+    
+    const llamaMessages = [
+      { role: "system", content: structuringSystemPrompt },
+      { role: "user", content: `Here is the raw text to parse:\n\n${rawAnalysisText}` }
+    ];
+
+    const llamaResponse = await ai.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+      messages: llamaMessages,
+      response_format: { 
+        type: "json_schema",
+        json_schema: analysisSchema
+      }
+    });
+
+    // 4. Parse the structured response
+    const structuredResponse = JSON.parse((llamaResponse as any).response);
+    
+    if (structuredResponse && typeof structuredResponse.relevancyScore === 'number') {
+      // Success!
+      return { relevancyScore: structuredResponse.relevancyScore };
+    }
+    
+    console.warn(`AI response for ${repo.full_name} did not match schema:`, (llamaResponse as any).response);
+    return { relevancyScore: 0 };
+
+  } catch (e) {
+    console.error(`Failed to parse AI JSON response for ${repo.full_name}:`, e, (rawAnalysisText));
+    
+    // Fallback: try to find a number in the *original* raw text from GPT-OSS
+    const scoreMatch = rawAnalysisText.match(/(\d\.\d+)/);
+    if (scoreMatch && scoreMatch[1]) {
+      const score = Number.parseFloat(scoreMatch[1]);
+      if (Number.isFinite(score)) {
+        return { relevancyScore: score };
       }
     }
+    
+    return { relevancyScore: 0 }; // Final fallback
   }
-
-  return ''
 }
+// --- END MODIFICATION ---
 
 // --- 7. Export Handlers ---
 
@@ -462,6 +507,7 @@ export default {
     try {
       // 1. First, try to fetch the request as a static asset.
       // This will serve public/landing.html at /landing.html
+      // Or public/index.html at /
       return await env.ASSETS.fetch(request);
     } catch (e) {
       // 2. If it's not a static asset (e.g., 404), fall back to the Hono API app.
