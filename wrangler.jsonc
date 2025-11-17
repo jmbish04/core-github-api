@@ -14,8 +14,9 @@
   "ai": {
     "binding": "AI"
   },
-  "site": {
-    "bucket": "./public"
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS"
   },
   // "secrets": [
   //   "GITHUB_TOKEN",
