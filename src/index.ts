@@ -542,3 +542,121 @@ export default {
  * "entrypoint": "GitHubWorker" // <-- This is the new required key
  * }
  * ]
+ * }
+ */
+export class GitHubWorker {
+  private rpc: GitHubWorkerRPC | null = null
+  private env: Env | null = null
+
+  // NOTE: 'fetch' and 'queue' handlers are removed from this class
+  // and are now on the 'export default' object.
+
+  // ==================== RPC Methods ====================
+  // These methods can be called directly when this worker is used as a service binding
+
+  private getRPC(env: Env): GitHubWorkerRPC {
+    if (!this.rpc || this.env !== env) {
+      this.env = env
+      this.rpc = new GitHubWorkerRPC(env)
+    }
+    return this.rpc
+  }
+
+  /**
+   * Check the health status of the worker
+   */
+  async health(env: Env) {
+    return this.getRPC(env).health()
+  }
+
+  /**
+   * Create or update a file in a GitHub repository
+   */
+  async upsertFile(request: Parameters<GitHubWorkerRPC['upsertFile']>[0], env: Env) {
+    return this.getRPC(env).upsertFile(request)
+  }
+
+  /**
+   * List repository contents with a tree-style representation
+   */
+  async listRepoTree(request: Parameters<GitHubWorkerRPC['listRepoTree']>[0], env: Env) {
+    return this.getRPC(env).listRepoTree(request)
+  }
+
+  /**
+   * Open a new pull request
+   */
+  async openPullRequest(request: Parameters<GitHubWorkerRPC['openPullRequest']>[0], env: Env) {
+    return this.getRPC(env).openPullRequest(request)
+  }
+
+  /**
+   * Create a new issue
+   */
+  async createIssue(request: Parameters<GitHubWorkerRPC['createIssue']>[0], env: Env) {
+    return this.getRPC(env).createIssue(request)
+  }
+
+  /**
+   * Generic proxy for GitHub REST API calls
+   */
+  async octokitRest(request: Parameters<GitHubWorkerRPC['octokitRest']>[0], env: Env) {
+    return this.getRPC(env).octokitRest(request)
+  }
+
+  /**
+   * Execute a GraphQL query against the GitHub API
+   */
+  async octokitGraphQL(request: Parameters<GitHubWorkerRPC['octokitGraphQL']>[0], env: Env) {
+    return this.getRPC(env).octokitGraphQL(request)
+  }
+
+  /**
+   * Create a new agent session for GitHub search and analysis
+   */
+  async createSession(request: Parameters<GitHubWorkerRPC['createSession']>[0], env: Env) {
+    return this.getRPC(env).createSession(request)
+  }
+
+  /**
+   * Get the status of an agent session
+   */
+  async getSessionStatus(request: Parameters<GitHubWorkerRPC['getSessionStatus']>[0], env: Env) {
+    return this.getRPC(env).getSessionStatus(request)
+  }
+
+  /**
+   * Search for GitHub repositories
+   */
+  async searchRepositories(request: Parameters<GitHubWorkerRPC['searchRepositories']>[0], env: Env) {
+    return this.getRPC(env).searchRepositories(request)
+  }
+
+  /**
+   * Batch upsert multiple files in a single call
+   */
+  async batchUpsertFiles(requests: Parameters<GitHubWorkerRPC['batchUpsertFiles']>[0], env: Env) {
+    return this.getRPC(env).batchUpsertFiles(requests)
+  }
+
+  /**
+   * Batch create multiple issues in a single call
+   */
+  async batchCreateIssues(requests: Parameters<GitHubWorkerRPC['batchCreateIssues']>[0], env: Env) {
+    return this.getRPC(env).batchCreateIssues(requests)
+  }
+}
+
+// Export Durable Objects
+export { RetrofitAgent } from './retrofit/RetrofitAgent'
+export { OrchestratorAgent } from './agents/orchestrator'
+export { RoomDO } from './do/RoomDO'
+
+// Export Workflows
+export { GithubSearchWorkflow } from './workflows/search'
+
+/**
+ * @extension_point
+ * This is a good place to add new top-level routes or middleware.
+ * For example, you could add an authentication middleware here.
+ */
