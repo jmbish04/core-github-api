@@ -25,6 +25,7 @@ const GraphqlResponseSchema = z.object({
 const graphqlRoute = createRoute({
   method: 'post',
   path: '/',
+  operationId: 'postOctokitGraphqlProxy',
   request: {
     body: {
       content: {
