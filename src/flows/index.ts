@@ -107,6 +107,7 @@ const RetrofitWorkflowsResponseSchema = z.object({
 const createNewRepoRoute = createRoute({
   method: 'post',
   path: '/flows/create-new-repo',
+  operationId: 'createNewRepo',
   request: {
     body: {
       content: {
@@ -133,6 +134,7 @@ const createNewRepoRoute = createRoute({
 const retrofitWorkflowsRoute = createRoute({
   method: 'post',
   path: '/flows/retrofit-workflows',
+  operationId: 'retrofitWorkflows',
   request: {
     body: {
       content: {
