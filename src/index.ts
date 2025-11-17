@@ -56,9 +56,7 @@ app.use('*', async (c, next) => {
   )
 
   try {
-    // --- MODIFICATION: Changed c.env.CORE_GITHUB_API to c.env.DB ---
     await c.env.DB.prepare(
-    // --- END MODIFICATION ---
       `INSERT INTO request_logs (
         timestamp,
         level,
@@ -459,8 +457,18 @@ export default {
    * HTTP fetch handler
    */
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    // Use the main 'app' to handle all incoming requests
-    return app.fetch(request, env, ctx)
+    
+    // --- MODIFICATION: Add ASSETS handling ---
+    try {
+      // 1. First, try to fetch the request as a static asset.
+      // This will serve public/landing.html at /landing.html
+      return await env.ASSETS.fetch(request);
+    } catch (e) {
+      // 2. If it's not a static asset (e.g., 404), fall back to the Hono API app.
+      // The Hono app handles /api, /mcp, /a2a, /openapi.json, etc.
+      return app.fetch(request, env, ctx);
+    }
+    // --- END MODIFICATION ---
   },
 
   /**
@@ -483,7 +491,6 @@ export default {
       // 2. Analyze each repository
       for (const repo of searchResults.items) {
         // 2a. Check if the repository has already been analyzed for this session
-        // --- MODIFICATION: Changed env.DB to env.DB ---
         const { results } = await env.DB.prepare(
           'SELECT id FROM repo_analysis WHERE session_id = ? AND repo_full_name = ?'
         ).bind(sessionId, repo.full_name).all()
@@ -496,7 +503,6 @@ export default {
         const analysis = await analyzeRepository(repo, searchTerm, aiBinding)
 
         // 2c. Persist the analysis to D1
-        // --- MODIFICATION: Changed env.DB to env.DB ---
         await env.DB.prepare(
           'INSERT INTO repo_analysis (session_id, search_id, repo_full_name, repo_url, description, relevancy_score) VALUES (?, ?, ?, ?, ?, ?)'
         ).bind(
@@ -510,7 +516,6 @@ export default {
       }
 
       // 3. Update the search status
-      // --- MODIFICATION: Changed env.DB to env.DB ---
       await env.DB.prepare(
         'UPDATE searches SET status = ? WHERE id = ?'
       ).bind('completed', searchId).run()
