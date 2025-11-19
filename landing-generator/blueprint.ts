@@ -239,7 +239,7 @@ export class BlueprintGenerator {
     return `Edge-first architecture built on ${parts.join(', ')}, delivering global performance with automatic scaling.`;
   }
 
-  private static generateArchitectureDiagram(components: any[]): string {
+  private static generateArchitectureDiagram(components: import('./types').ArchitectureComponent[]): string {
     const lines = [];
     lines.push('┌─────────────────────────────────────────┐');
     lines.push('│        Cloudflare Edge Network         │');
