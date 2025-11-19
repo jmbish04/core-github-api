@@ -150,7 +150,7 @@ export class TemplateGenerator {
     </nav>`;
   }
 
-  private static generateHero(hero: any): string {
+  private static generateHero(hero: import('./types').HeroSection): string {
     const statsHTML = hero.liveStats ? hero.liveStats.map((stat: any) => `
                     <div class="text-center">
                         <div class="text-3xl font-bold text-white">${stat.value}</div>
