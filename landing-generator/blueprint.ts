@@ -219,7 +219,7 @@ export class BlueprintGenerator {
 
   // Helper methods
 
-  private static generateArchitectureDescription(components: any[]): string {
+  private static generateArchitectureDescription(components: import('./types').ArchitectureComponent[]): string {
     const types = new Set(components.map(c => c.type));
     const parts = [];
 
