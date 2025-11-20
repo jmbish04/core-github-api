@@ -214,7 +214,7 @@ export class WorkerAnalyzer {
    * For production use, override via customAnalysis.painPoints to provide
    * domain-specific problems and solutions.
    */
-  private static identifyPainPoints(purpose: unknown, features: string[]): Array<{
+  private static identifyPainPoints(): Array<{
     title: string;
     description: string;
     solution: string;
