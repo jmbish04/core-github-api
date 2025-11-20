@@ -207,7 +207,7 @@ export class BlueprintGenerator {
     };
   }
 
-  private static generateCTA(analysis: WorkerAnalysis) {
+  private static generateCTA() {
     return {
       tagline: 'Ready to transform your GitHub workflow?',
       buttons: [
