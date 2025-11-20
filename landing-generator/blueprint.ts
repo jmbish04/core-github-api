@@ -169,7 +169,7 @@ export class BlueprintGenerator {
     };
   }
 
-  private static generateRoadmap(analysis: WorkerAnalysis) {
+  private static generateRoadmap() {
     return {
       title: 'Roadmap',
       milestones: [
