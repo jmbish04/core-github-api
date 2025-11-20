@@ -286,7 +286,7 @@ export class BlueprintGenerator {
     };
 
     const key = Object.keys(icons).find(k => title.toLowerCase().includes(k));
-    return icons[key || 'complex'] || '⚠️';
+    return icons[key || 'complex'];
   }
 
   private static selectFeatureIcon(solution: string): string {
