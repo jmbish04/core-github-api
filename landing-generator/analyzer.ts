@@ -151,6 +151,7 @@ export class WorkerAnalyzer {
       const featureSet = new Set<string>();
 
       Object.entries(apiSpec.paths).forEach(([path, methods]) => {
+        const initialSize = featureSet.size;
         // Try to extract feature from operation tags or summaries
         Object.values(methods).forEach(operation => {
           if (operation.tags && operation.tags.length > 0) {
@@ -161,8 +162,8 @@ export class WorkerAnalyzer {
           }
         });
 
-        // Fallback to path segment only if no tags/summaries found
-        if (featureSet.size === 0) {
+        // Fallback to path segment only if no tags/summaries found for this path
+        if (featureSet.size === initialSize) {
           const segment = path.split('/').filter(s => s && !s.startsWith('{'))[0];
           if (segment) {
             featureSet.add(segment.charAt(0).toUpperCase() + segment.slice(1));
