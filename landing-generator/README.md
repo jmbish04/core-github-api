@@ -181,10 +181,10 @@ Main entry point for HTML generation.
 
 ```typescript
 interface GeneratorConfig {
-  wranglerConfig?: any;          // Parsed wrangler.jsonc
-  packageJson?: any;              // Parsed package.json
+  wranglerConfig?: WranglerConfig;          // Parsed wrangler.jsonc
+  packageJson?: PackageJson;              // Parsed package.json
   sourceFiles?: Record<string, string>; // Optional source code
-  apiSpec?: any;                  // Optional OpenAPI spec
+  apiSpec?: OpenAPISpec;                  // Optional OpenAPI spec
   customAnalysis?: Partial<WorkerAnalysis>; // Override defaults
 }
 
