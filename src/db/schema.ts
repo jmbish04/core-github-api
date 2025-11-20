@@ -52,8 +52,8 @@ export const searches = sqliteTable('searches', {
  */
 export const repoAnalysis = sqliteTable('repo_analysis', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  sessionId: text('session_id'),
-  searchId: integer('search_id'),
+  sessionId: text('session_id').references(() => sessions.sessionId),
+  searchId: integer('search_id').references(() => searches.id),
   repoFullName: text('repo_full_name'),
   repoUrl: text('repo_url'),
   description: text('description'),
