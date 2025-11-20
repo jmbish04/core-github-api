@@ -9,7 +9,7 @@
     "migrate:local": "wrangler d1 migrations apply DB --local",
     "migrate:remote": "wrangler d1 migrations apply DB --remote",
     "deploy:only": "wrangler deploy",
-    "deploy": "npm run migrate:remote && npm run deploy:only",
+    "deploy": "npm run db:generate && npm run migrate:remote && npm run deploy:only",
     "db:generate": "drizzle-kit generate:sqlite --config=drizzle.config.ts"
   },
   "dependencies": {
