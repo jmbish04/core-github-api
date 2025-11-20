@@ -486,6 +486,9 @@ flows.openapi(retrofitWorkflowsRoute, async (c) => {
   let skippedCount = 0
   let failedCount = 0
 
+  // Initialize DB instance once, outside the loop
+  const db = getDb(c.env.DB)
+
   for (const repo of targetRepos) {
     console.log(`[flows/retrofit-workflows] Processing ${repo.full_name}`)
     
@@ -557,7 +560,7 @@ flows.openapi(retrofitWorkflowsRoute, async (c) => {
 
       // Log the operation
       await logRetrofitOperation(
-        getDb(c.env.DB),
+        db,
         repo.full_name,
         'retrofit_workflows',
         repoStatus,
@@ -581,7 +584,7 @@ flows.openapi(retrofitWorkflowsRoute, async (c) => {
 
       failedCount++
       await logRetrofitOperation(
-        getDb(c.env.DB),
+        db,
         repo.full_name,
         'retrofit_workflows',
         'failure',
