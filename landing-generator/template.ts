@@ -78,7 +78,7 @@ export class TemplateGenerator {
 </head>
 <body class="bg-white text-slate-900" x-data="{ mobileMenuOpen: false }">
 
-    ${this.generateNav(blueprint)}
+    ${this.generateNav(blueprint, branding)}
 
     ${this.generateHero(blueprint.hero)}
 
@@ -96,7 +96,7 @@ export class TemplateGenerator {
 
     ${this.generateCTA(blueprint.cta)}
 
-    ${this.generateFooter(workerName)}
+    ${this.generateFooter(workerName, footerLinks)}
 
     ${this.generateScrollScript()}
 
