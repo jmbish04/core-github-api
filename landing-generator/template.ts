@@ -8,7 +8,7 @@ export class TemplateGenerator {
   /**
    * Generate complete HTML page from content blueprint
    */
-  static generate(blueprint: ContentBlueprint, workerName: string): string {
+  static generate(blueprint: ContentBlueprint, workerName: string, branding?: import('./types').WorkerAnalysis['branding'], footerLinks?: import('./types').WorkerAnalysis['links']['footer']): string {
     return `<!DOCTYPE html>
 <html lang="en" class="scroll-smooth">
 <head>
