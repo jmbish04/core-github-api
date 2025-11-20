@@ -280,7 +280,7 @@ export class WorkerAnalyzer {
 
     if (packageJson?.dependencies) {
       Object.entries(dependencyMap).forEach(([pkg, label]) => {
-        if (packageJson.dependencies![pkg]) stack.push(label);
+        if (packageJson.dependencies[pkg]) stack.push(label);
       });
     }
 
