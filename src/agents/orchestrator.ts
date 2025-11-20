@@ -6,31 +6,41 @@
  */
 
 import { Agent } from 'agents'
+import { initDb } from '../db'
+import { sessions, searches, repoAnalysis } from '../db/schema'
+import { eq, desc } from 'drizzle-orm'
 // No longer need a direct import of the workflow class to call it
 
 export class OrchestratorAgent extends Agent {
+  private db
+
   constructor(ctx, env) {
     super(ctx, env)
+    this.db = initDb(this.env.DB)
   }
 
   async start(prompt: string) {
     const sessionId = crypto.randomUUID()
     const searchIds = []
 
-    // 1. Persist the session to D1
-    await this.env.DB.prepare(
-      'INSERT INTO sessions (session_id, prompt) VALUES (?, ?)'
-    ).bind(sessionId, prompt).run()
+    // 1. Persist the session to D1 using Drizzle
+    await this.db.insert(sessions).values({
+      sessionId,
+      prompt,
+    })
 
     // 2. Generate search terms
     const searchTerms = await this.generateSearchTerms(prompt)
 
     // 3. Launch a workflow for each search term
     for (const searchTerm of searchTerms) {
-      const search = await this.env.DB.prepare(
-        'INSERT INTO searches (session_id, search_term) VALUES (?, ?)'
-      ).bind(sessionId, searchTerm).run()
-      const searchId = search.meta.last_row_id
+      // Insert search and get the returned row to access the ID
+      const result = await this.db.insert(searches).values({
+        sessionId,
+        searchTerm,
+      }).returning({ id: searches.id })
+
+      const searchId = result[0].id
       searchIds.push(searchId)
 
       // Use the binding's .create() method to start the workflow
@@ -57,9 +67,13 @@ export class OrchestratorAgent extends Agent {
       return { status: 'pending', results: [] }
     }
 
-    const { results } = await this.env.DB.prepare(
-      'SELECT * FROM repo_analysis WHERE session_id = ? ORDER BY relevancy_score DESC LIMIT 10'
-    ).bind(sessionId).all()
+    const results = await this.db
+      .select()
+      .from(repoAnalysis)
+      .where(eq(repoAnalysis.sessionId, sessionId))
+      .orderBy(desc(repoAnalysis.relevancyScore))
+      .limit(10)
+
     return { status: 'completed', results }
   }
 
