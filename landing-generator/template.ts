@@ -466,9 +466,10 @@ export class TemplateGenerator {
                 <div>
                     <h3 class="text-white font-semibold mb-4">Documentation</h3>
                     <ul class="space-y-2 text-sm">
-                        <li><a href="/doc" class="hover:text-white transition">API Documentation</a></li>
-                        <li><a href="/openapi.json" class="hover:text-white transition">OpenAPI Spec</a></li>
-                        <li><a href="/openapi.yaml" class="hover:text-white transition">YAML Spec</a></li>
+                        ${footerLinks
+                          ? footerLinks.map(link => `<li><a href="${link.href}" class="hover:text-white transition">${link.text}</a></li>`).join('')
+                          : `<li><a href="/doc" class="hover:text-white transition">API Documentation</a></li>`
+                        }
                     </ul>
                 </div>
 
