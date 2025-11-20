@@ -18,4 +18,4 @@ export function getDb(d1: D1Database) {
 }
 
 // Re-export the schema for convenience
-export * as schema from './schema'
+export { schema }

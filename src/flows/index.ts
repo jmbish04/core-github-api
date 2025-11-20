@@ -175,9 +175,9 @@ async function logRetrofitOperation(
   try {
     await db.insert(schema.ghManagementConfig).values({
       timestamp: new Date().toISOString(),
-      repoName: repoName,
-      action: action,
-      status: status,
+      repoName,
+      action,
+      status,
       statusDetails: JSON.stringify(statusDetails)
     })
   } catch (error) {

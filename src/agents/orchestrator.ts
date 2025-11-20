@@ -22,8 +22,8 @@ export class OrchestratorAgent extends Agent {
 
     // 1. Persist the session to D1
     await db.insert(schema.sessions).values({
-      sessionId: sessionId,
-      prompt: prompt
+      sessionId,
+      prompt
     })
 
     // 2. Generate search terms
@@ -32,8 +32,8 @@ export class OrchestratorAgent extends Agent {
     // 3. Launch a workflow for each search term
     for (const searchTerm of searchTerms) {
       const search = await db.insert(schema.searches).values({
-        sessionId: sessionId,
-        searchTerm: searchTerm
+        sessionId,
+        searchTerm
       }).returning({ id: schema.searches.id })
 
       const searchId = search[0].id

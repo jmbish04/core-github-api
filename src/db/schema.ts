@@ -72,7 +72,7 @@ export const repoAnalysis = sqliteTable('repo_analysis', {
  */
 export const ghManagementConfig = sqliteTable('gh_management_config', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  timestamp: text('timestamp').notNull().default('CURRENT_TIMESTAMP'),
+  timestamp: text('timestamp').notNull(),
   repoName: text('repo_name').notNull(),
   action: text('action').notNull(),
   status: text('status').notNull(),
