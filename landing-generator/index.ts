@@ -11,10 +11,10 @@ import { BlueprintGenerator } from './blueprint';
 import { TemplateGenerator } from './template';
 
 export interface GeneratorConfig {
-  wranglerConfig?: any;
-  packageJson?: any;
+  wranglerConfig?: import('./types').WranglerConfig;
+  packageJson?: import('./types').PackageJson;
   sourceFiles?: Record<string, string>;
-  apiSpec?: any;
+  apiSpec?: import('./types').OpenAPISpec;
   customAnalysis?: Partial<import('./types').WorkerAnalysis>;
 }
 
@@ -33,8 +33,13 @@ export async function generateLandingPage(config: GeneratorConfig): Promise<stri
   // Step 2: Generate content blueprint
   const blueprint = BlueprintGenerator.generate(finalAnalysis);
 
-  // Step 3: Generate HTML
-  const html = TemplateGenerator.generate(blueprint, finalAnalysis.name);
+  // Step 3: Generate HTML with branding and footer links
+  const html = TemplateGenerator.generate(
+    blueprint,
+    finalAnalysis.name,
+    finalAnalysis.branding,
+    finalAnalysis.links?.footer
+  );
 
   return html;
 }

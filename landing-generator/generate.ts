@@ -5,20 +5,37 @@
 
 import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
+import JSON5 from 'json5';
 import { generateLandingPage } from './index';
 import type { WorkerAnalysis } from './types';
 
 async function main() {
   console.log('🚀 Generating landing page for Core GitHub API...\n');
 
-  // Load configs
-  const wranglerConfig = JSON.parse(readFileSync('wrangler.jsonc', 'utf-8').replace(/\/\/.*/g, ''));
+  // Load configs using JSON5 for proper JSONC parsing
+  const wranglerConfig = JSON5.parse(readFileSync('wrangler.jsonc', 'utf-8'));
   const packageJson = JSON.parse(readFileSync('package.json', 'utf-8'));
 
   // Custom analysis for this specific Worker
   const customAnalysis: Partial<WorkerAnalysis> = {
     name: 'Core GitHub API',
     description: 'AI-first GitHub API proxy built on Cloudflare Workers',
+
+    branding: {
+      icon: '🔮',
+      displayName: 'Core GitHub API',
+    },
+
+    links: {
+      primary: { text: '📖 Explore Interactive API', href: '/doc' },
+      secondary: { text: '📋 View OpenAPI Spec', href: '/openapi.json' },
+      footer: [
+        { text: 'Interactive API Docs', href: '/doc' },
+        { text: 'OpenAPI JSON', href: '/openapi.json' },
+        { text: 'OpenAPI YAML', href: '/openapi.yaml' },
+        { text: 'MCP Tools', href: '/mcp-tools' },
+      ],
+    },
 
     purpose: {
       headline: 'GitHub Automation Redefines How AI Agents Code',

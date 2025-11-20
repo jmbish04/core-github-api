@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Core GitHub API - AI-First GitHub Automation</title>
-    <meta name="description" content="Multi-protocol GitHub proxy engineered for autonomous AI operations with real-time collaboration and intelligent search.">
+    <title>Core GitHub API - Cloudflare Worker</title>
+    <meta name="description" content="Transform GitHub from a manual code platform into a programmable infrastructure layer that AI agents can orchestrate at scale—with real-time collaboration, intelligent search, and enterprise-grade observability.">
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -44,7 +44,7 @@
         .code-block {
             background: #1e293b;
             border-radius: 8px;
-            padding: 1.5rem;
+            padding: 1rem;
             overflow-x: auto;
         }
 
@@ -64,19 +64,11 @@
         .float-anim {
             animation: float 3s ease-in-out infinite;
         }
-
-        @keyframes pulse-glow {
-            0%, 100% { box-shadow: 0 0 20px rgba(79, 70, 229, 0.4); }
-            50% { box-shadow: 0 0 40px rgba(79, 70, 229, 0.6); }
-        }
-
-        .pulse-glow {
-            animation: pulse-glow 2s ease-in-out infinite;
-        }
     </style>
 </head>
 <body class="bg-white text-slate-900" x-data="{ mobileMenuOpen: false }">
 
+    
     <!-- Sticky Glass Navigation -->
     <nav class="glass-nav fixed top-0 left-0 right-0 z-50">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -97,7 +89,7 @@
                     <a href="#roadmap" class="text-slate-600 hover:text-indigo-600 transition">Roadmap</a>
                     <a href="/doc"
                        class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">
-                        Explore API
+                        📖 Explore Interactive API
                     </a>
                 </div>
 
@@ -122,6 +114,7 @@
         </div>
     </nav>
 
+    
     <!-- Hero Section -->
     <section id="hero" class="gradient-hero pt-32 pb-20 relative overflow-hidden">
         <div class="absolute inset-0 opacity-10">
@@ -131,22 +124,16 @@
 
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
             <div class="text-center fade-in-up">
-                <div class="inline-block mb-4 px-4 py-2 bg-white bg-opacity-20 rounded-full text-indigo-100 text-sm font-semibold backdrop-blur">
-                    🚀 Powered by Cloudflare Workers + Durable Objects + AI
-                </div>
                 <h1 class="text-5xl md:text-7xl font-black text-white mb-6 leading-tight">
-                    GitHub Automation<br/>
-                    <span class="bg-gradient-to-r from-emerald-300 to-cyan-300 bg-clip-text text-transparent">
-                        Redefines How AI Agents Code
-                    </span>
+                    GitHub Automation Redefines How AI Agents Code
                 </h1>
-                <p class="text-xl md:text-2xl text-indigo-100 mb-10 max-w-4xl mx-auto leading-relaxed">
+                <p class="text-xl md:text-2xl text-indigo-100 mb-10 max-w-3xl mx-auto leading-relaxed">
                     Transform GitHub from a manual code platform into a programmable infrastructure layer that AI agents can orchestrate at scale—with real-time collaboration, intelligent search, and enterprise-grade observability.
                 </p>
 
                 <div class="flex flex-col sm:flex-row gap-4 justify-center mb-16">
                     <a href="/doc"
-                       class="px-8 py-4 bg-white text-indigo-600 rounded-lg font-semibold text-lg hover:bg-indigo-50 transition shadow-xl pulse-glow">
+                       class="px-8 py-4 bg-white text-indigo-600 rounded-lg font-semibold text-lg hover:bg-indigo-50 transition shadow-xl">
                         📖 Explore Interactive API
                     </a>
                     <a href="/openapi.json"
@@ -155,70 +142,81 @@
                     </a>
                 </div>
 
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-4xl mx-auto pt-8 border-t border-white border-opacity-20">
+                
+                <div class="grid grid-cols-3 gap-8 max-w-2xl mx-auto pt-8 border-t border-white border-opacity-20">
+                    
                     <div class="text-center">
-                        <div class="text-3xl font-bold text-white">&lt;50ms</div>
+                        <div class="text-3xl font-bold text-white"><50ms</div>
                         <div class="text-indigo-200 text-sm mt-1">P95 Response Time</div>
                     </div>
+    
                     <div class="text-center">
                         <div class="text-3xl font-bold text-white">99.99%</div>
                         <div class="text-indigo-200 text-sm mt-1">Global Uptime</div>
                     </div>
+    
                     <div class="text-center">
                         <div class="text-3xl font-bold text-white">4</div>
                         <div class="text-indigo-200 text-sm mt-1">Protocol Interfaces</div>
                     </div>
+    
                     <div class="text-center">
-                        <div class="text-3xl font-bold text-white">∞</div>
-                        <div class="text-indigo-200 text-sm mt-1">Auto-Scaling</div>
+                        <div class="text-3xl font-bold text-white">7+</div>
+                        <div class="text-indigo-200 text-sm mt-1">MCP Tools</div>
                     </div>
+    
                 </div>
+                
             </div>
         </div>
     </section>
 
+    
     <!-- Problem Section -->
     <section id="problem" class="py-20 bg-slate-50">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="text-center mb-16 fade-in-up">
-                <h2 class="text-4xl md:text-5xl font-black text-slate-900 mb-4">The Challenges It Solves</h2>
+                <h2 class="text-4xl md:text-5xl font-black text-slate-900 mb-4">The Challenge It Solves</h2>
                 <div class="w-24 h-1 bg-gradient-to-r from-indigo-600 to-purple-600 mx-auto"></div>
             </div>
 
-            <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+            <div class="grid md:grid-cols-3 gap-8">
+                
                 <div class="fade-in-up bg-white p-8 rounded-xl shadow-lg border border-slate-200 hover:shadow-xl transition">
-                    <div class="text-4xl mb-4">🔌</div>
+                    <div class="text-4xl mb-4">🧩</div>
                     <h3 class="text-xl font-bold text-slate-900 mb-3">AI Agents Lack GitHub Access</h3>
                     <p class="text-slate-600 leading-relaxed">Modern AI agents need structured, validated interfaces to interact with GitHub, but the standard API lacks tool schemas and MCP protocol support.</p>
                 </div>
-
+    
                 <div class="fade-in-up bg-white p-8 rounded-xl shadow-lg border border-slate-200 hover:shadow-xl transition">
                     <div class="text-4xl mb-4">⚙️</div>
                     <h3 class="text-xl font-bold text-slate-900 mb-3">Manual Repository Operations</h3>
                     <p class="text-slate-600 leading-relaxed">Setting up CI/CD workflows across dozens of repositories requires manual, error-prone configuration that can take days or weeks.</p>
                 </div>
-
+    
                 <div class="fade-in-up bg-white p-8 rounded-xl shadow-lg border border-slate-200 hover:shadow-xl transition">
-                    <div class="text-4xl mb-4">🔍</div>
+                    <div class="text-4xl mb-4">🧩</div>
                     <h3 class="text-xl font-bold text-slate-900 mb-3">Repository Discovery at Scale</h3>
                     <p class="text-slate-600 leading-relaxed">Finding relevant repositories across large organizations requires multiple manual searches, analysis, and relevancy scoring.</p>
                 </div>
-
+    
                 <div class="fade-in-up bg-white p-8 rounded-xl shadow-lg border border-slate-200 hover:shadow-xl transition">
-                    <div class="text-4xl mb-4">🚫</div>
+                    <div class="text-4xl mb-4">🧩</div>
                     <h3 class="text-xl font-bold text-slate-900 mb-3">No Real-Time Coordination</h3>
                     <p class="text-slate-600 leading-relaxed">Multiple developers and AI agents need to coordinate GitHub operations in real-time without polling or webhooks.</p>
                 </div>
+    
             </div>
         </div>
     </section>
 
+    
     <!-- Solution Section -->
     <section id="solution" class="py-20 bg-white">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="text-center mb-16 fade-in-up">
-                <h2 class="text-4xl md:text-5xl font-black text-slate-900 mb-4">Edge-First Architecture</h2>
-                <p class="text-xl text-slate-600 max-w-3xl mx-auto">Built on Cloudflare Workers, Durable Objects, D1, Workers AI, and Queues—delivering global performance with automatic scaling.</p>
+                <h2 class="text-4xl md:text-5xl font-black text-slate-900 mb-4">How It Works</h2>
+                <p class="text-xl text-slate-600 max-w-3xl mx-auto">Edge-first architecture built on Stateful Durable Objects for orchestration, D1 for persistent storage, Workers AI for intelligent processing, Queues for async workflows, delivering global performance with automatic scaling.</p>
             </div>
 
             <div class="grid lg:grid-cols-2 gap-12 items-start">
@@ -232,19 +230,12 @@
                   │
       ┌───────────▼───────────┐
       │   Worker (Hono API)   │
-      │   • REST, WebSocket   │
-      │   • RPC, MCP          │
       └───────────┬───────────┘
                   │
-      ┌───────────┼───────────┬───────────┐
-      │           │           │           │
-  ┌───▼───┐   ┌──▼──┐    ┌───▼───┐   ┌──▼──┐
-  │  D.O. │   │ D1  │    │Queue  │   │ AI  │
-  │3 Types│   │SQLite│   │Async  │   │Llama│
-  └───────┘   └─────┘    └───────┘   └─────┘
-      │           │           │           │
-  WebSocket   Sessions   Workflows   Analysis
-   Rooms      & Logs     & Search    & Intel</pre>
+      ──────││──────│──────│──────│
+  ┌───────┐   ┌───────┐   ┌───────┐   ┌───────┐   ┌───────┐
+  │  D.O. │   │  D1   │   │  Queue│   │  AI   │   │  KV   │
+  └───────┘   └───────┘   └───────┘   └───────┘   └───────┘</pre>
                     </div>
                 </div>
 
@@ -253,64 +244,84 @@
                     <div>
                         <h3 class="text-2xl font-bold text-slate-900 mb-6">Architecture Components</h3>
                         <ul class="space-y-4">
-                            <li class="flex items-start space-x-3">
-                                <svg class="w-6 h-6 text-emerald-500 flex-shrink-0 mt-1" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-                                </svg>
-                                <div>
-                                    <span class="font-semibold text-slate-900">3 Durable Objects</span>
-                                    <span class="text-slate-600"> - OrchestratorAgent (AI search), RetrofitAgent (bulk ops), RoomDO (WebSocket)</span>
-                                </div>
-                            </li>
-                            <li class="flex items-start space-x-3">
-                                <svg class="w-6 h-6 text-emerald-500 flex-shrink-0 mt-1" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-                                </svg>
-                                <div>
-                                    <span class="font-semibold text-slate-900">D1 Database</span>
-                                    <span class="text-slate-600"> - Sessions, searches, repo analysis, audit logs (4 tables)</span>
-                                </div>
-                            </li>
-                            <li class="flex items-start space-x-3">
-                                <svg class="w-6 h-6 text-emerald-500 flex-shrink-0 mt-1" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-                                </svg>
-                                <div>
-                                    <span class="font-semibold text-slate-900">Workers AI</span>
-                                    <span class="text-slate-600"> - Llama 3.3 70B, GPT-OSS-120B for NLP & analysis</span>
-                                </div>
-                            </li>
-                            <li class="flex items-start space-x-3">
-                                <svg class="w-6 h-6 text-emerald-500 flex-shrink-0 mt-1" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-                                </svg>
-                                <div>
-                                    <span class="font-semibold text-slate-900">Queues + Workflows</span>
-                                    <span class="text-slate-600"> - Async GitHub search processing with batching</span>
-                                </div>
-                            </li>
+                            
+                    <li class="flex items-start space-x-3">
+                        <svg class="w-6 h-6 text-emerald-500 flex-shrink-0 mt-1" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                        </svg>
+                        <div>
+                            <span class="font-semibold text-slate-900">OrchestratorAgent</span>
+                            <span class="text-slate-600"> - Stateful object: ORCHESTRATOR</span>
+                        </div>
+                    </li>
+    
+                    <li class="flex items-start space-x-3">
+                        <svg class="w-6 h-6 text-emerald-500 flex-shrink-0 mt-1" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                        </svg>
+                        <div>
+                            <span class="font-semibold text-slate-900">RetrofitAgent</span>
+                            <span class="text-slate-600"> - Stateful object: RetrofitAgent</span>
+                        </div>
+                    </li>
+    
+                    <li class="flex items-start space-x-3">
+                        <svg class="w-6 h-6 text-emerald-500 flex-shrink-0 mt-1" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                        </svg>
+                        <div>
+                            <span class="font-semibold text-slate-900">RoomDO</span>
+                            <span class="text-slate-600"> - Stateful object: ROOM_DO</span>
+                        </div>
+                    </li>
+    
+                    <li class="flex items-start space-x-3">
+                        <svg class="w-6 h-6 text-emerald-500 flex-shrink-0 mt-1" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                        </svg>
+                        <div>
+                            <span class="font-semibold text-slate-900">core-github-api</span>
+                            <span class="text-slate-600"> - SQLite-compatible serverless database</span>
+                        </div>
+                    </li>
+    
                         </ul>
                     </div>
 
                     <div>
-                        <h3 class="text-2xl font-bold text-slate-900 mb-6">Why Edge-First?</h3>
+                        <h3 class="text-2xl font-bold text-slate-900 mb-6">Key Benefits</h3>
                         <ul class="space-y-3">
-                            <li class="flex items-start space-x-3">
-                                <span class="text-indigo-600 text-xl">✓</span>
-                                <span class="text-slate-700">Global performance: <strong>&lt;50ms P95</strong> from 310+ edge locations</span>
-                            </li>
-                            <li class="flex items-start space-x-3">
-                                <span class="text-indigo-600 text-xl">✓</span>
-                                <span class="text-slate-700">Automatic scaling: 0 → millions of requests with zero config</span>
-                            </li>
-                            <li class="flex items-start space-x-3">
-                                <span class="text-indigo-600 text-xl">✓</span>
-                                <span class="text-slate-700">Built-in observability: Real-time logs, analytics, and traces</span>
-                            </li>
-                            <li class="flex items-start space-x-3">
-                                <span class="text-indigo-600 text-xl">✓</span>
-                                <span class="text-slate-700">Type-safe APIs: OpenAPI + Zod validation on every request</span>
-                            </li>
+                            
+                    <li class="flex items-start space-x-3">
+                        <span class="text-indigo-600 text-xl">✓</span>
+                        <span class="text-slate-700">Edge-first architecture for global performance</span>
+                    </li>
+    
+                    <li class="flex items-start space-x-3">
+                        <span class="text-indigo-600 text-xl">✓</span>
+                        <span class="text-slate-700">Automatic scaling from 0 to millions of requests</span>
+                    </li>
+    
+                    <li class="flex items-start space-x-3">
+                        <span class="text-indigo-600 text-xl">✓</span>
+                        <span class="text-slate-700">Stateful orchestration with strongly consistent Durable Objects</span>
+                    </li>
+    
+                    <li class="flex items-start space-x-3">
+                        <span class="text-indigo-600 text-xl">✓</span>
+                        <span class="text-slate-700">SQLite-compatible persistence with global replication</span>
+                    </li>
+    
+                    <li class="flex items-start space-x-3">
+                        <span class="text-indigo-600 text-xl">✓</span>
+                        <span class="text-slate-700">Integrated AI models for intelligent processing</span>
+                    </li>
+    
+                    <li class="flex items-start space-x-3">
+                        <span class="text-indigo-600 text-xl">✓</span>
+                        <span class="text-slate-700">Asynchronous workflows with reliable message queues</span>
+                    </li>
+    
                         </ul>
                     </div>
                 </div>
@@ -318,6 +329,7 @@
         </div>
     </section>
 
+    
     <!-- Features Section -->
     <section id="features" class="py-20 bg-indigo-50">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -327,71 +339,80 @@
             </div>
 
             <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                
                 <div class="fade-in-up bg-gradient-to-br from-white to-indigo-50 p-8 rounded-xl shadow-lg hover:shadow-2xl transition border border-indigo-100">
-                    <div class="text-5xl mb-4">🔌</div>
-                    <h3 class="text-2xl font-bold text-slate-900 mb-3">Multi-Protocol Interface</h3>
-                    <p class="text-slate-700 mb-4 leading-relaxed">REST, WebSocket, RPC service bindings, and MCP (Model Context Protocol) for AI agents—choose your integration style.</p>
-                    <div class="flex flex-wrap gap-2">
-                        <span class="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm font-medium">REST API</span>
-                        <span class="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm font-medium">WebSocket</span>
-                        <span class="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm font-medium">MCP</span>
-                    </div>
+                    <div class="text-5xl mb-4">✨</div>
+                    <h3 class="text-2xl font-bold text-slate-900 mb-3">Native MCP Protocol with 7+ pre-built tools, automatic schema validation, and JSON Schema documentation for seamless AI agent integration.</h3>
+                    <p class="text-slate-700 mb-4 leading-relaxed">Solves the "AI Agents Lack GitHub Access" problem with intelligent automation</p>
+                    
                 </div>
-
+    
+                <div class="fade-in-up bg-gradient-to-br from-white to-indigo-50 p-8 rounded-xl shadow-lg hover:shadow-2xl transition border border-indigo-100">
+                    <div class="text-5xl mb-4">🧠</div>
+                    <h3 class="text-2xl font-bold text-slate-900 mb-3">Intelligent Flows API with date-based filtering, automatic workflow detection, and comprehensive audit logging for bulk operations.</h3>
+                    <p class="text-slate-700 mb-4 leading-relaxed">Solves the "Manual Repository Operations" problem with intelligent automation</p>
+                    
+                </div>
+    
+                <div class="fade-in-up bg-gradient-to-br from-white to-indigo-50 p-8 rounded-xl shadow-lg hover:shadow-2xl transition border border-indigo-100">
+                    <div class="text-5xl mb-4">✨</div>
+                    <h3 class="text-2xl font-bold text-slate-900 mb-3">AI-Powered Orchestrator generates search strategies, analyzes results with Llama 3.3, and ranks repositories by semantic relevancy.</h3>
+                    <p class="text-slate-700 mb-4 leading-relaxed">Solves the "Repository Discovery at Scale" problem with intelligent automation</p>
+                    
+                </div>
+    
+                <div class="fade-in-up bg-gradient-to-br from-white to-indigo-50 p-8 rounded-xl shadow-lg hover:shadow-2xl transition border border-indigo-100">
+                    <div class="text-5xl mb-4">✨</div>
+                    <h3 class="text-2xl font-bold text-slate-900 mb-3">Hibernatable WebSocket Durable Objects provide project-based collaboration rooms with presence tracking and broadcast messaging.</h3>
+                    <p class="text-slate-700 mb-4 leading-relaxed">Solves the "No Real-Time Coordination" problem with intelligent automation</p>
+                    
+                    <div class="flex flex-wrap gap-2">
+                        
+                        <span class="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm font-medium">Durable Objects</span>
+                        
+                    </div>
+                    
+                </div>
+    
+                <div class="fade-in-up bg-gradient-to-br from-white to-indigo-50 p-8 rounded-xl shadow-lg hover:shadow-2xl transition border border-indigo-100">
+                    <div class="text-5xl mb-4">🔄</div>
+                    <h3 class="text-2xl font-bold text-slate-900 mb-3">Stateful Orchestration</h3>
+                    <p class="text-slate-700 mb-4 leading-relaxed">Durable Objects provide strongly consistent, low-latency state management</p>
+                    
+                    <div class="flex flex-wrap gap-2">
+                        
+                        <span class="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm font-medium">Durable Objects</span>
+                        
+                        <span class="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm font-medium">WebSocket</span>
+                        
+                        <span class="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm font-medium">State</span>
+                        
+                    </div>
+                    
+                </div>
+    
                 <div class="fade-in-up bg-gradient-to-br from-white to-indigo-50 p-8 rounded-xl shadow-lg hover:shadow-2xl transition border border-indigo-100">
                     <div class="text-5xl mb-4">🧠</div>
                     <h3 class="text-2xl font-bold text-slate-900 mb-3">AI-Powered Intelligence</h3>
-                    <p class="text-slate-700 mb-4 leading-relaxed">Natural language queries → Llama 3.3 generates search strategies → AI ranks repositories by semantic relevancy.</p>
+                    <p class="text-slate-700 mb-4 leading-relaxed">Integrated Cloudflare AI models for natural language processing and analysis</p>
+                    
                     <div class="flex flex-wrap gap-2">
+                        
                         <span class="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm font-medium">Workers AI</span>
-                        <span class="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm font-medium">Llama 3.3</span>
-                        <span class="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm font-medium">GPT-OSS</span>
+                        
+                        <span class="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm font-medium">Llama</span>
+                        
+                        <span class="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm font-medium">GPT</span>
+                        
                     </div>
+                    
                 </div>
-
-                <div class="fade-in-up bg-gradient-to-br from-white to-indigo-50 p-8 rounded-xl shadow-lg hover:shadow-2xl transition border border-indigo-100">
-                    <div class="text-5xl mb-4">🔄</div>
-                    <h3 class="text-2xl font-bold text-slate-900 mb-3">Real-Time Collaboration</h3>
-                    <p class="text-slate-700 mb-4 leading-relaxed">Hibernatable WebSocket Durable Objects provide project rooms with presence tracking and broadcast messaging.</p>
-                    <div class="flex flex-wrap gap-2">
-                        <span class="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm font-medium">Durable Objects</span>
-                        <span class="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm font-medium">WebSocket</span>
-                    </div>
-                </div>
-
-                <div class="fade-in-up bg-gradient-to-br from-white to-indigo-50 p-8 rounded-xl shadow-lg hover:shadow-2xl transition border border-indigo-100">
-                    <div class="text-5xl mb-4">⚡</div>
-                    <h3 class="text-2xl font-bold text-slate-900 mb-3">Bulk Repository Management</h3>
-                    <p class="text-slate-700 mb-4 leading-relaxed">Retrofit workflows across hundreds of repos with date filtering, automatic detection, and comprehensive audit logs.</p>
-                    <div class="flex flex-wrap gap-2">
-                        <span class="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm font-medium">Flows API</span>
-                        <span class="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm font-medium">D1</span>
-                    </div>
-                </div>
-
-                <div class="fade-in-up bg-gradient-to-br from-white to-indigo-50 p-8 rounded-xl shadow-lg hover:shadow-2xl transition border border-indigo-100">
-                    <div class="text-5xl mb-4">🛡️</div>
-                    <h3 class="text-2xl font-bold text-slate-900 mb-3">Type-Safe & Validated</h3>
-                    <p class="text-slate-700 mb-4 leading-relaxed">Every endpoint validated with Zod schemas, documented with OpenAPI 3.0, and interactive Swagger UI.</p>
-                    <div class="flex flex-wrap gap-2">
-                        <span class="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm font-medium">Zod</span>
-                        <span class="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm font-medium">OpenAPI</span>
-                    </div>
-                </div>
-
-                <div class="fade-in-up bg-gradient-to-br from-white to-indigo-50 p-8 rounded-xl shadow-lg hover:shadow-2xl transition border border-indigo-100">
-                    <div class="text-5xl mb-4">📊</div>
-                    <h3 class="text-2xl font-bold text-slate-900 mb-3">Enterprise Observability</h3>
-                    <p class="text-slate-700 mb-4 leading-relaxed">D1-backed audit logs for every operation, request metadata, workflow changes, and compliance tracking.</p>
-                    <div class="flex flex-wrap gap-2">
-                        <span class="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm font-medium">D1 Logs</span>
-                        <span class="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm font-medium">Analytics</span>
-                    </div>
-                </div>
+    
             </div>
         </div>
     </section>
 
+    
     <!-- Metrics Section -->
     <section id="metrics" class="py-20 bg-white">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -401,33 +422,61 @@
             </div>
 
             <div class="grid md:grid-cols-3 gap-12">
+                
                 <div class="fade-in-up text-center">
                     <div class="inline-block px-6 py-3 bg-emerald-100 rounded-xl mb-3">
-                        <div class="text-4xl md:text-5xl font-black text-emerald-600">&lt;50ms</div>
+                        <div class="text-4xl md:text-5xl font-black text-emerald-600"><50ms</div>
                     </div>
                     <div class="text-lg font-semibold text-slate-700">P95 Response Time</div>
-                    <p class="text-slate-500 text-sm mt-2">From 310+ global edge locations</p>
                 </div>
-
+    
                 <div class="fade-in-up text-center">
                     <div class="inline-block px-6 py-3 bg-emerald-100 rounded-xl mb-3">
                         <div class="text-4xl md:text-5xl font-black text-emerald-600">99.99%</div>
                     </div>
-                    <div class="text-lg font-semibold text-slate-700">Global Uptime SLA</div>
-                    <p class="text-slate-500 text-sm mt-2">Enterprise-grade reliability</p>
+                    <div class="text-lg font-semibold text-slate-700">Global Uptime</div>
                 </div>
-
+    
                 <div class="fade-in-up text-center">
                     <div class="inline-block px-6 py-3 bg-indigo-100 rounded-xl mb-3">
-                        <div class="text-4xl md:text-5xl font-black text-indigo-600">7+</div>
+                        <div class="text-4xl md:text-5xl font-black text-indigo-600">4</div>
                     </div>
-                    <div class="text-lg font-semibold text-slate-700">MCP Tools for AI Agents</div>
-                    <p class="text-slate-500 text-sm mt-2">With JSON Schema validation</p>
+                    <div class="text-lg font-semibold text-slate-700">Protocol Interfaces</div>
                 </div>
+    
+                <div class="fade-in-up text-center">
+                    <div class="inline-block px-6 py-3 bg-emerald-100 rounded-xl mb-3">
+                        <div class="text-4xl md:text-5xl font-black text-emerald-600">7+</div>
+                    </div>
+                    <div class="text-lg font-semibold text-slate-700">MCP Tools</div>
+                </div>
+    
+                <div class="fade-in-up text-center">
+                    <div class="inline-block px-6 py-3 bg-indigo-100 rounded-xl mb-3">
+                        <div class="text-4xl md:text-5xl font-black text-indigo-600">3</div>
+                    </div>
+                    <div class="text-lg font-semibold text-slate-700">Durable Objects</div>
+                </div>
+    
+                <div class="fade-in-up text-center">
+                    <div class="inline-block px-6 py-3 bg-emerald-100 rounded-xl mb-3">
+                        <div class="text-4xl md:text-5xl font-black text-emerald-600">∞</div>
+                    </div>
+                    <div class="text-lg font-semibold text-slate-700">Auto-Scaling</div>
+                </div>
+    
+                <div class="fade-in-up text-center">
+                    <div class="inline-block px-6 py-3 bg-indigo-100 rounded-xl mb-3">
+                        <div class="text-4xl md:text-5xl font-black text-indigo-600">8+</div>
+                    </div>
+                    <div class="text-lg font-semibold text-slate-700">Architecture Components</div>
+                </div>
+    
             </div>
         </div>
     </section>
 
+    
     <!-- Use Cases Section -->
     <section id="use-cases" class="py-20 bg-emerald-50">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -437,38 +486,44 @@
             </div>
 
             <div class="grid md:grid-cols-3 gap-8">
-                <div class="fade-in-up bg-white p-8 rounded-xl shadow-lg border-l-4 border-emerald-500 hover:shadow-xl transition">
-                    <div class="text-sm font-semibold text-emerald-600 mb-2 uppercase tracking-wide">AI Agent Platforms</div>
-                    <h3 class="text-xl font-bold text-slate-900 mb-3">Autonomous Code Review & PR Management</h3>
-                    <p class="text-slate-600 leading-relaxed"><span class="font-semibold text-emerald-600">Result:</span> AI agents autonomously create PRs, review code, and manage issues through validated MCP tools—reducing manual review time by 80%.</p>
-                </div>
-
-                <div class="fade-in-up bg-white p-8 rounded-xl shadow-lg border-l-4 border-emerald-500 hover:shadow-xl transition">
-                    <div class="text-sm font-semibold text-emerald-600 mb-2 uppercase tracking-wide">Enterprise DevOps</div>
-                    <h3 class="text-xl font-bold text-slate-900 mb-3">Standardize CI/CD Across 500+ Repos</h3>
-                    <p class="text-slate-600 leading-relaxed"><span class="font-semibold text-emerald-600">Result:</span> Bulk workflow retrofit API with date filtering and audit logs—standardized deployment pipelines in 2 hours instead of 3 weeks.</p>
-                </div>
-
+                
                 <div class="fade-in-up bg-white p-8 rounded-xl shadow-lg border-l-4 border-emerald-500 hover:shadow-xl transition">
                     <div class="text-sm font-semibold text-emerald-600 mb-2 uppercase tracking-wide">Development Teams</div>
-                    <h3 class="text-xl font-bold text-slate-900 mb-3">Real-Time Multi-Agent Coordination</h3>
-                    <p class="text-slate-600 leading-relaxed"><span class="font-semibold text-emerald-600">Result:</span> WebSocket project rooms enable multiple AI agents and developers to coordinate GitHub operations in real-time without polling.</p>
+                    <h3 class="text-xl font-bold text-slate-900 mb-3">Real-time collaboration on GitHub operations with WebSocket rooms</h3>
+                    <p class="text-slate-600 leading-relaxed"><span class="font-semibold text-emerald-600">Result:</span> Reduced coordination overhead and faster deployment cycles</p>
                 </div>
+    
+                <div class="fade-in-up bg-white p-8 rounded-xl shadow-lg border-l-4 border-emerald-500 hover:shadow-xl transition">
+                    <div class="text-sm font-semibold text-emerald-600 mb-2 uppercase tracking-wide">AI Agents</div>
+                    <h3 class="text-xl font-bold text-slate-900 mb-3">Autonomous repository discovery and intelligent code analysis</h3>
+                    <p class="text-slate-600 leading-relaxed"><span class="font-semibold text-emerald-600">Result:</span> Automated PR reviews and issue triage at scale</p>
+                </div>
+    
+                <div class="fade-in-up bg-white p-8 rounded-xl shadow-lg border-l-4 border-emerald-500 hover:shadow-xl transition">
+                    <div class="text-sm font-semibold text-emerald-600 mb-2 uppercase tracking-wide">Enterprise Ops</div>
+                    <h3 class="text-xl font-bold text-slate-900 mb-3">Bulk repository management with async workflow retrofitting</h3>
+                    <p class="text-slate-600 leading-relaxed"><span class="font-semibold text-emerald-600">Result:</span> Standardized CI/CD across hundreds of repositories</p>
+                </div>
+    
             </div>
         </div>
     </section>
 
+    
     <!-- Roadmap Section -->
     <section id="roadmap" class="py-20 bg-slate-50">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="text-center mb-16 fade-in-up">
-                <h2 class="text-4xl md:text-5xl font-black text-slate-900 mb-4">Product Roadmap</h2>
+                <h2 class="text-4xl md:text-5xl font-black text-slate-900 mb-4">Roadmap</h2>
                 <div class="w-24 h-1 bg-gradient-to-r from-indigo-600 to-purple-600 mx-auto"></div>
             </div>
 
             <div class="grid md:grid-cols-3 gap-12">
+                
                 <div class="fade-in-up relative">
+                    
                     <div class="hidden md:block absolute top-16 left-1/2 w-full h-0.5 bg-emerald-200"></div>
+                    
 
                     <div class="relative z-10 text-center">
                         <div class="inline-block px-6 py-3 bg-emerald-600 text-white rounded-full font-bold text-lg mb-4">
@@ -477,34 +532,36 @@
                         <h3 class="text-2xl font-bold text-slate-900 mb-4">Foundation</h3>
                         <div class="bg-white p-6 rounded-xl shadow-lg border border-emerald-100">
                             <ul class="space-y-2 text-left">
+                                
                                 <li class="flex items-start space-x-2">
-                                    <span class="text-emerald-600 mt-1">✓</span>
+                                    <span class="text-emerald-600 mt-1">•</span>
                                     <span class="text-slate-700">Multi-protocol API (REST, WebSocket, RPC, MCP)</span>
                                 </li>
+                                
                                 <li class="flex items-start space-x-2">
-                                    <span class="text-emerald-600 mt-1">✓</span>
-                                    <span class="text-slate-700">3 Durable Objects for orchestration</span>
+                                    <span class="text-emerald-600 mt-1">•</span>
+                                    <span class="text-slate-700">Durable Objects for orchestration</span>
                                 </li>
+                                
                                 <li class="flex items-start space-x-2">
-                                    <span class="text-emerald-600 mt-1">✓</span>
+                                    <span class="text-emerald-600 mt-1">•</span>
                                     <span class="text-slate-700">D1 persistence and audit logging</span>
                                 </li>
-                                <li class="flex items-start space-x-2">
-                                    <span class="text-emerald-600 mt-1">✓</span>
-                                    <span class="text-slate-700">OpenAPI + Swagger UI docs</span>
-                                </li>
+                                
                             </ul>
                         </div>
                         <div class="mt-4">
                             <span class="px-4 py-2 bg-emerald-100 text-emerald-700 rounded-full text-sm font-semibold uppercase">
-                                Completed
+                                completed
                             </span>
                         </div>
                     </div>
                 </div>
-
+      
                 <div class="fade-in-up relative">
+                    
                     <div class="hidden md:block absolute top-16 left-1/2 w-full h-0.5 bg-indigo-200"></div>
+                    
 
                     <div class="relative z-10 text-center">
                         <div class="inline-block px-6 py-3 bg-indigo-600 text-white rounded-full font-bold text-lg mb-4">
@@ -513,33 +570,35 @@
                         <h3 class="text-2xl font-bold text-slate-900 mb-4">Intelligence Layer</h3>
                         <div class="bg-white p-6 rounded-xl shadow-lg border border-indigo-100">
                             <ul class="space-y-2 text-left">
+                                
                                 <li class="flex items-start space-x-2">
-                                    <span class="text-indigo-600 mt-1">▸</span>
+                                    <span class="text-indigo-600 mt-1">•</span>
                                     <span class="text-slate-700">AI-powered repository analysis</span>
                                 </li>
+                                
                                 <li class="flex items-start space-x-2">
-                                    <span class="text-indigo-600 mt-1">▸</span>
+                                    <span class="text-indigo-600 mt-1">•</span>
                                     <span class="text-slate-700">Natural language query interface</span>
                                 </li>
+                                
                                 <li class="flex items-start space-x-2">
-                                    <span class="text-indigo-600 mt-1">▸</span>
+                                    <span class="text-indigo-600 mt-1">•</span>
                                     <span class="text-slate-700">Automated workflow generation</span>
                                 </li>
-                                <li class="flex items-start space-x-2">
-                                    <span class="text-indigo-600 mt-1">▸</span>
-                                    <span class="text-slate-700">Vector search with Vectorize</span>
-                                </li>
+                                
                             </ul>
                         </div>
                         <div class="mt-4">
                             <span class="px-4 py-2 bg-indigo-100 text-indigo-700 rounded-full text-sm font-semibold uppercase">
-                                In Progress
+                                in progress
                             </span>
                         </div>
                     </div>
                 </div>
-
+      
                 <div class="fade-in-up relative">
+                    
+
                     <div class="relative z-10 text-center">
                         <div class="inline-block px-6 py-3 bg-slate-600 text-white rounded-full font-bold text-lg mb-4">
                             v3.0
@@ -547,35 +606,37 @@
                         <h3 class="text-2xl font-bold text-slate-900 mb-4">Enterprise Scale</h3>
                         <div class="bg-white p-6 rounded-xl shadow-lg border border-slate-100">
                             <ul class="space-y-2 text-left">
+                                
                                 <li class="flex items-start space-x-2">
-                                    <span class="text-slate-600 mt-1">○</span>
-                                    <span class="text-slate-700">Multi-tenant isolation & RBAC</span>
+                                    <span class="text-slate-600 mt-1">•</span>
+                                    <span class="text-slate-700">Multi-tenant isolation</span>
                                 </li>
+                                
                                 <li class="flex items-start space-x-2">
-                                    <span class="text-slate-600 mt-1">○</span>
-                                    <span class="text-slate-700">Advanced SLA monitoring & alerting</span>
+                                    <span class="text-slate-600 mt-1">•</span>
+                                    <span class="text-slate-700">Advanced RBAC and permissions</span>
                                 </li>
+                                
                                 <li class="flex items-start space-x-2">
-                                    <span class="text-slate-600 mt-1">○</span>
-                                    <span class="text-slate-700">GitHub Enterprise Server support</span>
+                                    <span class="text-slate-600 mt-1">•</span>
+                                    <span class="text-slate-700">SLA monitoring and alerting</span>
                                 </li>
-                                <li class="flex items-start space-x-2">
-                                    <span class="text-slate-600 mt-1">○</span>
-                                    <span class="text-slate-700">Custom workflow templates marketplace</span>
-                                </li>
+                                
                             </ul>
                         </div>
                         <div class="mt-4">
                             <span class="px-4 py-2 bg-slate-100 text-slate-700 rounded-full text-sm font-semibold uppercase">
-                                Planned
+                                planned
                             </span>
                         </div>
                     </div>
                 </div>
+      
             </div>
         </div>
     </section>
 
+    
     <!-- CTA Section -->
     <section id="cta" class="gradient-cta py-20 relative overflow-hidden">
         <div class="absolute inset-0 opacity-10">
@@ -584,28 +645,24 @@
         </div>
 
         <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center fade-in-up">
-            <h2 class="text-4xl md:text-6xl font-black text-white mb-6 leading-tight">
-                Ready to Transform Your<br/>
-                <span class="bg-gradient-to-r from-cyan-200 to-blue-200 bg-clip-text text-transparent">
-                    GitHub Workflow?
-                </span>
+            <h2 class="text-4xl md:text-6xl font-black text-white mb-8 leading-tight">
+                Ready to transform your GitHub workflow?
             </h2>
-            <p class="text-xl text-emerald-100 mb-10">
-                The next era of AI-powered development starts here.
-            </p>
             <div class="flex flex-col sm:flex-row gap-4 justify-center">
-                <a href="/doc"
-                   class="px-8 py-4 bg-white text-emerald-600 rounded-lg font-semibold text-lg hover:bg-emerald-50 transition shadow-xl">
-                    🚀 Try the Interactive API
-                </a>
-                <a href="/openapi.json"
-                   class="px-8 py-4 bg-emerald-800 bg-opacity-50 text-white rounded-lg font-semibold text-lg hover:bg-opacity-70 transition border-2 border-white border-opacity-20">
-                    📖 Download OpenAPI Spec
-                </a>
+                
+                    <a href="/doc" class="px-8 py-4 bg-white text-emerald-600 rounded-lg font-semibold text-lg hover:bg-emerald-50 transition shadow-xl">
+                        Try the API
+                    </a>
+      
+                    <a href="/openapi.json" class="px-8 py-4 bg-emerald-800 bg-opacity-50 text-white rounded-lg font-semibold text-lg hover:bg-opacity-70 transition border-2 border-white border-opacity-20">
+                        View OpenAPI Spec
+                    </a>
+      
             </div>
         </div>
     </section>
 
+    
     <!-- Footer -->
     <footer class="bg-slate-900 text-slate-400 py-12">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -621,10 +678,15 @@
                 <div>
                     <h3 class="text-white font-semibold mb-4">Documentation</h3>
                     <ul class="space-y-2 text-sm">
+                        
                         <li><a href="/doc" class="hover:text-white transition">Interactive API Docs</a></li>
+    
                         <li><a href="/openapi.json" class="hover:text-white transition">OpenAPI JSON</a></li>
+    
                         <li><a href="/openapi.yaml" class="hover:text-white transition">OpenAPI YAML</a></li>
+    
                         <li><a href="/mcp-tools" class="hover:text-white transition">MCP Tools</a></li>
+    
                     </ul>
                 </div>
 
@@ -645,6 +707,7 @@
         </div>
     </footer>
 
+    
     <script>
         // Scroll Animation Observer
         const observerOptions = {
@@ -683,10 +746,6 @@
                 const target = document.querySelector(this.getAttribute('href'));
                 if (target) {
                     target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    // Close mobile menu if open
-                    if (window.Alpine) {
-                        window.Alpine.store('mobileMenuOpen', false);
-                    }
                 }
             });
         });
