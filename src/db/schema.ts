@@ -41,7 +41,7 @@ export const sessions = sqliteTable('sessions', {
  */
 export const searches = sqliteTable('searches', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  sessionId: text('session_id'),
+  sessionId: text('session_id').references(() => sessions.sessionId),
   searchTerm: text('search_term'),
   status: text('status').default('pending'),
   createdAt: text('created_at').default('CURRENT_TIMESTAMP'),
