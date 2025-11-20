@@ -8,13 +8,22 @@ export class TemplateGenerator {
   /**
    * Generate complete HTML page from content blueprint
    */
-  static generate(blueprint: ContentBlueprint, workerName: string, branding?: import('./types').WorkerAnalysis['branding'], footerLinks?: import('./types').WorkerAnalysis['links']['footer']): string {
+  static generate(
+    blueprint: ContentBlueprint,
+    workerName: string,
+    branding?: { icon: string; displayName: string },
+    footerLinks?: Array<{ text: string; href: string }>
+  ): string {
+    const brandIcon = branding?.icon || '⚡';
+    const brandName = branding?.displayName || workerName;
+
     return `<!DOCTYPE html>
 <html lang="en" class="scroll-smooth">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${workerName} - Cloudflare Worker</title>
+    <title>${brandName} - Cloudflare Worker</title>
+    <meta name="description" content="${blueprint.hero.subheadline}">
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -78,7 +87,7 @@ export class TemplateGenerator {
 </head>
 <body class="bg-white text-slate-900" x-data="{ mobileMenuOpen: false }">
 
-    ${this.generateNav(blueprint, branding)}
+    ${this.generateNav(blueprint, brandIcon, brandName)}
 
     ${this.generateHero(blueprint.hero)}
 
@@ -96,7 +105,7 @@ export class TemplateGenerator {
 
     ${this.generateCTA(blueprint.cta)}
 
-    ${this.generateFooter(workerName, footerLinks)}
+    ${this.generateFooter(brandName, brandIcon, footerLinks)}
 
     ${this.generateScrollScript()}
 
@@ -104,24 +113,25 @@ export class TemplateGenerator {
 </html>`;
   }
 
-  private static generateNav(blueprint: ContentBlueprint): string {
+  private static generateNav(blueprint: ContentBlueprint, brandIcon: string, brandName: string): string {
     return `
     <!-- Sticky Glass Navigation -->
     <nav class="glass-nav fixed top-0 left-0 right-0 z-50">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center h-16">
                 <div class="flex items-center space-x-2">
-                    <div class="text-2xl">${branding?.icon || '⚡'}</div>
+                    <div class="text-2xl">${brandIcon}</div>
                     <span class="text-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                        ${branding?.displayName || workerName}
+                        ${brandName}
                     </span>
                 </div>
 
                 <!-- Desktop Nav -->
                 <div class="hidden md:flex items-center space-x-8">
                     <a href="#problem" class="text-slate-600 hover:text-indigo-600 transition">Challenge</a>
-                    <a href="#solution" class="text-slate-600 hover:text-indigo-600 transition">Solution</a>
+                    <a href="#solution" class="text-slate-600 hover:text-indigo-600 transition">Architecture</a>
                     <a href="#features" class="text-slate-600 hover:text-indigo-600 transition">Features</a>
+                    <a href="#use-cases" class="text-slate-600 hover:text-indigo-600 transition">Use Cases</a>
                     <a href="#roadmap" class="text-slate-600 hover:text-indigo-600 transition">Roadmap</a>
                     <a href="${blueprint.hero.primaryCTA.href}"
                        class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">
@@ -142,8 +152,9 @@ export class TemplateGenerator {
                  x-transition
                  class="md:hidden pb-4 space-y-2">
                 <a href="#problem" class="block px-4 py-2 text-slate-600 hover:bg-slate-50 rounded">Challenge</a>
-                <a href="#solution" class="block px-4 py-2 text-slate-600 hover:bg-slate-50 rounded">Solution</a>
+                <a href="#solution" class="block px-4 py-2 text-slate-600 hover:bg-slate-50 rounded">Architecture</a>
                 <a href="#features" class="block px-4 py-2 text-slate-600 hover:bg-slate-50 rounded">Features</a>
+                <a href="#use-cases" class="block px-4 py-2 text-slate-600 hover:bg-slate-50 rounded">Use Cases</a>
                 <a href="#roadmap" class="block px-4 py-2 text-slate-600 hover:bg-slate-50 rounded">Roadmap</a>
             </div>
         </div>
@@ -312,14 +323,33 @@ export class TemplateGenerator {
   }
 
   private static generateMetrics(metrics: any): string {
-    const statsHTML = metrics.stats.map((stat: any) => `
+    // Static class mapping for Tailwind JIT safety
+    const colorClasses = {
+      emerald: {
+        bg: 'bg-emerald-100',
+        text: 'text-emerald-600',
+      },
+      indigo: {
+        bg: 'bg-indigo-100',
+        text: 'text-indigo-600',
+      },
+      amber: {
+        bg: 'bg-amber-100',
+        text: 'text-amber-600',
+      },
+    };
+
+    const statsHTML = metrics.stats.map((stat: any) => {
+      const classes = colorClasses[stat.color as keyof typeof colorClasses] || colorClasses.indigo;
+      return `
                 <div class="fade-in-up text-center">
-                    <div class="inline-block px-6 py-3 bg-${stat.color}-100 rounded-xl mb-3">
-                        <div class="text-4xl md:text-5xl font-black text-${stat.color}-600">${stat.value}</div>
+                    <div class="inline-block px-6 py-3 ${classes.bg} rounded-xl mb-3">
+                        <div class="text-4xl md:text-5xl font-black ${classes.text}">${stat.value}</div>
                     </div>
                     <div class="text-lg font-semibold text-slate-700">${stat.label}</div>
                 </div>
-    `).join('');
+    `;
+    }).join('');
 
     return `
     <!-- Metrics Section -->
@@ -363,37 +393,57 @@ export class TemplateGenerator {
   }
 
   private static generateRoadmap(roadmap: any): string {
+    // Static class mapping for Tailwind JIT safety
+    const statusColorClasses = {
+      completed: {
+        line: 'bg-emerald-200',
+        badge: 'bg-emerald-600',
+        border: 'border-emerald-100',
+        bullet: 'text-emerald-600',
+        status: 'bg-emerald-100 text-emerald-700',
+      },
+      'in-progress': {
+        line: 'bg-indigo-200',
+        badge: 'bg-indigo-600',
+        border: 'border-indigo-100',
+        bullet: 'text-indigo-600',
+        status: 'bg-indigo-100 text-indigo-700',
+      },
+      planned: {
+        line: 'bg-slate-200',
+        badge: 'bg-slate-600',
+        border: 'border-slate-100',
+        bullet: 'text-slate-600',
+        status: 'bg-slate-100 text-slate-700',
+      },
+    };
+
     const milestonesHTML = roadmap.milestones.map((milestone: any, index: number) => {
-      const statusColors = {
-        completed: 'emerald',
-        'in-progress': 'indigo',
-        planned: 'slate',
-      };
-      const color = statusColors[milestone.status];
+      const classes = statusColorClasses[milestone.status as keyof typeof statusColorClasses] || statusColorClasses.planned;
 
       return `
                 <div class="fade-in-up relative">
                     ${index < roadmap.milestones.length - 1 ? `
-                    <div class="hidden md:block absolute top-16 left-1/2 w-full h-0.5 bg-${color}-200"></div>
+                    <div class="hidden md:block absolute top-16 left-1/2 w-full h-0.5 ${classes.line}"></div>
                     ` : ''}
 
                     <div class="relative z-10 text-center">
-                        <div class="inline-block px-6 py-3 bg-${color}-600 text-white rounded-full font-bold text-lg mb-4">
+                        <div class="inline-block px-6 py-3 ${classes.badge} text-white rounded-full font-bold text-lg mb-4">
                             ${milestone.version}
                         </div>
                         <h3 class="text-2xl font-bold text-slate-900 mb-4">${milestone.title}</h3>
-                        <div class="bg-white p-6 rounded-xl shadow-lg border border-${color}-100">
+                        <div class="bg-white p-6 rounded-xl shadow-lg border ${classes.border}">
                             <ul class="space-y-2 text-left">
                                 ${milestone.items.map((item: string) => `
                                 <li class="flex items-start space-x-2">
-                                    <span class="text-${color}-600 mt-1">•</span>
+                                    <span class="${classes.bullet} mt-1">•</span>
                                     <span class="text-slate-700">${item}</span>
                                 </li>
                                 `).join('')}
                             </ul>
                         </div>
                         <div class="mt-4">
-                            <span class="px-4 py-2 bg-${color}-100 text-${color}-700 rounded-full text-sm font-semibold uppercase">
+                            <span class="px-4 py-2 ${classes.status} rounded-full text-sm font-semibold uppercase">
                                 ${milestone.status.replace('-', ' ')}
                             </span>
                         </div>
@@ -450,7 +500,18 @@ export class TemplateGenerator {
     </section>`;
   }
 
-  private static generateFooter(workerName: string): string {
+  private static generateFooter(workerName: string, brandIcon: string, footerLinks?: Array<{ text: string; href: string }>): string {
+    // Default footer links if not provided
+    const links = footerLinks || [
+      { text: 'API Documentation', href: '/doc' },
+      { text: 'OpenAPI Spec', href: '/openapi.json' },
+      { text: 'OpenAPI YAML', href: '/openapi.yaml' },
+    ];
+
+    const linksHTML = links.map(link => `
+                        <li><a href="${link.href}" class="hover:text-white transition">${link.text}</a></li>
+    `).join('');
+
     return `
     <!-- Footer -->
     <footer class="bg-slate-900 text-slate-400 py-12">
@@ -458,6 +519,7 @@ export class TemplateGenerator {
             <div class="grid md:grid-cols-3 gap-8 mb-8">
                 <div>
                     <div class="flex items-center space-x-2 mb-4">
+                        <div class="text-2xl">${brandIcon}</div>
                         <span class="text-xl font-bold text-white">${workerName}</span>
                     </div>
                     <p class="text-sm">Built on Cloudflare Workers, powered by edge computing.</p>
@@ -466,10 +528,7 @@ export class TemplateGenerator {
                 <div>
                     <h3 class="text-white font-semibold mb-4">Documentation</h3>
                     <ul class="space-y-2 text-sm">
-                        ${footerLinks
-                          ? footerLinks.map(link => `<li><a href="${link.href}" class="hover:text-white transition">${link.text}</a></li>`).join('')
-                          : `<li><a href="/doc" class="hover:text-white transition">API Documentation</a></li>`
-                        }
+                        ${linksHTML}
                     </ul>
                 </div>
 
@@ -477,13 +536,15 @@ export class TemplateGenerator {
                     <h3 class="text-white font-semibold mb-4">Resources</h3>
                     <ul class="space-y-2 text-sm">
                         <li><a href="https://developers.cloudflare.com/workers/" class="hover:text-white transition">Cloudflare Workers Docs</a></li>
-                        <li><a href="https://workers.cloudflare.com" class="hover:text-white transition">Workers Platform</a></li>
+                        <li><a href="https://developers.cloudflare.com/durable-objects/" class="hover:text-white transition">Durable Objects Guide</a></li>
+                        <li><a href="https://developers.cloudflare.com/workers-ai/" class="hover:text-white transition">Workers AI Platform</a></li>
                     </ul>
                 </div>
             </div>
 
             <div class="border-t border-slate-800 pt-8 text-center text-sm">
-                <p>&copy; ${new Date().getFullYear()} ${workerName}. Auto-generated landing page.</p>
+                <p>&copy; ${new Date().getFullYear()} ${workerName}. Auto-generated cinematic landing page by Landing Page Generator.</p>
+                <p class="mt-2 text-slate-500">Powered by Cloudflare Workers • Durable Objects • D1 • Workers AI</p>
             </div>
         </div>
     </footer>`;
