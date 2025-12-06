@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "3afa5531-ba70-4e3c-9454-50f26d1ce178",
+  "id": "b27c32ba-7a56-401b-9d5b-24dcf590d369",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "gh_management_config": {

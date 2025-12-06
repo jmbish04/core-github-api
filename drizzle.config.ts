@@ -4,8 +4,4 @@ export default {
   schema: './src/db/schema.ts',
   out: './migrations',
   dialect: 'sqlite',
-  dbCredentials: {
-    wranglerConfigPath: './wrangler.jsonc',
-    dbName: 'core-github-api',
-  },
 } satisfies Config

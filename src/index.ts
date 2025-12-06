@@ -8,7 +8,7 @@ import { OpenAPIHono } from '@hono/zod-openapi'
 import type { MiddlewareHandler } from 'hono'
 import { swaggerUI } from '@hono/swagger-ui'
 // 'app' is the Hono app that handles all our API routes
-import { app, Bindings } from './utils/hono' 
+import { app, Bindings } from './utils/hono'
 import { GitHubWorkerRPC } from './rpc'
 import { convertOpenAPIToYAML, buildCompleteOpenAPIDocument } from './utils/openapi'
 import { MCP_TOOLS, getToolStats, getTool, MCPExecuteRequest, TOOL_ROUTES, serializeTools } from './mcp/tools'
@@ -145,21 +145,21 @@ gptSpecApp.route('/flows', flowsApi)     // 2 methods
  * Helper function to generate the enhanced 3.1.0 OpenAPI spec.
  */
 const getEnhancedApiSpec = async (
-  c: any, 
+  c: any,
   honoApp: OpenAPIHono<any>, // Pass in the app to generate the spec from
   title: string,
   description: string
 ) => {
   const baseUrl = new URL(c.req.url).origin
-  
+
   const openApiJson = await honoApp.getOpenAPIDocument({
     openapi: '3.0.0', // Base doc is 3.0.0, will be enhanced
     info: { version: '1.0.0', title, description },
     // This 'servers' block is a placeholder. 
     // buildCompleteOpenAPIDocument will overwrite it with the correct, single, absolute URL.
-    servers: [{ url: '/api' }], 
+    servers: [{ url: '/api' }],
   })
-  
+
   // This function adds 3.1.0, single security scheme, and a single absolute server URL
   return buildCompleteOpenAPIDocument(openApiJson, baseUrl)
 }
@@ -170,7 +170,7 @@ const getEnhancedApiSpec = async (
 app.get('/openapi.json', async (c) => {
   try {
     const enhanced = await getEnhancedApiSpec(c, fullSpecApp, // Use fullSpecApp
-      'GitHub API Worker (Full Spec)', 
+      'GitHub API Worker (Full Spec)',
       'Full API Spec (3.1.0) with all 11 operations.'
     )
     return c.json(enhanced, 200, {
@@ -186,7 +186,7 @@ app.get('/openapi.json', async (c) => {
 app.get('/openapi.yaml', async (c) => {
   try {
     const enhanced = await getEnhancedApiSpec(c, fullSpecApp, // Use fullSpecApp
-      'GitHub API Worker (Full Spec)', 
+      'GitHub API Worker (Full Spec)',
       'Full API Spec (3.1.0) with all 11 operations.'
     )
     const yaml = convertOpenAPIToYAML(enhanced)
@@ -206,7 +206,7 @@ app.get('/openapi.yaml', async (c) => {
 app.get('/gpt/openapi.json', async (c) => {
   try {
     const enhanced = await getEnhancedApiSpec(c, gptSpecApp, // <-- Use gptSpecApp
-      'GitHub Worker - GPT Custom Action', 
+      'GitHub Worker - GPT Custom Action',
       'A focused set of 7 high-level tools for OpenAI GPTs.'
     )
     return c.json(enhanced, 200, {
@@ -222,7 +222,7 @@ app.get('/gpt/openapi.json', async (c) => {
 app.get('/gpt/openapi.yaml', async (c) => {
   try {
     const enhanced = await getEnhancedApiSpec(c, gptSpecApp, // <-- Use gptSpecApp
-      'GitHub Worker - GPT Custom Action', 
+      'GitHub Worker - GPT Custom Action',
       'A focused set of 7 high-level tools for OpenAI GPTs.'
     )
     const yaml = convertOpenAPIToYAML(enhanced)
@@ -392,129 +392,6 @@ app.route('/a2a', sharedApi)
 
 // --- 6. Helper Functions for Queue ---
 
-type WorkersAiBinding = {
-  run(model: string, request: Record<string, unknown>): Promise<unknown>
-}
-
-async function searchRepositoriesWithRetry(
-  searchTerm: string,
-  env: Env,
-  ctx: ExecutionContext,
-  retries = 3
-): Promise<any> {
-  for (let i = 0; i < retries; i++) {
-    try {
-      // We must use a full Request object to pass through the auth headers
-      const request = new Request(`http://localhost/api/octokit/search/repos?q=${encodeURIComponent(searchTerm)}`, {
-        headers: {
-          'x-api-key': env.WORKER_API_KEY,
-          'User-Agent': 'Cloudflare-Worker'
-        },
-      })
-      // We call app.fetch to route the request internally
-      const response = await app.fetch(request, env, ctx)
-      if (response.status === 200) {
-        return await response.json()
-      }
-    } catch (error) {
-      if (i === retries - 1) {
-        throw error
-      }
-      await new Promise((resolve) => setTimeout(resolve, 1000 * (i + 1)))
-    }
-  }
-}
-
-async function analyzeRepository(
-  repo: any,
-  searchTerm: string,
-  ai: WorkersAiBinding
-): Promise<{ relevancyScore: number }> {
-  
-  // 1. Define the schema Llama 3.3 must return
-  const analysisSchema = {
-    type: "object",
-    properties: {
-      relevancyScore: { 
-        type: "number", 
-        minimum: 0, 
-        maximum: 1,
-        description: "A score from 0.0 to 1.0, where 1.0 is highly relevant."
-      },
-      reasoning: { 
-        type: "string",
-        description: "A brief justification for the score, explaining why the repo is or is not relevant."
-      }
-    },
-    required: ["relevancyScore", "reasoning"]
-  };
-
-  // 2. Step 1: Reasoning with @cf/openai/gpt-oss-120b
-  const reasoningInstructions = `
-    You are a GitHub repository analyst. Your task is to rate the relevancy of a repository 
-    to a search term on a scale of 0.0 to 1.0.
-    Search Term: "${searchTerm}"
-    Repository: ${repo.full_name}
-    Description: "${repo.description || 'No description provided.'}"
-    
-    Provide a relevancy score (e.g., 0.8) and a *brief* justification for your score.
-    Return only the score and justification.
-  `;
-  
-  const gptResponse = await ai.run('@cf/openai/gpt-oss-120b', {
-    instructions: reasoningInstructions,
-    input: `Rate relevancy for: ${repo.full_name}`,
-  });
-  
-  const rawAnalysisText = typeof gptResponse === 'string' ? gptResponse : (gptResponse as any).response || '';
-
-  // 3. Step 2: Structuring with @cf/meta/llama-3.3-70b-instruct-fp8-fast
-  try {
-    const structuringSystemPrompt = `
-      You are a text standardization assistant. Parse the raw analysis text and return a 
-      structured JSON object that *strictly* adheres to the provided JSON schema. 
-      Return *only* the valid JSON object.
-    `;
-    
-    const llamaMessages = [
-      { role: "system", content: structuringSystemPrompt },
-      { role: "user", content: `Here is the raw text to parse:\n\n${rawAnalysisText}` }
-    ];
-
-    const llamaResponse = await ai.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
-      messages: llamaMessages,
-      response_format: { 
-        type: "json_schema",
-        json_schema: analysisSchema
-      }
-    });
-
-    // 4. Parse the structured response
-    const structuredResponse = JSON.parse((llamaResponse as any).response);
-    
-    if (structuredResponse && typeof structuredResponse.relevancyScore === 'number') {
-      // Success!
-      return { relevancyScore: structuredResponse.relevancyScore };
-    }
-    
-    console.warn(`AI response for ${repo.full_name} did not match schema:`, (llamaResponse as any).response);
-    return { relevancyScore: 0 };
-
-  } catch (e) {
-    console.error(`Failed to parse AI JSON response for ${repo.full_name}:`, e, (rawAnalysisText));
-    
-    // Fallback: try to find a number in the *original* raw text from GPT-OSS
-    const scoreMatch = rawAnalysisText.match(/(\d\.\d+)/);
-    if (scoreMatch && scoreMatch[1]) {
-      const score = Number.parseFloat(scoreMatch[1]);
-      if (Number.isFinite(score)) {
-        return { relevancyScore: score };
-      }
-    }
-    
-    return { relevancyScore: 0 }; // Final fallback
-  }
-}
 
 // --- 7. Export Handlers ---
 
@@ -527,20 +404,20 @@ export default {
    * HTTP fetch handler
    */
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    
+
     // --- THIS IS THE CORRECT FETCH HANDLER ---
     // It correctly routes API calls to Hono and all other calls to ASSETS.
-    
+
     const url = new URL(request.url);
 
     // List of all your API/dynamic prefixes.
     // Any request *not* matching these will be treated as a static asset request.
     const apiPrefixes = [
-      '/api/', 
-      '/mcp/', 
-      '/a2a/', 
-      '/openapi.json', 
-      '/openapi.yaml', 
+      '/api/',
+      '/mcp/',
+      '/a2a/',
+      '/openapi.json',
+      '/openapi.yaml',
       '/gpt/openapi.json',
       '/gpt/openapi.yaml',
       '/doc', // The Swagger UI
@@ -564,86 +441,15 @@ export default {
     }
   },
 
+
+
   /**
-   * Queue message handler
+   * GitHubWorker - RPC service class
+   *
+   * This class is a NAMED export. Other workers must use this name as the 'entrypoint'
+   * in their service binding configuration to call these RPC methods.
    */
-  async queue(batch: MessageBatch, env: Env, ctx: ExecutionContext): Promise<void> {
-    const aiBinding = env.AI as WorkersAiBinding | undefined
-
-    if (!aiBinding || typeof aiBinding.run !== 'function') {
-      throw new Error('AI binding is not configured on the environment')
-    }
-
-    const db = getDb(env.DB)
-
-    for (const message of batch.messages) {
-      const { sessionId, searchId, searchTerm } = message.body
-
-      // 1. Execute the search
-      // Use 'app' to ensure the request is routed correctly with auth
-      const searchResults = await searchRepositoriesWithRetry(searchTerm, env, ctx)
-
-      // 2. Analyze each repository
-      if (searchResults && searchResults.items) {
-        for (const repo of searchResults.items) {
-          // 2a. Check if the repository has already been analyzed for this session
-          // using Drizzle syntax
-          const results = await db.select({ id: schema.repoAnalysis.id })
-            .from(schema.repoAnalysis)
-            .where(
-              and(
-                eq(schema.repoAnalysis.sessionId, sessionId),
-                eq(schema.repoAnalysis.repoFullName, repo.full_name)
-              )
-            )
-            .all()
-
-          if (results.length > 0) {
-            continue
-          }
-
-          // 2b. Analyze the repository
-          const analysis = await analyzeRepository(repo, searchTerm, aiBinding)
-
-          // 2c. Persist the analysis to D1 using Drizzle
-          await db.insert(schema.repoAnalysis).values({
-            sessionId,
-            searchId,
-            repoFullName: repo.full_name,
-            repoUrl: repo.html_url,
-            description: repo.description,
-            relevancyScore: analysis.relevancyScore
-          })
-        }
-      } else {
-        console.warn(`No search results for term: ${searchTerm}`);
-      }
-
-
-      // 3. Update the search status
-      await db.update(schema.searches)
-        .set({ status: 'completed' })
-        .where(eq(schema.searches.id, searchId))
-
-      // 4. Notify the orchestrator that the workflow is complete
-      const orchestrator = env.ORCHESTRATOR.get(
-        env.ORCHESTRATOR.idFromName('orchestrator')
-      )
-      await orchestrator.workflowComplete(searchId)
-
-      message.ack()
-    }
-  }
-}
-
-
-/**
- * GitHubWorker - RPC service class
- *
- * This class is a NAMED export. Other workers must use this name as the 'entrypoint'
- * in their service binding configuration to call these RPC methods.
- */
-export class GitHubWorker {
+  export class GitHubWorker {
   private rpc: GitHubWorkerRPC | null = null
   private env: Env | null = null
 
@@ -665,77 +471,77 @@ export class GitHubWorker {
   /**
    * Create or update a file in a GitHub repository
    */
-  async upsertFile(request: Parameters<GitHubWorkerRPC['upsertFile']>[0], env: Env) {
+  async upsertFile(request: Parameters < GitHubWorkerRPC['upsertFile'] > [0], env: Env) {
     return this.getRPC(env).upsertFile(request)
   }
 
   /**
    * List repository contents with a tree-style representation
    */
-  async listRepoTree(request: Parameters<GitHubWorkerRPC['listRepoTree']>[0], env: Env) {
+  async listRepoTree(request: Parameters < GitHubWorkerRPC['listRepoTree'] > [0], env: Env) {
     return this.getRPC(env).listRepoTree(request)
   }
 
   /**
    * Open a new pull request
    */
-  async openPullRequest(request: Parameters<GitHubWorkerRPC['openPullRequest']>[0], env: Env) {
+  async openPullRequest(request: Parameters < GitHubWorkerRPC['openPullRequest'] > [0], env: Env) {
     return this.getRPC(env).openPullRequest(request)
   }
 
   /**
    * Create a new issue
    */
-  async createIssue(request: Parameters<GitHubWorkerRPC['createIssue']>[0], env: Env) {
+  async createIssue(request: Parameters < GitHubWorkerRPC['createIssue'] > [0], env: Env) {
     return this.getRPC(env).createIssue(request)
   }
 
   /**
    * Generic proxy for GitHub REST API calls
    */
-  async octokitRest(request: Parameters<GitHubWorkerRPC['octokitRest']>[0], env: Env) {
+  async octokitRest(request: Parameters < GitHubWorkerRPC['octokitRest'] > [0], env: Env) {
     return this.getRPC(env).octokitRest(request)
   }
 
   /**
    * Execute a GraphQL query against the GitHub API
    */
-  async octokitGraphQL(request: Parameters<GitHubWorkerRPC['octokitGraphQL']>[0], env: Env) {
+  async octokitGraphQL(request: Parameters < GitHubWorkerRPC['octokitGraphQL'] > [0], env: Env) {
     return this.getRPC(env).octokitGraphQL(request)
   }
 
   /**
    * Create a new agent session for GitHub search and analysis
    */
-  async createSession(request: Parameters<GitHubWorkerRPC['createSession']>[0], env: Env) {
+  async createSession(request: Parameters < GitHubWorkerRPC['createSession'] > [0], env: Env) {
     return this.getRPC(env).createSession(request)
   }
 
   /**
    * Get the status of an agent session
    */
-  async getSessionStatus(request: Parameters<GitHubWorkerRPC['getSessionStatus']>[0], env: Env) {
+  async getSessionStatus(request: Parameters < GitHubWorkerRPC['getSessionStatus'] > [0], env: Env) {
     return this.getRPC(env).getSessionStatus(request)
   }
 
   /**
    * Search for GitHub repositories
    */
-  async searchRepositories(request: Parameters<GitHubWorkerRPC['searchRepositories']>[0], env: Env) {
+  async searchRepositories(request: Parameters < GitHubWorkerRPC['searchRepositories'] > [0], env: Env) {
     return this.getRPC(env).searchRepositories(request)
   }
 
   /**
    * Batch upsert multiple files in a single call
    */
-  async batchUpsertFiles(requests: Parameters<GitHubWorkerRPC['batchUpsertFiles']>[0], env: Env) {
+  async batchUpsertFiles(requests: Parameters < GitHubWorkerRPC['batchUpsertFiles'] > [0], env: Env) {
     return this.getRPC(env).batchUpsertFiles(requests)
   }
 
   /**
    * Batch create multiple issues in a single call
    */
-  async batchCreateIssues(requests: Parameters<GitHubWorkerRPC['batchCreateIssues']>[0], env: Env) {
+  async batchCreateIssues(requests: Parameters < GitHubWorkerRPC['batchCreateIssues'] > [0], env: Env) {
     return this.getRPC(env).batchCreateIssues(requests)
   }
 }

@@ -48,25 +48,11 @@
     },
     {
       "tag": "v2",
-      "new_classes": [
+      "new_sqlite_classes": [
         "RoomDO"
       ]
     }
   ],
-  "queues": {
-    "producers": [
-      {
-        "binding": "SEARCH_QUEUE",
-        "queue": "github-search-queue"
-      }
-    ],
-    "consumers": [
-      {
-        "queue": "github-search-queue",
-        "max_batch_size": 5
-      }
-    ]
-  },
   "workflows": [
     {
       "name": "GithubSearchWorkflow",
@@ -91,4 +77,3 @@
     }
   ]
 }
-
