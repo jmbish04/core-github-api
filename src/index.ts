@@ -12,6 +12,8 @@ import { app, Bindings } from './utils/hono'
 import { GitHubWorkerRPC } from './rpc'
 import { convertOpenAPIToYAML, buildCompleteOpenAPIDocument } from './utils/openapi'
 import { MCP_TOOLS, getToolStats, getTool, MCPExecuteRequest, TOOL_ROUTES, serializeTools } from './mcp/tools'
+import { getDb, schema } from './db'
+import { eq, and, desc } from 'drizzle-orm'
 
 // Import routes
 import octokitApi from './octokit'
@@ -57,38 +59,24 @@ app.use('*', async (c, next) => {
   )
 
   try {
-    await c.env.DB.prepare(
-      `INSERT INTO request_logs (
-        timestamp,
-        level,
-        message,
-        method,
-        path,
-        status,
-        latency_ms,
-        payload_size_bytes,
-        correlation_id,
-        metadata
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    )
-      .bind(
-        logEntry.timestamp,
-        logEntry.level,
-        logEntry.message,
-        logEntry.method,
-        logEntry.path,
-        logEntry.status,
-        logEntry.latency,
-        logEntry.payloadSizeBytes,
-        logEntry.correlationId,
-        JSON.stringify({
-          userAgent: c.req.header('user-agent') || null,
-          referer: c.req.header('referer') || null,
-          host: c.req.header('host') || null,
-          correlationId,
-        })
-      )
-      .run()
+    const db = getDb(c.env.DB)
+    await db.insert(schema.requestLogs).values({
+      timestamp: logEntry.timestamp,
+      level: logEntry.level,
+      message: logEntry.message,
+      method: logEntry.method,
+      path: logEntry.path,
+      status: logEntry.status,
+      latencyMs: logEntry.latency,
+      payloadSizeBytes: logEntry.payloadSizeBytes,
+      correlationId: logEntry.correlationId,
+      metadata: JSON.stringify({
+        userAgent: c.req.header('user-agent') || null,
+        referer: c.req.header('referer') || null,
+        host: c.req.header('host') || null,
+        correlationId,
+      })
+    })
   } catch (error) {
     console.error('Failed to persist request log to D1', error)
   }
@@ -342,7 +330,7 @@ app.post('/mcp-execute', async (c) => {
     }
     const result = await response.json();
 
-    const durationMs = Date.Now() - startTime
+    const durationMs = Date.now() - startTime
 
     return c.json({
       success: true,
@@ -586,6 +574,8 @@ export default {
       throw new Error('AI binding is not configured on the environment')
     }
 
+    const db = getDb(env.DB)
+
     for (const message of batch.messages) {
       const { sessionId, searchId, searchTerm } = message.body
 
@@ -597,28 +587,33 @@ export default {
       if (searchResults && searchResults.items) {
         for (const repo of searchResults.items) {
           // 2a. Check if the repository has already been analyzed for this session
-          const { results } = await env.DB.prepare(
-            'SELECT id FROM repo_analysis WHERE session_id = ? AND repo_full_name = ?'
-          ).bind(sessionId, repo.full_name).all()
-  
+          // using Drizzle syntax
+          const results = await db.select({ id: schema.repoAnalysis.id })
+            .from(schema.repoAnalysis)
+            .where(
+              and(
+                eq(schema.repoAnalysis.sessionId, sessionId),
+                eq(schema.repoAnalysis.repoFullName, repo.full_name)
+              )
+            )
+            .all()
+
           if (results.length > 0) {
             continue
           }
-  
+
           // 2b. Analyze the repository
           const analysis = await analyzeRepository(repo, searchTerm, aiBinding)
-  
-          // 2c. Persist the analysis to D1
-          await env.DB.prepare(
-            'INSERT INTO repo_analysis (session_id, search_id, repo_full_name, repo_url, description, relevancy_score) VALUES (?, ?, ?, ?, ?, ?)'
-          ).bind(
+
+          // 2c. Persist the analysis to D1 using Drizzle
+          await db.insert(schema.repoAnalysis).values({
             sessionId,
             searchId,
-            repo.full_name,
-            repo.html_url,
-            repo.description,
-            analysis.relevancyScore
-          ).run()
+            repoFullName: repo.full_name,
+            repoUrl: repo.html_url,
+            description: repo.description,
+            relevancyScore: analysis.relevancyScore
+          })
         }
       } else {
         console.warn(`No search results for term: ${searchTerm}`);
@@ -626,9 +621,9 @@ export default {
 
 
       // 3. Update the search status
-      await env.DB.prepare(
-        'UPDATE searches SET status = ? WHERE id = ?'
-      ).bind('completed', searchId).run()
+      await db.update(schema.searches)
+        .set({ status: 'completed' })
+        .where(eq(schema.searches.id, searchId))
 
       // 4. Notify the orchestrator that the workflow is complete
       const orchestrator = env.ORCHESTRATOR.get(

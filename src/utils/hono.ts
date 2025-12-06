@@ -15,6 +15,8 @@ export type Bindings = {
   ETAG_KV: KVNamespace
   WORKER_API_KEY: string
   DB: D1Database
+  // --- END MODIFICATION ---
+  ASSETS: Fetcher
   CLOUDFLARE_API_TOKEN?: string
   GITHUB_ACTION_CLOUDFLARE_ACCOUNT_ID?: string
   ASSETS: Fetcher
