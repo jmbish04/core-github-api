@@ -14,12 +14,12 @@ export type Bindings = {
   LOG_LEVEL: string
   ETAG_KV: KVNamespace
   WORKER_API_KEY: string
-  // --- MODIFICATION: Changed CORE_GITHUB_API to DB to match wrangler.jsonc ---
   DB: D1Database
   // --- END MODIFICATION ---
   ASSETS: Fetcher
   CLOUDFLARE_API_TOKEN?: string
   GITHUB_ACTION_CLOUDFLARE_ACCOUNT_ID?: string
+  ASSETS: Fetcher
 }
 
 // Create a new OpenAPIHono app with the defined Bindings

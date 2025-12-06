@@ -7,7 +7,8 @@
 import { OpenAPIHono } from '@hono/zod-openapi'
 import type { MiddlewareHandler } from 'hono'
 import { swaggerUI } from '@hono/swagger-ui'
-import { app, Bindings } from './utils/hono' // Main 'app' for RUNTIME
+// 'app' is the Hono app that handles all our API routes
+import { app, Bindings } from './utils/hono' 
 import { GitHubWorkerRPC } from './rpc'
 import { convertOpenAPIToYAML, buildCompleteOpenAPIDocument } from './utils/openapi'
 import { MCP_TOOLS, getToolStats, getTool, MCPExecuteRequest, TOOL_ROUTES, serializeTools } from './mcp/tools'
@@ -81,6 +82,7 @@ app.use('*', async (c, next) => {
   }
 })
 
+// API Key Auth Middleware
 const requireApiKey: MiddlewareHandler<{ Bindings: Bindings }> = async (c, next) => {
   if (c.req.method === 'OPTIONS') {
     await next()
@@ -106,6 +108,7 @@ const requireApiKey: MiddlewareHandler<{ Bindings: Bindings }> = async (c, next)
   await next()
 }
 
+// Apply auth middleware to all API routes
 app.use('/api/*', requireApiKey)
 app.use('/mcp/*', requireApiKey)
 app.use('/a2a/*', requireApiKey)
@@ -120,34 +123,38 @@ app.get('/healthz', healthHandler)
 app.post('/webhook', webhookHandler)
 
 
-// --- 3. API Spec Generation (using a separate, clean app) ---
+// --- 3. API Spec Generation Apps ---
 
-// Create a new Hono app *just for generating the spec*.
-// This app will *only* contain routes we want in the documentation.
-const apiSpecApp = new OpenAPIHono<{ Bindings: Bindings }>()
+// App 1: Full Spec (for /openapi.json)
+const fullSpecApp = new OpenAPIHono<{ Bindings: Bindings }>()
+fullSpecApp.route('/octokit', octokitApi)
+fullSpecApp.route('/tools', toolsApi)
+fullSpecApp.route('/agents', agentsApi)
+fullSpecApp.route('/retrofit', retrofitApi)
+fullSpecApp.route('/flows', flowsApi)
 
-// Register all your API routers with the spec-only app
-apiSpecApp.route('/octokit', octokitApi)
-apiSpecApp.route('/tools', toolsApi)
-apiSpecApp.route('/agents', agentsApi)
-apiSpecApp.route('/retrofit', retrofitApi)
-apiSpecApp.route('/flows', flowsApi)
+// App 2: GPT-Specific Spec (for /gpt/openapi.json)
+const gptSpecApp = new OpenAPIHono<{ Bindings: Bindings }>()
+gptSpecApp.route('/octokit', octokitApi) // 3 methods
+gptSpecApp.route('/agents', agentsApi)   // 2 methods
+gptSpecApp.route('/flows', flowsApi)     // 2 methods
+// Total = 7 methods
+
 
 /**
  * Helper function to generate the enhanced 3.1.0 OpenAPI spec.
- * It uses the 'apiSpecApp' to create a clean doc.
  */
-const getEnhancedApiSpec = async (c: any) => {
+const getEnhancedApiSpec = async (
+  c: any, 
+  honoApp: OpenAPIHono<any>, // Pass in the app to generate the spec from
+  title: string,
+  description: string
+) => {
   const baseUrl = new URL(c.req.url).origin
   
-  // Generate the spec from 'apiSpecApp', NOT the main 'app'
-  const openApiJson = await apiSpecApp.getOpenAPIDocument({
+  const openApiJson = await honoApp.getOpenAPIDocument({
     openapi: '3.0.0', // Base doc is 3.0.0, will be enhanced
-    info: { 
-      version: '1.0.0', 
-      title: 'GitHub API Worker',
-      description: 'A GPT-compatible spec for the GitHub API Worker (11 operations).'
-    },
+    info: { version: '1.0.0', title, description },
     // This 'servers' block is a placeholder. 
     // buildCompleteOpenAPIDocument will overwrite it with the correct, single, absolute URL.
     servers: [{ url: '/api' }], 
@@ -157,11 +164,15 @@ const getEnhancedApiSpec = async (c: any) => {
   return buildCompleteOpenAPIDocument(openApiJson, baseUrl)
 }
 
-// /openapi.json [Full, GPT-Compatible, 3.1.0, JSON]
-// This route is on the main 'app' but generates a spec from 'apiSpecApp'
+// --- OpenAPI Endpoints (on main 'app') ---
+
+// /openapi.json [Full API Schema, 3.1.0, JSON]
 app.get('/openapi.json', async (c) => {
   try {
-    const enhanced = await getEnhancedApiSpec(c)
+    const enhanced = await getEnhancedApiSpec(c, fullSpecApp, // Use fullSpecApp
+      'GitHub API Worker (Full Spec)', 
+      'Full API Spec (3.1.0) with all 11 operations.'
+    )
     return c.json(enhanced, 200, {
       'X-API-Version': '3.1.0',
     })
@@ -171,11 +182,13 @@ app.get('/openapi.json', async (c) => {
   }
 })
 
-// /openapi.yaml [Full, GPT-Compatible, 3.1.0, YAML]
-// This route is on the main 'app' but generates a spec from 'apiSpecApp'
+// /openapi.yaml [Full API Schema, 3.1.0, YAML]
 app.get('/openapi.yaml', async (c) => {
   try {
-    const enhanced = await getEnhancedApiSpec(c)
+    const enhanced = await getEnhancedApiSpec(c, fullSpecApp, // Use fullSpecApp
+      'GitHub API Worker (Full Spec)', 
+      'Full API Spec (3.1.0) with all 11 operations.'
+    )
     const yaml = convertOpenAPIToYAML(enhanced)
     return new Response(yaml, {
       headers: {
@@ -188,6 +201,43 @@ app.get('/openapi.yaml', async (c) => {
     return c.json({ error: 'Failed to generate OpenAPI YAML', details: error.message }, 500)
   }
 })
+
+// /gpt/openapi.json [Limited Schema for GPTs, 3.1.0, JSON]
+app.get('/gpt/openapi.json', async (c) => {
+  try {
+    const enhanced = await getEnhancedApiSpec(c, gptSpecApp, // <-- Use gptSpecApp
+      'GitHub Worker - GPT Custom Action', 
+      'A focused set of 7 high-level tools for OpenAI GPTs.'
+    )
+    return c.json(enhanced, 200, {
+      'X-API-Version': '3.1.0',
+    })
+  } catch (error: any) {
+    console.error('Error generating OpenAPI GPT JSON:', error)
+    return c.json({ error: 'Failed to generate OpenAPI GPT JSON', details: error.message }, 500)
+  }
+})
+
+// /gpt/openapi.yaml [Limited Schema for GPTs, 3.1.0, YAML]
+app.get('/gpt/openapi.yaml', async (c) => {
+  try {
+    const enhanced = await getEnhancedApiSpec(c, gptSpecApp, // <-- Use gptSpecApp
+      'GitHub Worker - GPT Custom Action', 
+      'A focused set of 7 high-level tools for OpenAI GPTs.'
+    )
+    const yaml = convertOpenAPIToYAML(enhanced)
+    return new Response(yaml, {
+      headers: {
+        'Content-Type': 'application/yaml',
+        'X-API-Version': '3.1.0',
+      },
+    })
+  } catch (error: any) {
+    console.error('Error generating OpenAPI GPT YAML:', error)
+    return c.json({ error: 'Failed to generate OpenAPI GPT YAML', details: error.message }, 500)
+  }
+})
+
 
 // --- 4. Other Runtime Routes (on main 'app') ---
 
@@ -211,17 +261,6 @@ app.post('/mcp-execute', async (c) => {
   const startTime = Date.now()
 
   try {
-    // Validate request size (DoS prevention)
-    const contentLength = c.req.header('content-length')
-    const MAX_REQUEST_SIZE = 1024 * 1024 // 1MB
-    if (contentLength && parseInt(contentLength) > MAX_REQUEST_SIZE) {
-      return c.json({
-        success: false,
-        error: 'Request too large',
-        maxSize: MAX_REQUEST_SIZE,
-      }, 413)
-    }
-
     const body = await c.req.json()
 
     // Validate JSON structure
@@ -386,7 +425,6 @@ async function searchRepositoriesWithRetry(
   }
 }
 
-// --- MODIFICATION: Updated analyzeRepository function ---
 async function analyzeRepository(
   repo: any,
   searchTerm: string,
@@ -477,7 +515,6 @@ async function analyzeRepository(
     return { relevancyScore: 0 }; // Final fallback
   }
 }
-// --- END MODIFICATION ---
 
 // --- 7. Export Handlers ---
 
@@ -491,18 +528,40 @@ export default {
    */
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     
-    // --- MODIFICATION: Add ASSETS handling ---
-    try {
-      // 1. First, try to fetch the request as a static asset.
-      // This will serve public/landing.html at /landing.html
-      // Or public/index.html at /
-      return await env.ASSETS.fetch(request);
-    } catch (e) {
-      // 2. If it's not a static asset (e.g., 404), fall back to the Hono API app.
-      // The Hono app handles /api, /mcp, /a2a, /openapi.json, etc.
+    // --- THIS IS THE CORRECT FETCH HANDLER ---
+    // It correctly routes API calls to Hono and all other calls to ASSETS.
+    
+    const url = new URL(request.url);
+
+    // List of all your API/dynamic prefixes.
+    // Any request *not* matching these will be treated as a static asset request.
+    const apiPrefixes = [
+      '/api/', 
+      '/mcp/', 
+      '/a2a/', 
+      '/openapi.json', 
+      '/openapi.yaml', 
+      '/gpt/openapi.json',
+      '/gpt/openapi.yaml',
+      '/doc', // The Swagger UI
+      '/healthz',
+      '/webhook',
+      '/mcp-tools',
+      '/ws' // WebSocket endpoint
+    ];
+
+    const isApiRoute = apiPrefixes.some(prefix => url.pathname.startsWith(prefix));
+
+    if (isApiRoute) {
+      // It's an API route. Let the Hono app handle it.
       return app.fetch(request, env, ctx);
+    } else {
+      // It's not an API route.
+      // Assume it's a static asset and let env.ASSETS handle it.
+      // env.ASSETS will automatically serve /index.html for /
+      // and a 404 for any other file it can't find.
+      return env.ASSETS.fetch(request);
     }
-    // --- END MODIFICATION ---
   },
 
   /**
@@ -525,35 +584,41 @@ export default {
       const searchResults = await searchRepositoriesWithRetry(searchTerm, env, ctx)
 
       // 2. Analyze each repository
-      for (const repo of searchResults.items) {
-        // 2a. Check if the repository has already been analyzed for this session
-        const results = await db.select({ id: schema.repoAnalysis.id })
-          .from(schema.repoAnalysis)
-          .where(
-            and(
-              eq(schema.repoAnalysis.sessionId, sessionId),
-              eq(schema.repoAnalysis.repoFullName, repo.full_name)
+      if (searchResults && searchResults.items) {
+        for (const repo of searchResults.items) {
+          // 2a. Check if the repository has already been analyzed for this session
+          // using Drizzle syntax
+          const results = await db.select({ id: schema.repoAnalysis.id })
+            .from(schema.repoAnalysis)
+            .where(
+              and(
+                eq(schema.repoAnalysis.sessionId, sessionId),
+                eq(schema.repoAnalysis.repoFullName, repo.full_name)
+              )
             )
-          )
-          .all()
+            .all()
 
-        if (results.length > 0) {
-          continue
+          if (results.length > 0) {
+            continue
+          }
+
+          // 2b. Analyze the repository
+          const analysis = await analyzeRepository(repo, searchTerm, aiBinding)
+
+          // 2c. Persist the analysis to D1 using Drizzle
+          await db.insert(schema.repoAnalysis).values({
+            sessionId,
+            searchId,
+            repoFullName: repo.full_name,
+            repoUrl: repo.html_url,
+            description: repo.description,
+            relevancyScore: analysis.relevancyScore
+          })
         }
-
-        // 2b. Analyze the repository
-        const analysis = await analyzeRepository(repo, searchTerm, aiBinding)
-
-        // 2c. Persist the analysis to D1
-        await db.insert(schema.repoAnalysis).values({
-          sessionId,
-          searchId,
-          repoFullName: repo.full_name,
-          repoUrl: repo.html_url,
-          description: repo.description,
-          relevancyScore: analysis.relevancyScore
-        })
+      } else {
+        console.warn(`No search results for term: ${searchTerm}`);
       }
+
 
       // 3. Update the search status
       await db.update(schema.searches)
@@ -577,27 +642,10 @@ export default {
  *
  * This class is a NAMED export. Other workers must use this name as the 'entrypoint'
  * in their service binding configuration to call these RPC methods.
- *
- * Example consumer wrangler.jsonc:
- * {
- * "services": [
- * {
- * "binding": "GITHUB_WORKER",
- * "service": "core-github-api",
- * "entrypoint": "GitHubWorker" // <-- This is the new required key
- * }
- * ]
- * }
  */
 export class GitHubWorker {
   private rpc: GitHubWorkerRPC | null = null
   private env: Env | null = null
-
-  // NOTE: 'fetch' and 'queue' handlers are removed from this class
-  // and are now on the 'export default' object.
-
-  // ==================== RPC Methods ====================
-  // These methods can be called directly when this worker is used as a service binding
 
   private getRPC(env: Env): GitHubWorkerRPC {
     if (!this.rpc || this.env !== env) {
