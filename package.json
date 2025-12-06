@@ -10,7 +10,7 @@
     "migrate:remote": "wrangler d1 migrations apply DB --remote",
     "deploy:only": "wrangler deploy",
     "deploy": "bun run db:generate && bun run migrate:remote && bun run deploy:only",
-    "db:generate": "drizzle-kit generate:sqlite --config=drizzle.config.ts"
+    "db:generate": "drizzle-kit generate --config=drizzle.config.ts"
   },
   "dependencies": {
     "@cloudflare/containers": "latest",
@@ -24,7 +24,7 @@
     "@octokit/webhooks-methods": "^4.1.0",
     "@tsndr/cloudflare-worker-jwt": "^3.2.0",
     "agents": "^0.2.20",
-    "drizzle-orm": "latest",
+    "drizzle-orm": "^0.45.0",
     "hono": "^4.0.0",
     "kysely": "latest",
     "kysely-d1": "latest",
@@ -35,7 +35,7 @@
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.10.5",
     "@types/node": "^20.14.10",
-    "drizzle-kit": "^0.23.0",
+    "drizzle-kit": "^0.31.8",
     "typescript": "^5.6.0",
     "vitest": "~3.2.0",
     "wrangler": "^4.45.0"
