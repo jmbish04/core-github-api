@@ -550,6 +550,7 @@ export default {
 export { RetrofitAgent } from './retrofit/RetrofitAgent'
 export { OrchestratorAgent } from './agents/orchestrator'
 export { RoomDO } from './do/RoomDO'
+export { GeminiAgent } from './agents/gemini'
 
 // Export Workflows
 export { GithubSearchWorkflow } from './workflows/search'

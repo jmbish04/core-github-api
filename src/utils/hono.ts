@@ -13,8 +13,10 @@ export type Bindings = {
   GITHUB_TOKEN: string
   LOG_LEVEL: string
   ETAG_KV: KVNamespace
+  COMMENTS_KV: KVNamespace
   WORKER_API_KEY: string
   DB: D1Database
+  GEMINI_AGENT: DurableObjectNamespace
   // --- END MODIFICATION ---
   ASSETS: Fetcher
   CLOUDFLARE_API_TOKEN?: string
