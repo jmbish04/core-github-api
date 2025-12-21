@@ -87,4 +87,31 @@ This worker includes a powerful agentic orchestration layer that can interpret n
 
 ---
 
+## 🎯 Jules Bridge Integration
+
+The worker includes a Jules Bridge service that enables AI-assisted PR reviews through slash commands.
+
+### Usage
+
+Simply add a comment to any Pull Request with:
+
+```
+/colby ask jules <instruction>
+```
+
+**Examples:**
+- `/colby ask jules fix all review comments`
+- `/colby ask jules implement the requested changes`
+- `/colby ask jules address the security concerns`
+
+### What It Does
+
+1. **Aggregates Context**: Fetches PR details and all review comments
+2. **AI Synthesis**: Uses Worker AI to convert scattered comments into structured instructions
+3. **Dispatches to Jules**: Sends the task to the Jules Manager Worker for execution
+
+📖 **[Full Jules Bridge Documentation](./docs/JULES_BRIDGE.md)**
+
+---
+
 _This project was built by an AI agent._
