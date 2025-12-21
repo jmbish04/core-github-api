@@ -14,6 +14,12 @@
 	"ai": {
 		"binding": "AI"
 	},
+	"services": [
+		{
+			"binding": "JULES_WORKER",
+			"service": "jules-mcp"
+		}
+	],
 	"assets": {
 		"directory": "./public",
 		"binding": "ASSETS"

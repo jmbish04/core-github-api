@@ -17,11 +17,11 @@ export type Bindings = {
   WORKER_API_KEY: string
   DB: D1Database
   GEMINI_AGENT: DurableObjectNamespace
-  // --- END MODIFICATION ---
+  AI: Ai
+  JULES_WORKER: Fetcher
   ASSETS: Fetcher
   CLOUDFLARE_API_TOKEN?: string
   GITHUB_ACTION_CLOUDFLARE_ACCOUNT_ID?: string
-  ASSETS: Fetcher
 }
 
 // Create a new OpenAPIHono app with the defined Bindings
