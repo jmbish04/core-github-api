@@ -2,7 +2,7 @@
 ## 💡 `prompt.md`
 
 
-# 🧠 AI Builder Prompt — Cloudflare Worker GitHub Proxy
+# 🧠 AI Builder Prompt — Cloudflare Worker GitHub Proxy `core-github-api`
 
 **Goal:**  
 Develop a modular, extensible Cloudflare Worker that proxies all GitHub REST and GraphQL endpoints, exposes validated Hono routes, and dynamically generates OpenAPI specs for agent discovery.
