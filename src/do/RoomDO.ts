@@ -11,6 +11,7 @@ import { z } from "zod";
 const PingMessageSchema = z.object({
   type: z.literal("ping"),
   payload: z.any().optional(),
+  meta: z.any().optional(),
 });
 
 const BroadcastMessageSchema = z.object({
@@ -21,6 +22,7 @@ const BroadcastMessageSchema = z.object({
 
 const ListClientsMessageSchema = z.object({
   type: z.literal("list_clients"),
+  meta: z.any().optional(),
 });
 
 // Known message types for validation
@@ -219,7 +221,8 @@ export class RoomDO extends DurableObject {
         rawMessage = JSON.parse(text);
       } catch (parseError) {
         // If not JSON, wrap as a broadcast message to be sent to the room.
-        rawMessage = { type: "broadcast", payload: { text } };
+        // Add meta to message type definition
+        rawMessage = { type: "broadcast", payload: { text }, meta: { timestamp: new Date().toISOString() } };
       }
 
       // Validate message structure with Zod

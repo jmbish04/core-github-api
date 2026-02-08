@@ -1,141 +1,70 @@
-## 📘 `AGENTS.md`
+# Gemini Agent Development Guidelines
 
-# 🤖 Agent Architecture — Cloudflare Worker GitHub Proxy
+> **Golden Rule**: ALWAYS use the `@google/genai` SDK. NEVER use `@google/generative-ai`.
 
-This document defines the modular agent framework for building, maintaining, and extending the **Cloudflare Worker GitHub Proxy**.  
-Each agent owns a distinct layer of the stack, ensuring that AI or human collaborators can work independently without stepping on one another.
+## Core Directives
 
----
+1.  **SDK**: `import { GoogleGenAI } from "@google/genai";`
+2.  **Instantiation**: `const ai = new GoogleGenAI({ apiKey: ... });`
+3.  **Models**:
+    -   **General**: `gemini-2.5-flash` (or `gemini-2.0-flash-exp` if requested)
+    -   **Reasoning**: `gemini-2.0-flash-thinking-exp-1219` (if available) or `gemini-2.5-pro`
+    -   **Images**: `gemini-2.5-flash-image`
+4.  **Configuration**: Pass `responseMimeType: "application/json"` and `responseSchema` for structured output.
 
-## 🧩 System Overview
+## Code Patterns
 
-The Worker is an **Octokit-backed proxy** deployed on Cloudflare, using:
+### ✅ Correct (New SDK)
 
-- **Hono** as the routing framework  
-- **@hono/zod-openapi** for dynamic OpenAPI generation and validation  
-- **Zod schemas** for runtime safety and spec fidelity  
-- **TypeScript** for strong typing and modular code organization  
-- **GitHub REST and GraphQL** integration via Octokit clients  
-- **Tooling layer** (e.g. `files.ts`, `prs.ts`, `issues.ts`) exposing higher-level, agent-friendly abstractions  
-- **Dynamic OpenAPI spec exposure** (`/openapi.json`, `/openapi.yaml`) for agent auto-discovery  
+```typescript
+import { GoogleGenAI } from "@google/genai";
 
----
+const ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
 
-## 🧠 Core Agents
+const result = await ai.models.generateContent({
+  model: "gemini-2.5-flash",
+  contents: [{ role: "user", parts: [{ text: "Hello" }] }],
+  config: {
+    responseMimeType: "application/json",
+    // responseSchema: ... (Zod schema converted to JSON)
+  }
+});
 
-### 1. **BuilderAgent**
-**Role:** Initializes and compiles the full Cloudflare Worker project from the spec.  
-**Inputs:** `prompt.md`, `wrangler.toml`, folder structure template  
-**Outputs:** Complete TypeScript codebase, validated by Zod + OpenAPI  
-**Responsibilities:**
-- Scaffold directories and modules (`/octokit`, `/tools`, `/utils`, `/docs`)  
-- Integrate all REST + GraphQL routes under `/api/octokit/...`  
-- Wire `/api/tools/...` workflows for higher-level GitHub ops  
-- Add verbose `console.log` tracing in `core.ts` and routers  
-- Inject environment validation and structured error handling  
+console.log(result.text); // Getter, returns string
+```
 
----
+### ❌ Incorrect (Legacy/Deprecated)
 
-### 2. **OpenAPIGeneratorAgent**
-**Role:** Uses `@hono/zod-openapi` to define and expose live documentation.  
-**Outputs:** `/openapi.json`, `/openapi.yaml` endpoints  
-**Responsibilities:**
-- Auto-generate OpenAPI from all Zod route schemas  
-- Attach schema metadata (summary, tags, description, examples)  
-- Ensure strong type sync between request/response and OpenAPI  
-- Maintain consistency with AI-action contracts for external GPTs  
+-   `require('@google/generative-ai')`
+-   `genai.getGenerativeModel(...)`
+-   `model.generateContent(...)` (Called on model instance instead of `ai.models`)
+-   `generationConfig` (Use `config` property instead)
+-   `result.response.text()` (Method call)
 
----
+## Structured Outputs
 
-### 3. **DocsAgent**
-**Role:** Maintains developer- and agent-facing documentation.  
-**Outputs:** `README.md`, API reference tables, extension guides  
-**Responsibilities:**
-- Keep `/docs` up to date with new endpoints  
-- Document config expectations (`GITHUB_TOKEN`, `ETAG_KV`, etc.)  
-- Provide example curl + Postman snippets for all routes  
-- Sync OpenAPI schema metadata with markdown docs  
+Always use `zod` and `zod-to-json-schema` to define your `responseSchema`.
 
----
+```typescript
+import { z } from "zod";
+import { zodToJsonSchema } from "zod-to-json-schema";
 
-### 4. **WorkflowAgent**
-**Role:** Adds high-level operations that combine multiple Octokit calls.  
-**Outputs:** New routes under `/api/tools/...`  
-**Examples:**  
-- `/api/tools/files/upsert` → create/update repo files  
-- `/api/tools/prs/open` → open PR and assign reviewers  
-- `/api/tools/issues/open` → open labeled issues  
-**Responsibilities:**
-- Wrap low-level Octokit operations in intentful APIs  
-- Handle encoding (base64), rate limiting, and retries  
-- Maintain agent-safe contracts (`mode: text|binary|auto`)  
+const MySchema = z.object({ ... });
 
----
+// ... inside generateContent config:
+responseSchema: zodToJsonSchema(MySchema) as any
+```
 
-### 5. **LinterAgent**
-**Role:** Enforces uniform structure, docstring presence, and code clarity.  
-**Responsibilities:**
-- Verify each file has a top-level comment and module description  
-- Check logging consistency (`console.log` context per route)  
-- Validate proper import hierarchy and no circular deps  
+## Tools (MCP)
 
----
+When integrating tools:
+1.  Use `src/lib/mcp.ts` to connect to Cloudflare Docs or other MCP servers.
 
-### 6. **TesterAgent**
-**Role:** Ensures runtime correctness and contract fidelity.  
-**Responsibilities:**
-- Run integration tests via Wrangler dev  
-- Validate OpenAPI schema responses with zod-safe parsing  
-- Verify `mode=text` vs `mode=binary` logic in `/files/upsert`  
-- Test GraphQL query + REST roundtrip parity  
+## Exit Criteria & Verification
 
----
+Before reporting a task or turn as complete, you **MUST**:
 
-### 7. **ExtenderAgent**
-**Role:** Adds new functionality post-deployment.  
-**Responsibilities:**
-- Register new `/api/workflows/...` or `/api/tools/...` routes  
-- Update OpenAPI schema dynamically  
-- Follow modular class patterns for REST or GraphQL extension  
-
----
-
-## 🧩 Inter-Agent Communication Model
-
-Agents communicate via shared artifacts and logs:
-- `prompt.md` → single source of truth for BuilderAgent  
-- `openapi.json` → interface map for DocsAgent and TesterAgent  
-- `wrangler.toml` → deployment contract shared by all  
-
-Agents never modify each other’s code directly; instead, they open PRs via `/api/tools/prs/open` to request changes.
-
----
-
-## 🧱 Extension Guidelines
-
-When adding new functionality:
-1. Create a new file under `/octokit/rest` or `/octokit/graphql`
-2. Define Zod schemas for all inputs/outputs  
-3. Register the route with OpenAPI metadata in `hono.ts`  
-4. Update README.md and re-run `/openapi.json` generation  
-5. Use `/api/tools/prs/open` to push updates to GitHub  
-
----
-
-## ⚙️ Example Agent Chain
-
-```mermaid
-graph TD
-A[BuilderAgent] --> B[OpenAPIGeneratorAgent]
-B --> C[DocsAgent]
-C --> D[WorkflowAgent]
-D --> E[LinterAgent]
-E --> F[TesterAgent]
-F --> G[ExtenderAgent]
-````
-
----
-
-**Version:** 1.0
-**Maintainers:** Colby Systems / Justin M. Bishop
-**License:** Internal DevOps Proxy Blueprint
+1.  **Clear Linting Errors**: Ensure `bun run check` (or checking the IDE output) reveals no linting or compilation errors.
+2.  **Verify Deployment**: Run `bun run dry-run` to validate the worker configuration and build process.
+    -   This executes `wrangler deploy --dry-run` to catch binding issues, bundle size limits, or config errors.
+    -   **Fix any errors** reported by this command before finishing.

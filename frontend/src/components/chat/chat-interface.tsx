@@ -1,145 +1,242 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { MessageBubble } from './message-bubble';
-import { Send, Upload, Square } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Message, PromptInput, ModelSelector } from '@/components/ui/ai-elements/idx';
+import { Plus, MessageSquare, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+import { formatDistanceToNow } from 'date-fns';
 
 interface ChatInterfaceProps {
-    apiKey: string;
+    apiKey?: string;
+}
+
+interface Thread {
+    id: string;
+    subject: string | null;
+    timestampStarted: string;
+}
+
+interface ChatMessage {
+    id: number;
+    threadId: string;
+    role: 'user' | 'agent' | 'system';
+    content: string;
+    timestamp: string;
 }
 
 export const ChatInterface: React.FC<ChatInterfaceProps> = ({ apiKey }) => {
-    const [input, setInput] = useState('');
-    const [messages, setMessages] = useState<any[]>([]);
+    const [threads, setThreads] = useState<Thread[]>([]);
+    const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
+    const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [isLoading, setIsLoading] = useState(false);
-    const [sessionId, setSessionId] = useState<string | null>(null);
-    const bottomRef = useRef<HTMLDivElement>(null);
+    const [isThreadsLoading, setIsThreadsLoading] = useState(false);
 
+    // Fetch Threads
     useEffect(() => {
-        bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages]);
+        fetchThreads();
+    }, []);
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!input.trim() || isLoading) return;
-
-        const userMsg = { role: 'user', content: input };
-        setMessages(prev => [...prev, userMsg]);
-        setInput('');
-        setIsLoading(true);
-
+    const fetchThreads = async () => {
+        setIsThreadsLoading(true);
         try {
-            const res = await fetch('/api/chat', {
+            const res = await fetch('/api/chat/threads', {
+                headers: { 'x-api-key': apiKey || '' }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setThreads(data);
+                // Auto-select most recent if none selected
+                if (!activeThreadId && data.length > 0) {
+                    setActiveThreadId(data[0].id);
+                }
+            }
+        } catch (e) {
+            console.error("Failed to fetch threads", e);
+        } finally {
+            setIsThreadsLoading(false);
+        }
+    };
+
+    // Fetch Messages when active thread changes
+    useEffect(() => {
+        if (!activeThreadId) {
+            setMessages([]);
+            return;
+        }
+
+        const fetchMessages = async () => {
+            setIsLoading(true);
+            try {
+                const res = await fetch(`/api/chat/threads/${activeThreadId}/messages`, {
+                    headers: { 'x-api-key': apiKey || '' }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    setMessages(data);
+                }
+            } catch (e) {
+                console.error("Failed to fetch messages", e);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchMessages();
+    }, [activeThreadId, apiKey]);
+
+    const handleCreateThread = async () => {
+        try {
+            const res = await fetch('/api/chat/threads', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'x-api-key': apiKey
+                    'x-api-key': apiKey || ''
                 },
-                body: JSON.stringify({
-                    message: userMsg.content,
-                    sessionId,
-                    history: messages // Pass history to maintain context if backend needs it (though DO has state)
-                })
+                body: JSON.stringify({ subject: 'New Discussion' })
+            });
+            if (res.ok) {
+                const newThread = await res.json();
+                setThreads(prev => [newThread, ...prev]);
+                setActiveThreadId(newThread.id);
+            }
+        } catch (e) {
+            console.error("Failed to create thread", e);
+        }
+    };
+
+    const handleSendMessage = async (text: string) => {
+        if (!activeThreadId) return;
+
+        // Optimistic UI
+        const optimisticMsg: ChatMessage = {
+            id: Date.now(),
+            threadId: activeThreadId,
+            role: 'user',
+            content: text,
+            timestamp: new Date().toISOString()
+        };
+        setMessages(prev => [...prev, optimisticMsg]);
+        setIsLoading(true);
+
+        try {
+            const res = await fetch(`/api/chat/threads/${activeThreadId}/messages`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-api-key': apiKey || ''
+                },
+                body: JSON.stringify({ content: text })
             });
 
-            if (!res.ok) throw new Error(await res.text());
-
-            const data = await res.json();
-
-            // Update session ID if new
-            if (data.sessionId) setSessionId(data.sessionId);
-
-            // Backend returns full history, but we might want to just append the new messages 
-            // or replace entirely. Replacing ensures we see tool calls that happened on backend.
-            // However, backend 'history' format might differ slightly from our local state depending on how GeminiAgent constructs it.
-            // GeminiAgent returns { history: [...] } which includes the new interaction.
-            if (data.history) {
-                setMessages(data.history);
-            } else {
-                // Fallback
-                setMessages(prev => [...prev, { role: 'assistant', content: data.response }]);
+            if (res.ok) {
+                const newMessages = await res.json();
+                // Replace optimistic or append. DB returns [userMsg, agentMsg].
+                // We'll just append the agent message since we showed user one.
+                const agentMsg = newMessages.find((m: any) => m.role === 'agent');
+                if (agentMsg) {
+                    setMessages(prev => [...prev, agentMsg]);
+                }
             }
-
-        } catch (error: any) {
-            console.error(error);
-            setMessages(prev => [...prev, { role: 'system', content: `Error: ${error.message}` }]);
+        } catch (e) {
+            console.error("Failed to send message", e);
         } finally {
             setIsLoading(false);
         }
     };
 
     return (
-        <div className="flex flex-col h-screen bg-background text-foreground">
-            {/* Header */}
-            <header className="h-14 border-b px-6 flex items-center justify-between bg-card/50 backdrop-blur sticky top-0 z-10">
-                <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                    <span className="font-semibold text-sm">Gemini Agent</span>
-                    {sessionId && <span className="text-xs text-muted-foreground ml-2">#{sessionId.slice(0, 8)}</span>}
+        <div className="flex h-[calc(100vh-6rem)] bg-background border rounded-xl overflow-hidden shadow-sm">
+            {/* Thread List Sidebar */}
+            <div className="w-80 border-r bg-muted/10 flex flex-col">
+                <div className="p-4 border-b flex items-center justify-between bg-background/50 backdrop-blur">
+                    <span className="font-semibold text-sm">Discussions</span>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleCreateThread}>
+                        <Plus className="h-4 w-4" />
+                    </Button>
                 </div>
-            </header>
 
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:px-40 scroll-smooth">
-                {messages.length === 0 ? (
-                    <div className="h-full flex flex-col items-center justify-center text-center space-y-4 opacity-50">
-                        <div className="p-4 bg-secondary rounded-full">
-                            <Upload className="h-8 w-8" />
-                        </div>
-                        <p>Send a message to start checking your repositories.</p>
-                    </div>
-                ) : (
-                    <div className="space-y-6 max-w-3xl mx-auto pb-4">
-                        {messages.map((m, i) => (
-                            <MessageBubble key={i} role={m.role} content={m.content} />
-                        ))}
-                        {isLoading && (
-                            <div className="flex gap-4 my-6">
-                                <div className="shrink-0 h-8 w-8 rounded-full bg-accent flex items-center justify-center">
-                                    <BotIcon />
-                                </div>
-                                <div className="flex items-center gap-1">
-                                    <div className="w-2 h-2 bg-muted-foreground/40 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                                    <div className="w-2 h-2 bg-muted-foreground/40 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                                    <div className="w-2 h-2 bg-muted-foreground/40 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                <div className="flex-1 overflow-y-auto p-2 space-y-1">
+                    {isThreadsLoading && <div className="p-4 text-center text-xs text-muted-foreground">Loading...</div>}
+                    {threads.map(thread => (
+                        <button
+                            key={thread.id}
+                            onClick={() => setActiveThreadId(thread.id)}
+                            className={cn(
+                                "w-full text-left p-3 rounded-lg text-sm transition-colors flex items-start gap-3",
+                                activeThreadId === thread.id
+                                    ? "bg-primary/10 text-primary font-medium"
+                                    : "hover:bg-muted/50 text-muted-foreground"
+                            )}
+                        >
+                            <MessageSquare className="w-4 h-4 mt-0.5 shrink-0 opactiy-70" />
+                            <div className="overflow-hidden">
+                                <div className="truncate">{thread.subject || "Untitled Discussion"}</div>
+                                <div className="text-[10px] opacity-70 mt-1">
+                                    {formatDistanceToNow(new Date(thread.timestampStarted), { addSuffix: true })}
                                 </div>
                             </div>
-                        )}
-                        <div ref={bottomRef} />
-                    </div>
-                )}
+                        </button>
+                    ))}
+                    {!isThreadsLoading && threads.length === 0 && (
+                        <div className="p-8 text-center text-xs text-muted-foreground">
+                            No threads yet.
+                        </div>
+                    )}
+                </div>
             </div>
 
-            {/* Input */}
-            <div className="p-4 border-t bg-background/50 backdrop-blur">
-                <form onSubmit={handleSubmit} className="max-w-3xl mx-auto relative flex items-end gap-2 p-2 rounded-xl border bg-card shadow-sm focus-within:ring-1 focus-within:ring-ring">
-                    <textarea
-                        value={input}
-                        onChange={e => setInput(e.target.value)}
-                        className="flex-1 bg-transparent border-none focus:ring-0 resize-none min-h-[44px] max-h-[200px] py-3 px-2"
-                        placeholder="How can I help you today?"
-                        rows={1}
-                        onKeyDown={e => {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                                e.preventDefault();
-                                handleSubmit(e);
-                            }
-                        }}
-                    />
-                    <button
-                        type="submit"
-                        disabled={isLoading || !input.trim()}
-                        className="p-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed mb-1"
-                    >
-                        {isLoading ? <Square className="h-4 w-4 animate-pulse" /> : <Send className="h-4 w-4" />}
-                    </button>
-                </form>
-                <div className="text-center mt-2">
-                    <span className="text-[10px] text-muted-foreground">AI can make mistakes. Check important info.</span>
+            {/* Chat Area */}
+            <div className="flex-1 flex flex-col bg-background">
+                {/* Header */}
+                <div className="h-14 border-b flex items-center justify-between px-6 bg-background/80 backdrop-blur">
+                    <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm">
+                            {threads.find(t => t.id === activeThreadId)?.subject || "Select a discussion"}
+                        </span>
+                    </div>
+                    <ModelSelector defaultValue="gemini-2.0-flash-exp" />
+                </div>
+
+                {/* Messages */}
+                <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6">
+                    {!activeThreadId ? (
+                        <div className="h-full flex flex-col items-center justify-center text-muted-foreground space-y-4">
+                            <MessageSquare className="w-12 h-12 opacity-20" />
+                            <p>Select a thread to start chatting</p>
+                        </div>
+                    ) : (
+                        <>
+                            {messages.map((msg) => (
+                                <Message
+                                    key={msg.id}
+                                    role={msg.role === 'agent' ? 'assistant' : msg.role as any}
+                                    content={msg.content}
+                                />
+                            ))}
+                            {isLoading && (
+                                <div className="flex items-center gap-2 text-muted-foreground text-xs ml-4 animate-pulse">
+                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                    Thinking...
+                                </div>
+                            )}
+                        </>
+                    )}
+                </div>
+
+                {/* Input */}
+                <div className="p-4 border-t bg-muted/10">
+                    <div className="max-w-3xl mx-auto">
+                        <PromptInput
+                            onSend={handleSendMessage}
+                            isLoading={isLoading}
+                            placeholder={activeThreadId ? "Type a message..." : "Select a thread first..."}
+                            className={!activeThreadId ? "opacity-50 pointer-events-none" : ""}
+                        />
+                    </div>
+                    <div className="text-center mt-2">
+                        <span className="text-[10px] text-muted-foreground">Powered by Gemini 2.0 Flash • Full Context Awareness</span>
+                    </div>
                 </div>
             </div>
         </div>
     );
 };
-
-const BotIcon = () => (
-    <svg className="w-5 h-5 text-accent-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2 2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z" /><path d="m8 22 4-9 4 9" /><path d="M8 13.5A2.5 2.5 0 0 0 5.5 16v1a2 2 0 0 0 2 2h8.5" /><path d="M12 13.5h0" /><path d="M11 6h2" /><path d="M17 19.5V22" /></svg>
-)

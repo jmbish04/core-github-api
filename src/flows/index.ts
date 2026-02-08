@@ -14,25 +14,26 @@ import { getDb, schema } from '../db'
 // --- 1. Zod Schema Definitions ---
 
 const CreateNewRepoRequestSchema = z.object({
-  owner: z.string().openapi({ 
+  owner: z.string().default('jmbish04').openapi({
     example: 'octocat',
-    description: 'Repository owner (organization or user)' 
+    description: 'Repository owner (organization or user)'
   }),
-  name: z.string().openapi({ 
+
+  name: z.string().openapi({
     example: 'my-worker',
-    description: 'Repository name' 
+    description: 'Repository name'
   }),
-  description: z.string().optional().openapi({ 
+  description: z.string().optional().openapi({
     example: 'My Cloudflare Worker',
-    description: 'Repository description' 
+    description: 'Repository description'
   }),
-  private: z.boolean().optional().default(false).openapi({ 
+  private: z.boolean().optional().default(false).openapi({
     example: false,
-    description: 'Whether the repository should be private' 
+    description: 'Whether the repository should be private'
   }),
-  auto_init: z.boolean().optional().default(true).openapi({ 
+  auto_init: z.boolean().optional().default(true).openapi({
     example: true,
-    description: 'Initialize repo with README' 
+    description: 'Initialize repo with README'
   }),
 })
 
@@ -57,33 +58,34 @@ const CreateNewRepoResponseSchema = z.object({
 })
 
 const RetrofitWorkflowsRequestSchema = z.object({
-  owner: z.string().openapi({ 
+  owner: z.string().default('jmbish04').openapi({
     example: 'octocat',
-    description: 'Repository owner to filter by' 
+    description: 'Repository owner to filter by'
   }),
-  repos: z.array(z.string()).optional().openapi({ 
+
+  repos: z.array(z.string()).optional().openapi({
     example: ['repo1', 'repo2'],
-    description: 'Specific repository names to retrofit (if empty, uses date filters)' 
+    description: 'Specific repository names to retrofit (if empty, uses date filters)'
   }),
-  date_active_gt: z.string().optional().openapi({ 
+  date_active_gt: z.string().optional().openapi({
     example: '2024-01-01',
-    description: 'Filter repos with last activity greater than this date (ISO 8601)' 
+    description: 'Filter repos with last activity greater than this date (ISO 8601)'
   }),
-  date_active_lt: z.string().optional().openapi({ 
+  date_active_lt: z.string().optional().openapi({
     example: '2024-12-31',
-    description: 'Filter repos with last activity less than this date (ISO 8601)' 
+    description: 'Filter repos with last activity less than this date (ISO 8601)'
   }),
-  date_added_gt: z.string().optional().openapi({ 
+  date_added_gt: z.string().optional().openapi({
     example: '2024-01-01',
-    description: 'Filter repos created after this date (ISO 8601)' 
+    description: 'Filter repos created after this date (ISO 8601)'
   }),
-  date_added_lt: z.string().optional().openapi({ 
+  date_added_lt: z.string().optional().openapi({
     example: '2024-12-31',
-    description: 'Filter repos created before this date (ISO 8601)' 
+    description: 'Filter repos created before this date (ISO 8601)'
   }),
-  force: z.boolean().optional().default(false).openapi({ 
+  force: z.boolean().optional().default(false).openapi({
     example: false,
-    description: 'Force overwrite existing workflow files' 
+    description: 'Force overwrite existing workflow files'
   }),
 })
 
@@ -199,7 +201,7 @@ async function getExistingWorkflows(
       repo,
       path: '.github/workflows',
     })
-    
+
     if (Array.isArray(data)) {
       return data.map((file: any) => file.path)
     }
@@ -227,7 +229,7 @@ async function getRepoRootFiles(
       repo,
       path: '',
     })
-    
+
     if (Array.isArray(data)) {
       return data.map((file: any) => file.name)
     }
@@ -277,8 +279,8 @@ async function upsertWorkflowFile(
       owner,
       repo,
       path,
-      message: sha 
-        ? `chore: update ${path}` 
+      message: sha
+        ? `chore: update ${path}`
         : `chore: add ${path}`,
       content: encode(content),
       sha,
@@ -286,9 +288,9 @@ async function upsertWorkflowFile(
 
     return { status: 'success', message: sha ? 'Updated' : 'Created' }
   } catch (error: any) {
-    return { 
-      status: 'failure', 
-      message: error.message || 'Unknown error' 
+    return {
+      status: 'failure',
+      message: error.message || 'Unknown error'
     }
   }
 }
@@ -313,14 +315,14 @@ async function setRepoSecret(
     // This would need to be implemented with tweetnacl or libsodium-wrappers
     // in a future version.
     console.log(`[setRepoSecret] Would set secret ${secretName} for ${owner}/${repo}`)
-    return { 
-      status: 'skipped', 
-      message: 'Secret encryption not implemented - use GitHub CLI or manual setup' 
+    return {
+      status: 'skipped',
+      message: 'Secret encryption not implemented - use GitHub CLI or manual setup'
     }
   } catch (error: any) {
-    return { 
-      status: 'failure', 
-      message: error.message || 'Failed to set secret' 
+    return {
+      status: 'failure',
+      message: error.message || 'Failed to set secret'
     }
   }
 }
@@ -491,7 +493,7 @@ flows.openapi(retrofitWorkflowsRoute, async (c) => {
 
   for (const repo of targetRepos) {
     console.log(`[flows/retrofit-workflows] Processing ${repo.full_name}`)
-    
+
     try {
       // Check existing workflows
       const existingWorkflows = await getExistingWorkflows(octokit, owner, repo.name)

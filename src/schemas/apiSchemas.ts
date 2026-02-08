@@ -150,7 +150,7 @@ export const FileContent = z.object({
 });
 
 export const UpsertFileRequest = z.object({
-  owner: z.string().describe("Repository owner"),
+  owner: z.string().default('jmbish04').describe("Repository owner"),
   repo: z.string().describe("Repository name"),
   path: z.string().describe("File path"),
   content: z.string().describe("File content (will be base64 encoded)"),
@@ -234,7 +234,7 @@ export const Issue = z.object({
 });
 
 export const CreateIssueRequest = z.object({
-  owner: z.string().describe("Repository owner"),
+  owner: z.string().default('jmbish04').describe("Repository owner"),
   repo: z.string().describe("Repository name"),
   title: z.string().min(1).describe("Issue title"),
   body: z.string().optional().describe("Issue body"),
@@ -318,7 +318,7 @@ export const PullRequest = z.object({
 });
 
 export const CreatePullRequestRequest = z.object({
-  owner: z.string().describe("Repository owner"),
+  owner: z.string().default('jmbish04').describe("Repository owner"),
   repo: z.string().describe("Repository name"),
   title: z.string().min(1).describe("Pull request title"),
   body: z.string().optional().describe("Pull request body"),

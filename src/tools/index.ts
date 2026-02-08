@@ -10,6 +10,8 @@ import prs from './prs'
 import issues from './issues'
 import github from './github'
 import kv from './kv'
+import comments from './comments'
+import healthCheck from './health-check'
 import { Bindings } from '../utils/hono'
 
 const toolsApi = new OpenAPIHono<{ Bindings: Bindings }>()
@@ -19,6 +21,8 @@ toolsApi.route('/', prs)
 toolsApi.route('/', issues)
 toolsApi.route('/', github)
 toolsApi.route('/', kv)
+toolsApi.route('/', comments)
+toolsApi.route('/', healthCheck)
 
 export default toolsApi
 

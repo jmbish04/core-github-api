@@ -26,6 +26,26 @@ export const NumericKeypad: React.FC<NumericKeypadProps> = ({ onComplete }) => {
         }
     };
 
+    React.useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key >= '0' && e.key <= '9') {
+                handlePress(parseInt(e.key));
+            } else if (e.key === 'Backspace') {
+                handleDelete();
+            } else if (e.key === 'Enter') {
+                handleSubmit();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [code]); // Dependency on code due to closures in handlePress/Submit if they depend on state, but here setState uses functional updates or refs. actually handlePress depends on code.length check using 'code' variable.
+
+    // Better to use ref or functional updates fully, but for simple effect:
+    // handlePress uses 'code' state directly in the if check.
+    // So [code] dependency is needed, or refactor handlePress to use functional update if check.
+    // Let's rely on [code] dependency for now, simplistic.
+
     return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-background p-4">
             <div className="max-w-md w-full space-y-8">

@@ -1,15 +1,15 @@
 /**
  * @file src/workflows/search.ts
- * @description This file defines the GithubSearchWorkflow, which executes the search and analysis logic directly.
+ * @description Executes GitHub search and performs AI analysis using Drizzle ORM for D1.
  * @owner AI-Builder
  */
 
 import { WorkflowEntrypoint, WorkflowStep, WorkflowEvent } from 'cloudflare:workers';
-import { OrchestratorAgent } from '../agents/orchestrator';
 import { getOctokit } from '../octokit/core';
-import { getDb, schema } from '../db';
-import { eq, and } from 'drizzle-orm';
-import type { Bindings } from '../utils/hono'; // Using Bindings for GITHUB_TOKEN coverage
+import { getDb } from '../db';
+import { searches, repoAnalysis } from '../db/schema-webhooks'; // Import the specific tables from schema-webhooks
+import { eq, and, inArray } from 'drizzle-orm';
+import type { Bindings } from '../utils/hono';
 
 interface GithubSearchWorkflowParams {
   sessionId: string;
@@ -17,179 +17,162 @@ interface GithubSearchWorkflowParams {
   searchTerm: string;
 }
 
-// Combine bindings with standard Env interface to ensure we have everything
+interface OrchestratorStub {
+  workflowComplete(searchId: number): Promise<void>;
+}
+
 type WorkflowEnv = Bindings & Env;
 
 export class GithubSearchWorkflow extends WorkflowEntrypoint<WorkflowEnv, GithubSearchWorkflowParams> {
 
   public async run(event: Readonly<WorkflowEvent<GithubSearchWorkflowParams>>, step: WorkflowStep): Promise<void> {
     const { sessionId, searchId, searchTerm } = event.payload;
+    // Use DB_WEBHOOKS as requested
+    const db = getDb(this.env.DB_WEBHOOKS);
 
-    // 1. Execute Search
-    // We break this into a step for observability and retries
+    // 1. Execute Search (GitHub API)
     const searchResults = await step.do('search-github', async () => {
       const octokit = getOctokit(this.env);
-      try {
-        const result = await octokit.rest.search.repos({
-          q: searchTerm,
-          per_page: 5 // Limit to top 5 results as per original logic logic usually implies
-        });
-        return result.data;
-      } catch (error) {
-        console.error('GitHub Search failed:', error);
-        throw error; // Workflow will retry
-      }
+      const result = await octokit.rest.search.repos({
+        q: searchTerm,
+        sort: 'stars',
+        per_page: 5
+      });
+      return result.data.items || [];
     });
 
-    if (!searchResults || !searchResults.items || searchResults.items.length === 0) {
-      console.warn(`No search results for term: ${searchTerm}`);
-    } else {
-      // 2. Analyze Results
-      // We iterate through items. 
-      // Note: In Workflow, it's often better to do one item per step or batch them.
-      // For simplicity, we'll keep the loop inside one step or loop steps. 
-      // Let's do one 'analysis-batch' step to avoid too many small steps if the list is long, 
-      // but here it is max 5 items.
+    if (searchResults.length === 0) {
+      // Update status to failed/completed empty
+      await step.do('mark-empty', async () => {
+        await db.update(searches)
+          .set({ status: 'completed' })
+          .where(eq(searches.id, searchId));
+      });
+      return;
+    }
 
-      await step.do('analyze-and-save', async () => {
-        const db = getDb(this.env.DB);
-        const analyzedItems = [];
+    // 2. Filter & Analyze (Batch Processing)
+    await step.do('analyze-and-save', async () => {
+      // 2a. Batch Check: Get all existing repos for this session
+      const repoNames = searchResults.map(r => r.full_name);
 
-        for (const repo of searchResults.items) {
-          // Check for existing analysis
-          const existing = await db.select({ id: schema.repoAnalysis.id })
-            .from(schema.repoAnalysis)
-            .where(
-              and(
-                eq(schema.repoAnalysis.sessionId, sessionId),
-                eq(schema.repoAnalysis.repoFullName, repo.full_name)
-              )
-            )
-            .get(); // .get() is faster for single check
+      const existingAnalyses = await db.select({ repoFullName: repoAnalysis.repoFullName })
+        .from(repoAnalysis)
+        .where(
+          and(
+            eq(repoAnalysis.sessionId, sessionId),
+            inArray(repoAnalysis.repoFullName, repoNames)
+          )
+        );
 
-          if (existing) continue;
+      const existingSet = new Set(existingAnalyses.map(e => e.repoFullName));
 
-          // Perform Analysis
-          const analysis = await this.analyzeRepository(repo, searchTerm);
+      // Filter list to only new items
+      const reposToAnalyze = searchResults.filter(r => !existingSet.has(r.full_name));
 
-          // Persist
-          await db.insert(schema.repoAnalysis).values({
+      if (reposToAnalyze.length === 0) return { skipped: true, reason: 'All repos already analyzed' };
+
+      // 2b. Parallel AI Analysis
+      const analysisPromises = reposToAnalyze.map(repo =>
+        this.analyzeRepository(repo, searchTerm)
+          .then(analysis => ({
             sessionId,
             searchId,
             repoFullName: repo.full_name,
             repoUrl: repo.html_url,
-            description: repo.description,
-            relevancyScore: analysis.relevancyScore
-          });
+            description: repo.description || '',
+            relevancyScore: analysis.relevancyScore,
+            reasoning: analysis.reasoning
+          }))
+      );
 
-          analyzedItems.push(repo.full_name);
-        }
-        return analyzedItems;
-      });
-    }
+      const rowsToInsert = await Promise.all(analysisPromises);
 
-    // 3. Update Status & Notify Orchestrator
+      // 2c. Batch Insert into D1
+      if (rowsToInsert.length > 0) {
+        await db.insert(repoAnalysis).values(rowsToInsert);
+      }
+
+      return { processed: rowsToInsert.length };
+    });
+
+    // 3. Finalize
     await step.do('finalize-search', async () => {
-      const db = getDb(this.env.DB);
-
-      // Update search status
-      await db.update(schema.searches)
+      // Update local DB status using Drizzle
+      await db.update(searches)
         .set({ status: 'completed' })
-        .where(eq(schema.searches.id, searchId));
+        .where(eq(searches.id, searchId));
 
       // Notify Orchestrator
-      // Ensure ORCHESTRATOR binding exists
       if (this.env.ORCHESTRATOR) {
         const id = this.env.ORCHESTRATOR.idFromName('orchestrator');
-        const stub = this.env.ORCHESTRATOR.get(id) as DurableObjectStub<OrchestratorAgent>;
+        const stub = this.env.ORCHESTRATOR.get(id) as unknown as OrchestratorStub;
         await stub.workflowComplete(searchId);
-      } else {
-        console.warn('ORCHESTRATOR binding missing, cannot notify completion');
       }
     });
   }
 
-  // Helper method for AI analysis (ported from index.ts)
-  private async analyzeRepository(repo: any, searchTerm: string): Promise<{ relevancyScore: number }> {
+  // Helper method for AI analysis
+  private async analyzeRepository(repo: any, searchTerm: string): Promise<{ relevancyScore: number; reasoning: string }> {
     const ai = this.env.AI;
+    // ... (Same optimized AI logic as previous step) ...
+    // Re-implementing the AI logic as in the previous version to ensure it works
     if (!ai) {
-      console.warn('AI binding missing, returning default score');
-      return { relevancyScore: 0 };
+      console.warn('AI binding missing');
+      return { relevancyScore: 0, reasoning: "AI Binding Missing" };
     }
 
-    const analysisSchema = {
-      type: "object",
-      properties: {
-        relevancyScore: {
-          type: "number",
-          minimum: 0,
-          maximum: 1,
-          description: "A score from 0.0 to 1.0, where 1.0 is highly relevant."
-        },
-        reasoning: {
-          type: "string",
-          description: "A brief justification for the score."
-        }
-      },
-      required: ["relevancyScore", "reasoning"]
-    };
-
-    const reasoningInstructions = `
-      You are a GitHub repository analyst. Your task is to rate the relevancy of a repository 
-      to a search term on a scale of 0.0 to 1.0.
-      Search Term: "${searchTerm}"
-      Repository: ${repo.full_name}
-      Description: "${repo.description || 'No description provided.'}"
+    const systemPrompt = `
+      You are a technical analyst evaluating GitHub repositories against a user's search intent.
       
-      Provide a relevancy score (e.g., 0.8) and a *brief* justification for your score.
-      Return only the score and justification.
+      Search Term: "${searchTerm}"
+      
+      Evaluate the repository below. Return a JSON object with:
+      - relevancyScore: A float between 0.0 and 1.0 (1.0 = Perfect Match).
+      - reasoning: A strictly concise sentence justifying the score.
     `;
 
-    // Step 1: Reasoning
-    const gptResponse = await ai.run('@cf/openai/gpt-oss-120b', {
-      instructions: reasoningInstructions,
-      input: `Rate relevancy for: ${repo.full_name}`,
-    });
+    const repoDetails = `
+      Repo: ${repo.full_name}
+      Description: ${repo.description || 'No description'}
+      Language: ${repo.language || 'Unknown'}
+      Topics: ${repo.topics ? repo.topics.join(', ') : 'None'}
+    `;
 
-    const rawAnalysisText = typeof gptResponse === 'string' ? gptResponse : (gptResponse as any).response || '';
-
-    // Step 2: Structuring
     try {
-      const structuringSystemPrompt = `
-        You are a text standardization assistant. Parse the raw analysis text and return a 
-        structured JSON object that *strictly* adheres to the provided JSON schema. 
-        Return *only* the valid JSON object.
-      `;
-
-      const llamaMessages = [
-        { role: "system", content: structuringSystemPrompt },
-        { role: "user", content: `Here is the raw text to parse:\n\n${rawAnalysisText}` }
-      ];
-
-      const llamaResponse = await ai.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
-        messages: llamaMessages,
+      const response = await ai.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: repoDetails }
+        ],
         response_format: {
-          type: "json_schema",
-          json_schema: analysisSchema
+          type: 'json_schema',
+          json_schema: {
+            type: "object",
+            properties: {
+              relevancyScore: { type: "number" },
+              reasoning: { type: "string" }
+            },
+            required: ["relevancyScore", "reasoning"]
+          }
         }
       });
 
-      const structuredResponse = JSON.parse((llamaResponse as any).response);
-
-      if (structuredResponse && typeof structuredResponse.relevancyScore === 'number') {
-        return { relevancyScore: structuredResponse.relevancyScore };
+      let result = (response as any);
+      if (result.response && typeof result.response === 'string') {
+        result = JSON.parse(result.response);
+      } else if (typeof result === 'string') {
+        result = JSON.parse(result);
       }
-      return { relevancyScore: 0 };
+
+      return {
+        relevancyScore: result.relevancyScore ?? 0,
+        reasoning: result.reasoning ?? "Parsed default"
+      };
 
     } catch (e) {
-      console.error(`Failed to parse AI JSON response for ${repo.full_name}:`, e);
-      // Fallback regex
-      const scoreMatch = rawAnalysisText.match(/(\d\.\d+)/);
-      if (scoreMatch && scoreMatch[1]) {
-        const score = Number.parseFloat(scoreMatch[1]);
-        if (Number.isFinite(score)) return { relevancyScore: score };
-      }
-      return { relevancyScore: 0 };
+      console.error(`AI Analysis failed for ${repo.full_name}`, e);
+      return { relevancyScore: 0, reasoning: "Analysis Failed" };
     }
   }
 }

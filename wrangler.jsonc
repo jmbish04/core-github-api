@@ -9,11 +9,31 @@
 		"enabled": true
 	},
 	"vars": {
-		"LOG_LEVEL": "debug"
+		"LOG_LEVEL": "debug",
+		"GEMINI_MODEL": "gemini-2.5-flash"
+		// "CLOUDFLARE_AI_GATEWAY": "https://gateway.ai.cloudflare.com/v1/..."
 	},
+	"containers": [
+		{
+			"class_name": "DataProcessor",
+			"image": "container/Dockerfile",
+			"max_instances": 1
+		}
+	],
 	"ai": {
 		"binding": "AI"
 	},
+	// Configures 'wrangler' to treat .hbs files as Text modules (ES importable strings)
+	// This allows `import template from "./file.hbs"` to work natively in Workers.
+	"rules": [
+		{
+			"type": "Text",
+			"globs": [
+				"**/*.hbs"
+			],
+			"fallthrough": true
+		}
+	],
 	"assets": {
 		"directory": "./public",
 		"binding": "ASSETS"
@@ -39,6 +59,22 @@
 			{
 				"name": "GEMINI_AGENT",
 				"class_name": "GeminiAgent"
+			},
+			{
+				"name": "PLANNER",
+				"class_name": "PlannerAgent"
+			},
+			{
+				"name": "SUPERVISOR",
+				"class_name": "Supervisor"
+			},
+			{
+				"name": "DEEP_REASONING_AGENT",
+				"class_name": "DeepReasoningAgent"
+			},
+			{
+				"name": "COLBY_OPS",
+				"class_name": "DataProcessor"
 			}
 		]
 	},
@@ -47,14 +83,33 @@
 			"tag": "v1",
 			"new_sqlite_classes": [
 				"OrchestratorAgent",
-				"RetrofitAgent",
-				"GeminiAgent"
+				"RetrofitAgent"
 			]
 		},
 		{
 			"tag": "v2",
 			"new_sqlite_classes": [
 				"RoomDO"
+			]
+		},
+		{
+			"tag": "v3",
+			"new_sqlite_classes": [
+				"GeminiAgent",
+				"PlannerAgent"
+			]
+		},
+		{
+			"tag": "v4",
+			"new_sqlite_classes": [
+				"DataProcessor"
+			]
+		},
+		{
+			"tag": "v5",
+			"new_sqlite_classes": [
+				"Supervisor",
+				"DeepReasoningAgent"
 			]
 		}
 	],
@@ -80,9 +135,15 @@
 		{
 			"binding": "DB",
 			"database_name": "core-github-api",
-			"database_id": "8d945e71-1c5b-499a-a0b8-71baf2353fdd",
-			"preview_database_id": "797f10ce-b971-469a-bee3-0f09f7d0e7a6",
-			"migrations_dir": "migrations"
+			"database_id": "31a57255-f8c2-451c-82ae-57905686887a",
+			"preview_database_id": "d27edbcf-a478-44f0-ba60-e9830084916a",
+			"migrations_dir": "migrations/core"
+		},
+		{
+			"binding": "DB_WEBHOOKS",
+			"database_name": "core-github-api-webhooks",
+			"database_id": "a03ad237-66aa-4af7-b19b-c39720e9b6a6",
+			"migrations_dir": "migrations/webhooks"
 		}
 	]
 }

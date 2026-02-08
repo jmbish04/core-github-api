@@ -23,6 +23,14 @@ import retrofitApi from './retrofit'
 import flowsApi from './flows'
 import { webhookHandler } from './routes/webhook-handler'
 import { healthHandler } from './routes/health'
+import opsApi from './routes/api/ops'
+import tasksApi from './routes/api/tasks'
+import statsApi from './routes/api/stats'
+import timelineApi from './routes/api/timeline'
+import landingGeneratorApi from './routes/api/landing-generator'
+import webhooksApi from './routes/api/webhooks'
+import browserRender from './services/browser_render'
+
 
 // --- 1. Middleware ---
 
@@ -58,9 +66,10 @@ app.use('*', async (c, next) => {
     })
   )
 
-  try {
-    const db = getDb(c.env.DB)
-    await db.insert(schema.requestLogs).values({
+  const db = getDb(c.env.DB)
+  // Fire and forget insert to not block the response
+  c.executionCtx.waitUntil(
+    db.insert(schema.requestLogs).values({
       timestamp: logEntry.timestamp,
       level: logEntry.level,
       message: logEntry.message,
@@ -77,9 +86,7 @@ app.use('*', async (c, next) => {
         correlationId,
       })
     })
-  } catch (error) {
-    console.error('Failed to persist request log to D1', error)
-  }
+  )
 })
 
 // API Key Auth Middleware
@@ -96,10 +103,34 @@ const requireApiKey: MiddlewareHandler<{ Bindings: Bindings }> = async (c, next)
     return c.json({ error: 'Service misconfigured' }, 500)
   }
 
-  const providedApiKey = c.req.header('x-api-key')
-    || (c.req.header('authorization')?.startsWith('Bearer ')
-      ? c.req.header('authorization')?.slice('Bearer '.length)
-      : undefined)
+  // 1. Check Header (x-api-key)
+  let providedApiKey = c.req.header('x-api-key')
+
+  // 2. Check Header (Authorization: Bearer)
+  if (!providedApiKey) {
+    const authHeader = c.req.header('authorization')
+    if (authHeader?.startsWith('Bearer ')) {
+      providedApiKey = authHeader.slice('Bearer '.length)
+    }
+  }
+
+  // 3. Check Cookie (colby_api_key)
+  if (!providedApiKey) {
+    const cookieHeader = c.req.header('Cookie')
+    if (cookieHeader) {
+      const cookies = cookieHeader.split(';').reduce((acc, cookie) => {
+        const [name, value] = cookie.trim().split('=')
+        acc[name] = value
+        return acc
+      }, {} as Record<string, string>)
+      providedApiKey = cookies['colby_api_key']
+    }
+  }
+
+  // 4. Check Query Param (key) - useful for quick debugging or specific WS cases if cookies fail
+  if (!providedApiKey) {
+    providedApiKey = c.req.query('key');
+  }
 
   if (providedApiKey !== expectedApiKey) {
     return c.json({ error: 'Unauthorized' }, 401)
@@ -120,7 +151,7 @@ app.use('/a2a/*', requireApiKey)
 app.get('/healthz', healthHandler)
 
 // Webhook endpoint (NOT documented in OpenAPI)
-app.post('/webhook', webhookHandler)
+app.post('/webhooks', webhookHandler)
 
 
 // --- 3. API Spec Generation Apps ---
@@ -132,6 +163,7 @@ fullSpecApp.route('/tools', toolsApi)
 fullSpecApp.route('/agents', agentsApi)
 fullSpecApp.route('/retrofit', retrofitApi)
 fullSpecApp.route('/flows', flowsApi)
+fullSpecApp.route('/landing-generator', landingGeneratorApi)
 
 // App 2: GPT-Specific Spec (for /gpt/openapi.json)
 const gptSpecApp = new OpenAPIHono<{ Bindings: Bindings }>()
@@ -354,7 +386,7 @@ app.post('/mcp-execute', async (c) => {
 // WebSocket upgrade endpoint
 app.get('/ws', async (c) => {
   const upgrade = c.req.header('Upgrade')
-  if (upgrade !== 'websocket') {
+  if (!upgrade || upgrade.toLowerCase() !== 'websocket') {
     return c.json({ error: 'Expected WebSocket upgrade' }, 426)
   }
 
@@ -362,13 +394,17 @@ app.get('/ws', async (c) => {
   const url = new URL(c.req.url)
   const projectId = url.searchParams.get('projectId') || 'default'
 
-  // Get or create the WebSocket room DO
-  const roomId = c.env.ROOM_DO.idFromName(projectId)
-  const roomStub = c.env.ROOM_DO.get(roomId)
+  // Get or create the WebSocket room DO (using OrchestratorAgent)
+  // We use the projectId as the ID for the Orchestrator
+  const orchestratorId = c.env.ORCHESTRATOR.idFromName(projectId)
+  const orchestratorStub = c.env.ORCHESTRATOR.get(orchestratorId)
 
   // Forward the request to the DO
-  return roomStub.fetch(c.req.raw)
+  return orchestratorStub.fetch(c.req.raw)
 })
+
+import todosApi from './routes/api/todos'
+import projectsApi from './routes/api/projects'
 
 // Optional: Add swagger UI (points to the new 3.1.0 JSON spec)
 app.get('/doc', swaggerUI({ url: '/openapi.json' }))
@@ -382,32 +418,71 @@ sharedApi.route('/tools', toolsApi)
 sharedApi.route('/agents', agentsApi)
 sharedApi.route('/retrofit', retrofitApi)
 sharedApi.route('/flows', flowsApi)
+sharedApi.route('/ops', opsApi)
+sharedApi.route('/tasks', tasksApi)
+sharedApi.route('/todos', todosApi)
+sharedApi.route('/projects', projectsApi)
+sharedApi.route('/stats', statsApi)
+sharedApi.route('/timeline', timelineApi)
+sharedApi.route('/landing-generator', landingGeneratorApi)
+
+// Mount browser-render BEFORE sharedApi to avoid shadowing if sharedApi captures /api base
+app.route('/api/browser-render', browserRender)
 
 // Mount the shared router under all three top-level paths
 // This is what handles the *actual requests*
 app.route('/api', sharedApi)
 app.route('/mcp', sharedApi)
 app.route('/a2a', sharedApi)
+app.route('/api/webhooks', webhooksApi)
 
 
 // --- 6. Helper Functions for Queue ---
 
+async function handleQueue(batch: MessageBatch<any>, env: Env): Promise<void> {
+  // Check if this queue is for workflows
+  if (batch.queue === 'workflows') {
+    // Process workflow events
+    // TODO: Add workflow processing logic here
+  }
+}
 
 // --- 7. Export Handlers ---
 
-/**
- * Main export object for the Worker.
- * This object's properties (fetch, queue) are the entrypoints.
- */
+import healthApi from './routes/api/health'
+import { HealthCoordinator } from './health/coordinator'
+
+// Helper to re-export Durable Objects
+export { OrchestratorAgent } from './agents/orchestrator'
+export { RetrofitAgent } from './retrofit/RetrofitAgent'
+export { RoomDO } from './do/RoomDO'
+export { GeminiAgent } from './agents/gemini'
+export { PlannerAgent } from './agents/planner'
+export { Supervisor } from './objects/Supervisor'
+export { DeepReasoningAgent } from './agents/deep-reasoning'
+export { DataProcessor } from './do/DataProcessor'
+export { GithubSearchWorkflow } from './workflows/search'
+
+
+
+import chatApi from './routes/api/chat'
+
+// Mount health API
+sharedApi.route('/health', healthApi)
+sharedApi.route('/chat', chatApi)
+
+// Scheduled Event Handler
+async function handleScheduled(event: ScheduledController, env: Env, ctx: ExecutionContext) {
+  console.log('[Scheduler] Running scheduled tasks...');
+  const healthService = new HealthCoordinator(env);
+  ctx.waitUntil(healthService.runAllChecks('scheduled'));
+}
+
 export default {
   /**
    * HTTP fetch handler
    */
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-
-    // --- THIS IS THE CORRECT FETCH HANDLER ---
-    // It correctly routes API calls to Hono and all other calls to ASSETS.
-
     const url = new URL(request.url);
 
     // List of all your API/dynamic prefixes.
@@ -418,145 +493,48 @@ export default {
       '/a2a/',
       '/openapi.json',
       '/openapi.yaml',
-      '/gpt/openapi.json',
-      '/gpt/openapi.yaml',
-      '/doc', // The Swagger UI
-      '/healthz',
-      '/webhook',
+      '/gpt/',
       '/mcp-tools',
-      '/ws' // WebSocket endpoint
+      '/mcp-execute',
+      '/ws',
+      '/doc',
+      '/healthz',
+      '/webhooks'
     ];
 
-    const isApiRoute = apiPrefixes.some(prefix => url.pathname.startsWith(prefix));
+    const isApiRequest = apiPrefixes.some(prefix => url.pathname.startsWith(prefix));
 
-    if (isApiRoute) {
-      // It's an API route. Let the Hono app handle it.
+    if (isApiRequest) {
       return app.fetch(request, env, ctx);
-    } else {
-      // It's not an API route.
-      // Assume it's a static asset and let env.ASSETS handle it.
-      // env.ASSETS will automatically serve /index.html for /
-      // and a 404 for any other file it can't find.
-      return env.ASSETS.fetch(request);
+    }
+
+    // Try to serve static assets
+    try {
+      // If we are in local dev, this might fail if assets aren't configured.
+      // In production, 'ASSETS' binding is auto-injected for Pages/Workers Sites.
+      if (env.ASSETS) {
+        return await env.ASSETS.fetch(request);
+      } else {
+        // Fallback or 404
+        return new Response('Not Found', { status: 404 });
+      }
+    } catch (e) {
+      return new Response('Error serving asset', { status: 500 });
     }
   },
 
-
+  /**
+   * Queue handler
+   */
+  async queue(batch: MessageBatch<any>, env: Env): Promise<void> {
+    await handleQueue(batch, env);
+  },
 
   /**
-   * GitHubWorker - RPC service class
-   *
-   * This class is a NAMED export. Other workers must use this name as the 'entrypoint'
-   * in their service binding configuration to call these RPC methods.
+   * Scheduled handler
    */
-  export class GitHubWorker {
-  private rpc: GitHubWorkerRPC | null = null
-  private env: Env | null = null
-
-  private getRPC(env: Env): GitHubWorkerRPC {
-    if (!this.rpc || this.env !== env) {
-      this.env = env
-      this.rpc = new GitHubWorkerRPC(env)
-    }
-    return this.rpc
+  async scheduled(event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    await handleScheduled(event, env, ctx);
   }
+} satisfies ExportedHandler<Env>;
 
-  /**
-   * Check the health status of the worker
-   */
-  async health(env: Env) {
-    return this.getRPC(env).health()
-  }
-
-  /**
-   * Create or update a file in a GitHub repository
-   */
-  async upsertFile(request: Parameters < GitHubWorkerRPC['upsertFile'] > [0], env: Env) {
-    return this.getRPC(env).upsertFile(request)
-  }
-
-  /**
-   * List repository contents with a tree-style representation
-   */
-  async listRepoTree(request: Parameters < GitHubWorkerRPC['listRepoTree'] > [0], env: Env) {
-    return this.getRPC(env).listRepoTree(request)
-  }
-
-  /**
-   * Open a new pull request
-   */
-  async openPullRequest(request: Parameters < GitHubWorkerRPC['openPullRequest'] > [0], env: Env) {
-    return this.getRPC(env).openPullRequest(request)
-  }
-
-  /**
-   * Create a new issue
-   */
-  async createIssue(request: Parameters < GitHubWorkerRPC['createIssue'] > [0], env: Env) {
-    return this.getRPC(env).createIssue(request)
-  }
-
-  /**
-   * Generic proxy for GitHub REST API calls
-   */
-  async octokitRest(request: Parameters < GitHubWorkerRPC['octokitRest'] > [0], env: Env) {
-    return this.getRPC(env).octokitRest(request)
-  }
-
-  /**
-   * Execute a GraphQL query against the GitHub API
-   */
-  async octokitGraphQL(request: Parameters < GitHubWorkerRPC['octokitGraphQL'] > [0], env: Env) {
-    return this.getRPC(env).octokitGraphQL(request)
-  }
-
-  /**
-   * Create a new agent session for GitHub search and analysis
-   */
-  async createSession(request: Parameters < GitHubWorkerRPC['createSession'] > [0], env: Env) {
-    return this.getRPC(env).createSession(request)
-  }
-
-  /**
-   * Get the status of an agent session
-   */
-  async getSessionStatus(request: Parameters < GitHubWorkerRPC['getSessionStatus'] > [0], env: Env) {
-    return this.getRPC(env).getSessionStatus(request)
-  }
-
-  /**
-   * Search for GitHub repositories
-   */
-  async searchRepositories(request: Parameters < GitHubWorkerRPC['searchRepositories'] > [0], env: Env) {
-    return this.getRPC(env).searchRepositories(request)
-  }
-
-  /**
-   * Batch upsert multiple files in a single call
-   */
-  async batchUpsertFiles(requests: Parameters < GitHubWorkerRPC['batchUpsertFiles'] > [0], env: Env) {
-    return this.getRPC(env).batchUpsertFiles(requests)
-  }
-
-  /**
-   * Batch create multiple issues in a single call
-   */
-  async batchCreateIssues(requests: Parameters < GitHubWorkerRPC['batchCreateIssues'] > [0], env: Env) {
-    return this.getRPC(env).batchCreateIssues(requests)
-  }
-}
-
-// Export Durable Objects
-export { RetrofitAgent } from './retrofit/RetrofitAgent'
-export { OrchestratorAgent } from './agents/orchestrator'
-export { RoomDO } from './do/RoomDO'
-export { GeminiAgent } from './agents/gemini'
-
-// Export Workflows
-export { GithubSearchWorkflow } from './workflows/search'
-
-/**
- * @extension_point
- * This is a good place to add new top-level routes or middleware.
- * For example, you could add an authentication middleware here.
- */

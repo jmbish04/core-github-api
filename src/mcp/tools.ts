@@ -181,7 +181,7 @@ export const MCP_TOOLS: MCPTool[] = [
     category: "GitHub Files",
     tags: ["github", "files", "tree"],
     inputSchema: z.object({
-      owner: z.string().describe("Repository owner"),
+      owner: z.string().default('jmbish04').describe("Repository owner"),
       repo: z.string().describe("Repository name"),
       path: z.string().optional().describe("Path in repository (optional)"),
       branch: z.string().optional().describe("Branch name (optional)"),

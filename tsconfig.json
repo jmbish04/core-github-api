@@ -3,14 +3,31 @@
     "target": "esnext",
     "module": "esnext",
     "moduleResolution": "bundler",
-    "lib": ["esnext", "dom"],
+    "lib": [
+      "esnext",
+      "dom"
+    ],
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "outDir": "dist",
-    "types": ["node"]
+    "types": [
+      "node",
+      "@cloudflare/workers-types"
+    ]
   },
-  "include": ["src", "tests", "worker-configuration.d.ts"],
-  "exclude": ["node_modules", "dist", "src/examples"]
+  "include": [
+    "src",
+    "tests",
+    "worker-configuration.d.ts",
+    "worker-configuration.d.ts",
+    "scripts/github/extract_pr_code_comments.ts",
+    "landing-generator"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "src/examples"
+  ]
 }

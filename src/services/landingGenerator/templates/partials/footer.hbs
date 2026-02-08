@@ -1,0 +1,40 @@
+<!-- Footer -->
+<footer class="bg-slate-900 text-slate-400 py-12">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="grid md:grid-cols-3 gap-8 mb-8">
+            <div>
+                <div class="flex items-center space-x-2 mb-4">
+                    <div class="text-2xl">{{brandIcon}}</div>
+                    <span class="text-xl font-bold text-white">{{brandName}}</span>
+                </div>
+                <p class="text-sm">Built on Cloudflare Workers, powered by edge computing.</p>
+            </div>
+
+            <div>
+                <h3 class="text-white font-semibold mb-4">Documentation</h3>
+                <ul class="space-y-2 text-sm">
+                    {{#each footerLinks}}
+                    <li><a href="{{this.href}}" class="hover:text-white transition">{{this.text}}</a></li>
+                    {{/each}}
+                </ul>
+            </div>
+
+            <div>
+                <h3 class="text-white font-semibold mb-4">Resources</h3>
+                <ul class="space-y-2 text-sm">
+                    <li><a href="https://developers.cloudflare.com/workers/"
+                            class="hover:text-white transition">Cloudflare Workers Docs</a></li>
+                    <li><a href="https://developers.cloudflare.com/durable-objects/"
+                            class="hover:text-white transition">Durable Objects Guide</a></li>
+                    <li><a href="https://developers.cloudflare.com/workers-ai/"
+                            class="hover:text-white transition">Workers AI Platform</a></li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="border-t border-slate-800 pt-8 text-center text-sm">
+            <p>&copy; {{year}} {{brandName}}. Auto-generated cinematic landing page by Landing Page Generator.</p>
+            <p class="mt-2 text-slate-500">Powered by Cloudflare Workers • Durable Objects • D1 • Workers AI</p>
+        </div>
+    </div>
+</footer>

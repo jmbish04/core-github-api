@@ -12,7 +12,7 @@ import { Bindings } from '../utils/hono'
 // --- 1. Zod Schema Definitions ---
 
 const UpsertFileRequestSchema = z.object({
-  owner: z.string().openapi({ example: 'octocat' }),
+  owner: z.string().default('jmbish04').openapi({ example: 'octocat' }),
   repo: z.string().openapi({ example: 'Hello-World' }),
   path: z.string().openapi({ example: 'test.txt' }),
   content: z.string().openapi({ example: 'Hello, world!' }),
@@ -41,7 +41,7 @@ const UpsertFileResponseSchema = z.object({
 })
 
 const ListRepoTreeRequestSchema = z.object({
-  owner: z.string().openapi({ example: 'octocat' }),
+  owner: z.string().default('jmbish04').openapi({ example: 'octocat' }),
   repo: z.string().openapi({ example: 'Hello-World' }),
   ref: z
     .string()
@@ -123,21 +123,21 @@ files.openapi(upsertFileRoute, async (c) => {
   // The response from Octokit is more verbose than our schema, so we need to map it.
   const response: z.infer<typeof UpsertFileResponseSchema> = {
     content: {
-      name: data.content!.name,
-      path: data.content!.path,
-      sha: data.content!.sha,
-      size: data.content!.size,
-      url: data.content!.url,
-      html_url: data.content!.html_url,
-      git_url: data.content!.git_url,
-      download_url: data.content!.download_url,
-      type: data.content!.type,
+      name: data.content!.name ?? '',
+      path: data.content!.path ?? '',
+      sha: data.content!.sha ?? '',
+      size: data.content!.size ?? 0,
+      url: data.content!.url ?? '',
+      html_url: data.content!.html_url ?? '',
+      git_url: data.content!.git_url ?? '',
+      download_url: data.content!.download_url ?? null,
+      type: data.content!.type ?? '',
     },
     commit: {
       sha: data.commit.sha!,
-      url: data.commit.url,
-      html_url: data.commit.html_url,
-      message: data.commit.message,
+      url: data.commit.url ?? '',
+      html_url: data.commit.html_url ?? '',
+      message: data.commit.message ?? '',
     },
   }
 
@@ -189,12 +189,12 @@ files.openapi(listRepoTreeRoute, async (c) => {
 
   const filteredTree = normalizedPath
     ? data.tree.filter((entry) => {
-        if (!entry.path) {
-          return false
-        }
+      if (!entry.path) {
+        return false
+      }
 
-        return entry.path === normalizedPath || entry.path.startsWith(`${normalizedPath}/`)
-      })
+      return entry.path === normalizedPath || entry.path.startsWith(`${normalizedPath}/`)
+    })
     : data.tree
 
   const sortedEntries = [...filteredTree].sort((a, b) => {

@@ -214,7 +214,10 @@ export class WorkerAnalyzer {
    * For production use, override via customAnalysis.painPoints to provide
    * domain-specific problems and solutions.
    */
-  private static identifyPainPoints(): Array<{
+  private static identifyPainPoints(
+    purpose?: { headline: string; tagline: string; valueStatement: string },
+    features?: string[]
+  ): Array<{
     title: string;
     description: string;
     solution: string;
@@ -278,9 +281,10 @@ export class WorkerAnalyzer {
       'zod': 'Zod',
     };
 
-    if (packageJson?.dependencies) {
+    const dependencies = packageJson?.dependencies;
+    if (dependencies) {
       Object.entries(dependencyMap).forEach(([pkg, label]) => {
-        if (packageJson.dependencies[pkg]) stack.push(label);
+        if (dependencies[pkg]) stack.push(label);
       });
     }
 

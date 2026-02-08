@@ -5,24 +5,14 @@
  */
 
 import { OpenAPIHono } from '@hono/zod-openapi'
-import type { D1Database } from '@cloudflare/workers-types'
-import { v4 as uuidv4 } from 'uuid'
 
-// Define the Bindings for the Cloudflare Worker
-export type Bindings = {
-  GITHUB_TOKEN: string
-  LOG_LEVEL: string
-  ETAG_KV: KVNamespace
-  COMMENTS_KV: KVNamespace
-  WORKER_API_KEY: string
-  DB: D1Database
-  GEMINI_AGENT: DurableObjectNamespace
-  // --- END MODIFICATION ---
-  ASSETS: Fetcher
-  CLOUDFLARE_API_TOKEN?: string
-  GITHUB_ACTION_CLOUDFLARE_ACCOUNT_ID?: string
-  ASSETS: Fetcher
-}
+import { v4 as uuidv4 } from 'uuid'
+import type { OrchestratorAgent } from '../agents/orchestrator'
+import type { PlannerAgent } from '../agents/planner'
+import type { GeminiAgent } from '../agents/gemini'
+
+// Re-export Env as Bindings for compatibility
+export type Bindings = Env
 
 // Create a new OpenAPIHono app with the defined Bindings
 export const app = new OpenAPIHono<{ Bindings: Bindings }>()

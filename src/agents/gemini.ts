@@ -7,50 +7,81 @@
 import { Agent } from 'agents'
 import { Context } from 'hono'
 import { v4 as uuidv4 } from 'uuid'
+import { z } from "zod";
+import { zodToJsonSchema } from "zod-to-json-schema";
+import { createGeminiClient } from "../lib/gemini";
 import toolsApi from '../tools/index'
 
-// Define the system prompt with tool definitions
+// Define the tool schemas
+const CreateRepoSchema = z.object({
+    owner: z.string().default("jmbish04"),
+    name: z.string(),
+    description: z.string().optional(),
+    private: z.boolean().default(false),
+    auto_init: z.boolean().default(true)
+});
+
+const RetrofitSchema = z.object({
+    owner: z.string().default("jmbish04"),
+    repos: z.array(z.string()).optional(),
+    force: z.boolean().default(false)
+});
+
+const ListCommentsSchema = z.object({
+    owner: z.string().default("jmbish04"),
+    repo: z.string(),
+    number: z.number().int()
+});
+
+const CreateCommentSchema = z.object({
+    owner: z.string().default("jmbish04"),
+    repo: z.string(),
+    number: z.number().int(),
+    body: z.string(),
+    path: z.string().optional(),
+    line: z.number().int().optional()
+});
+
+const SaveCommentsKvSchema = z.object({
+    key: z.string(),
+    comments: z.array(z.any())
+});
+
+const GetCommentsKvSchema = z.object({
+    key: z.string()
+});
+
+const ReplySchema = z.object({
+    message: z.string()
+});
+
+const SearchDocsSchema = z.object({
+    query: z.string().describe("The query to search in Cloudflare documentation.")
+});
+
+// Comprehensive Agent Action Schema
+// We use a discriminated union to force the model to pick a specific tool signature.
+const AgentActionSchema = z.discriminatedUnion("tool", [
+    z.object({ tool: z.literal("create_repo"), arguments: CreateRepoSchema }),
+    z.object({ tool: z.literal("retrofit_workflows"), arguments: RetrofitSchema }),
+    z.object({ tool: z.literal("list_pr_comments"), arguments: ListCommentsSchema }),
+    z.object({ tool: z.literal("create_pr_comment"), arguments: CreateCommentSchema }),
+    z.object({ tool: z.literal("save_comments_kv"), arguments: SaveCommentsKvSchema }),
+    z.object({ tool: z.literal("get_comments_kv"), arguments: GetCommentsKvSchema }),
+    z.object({ tool: z.literal("search_documentation"), arguments: SearchDocsSchema }),
+    // "reply" is a virtual tool that acts as the final response to the user
+    z.object({ tool: z.literal("reply"), arguments: ReplySchema })
+]);
+
 const SYSTEM_PROMPT = `
 You are a helpful GitHub assistant powered by Gemini.
+You have access to Cloudflare documentation via the 'search_documentation' tool.
+USE IT whenever the user asks about Cloudflare Workers, Pages, D1, etc.
 You can help the user create repositories, check PRs, fix conflicts, and manage workflows.
 
-You have access to the following tools. To use a tool, respond with a JSON block:
-\`\`\`json
-{
-  "tool": "tool_name",
-  "arguments": { ... }
-}
-\`\`\`
-
-Tools available:
-
-1. create_repo
-   - Arguments: owner (string), name (string), description (optional string), private (boolean, default false), auto_init (boolean, default true)
-   - Description: Create a new GitHub repository.
-
-2. retrofit_workflows
-   - Arguments: owner (string), repos (array of strings, optional), force (boolean, default false)
-   - Description: Add default workflows to existing repositories.
-
-3. list_pr_comments
-   - Arguments: owner (string), repo (string), number (integer)
-   - Description: List all comments on a Pull Request.
-
-4. create_pr_comment
-   - Arguments: owner (string), repo (string), number (integer), body (string), path (optional string), line (optional integer)
-   - Description: Create a comment on a PR. Use path/line for code review comments.
-
-5. save_comments_kv
-   - Arguments: key (string), comments (array)
-   - Description: Save a list of comments to KV storage for later retrieval.
-
-6. get_comments_kv
-   - Arguments: key (string)
-   - Description: Retrieve comments from KV.
-
-If you don't need to use a tool, just respond with your text message.
-Always verify the success of tool calls.
-`
+You must respond with a JSON object describing the action to take.
+If you simply want to talk to the user, use the 'reply' tool.
+`;
 
 export class GeminiAgent extends Agent {
     constructor(ctx: any, env: any) {
@@ -61,86 +92,129 @@ export class GeminiAgent extends Agent {
      * Main chat entrypoint
      */
     async chat(userMessage: string, history: any[] = []) {
+        const ai = createGeminiClient(this.env as any); // Cast to any or Bindings if imported
+        const jsonSchema = zodToJsonSchema(AgentActionSchema);
+
+        // Lazy load MCP client only if needed? Or just create it once.
+        // For performance, we might want to keep it alive or create it per request. 
+        // We'll create it if 'search_documentation' is called, or simple:
+        // Actually, we need to handle the execution of it.
+
         const messages = [
-            { role: 'system', content: SYSTEM_PROMPT },
-            ...history,
-            { role: 'user', content: userMessage }
+            { role: 'user', parts: [{ text: SYSTEM_PROMPT }] },
+            ...history.map(msg => ({
+                role: msg.role === 'assistant' ? 'model' : 'user',
+                parts: [{ text: msg.content }]
+            })),
+            { role: 'user', parts: [{ text: userMessage }] }
         ];
 
         // Tool execution loop
         let loops = 0;
         const MAX_LOOPS = 5;
+        const newHistory = [...history, { role: 'user', content: userMessage }];
+
+        // We might need to connect to MCP if the tool is called.
+        // We'll import dynamically or just have it ready.
+        const { connectToMcpServer, executeMcpTool } = await import("../lib/mcp-client");
+        let mcpClient: any = null;
 
         while (loops < MAX_LOOPS) {
-            // 1. Call Gemini
-            const response = await this.env.AI.run('@cf/google/gemini-2.0-flash-exp', {
-                messages
-            });
-
-            // Handle response format (stream or string or object)
-            // Adjust based on actual AI binding return type. Assuming standard text/object.
-            // For @cf/google/gemini-2.0-flash-exp, it usually returns { response: string } or stream.
-            let content = '';
-            if (typeof response === 'string') content = response;
-            else if ((response as any).response) content = (response as any).response;
-
-            // 2. Parse for Tool Calls
-            const toolCall = this.parseToolCall(content);
-
-            if (!toolCall) {
-                // No tool call, return final answer
-                return {
-                    response: content,
-                    history: [...messages, { role: 'assistant', content }]
-                };
-            }
-
-            // 3. Execute Tool
-            messages.push({ role: 'assistant', content }); // Add the tool call request to history
-            console.log(`[GeminiAgent] Executing tool: ${toolCall.tool}`);
-
             try {
-                const result = await this.executeTool(toolCall.tool, toolCall.arguments);
-                const resultStr = JSON.stringify(result);
+                // Cast env to any to access GEMINI_MODEL which should be there at runtime
+                const model = (this.env as any).GEMINI_MODEL || "gemini-2.0-flash-exp";
 
-                messages.push({
-                    role: 'user', // representing tool output as user message for context
-                    content: `Tool '${toolCall.tool}' Output: ${resultStr}`
+                const result = await ai.models.generateContent({
+                    model: model,
+                    contents: messages as any, // Cast to any to avoid stricter type overlap issues with @google/genai parts
+                    config: {
+                        responseMimeType: "application/json",
+                        responseSchema: jsonSchema as any,
+                    },
                 });
+
+                // result.text is a function in the Google GenAI SDK (for response helpers)
+                // BUT previous errors suggested it might be a property in some contexts? 
+                // The error "This expression is not callable ... Type 'String' has no call signatures"
+                // implies result.text IS A STRING.
+                // However, looking at the PlannerAgent fix, I might have assumed wrong or right.
+                // Let's check safely.
+                // The error 'Type String has no call signatures' implies result.text IS A string (the getter was accessed).
+                // If it were a method, we'd call it.
+                // TypeScript might be confused if we try to call it.
+                // Correct usage per SDK is just accessing the property if it's a getter, 
+                // OR result.response.text() if we want the method from the underlying response.
+                // 'generateContent' returns 'GenerateContentResponse'.
+                // The SDK helper normally puts .text on it.
+                const responseText = (result as any).text || "";
+
+                // Parse the strictly structured response
+                const action = JSON.parse(responseText);
+
+                // Check for 'reply' (final answer)
+                if (action.tool === 'reply') {
+                    const content = action.arguments.message;
+                    newHistory.push({ role: 'assistant', content });
+                    return {
+                        response: content,
+                        history: newHistory
+                    };
+                }
+
+                // Execute other tools
+                console.log(`[GeminiAgent] Executing tool: ${action.tool}`);
+                newHistory.push({ role: 'assistant', content: JSON.stringify(action) });
+                messages.push({ role: 'model', parts: [{ text: JSON.stringify(action) }] });
+
+                try {
+                    let toolResult;
+
+                    if (action.tool === 'search_documentation') {
+                        // MCP Tool Logic
+                        if (!mcpClient) {
+                            const conn = await connectToMcpServer("https://docs.mcp.cloudflare.com/sse");
+                            mcpClient = conn.client;
+                        }
+                        toolResult = await executeMcpTool(mcpClient, 'search_documentation', action.arguments);
+                    } else {
+                        // Standard GitHub Tools
+                        toolResult = await this.executeTool(action.tool, action.arguments);
+                    }
+
+                    const resultStr = typeof toolResult === 'string' ? toolResult : JSON.stringify(toolResult);
+
+                    const toolOutputMsg = `Tool '${action.tool}' Output: ${resultStr}`;
+                    newHistory.push({
+                        role: 'user', // representing tool output context
+                        content: toolOutputMsg
+                    });
+                    messages.push({ role: 'user', parts: [{ text: toolOutputMsg }] });
+                } catch (error: any) {
+                    const errorMsg = `Tool '${action.tool}' Error: ${error.message}`;
+                    newHistory.push({
+                        role: 'user',
+                        content: errorMsg
+                    });
+                    messages.push({ role: 'user', parts: [{ text: errorMsg }] });
+                }
+
             } catch (error: any) {
-                messages.push({
-                    role: 'user',
-                    content: `Tool '${toolCall.tool}' Error: ${error.message}`
-                });
+                console.error("[GeminiAgent] Error:", error);
+                return { response: `Error: ${error.message}`, history: newHistory };
             }
 
             loops++;
         }
 
-        return { response: "I reached the maximum number of steps.", history: messages };
-    }
-
-    /**
-     * Helper to parse markdown JSON tool calls
-     */
-    parseToolCall(content: string): { tool: string, arguments: any } | null {
-        const match = content.match(/```json\s*([\s\S]*?)\s*```/);
-        if (!match) return null;
-        try {
-            const json = JSON.parse(match[1]);
-            if (json.tool && json.arguments) return json;
-        } catch {
-            return null;
-        }
-        return null;
+        return { response: "I reached the maximum number of steps.", history: newHistory };
     }
 
     /**
      * Execute tool by calling internal API routes
      */
     async executeTool(name: string, args: any): Promise<any> {
-        const { WORKER_API_KEY } = this.env;
-        const headers = {
+        const { WORKER_API_KEY } = this.env as any; // Cast to any or Bindings
+        const headers: Record<string, string> = {
             'Content-Type': 'application/json',
             'x-api-key': WORKER_API_KEY || ''
             // Auth headers will be handled by the route or we act as admin since we are the worker
@@ -193,7 +267,7 @@ export class GeminiAgent extends Agent {
             body
         });
 
-        const res = await toolsApi.fetch(req, this.env, this.ctx);
+        const res = await toolsApi.fetch(req, this.env, this.ctx as any);
 
         if (!res.ok) {
             const txt = await res.text();

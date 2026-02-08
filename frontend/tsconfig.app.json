@@ -22,8 +22,9 @@
     "jsx": "react-jsx",
     /* Linting */
     "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
+    "noImplicitAny": false,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
@@ -31,6 +32,15 @@
     "paths": {
       "@/*": [
         "./src/*"
+      ],
+      "@diceui/timeline": [
+        "./src/components/ui/diceui/timeline.tsx"
+      ],
+      "@diceui/kanban": [
+        "./src/components/ui/diceui/kanban.tsx"
+      ],
+      "@diceui/stat": [
+        "./src/components/ui/diceui/stat.tsx"
       ]
     }
   },

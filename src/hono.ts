@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { OpenAPIHono, createOpenAPIApp } from '@hono/zod-openapi'
+import { OpenAPIHono } from '@hono/zod-openapi'
 import { z } from 'zod'
 
 const app = new OpenAPIHono()
@@ -30,8 +30,19 @@ app.openapi(
   (c) => c.json({ message: 'pong' })
 )
 
-// OpenAPI endpoints
-app.doc('/openapi.json')
-app.doc('/openapi.yaml')
+app.doc('/openapi.json', {
+  openapi: '3.0.0',
+  info: {
+    title: 'Core GitHub API',
+    version: '1.0.0'
+  }
+})
+app.doc('/openapi.yaml', {
+  openapi: '3.0.0',
+  info: {
+    title: 'Core GitHub API',
+    version: '1.0.0'
+  }
+})
 
 export default app

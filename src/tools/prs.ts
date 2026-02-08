@@ -11,13 +11,14 @@ import { Bindings } from '../utils/hono'
 // --- 1. Zod Schema Definitions ---
 
 const OpenPrRequestSchema = z.object({
-  owner: z.string().openapi({ example: 'octocat' }),
+  owner: z.string().default('jmbish04').openapi({ example: 'octocat' }),
   repo: z.string().openapi({ example: 'Hello-World' }),
   head: z.string().openapi({ example: 'feature-branch' }),
   base: z.string().openapi({ example: 'main' }),
   title: z.string().openapi({ example: 'feat: new feature' }),
   body: z.string().optional().openapi({ example: 'This PR adds a new feature.' }),
 })
+
 
 const OpenPrResponseSchema = z.object({
   id: z.number(),
@@ -90,13 +91,15 @@ prs.openapi(openPrRoute, async (c) => {
 // --- Comment Schemas ---
 
 const ListCommentsSchema = z.object({
-  owner: z.string(),
+  owner: z.string().default('jmbish04'),
+
   repo: z.string(),
   number: z.string().transform(n => parseInt(n, 10)),
 })
 
 const CreateCommentSchema = z.object({
-  owner: z.string(),
+  owner: z.string().default('jmbish04'),
+
   repo: z.string(),
   number: z.number(),
   body: z.string(),

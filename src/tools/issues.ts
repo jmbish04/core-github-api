@@ -11,7 +11,7 @@ import { Bindings } from '../utils/hono'
 // --- 1. Zod Schema Definitions ---
 
 const CreateIssueRequestSchema = z.object({
-  owner: z.string().openapi({ example: 'octocat' }),
+  owner: z.string().default('jmbish04').openapi({ example: 'octocat' }),
   repo: z.string().openapi({ example: 'Hello-World' }),
   title: z.string().openapi({ example: 'Bug: Something is broken' }),
   body: z.string().optional().openapi({ example: 'Here are the steps to reproduce...' }),
@@ -78,7 +78,7 @@ issues.openapi(createIssueRoute, async (c) => {
     html_url: data.html_url,
     state: data.state,
     title: data.title,
-    body: data.body,
+    body: data.body ?? null,
   }
 
   return c.json(response)
