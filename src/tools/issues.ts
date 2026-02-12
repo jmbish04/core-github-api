@@ -32,6 +32,7 @@ const CreateIssueResponseSchema = z.object({
 const createIssueRoute = createRoute({
   method: 'post',
   path: '/issues/create',
+  operationId: 'createIssue',
   request: {
     body: {
       content: {

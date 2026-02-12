@@ -13,6 +13,7 @@ const sessionStatusApi = new OpenAPIHono<{ Bindings: Bindings }>()
 const route = createRoute({
   method: 'get',
   path: '/session/{id}',
+  operationId: 'getAgentSessionStatus',
   request: {
     params: z.object({
       id: z.string(),

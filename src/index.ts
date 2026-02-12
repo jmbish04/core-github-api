@@ -7,8 +7,13 @@
 import { OpenAPIHono } from '@hono/zod-openapi'
 import type { MiddlewareHandler } from 'hono'
 import { swaggerUI } from '@hono/swagger-ui'
+// 'app' is the Hono app that handles all our API routes
 import { app, Bindings } from './utils/hono'
 import { GitHubWorkerRPC } from './rpc'
+import { convertOpenAPIToYAML, buildCompleteOpenAPIDocument } from './utils/openapi'
+import { MCP_TOOLS, getToolStats, getTool, MCPExecuteRequest, TOOL_ROUTES, serializeTools } from './mcp/tools'
+import { getDb, schema } from './db'
+import { eq, and, desc } from 'drizzle-orm'
 
 // Import routes
 import octokitApi from './octokit'
@@ -54,43 +59,30 @@ app.use('*', async (c, next) => {
   )
 
   try {
-    await c.env.CORE_GITHUB_API.prepare(
-      `INSERT INTO request_logs (
-        timestamp,
-        level,
-        message,
-        method,
-        path,
-        status,
-        latency_ms,
-        payload_size_bytes,
-        correlation_id,
-        metadata
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    )
-      .bind(
-        logEntry.timestamp,
-        logEntry.level,
-        logEntry.message,
-        logEntry.method,
-        logEntry.path,
-        logEntry.status,
-        logEntry.latency,
-        logEntry.payloadSizeBytes,
-        logEntry.correlationId,
-        JSON.stringify({
-          userAgent: c.req.header('user-agent') || null,
-          referer: c.req.header('referer') || null,
-          host: c.req.header('host') || null,
-          correlationId,
-        })
-      )
-      .run()
+    const db = getDb(c.env.DB)
+    await db.insert(schema.requestLogs).values({
+      timestamp: logEntry.timestamp,
+      level: logEntry.level,
+      message: logEntry.message,
+      method: logEntry.method,
+      path: logEntry.path,
+      status: logEntry.status,
+      latencyMs: logEntry.latency,
+      payloadSizeBytes: logEntry.payloadSizeBytes,
+      correlationId: logEntry.correlationId,
+      metadata: JSON.stringify({
+        userAgent: c.req.header('user-agent') || null,
+        referer: c.req.header('referer') || null,
+        host: c.req.header('host') || null,
+        correlationId,
+      })
+    })
   } catch (error) {
     console.error('Failed to persist request log to D1', error)
   }
 })
 
+// API Key Auth Middleware
 const requireApiKey: MiddlewareHandler<{ Bindings: Bindings }> = async (c, next) => {
   if (c.req.method === 'OPTIONS') {
     await next()
@@ -116,37 +108,272 @@ const requireApiKey: MiddlewareHandler<{ Bindings: Bindings }> = async (c, next)
   await next()
 }
 
+// Apply auth middleware to all API routes
 app.use('/api/*', requireApiKey)
 app.use('/mcp/*', requireApiKey)
 app.use('/a2a/*', requireApiKey)
 
 
-// --- 2. Route Definitions ---
+// --- 2. Route Definitions (on main 'app') ---
 
-// Health check endpoint
+// Health check endpoint (NOT documented in OpenAPI)
 app.get('/healthz', healthHandler)
 
-// Webhook endpoint (no API key required, uses GitHub signature verification)
+// Webhook endpoint (NOT documented in OpenAPI)
 app.post('/webhook', webhookHandler)
 
-// The OpenAPI documentation will be available at /doc
-app.doc('/openapi.json', {
-  openapi: '3.0.0',
-  info: {
-    version: '1.0.0',
-    title: 'Cloudflare Worker GitHub Proxy',
-  },
-  servers: [
-    { url: '/api', description: 'API Interface' },
-    { url: '/mcp', description: 'Machine-to-Cloud Interface' },
-    { url: '/a2a', description: 'Agent-to-Agent Interface' },
-  ],
+
+// --- 3. API Spec Generation Apps ---
+
+// App 1: Full Spec (for /openapi.json)
+const fullSpecApp = new OpenAPIHono<{ Bindings: Bindings }>()
+fullSpecApp.route('/octokit', octokitApi)
+fullSpecApp.route('/tools', toolsApi)
+fullSpecApp.route('/agents', agentsApi)
+fullSpecApp.route('/retrofit', retrofitApi)
+fullSpecApp.route('/flows', flowsApi)
+
+// App 2: GPT-Specific Spec (for /gpt/openapi.json)
+const gptSpecApp = new OpenAPIHono<{ Bindings: Bindings }>()
+gptSpecApp.route('/octokit', octokitApi) // 3 methods
+gptSpecApp.route('/agents', agentsApi)   // 2 methods
+gptSpecApp.route('/flows', flowsApi)     // 2 methods
+// Total = 7 methods
+
+
+/**
+ * Helper function to generate the enhanced 3.1.0 OpenAPI spec.
+ */
+const getEnhancedApiSpec = async (
+  c: any,
+  honoApp: OpenAPIHono<any>, // Pass in the app to generate the spec from
+  title: string,
+  description: string
+) => {
+  const baseUrl = new URL(c.req.url).origin
+
+  const openApiJson = await honoApp.getOpenAPIDocument({
+    openapi: '3.0.0', // Base doc is 3.0.0, will be enhanced
+    info: { version: '1.0.0', title, description },
+    // This 'servers' block is a placeholder. 
+    // buildCompleteOpenAPIDocument will overwrite it with the correct, single, absolute URL.
+    servers: [{ url: '/api' }],
+  })
+
+  // This function adds 3.1.0, single security scheme, and a single absolute server URL
+  return buildCompleteOpenAPIDocument(openApiJson, baseUrl)
+}
+
+// --- OpenAPI Endpoints (on main 'app') ---
+
+// /openapi.json [Full API Schema, 3.1.0, JSON]
+app.get('/openapi.json', async (c) => {
+  try {
+    const enhanced = await getEnhancedApiSpec(c, fullSpecApp, // Use fullSpecApp
+      'GitHub API Worker (Full Spec)',
+      'Full API Spec (3.1.0) with all 11 operations.'
+    )
+    return c.json(enhanced, 200, {
+      'X-API-Version': '3.1.0',
+    })
+  } catch (error: any) {
+    console.error('Error generating OpenAPI 3.1 JSON:', error)
+    return c.json({ error: 'Failed to generate OpenAPI 3.1 JSON', details: error.message }, 500)
+  }
 })
 
-// Optional: Add swagger UI
+// /openapi.yaml [Full API Schema, 3.1.0, YAML]
+app.get('/openapi.yaml', async (c) => {
+  try {
+    const enhanced = await getEnhancedApiSpec(c, fullSpecApp, // Use fullSpecApp
+      'GitHub API Worker (Full Spec)',
+      'Full API Spec (3.1.0) with all 11 operations.'
+    )
+    const yaml = convertOpenAPIToYAML(enhanced)
+    return new Response(yaml, {
+      headers: {
+        'Content-Type': 'application/yaml',
+        'X-API-Version': '3.1.0',
+      },
+    })
+  } catch (error: any) {
+    console.error('Error generating OpenAPI YAML:', error)
+    return c.json({ error: 'Failed to generate OpenAPI YAML', details: error.message }, 500)
+  }
+})
+
+// /gpt/openapi.json [Limited Schema for GPTs, 3.1.0, JSON]
+app.get('/gpt/openapi.json', async (c) => {
+  try {
+    const enhanced = await getEnhancedApiSpec(c, gptSpecApp, // <-- Use gptSpecApp
+      'GitHub Worker - GPT Custom Action',
+      'A focused set of 7 high-level tools for OpenAI GPTs.'
+    )
+    return c.json(enhanced, 200, {
+      'X-API-Version': '3.1.0',
+    })
+  } catch (error: any) {
+    console.error('Error generating OpenAPI GPT JSON:', error)
+    return c.json({ error: 'Failed to generate OpenAPI GPT JSON', details: error.message }, 500)
+  }
+})
+
+// /gpt/openapi.yaml [Limited Schema for GPTs, 3.1.0, YAML]
+app.get('/gpt/openapi.yaml', async (c) => {
+  try {
+    const enhanced = await getEnhancedApiSpec(c, gptSpecApp, // <-- Use gptSpecApp
+      'GitHub Worker - GPT Custom Action',
+      'A focused set of 7 high-level tools for OpenAI GPTs.'
+    )
+    const yaml = convertOpenAPIToYAML(enhanced)
+    return new Response(yaml, {
+      headers: {
+        'Content-Type': 'application/yaml',
+        'X-API-Version': '3.1.0',
+      },
+    })
+  } catch (error: any) {
+    console.error('Error generating OpenAPI GPT YAML:', error)
+    return c.json({ error: 'Failed to generate OpenAPI GPT YAML', details: error.message }, 500)
+  }
+})
+
+
+// --- 4. Other Runtime Routes (on main 'app') ---
+
+// MCP Tools listing endpoint
+app.get('/mcp-tools', async (c) => {
+  const stats = getToolStats()
+  return c.json({
+    success: true,
+    tools: serializeTools(), // Serialize Zod schemas to JSON Schema
+    stats,
+    metadata: {
+      version: '1.0.0',
+      timestamp: new Date().toISOString(),
+      protocol: 'MCP',
+    },
+  })
+})
+
+// MCP Execute endpoint
+app.post('/mcp-execute', async (c) => {
+  const startTime = Date.now()
+
+  try {
+    const body = await c.req.json()
+
+    // Validate JSON structure
+    const parsed = MCPExecuteRequest.parse(body)
+
+    // Get the tool
+    const tool = getTool(parsed.tool)
+    if (!tool) {
+      return c.json({
+        success: false,
+        error: `Unknown tool: ${parsed.tool}`,
+        availableTools: MCP_TOOLS.map(t => t.name),
+      }, 404)
+    }
+
+    // Validate params against the tool's Zod schema
+    const paramsValidation = tool.inputSchema.safeParse(parsed.params)
+    if (!paramsValidation.success) {
+      return c.json({
+        success: false,
+        error: 'Invalid parameters for tool',
+        tool: parsed.tool,
+        details: paramsValidation.error.errors,
+      }, 400)
+    }
+
+    // Use validated params
+    const validatedParams = paramsValidation.data
+
+    // Get the route configuration for this tool
+    const route = TOOL_ROUTES[parsed.tool];
+    if (!route) {
+      return c.json({
+        success: false,
+        error: `Tool "${parsed.tool}" not implemented`,
+        availableTools: MCP_TOOLS.map(t => t.name),
+      }, 501);
+    }
+
+    // Create an internal request to the appropriate endpoint
+    const baseUrl = new URL(c.req.url).origin;
+    const apiKey = c.req.header('x-api-key') || c.req.header('authorization')?.replace('Bearer ', '');
+
+    // Build the path (use custom path builder if available)
+    const path = route.pathBuilder ? route.pathBuilder(validatedParams) : route.path;
+    const url = `${baseUrl}${path}`;
+
+    // Build request headers
+    const headers: Record<string, string> = {
+      'x-api-key': apiKey || '',
+    };
+    if (route.method === 'POST') {
+      headers['Content-Type'] = 'application/json';
+    }
+
+    // Create and execute the request
+    const internalReq = new Request(url, {
+      method: route.method,
+      headers,
+      body: route.method === 'POST' ? JSON.stringify(validatedParams) : undefined,
+    });
+
+    // We must use the main 'app' to fetch, as it has the runtime routes
+    const response = await app.fetch(internalReq, c.env, c.executionCtx);
+    if (!response.ok) {
+      return response; // Forward the error response
+    }
+    const result = await response.json();
+
+    const durationMs = Date.now() - startTime
+
+    return c.json({
+      success: true,
+      tool: parsed.tool,
+      result,
+      executedAt: new Date().toISOString(),
+      durationMs,
+    })
+  } catch (error: any) {
+    const durationMs = Date.now() - startTime
+    console.error('MCP execution error:', error)
+    return c.json({
+      success: false,
+      error: error?.message || 'Execution failed',
+      details: error?.issues || error?.stack,
+      durationMs,
+    }, 400)
+  }
+})
+
+// WebSocket upgrade endpoint
+app.get('/ws', async (c) => {
+  const upgrade = c.req.header('Upgrade')
+  if (upgrade !== 'websocket') {
+    return c.json({ error: 'Expected WebSocket upgrade' }, 426)
+  }
+
+  // Get project ID from query params
+  const url = new URL(c.req.url)
+  const projectId = url.searchParams.get('projectId') || 'default'
+
+  // Get or create the WebSocket room DO
+  const roomId = c.env.ROOM_DO.idFromName(projectId)
+  const roomStub = c.env.ROOM_DO.get(roomId)
+
+  // Forward the request to the DO
+  return roomStub.fetch(c.req.raw)
+})
+
+// Optional: Add swagger UI (points to the new 3.1.0 JSON spec)
 app.get('/doc', swaggerUI({ url: '/openapi.json' }))
 
-// --- 3. API Routes ---
+// --- 5. API Runtime Routes (on main 'app') ---
 
 // Create ONE shared router instance for all business logic
 const sharedApi = new OpenAPIHono<{ Bindings: Bindings }>()
@@ -157,95 +384,16 @@ sharedApi.route('/retrofit', retrofitApi)
 sharedApi.route('/flows', flowsApi)
 
 // Mount the shared router under all three top-level paths
+// This is what handles the *actual requests*
 app.route('/api', sharedApi)
 app.route('/mcp', sharedApi)
 app.route('/a2a', sharedApi)
 
 
-// --- 4. Helper Functions for Queue ---
+// --- 6. Helper Functions for Queue ---
 
-type WorkersAiBinding = {
-  run(model: string, request: Record<string, unknown>): Promise<unknown>
-}
 
-async function searchRepositoriesWithRetry(
-  searchTerm: string,
-  env: Env,
-  ctx: ExecutionContext,
-  retries = 3
-): Promise<any> {
-  for (let i = 0; i < retries; i++) {
-    try {
-      // We must use a full Request object to pass through the auth headers
-      const request = new Request(`http://localhost/api/octokit/search/repos?q=${encodeURIComponent(searchTerm)}`, {
-        headers: {
-          'x-api-key': env.WORKER_API_KEY,
-          'User-Agent': 'Cloudflare-Worker'
-        },
-      })
-      // We call app.fetch to route the request internally
-      const response = await app.fetch(request, env, ctx)
-      if (response.status === 200) {
-        return await response.json()
-      }
-    } catch (error) {
-      if (i === retries - 1) {
-        throw error
-      }
-      await new Promise((resolve) => setTimeout(resolve, 1000 * (i + 1)))
-    }
-  }
-}
-
-async function analyzeRepository(
-  repo: any,
-  searchTerm: string,
-  ai: WorkersAiBinding
-): Promise<{ relevancyScore: number }> {
-  const response = await ai.run('@cf/meta/llama-2-7b-chat-int8', {
-    prompt: `Given the following repository description, rate its relevancy to the search term "${searchTerm}" on a scale of 0 to 1, where 1 is highly relevant and 0 is not relevant at all. Return only the score.\n\nDescription: ${repo.description}`,
-  })
-
-  const scoreText = extractAiText(response)
-  const score = Number.parseFloat(scoreText)
-
-  return { relevancyScore: Number.isFinite(score) ? score : 0 }
-}
-
-function extractAiText(result: unknown): string {
-  if (typeof result === 'string') {
-    return result
-  }
-
-  if (result && typeof result === 'object') {
-    const record = result as Record<string, unknown>
-    if (typeof record.response === 'string') {
-      return record.response
-    }
-    if (typeof record.content === 'string') {
-      return record.content
-    }
-    if (Array.isArray(record.output_text)) {
-      return record.output_text.join('')
-    }
-    if (typeof record.output_text === 'string') {
-      return record.output_text
-    }
-    if (Array.isArray(record.responses) && record.responses.length > 0) {
-      const first = record.responses[0]
-      if (typeof first === 'string') {
-        return first
-      }
-      if (first && typeof first === 'object' && typeof (first as Record<string, unknown>).response === 'string') {
-        return (first as Record<string, unknown>).response as string
-      }
-    }
-  }
-
-  return ''
-}
-
-// --- 5. Export Handlers ---
+// --- 7. Export Handlers ---
 
 /**
  * Main export object for the Worker.
@@ -256,95 +404,54 @@ export default {
    * HTTP fetch handler
    */
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    return app.fetch(request, env, ctx)
+
+    // --- THIS IS THE CORRECT FETCH HANDLER ---
+    // It correctly routes API calls to Hono and all other calls to ASSETS.
+
+    const url = new URL(request.url);
+
+    // List of all your API/dynamic prefixes.
+    // Any request *not* matching these will be treated as a static asset request.
+    const apiPrefixes = [
+      '/api/',
+      '/mcp/',
+      '/a2a/',
+      '/openapi.json',
+      '/openapi.yaml',
+      '/gpt/openapi.json',
+      '/gpt/openapi.yaml',
+      '/doc', // The Swagger UI
+      '/healthz',
+      '/webhook',
+      '/mcp-tools',
+      '/ws' // WebSocket endpoint
+    ];
+
+    const isApiRoute = apiPrefixes.some(prefix => url.pathname.startsWith(prefix));
+
+    if (isApiRoute) {
+      // It's an API route. Let the Hono app handle it.
+      return app.fetch(request, env, ctx);
+    } else {
+      // It's not an API route.
+      // Assume it's a static asset and let env.ASSETS handle it.
+      // env.ASSETS will automatically serve /index.html for /
+      // and a 404 for any other file it can't find.
+      return env.ASSETS.fetch(request);
+    }
   },
 
+
+
   /**
-   * Queue message handler
+   * GitHubWorker - RPC service class
+   *
+   * This class is a NAMED export. Other workers must use this name as the 'entrypoint'
+   * in their service binding configuration to call these RPC methods.
    */
-  async queue(batch: MessageBatch, env: Env, ctx: ExecutionContext): Promise<void> {
-    const aiBinding = env.AI as WorkersAiBinding | undefined
-
-    if (!aiBinding || typeof aiBinding.run !== 'function') {
-      throw new Error('AI binding is not configured on the environment')
-    }
-
-    for (const message of batch.messages) {
-      const { sessionId, searchId, searchTerm } = message.body
-
-      // 1. Execute the search
-      const searchResults = await searchRepositoriesWithRetry(searchTerm, env, ctx)
-
-      // 2. Analyze each repository
-      for (const repo of searchResults.items) {
-        // 2a. Check if the repository has already been analyzed for this session
-        const { results } = await env.DB.prepare(
-          'SELECT id FROM repo_analysis WHERE session_id = ? AND repo_full_name = ?'
-        ).bind(sessionId, repo.full_name).all()
-
-        if (results.length > 0) {
-          continue
-        }
-
-        // 2b. Analyze the repository
-        const analysis = await analyzeRepository(repo, searchTerm, aiBinding)
-
-        // 2c. Persist the analysis to D1
-        await env.DB.prepare(
-          'INSERT INTO repo_analysis (session_id, search_id, repo_full_name, repo_url, description, relevancy_score) VALUES (?, ?, ?, ?, ?, ?)'
-        ).bind(
-          sessionId,
-          searchId,
-          repo.full_name,
-          repo.html_url,
-          repo.description,
-          analysis.relevancyScore
-        ).run()
-      }
-
-      // 3. Update the search status
-      await env.DB.prepare(
-        'UPDATE searches SET status = ? WHERE id = ?'
-      ).bind('completed', searchId).run()
-
-      // 4. Notify the orchestrator that the workflow is complete
-      const orchestrator = env.ORCHESTRATOR.get(
-        env.ORCHESTRATOR.idFromName('orchestrator')
-      )
-      await orchestrator.workflowComplete(searchId)
-
-      message.ack()
-    }
-  }
-}
-
-
-/**
- * GitHubWorker - RPC service class
- *
- * This class is a NAMED export. Other workers must use this name as the 'entrypoint'
- * in their service binding configuration to call these RPC methods.
- *
- * Example consumer wrangler.jsonc:
- * {
- * "services": [
- * {
- * "binding": "GITHUB_WORKER",
- * "service": "core-github-api",
- * "entrypoint": "GitHubWorker" // <-- This is the new required key
- * }
- * ]
- * }
- */
-export class GitHubWorker {
+  export class GitHubWorker {
   private rpc: GitHubWorkerRPC | null = null
   private env: Env | null = null
-
-  // NOTE: 'fetch' and 'queue' handlers are removed from this class
-  // and are now on the 'export default' object.
-
-  // ==================== RPC Methods ====================
-  // These methods can be called directly when this worker is used as a service binding
 
   private getRPC(env: Env): GitHubWorkerRPC {
     if (!this.rpc || this.env !== env) {
@@ -364,77 +471,77 @@ export class GitHubWorker {
   /**
    * Create or update a file in a GitHub repository
    */
-  async upsertFile(request: Parameters<GitHubWorkerRPC['upsertFile']>[0], env: Env) {
+  async upsertFile(request: Parameters < GitHubWorkerRPC['upsertFile'] > [0], env: Env) {
     return this.getRPC(env).upsertFile(request)
   }
 
   /**
    * List repository contents with a tree-style representation
    */
-  async listRepoTree(request: Parameters<GitHubWorkerRPC['listRepoTree']>[0], env: Env) {
+  async listRepoTree(request: Parameters < GitHubWorkerRPC['listRepoTree'] > [0], env: Env) {
     return this.getRPC(env).listRepoTree(request)
   }
 
   /**
    * Open a new pull request
    */
-  async openPullRequest(request: Parameters<GitHubWorkerRPC['openPullRequest']>[0], env: Env) {
+  async openPullRequest(request: Parameters < GitHubWorkerRPC['openPullRequest'] > [0], env: Env) {
     return this.getRPC(env).openPullRequest(request)
   }
 
   /**
    * Create a new issue
    */
-  async createIssue(request: Parameters<GitHubWorkerRPC['createIssue']>[0], env: Env) {
+  async createIssue(request: Parameters < GitHubWorkerRPC['createIssue'] > [0], env: Env) {
     return this.getRPC(env).createIssue(request)
   }
 
   /**
    * Generic proxy for GitHub REST API calls
    */
-  async octokitRest(request: Parameters<GitHubWorkerRPC['octokitRest']>[0], env: Env) {
+  async octokitRest(request: Parameters < GitHubWorkerRPC['octokitRest'] > [0], env: Env) {
     return this.getRPC(env).octokitRest(request)
   }
 
   /**
    * Execute a GraphQL query against the GitHub API
    */
-  async octokitGraphQL(request: Parameters<GitHubWorkerRPC['octokitGraphQL']>[0], env: Env) {
+  async octokitGraphQL(request: Parameters < GitHubWorkerRPC['octokitGraphQL'] > [0], env: Env) {
     return this.getRPC(env).octokitGraphQL(request)
   }
 
   /**
    * Create a new agent session for GitHub search and analysis
    */
-  async createSession(request: Parameters<GitHubWorkerRPC['createSession']>[0], env: Env) {
+  async createSession(request: Parameters < GitHubWorkerRPC['createSession'] > [0], env: Env) {
     return this.getRPC(env).createSession(request)
   }
 
   /**
    * Get the status of an agent session
    */
-  async getSessionStatus(request: Parameters<GitHubWorkerRPC['getSessionStatus']>[0], env: Env) {
+  async getSessionStatus(request: Parameters < GitHubWorkerRPC['getSessionStatus'] > [0], env: Env) {
     return this.getRPC(env).getSessionStatus(request)
   }
 
   /**
    * Search for GitHub repositories
    */
-  async searchRepositories(request: Parameters<GitHubWorkerRPC['searchRepositories']>[0], env: Env) {
+  async searchRepositories(request: Parameters < GitHubWorkerRPC['searchRepositories'] > [0], env: Env) {
     return this.getRPC(env).searchRepositories(request)
   }
 
   /**
    * Batch upsert multiple files in a single call
    */
-  async batchUpsertFiles(requests: Parameters<GitHubWorkerRPC['batchUpsertFiles']>[0], env: Env) {
+  async batchUpsertFiles(requests: Parameters < GitHubWorkerRPC['batchUpsertFiles'] > [0], env: Env) {
     return this.getRPC(env).batchUpsertFiles(requests)
   }
 
   /**
    * Batch create multiple issues in a single call
    */
-  async batchCreateIssues(requests: Parameters<GitHubWorkerRPC['batchCreateIssues']>[0], env: Env) {
+  async batchCreateIssues(requests: Parameters < GitHubWorkerRPC['batchCreateIssues'] > [0], env: Env) {
     return this.getRPC(env).batchCreateIssues(requests)
   }
 }
@@ -442,6 +549,8 @@ export class GitHubWorker {
 // Export Durable Objects
 export { RetrofitAgent } from './retrofit/RetrofitAgent'
 export { OrchestratorAgent } from './agents/orchestrator'
+export { RoomDO } from './do/RoomDO'
+export { GeminiAgent } from './agents/gemini'
 
 // Export Workflows
 export { GithubSearchWorkflow } from './workflows/search'

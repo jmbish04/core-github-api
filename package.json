@@ -5,9 +5,13 @@
   "main": "src/index.ts",
   "scripts": {
     "start": "wrangler dev",
-    "deploy": "wrangler deploy",
     "test": "vitest --run",
-    "dev": "vite"
+    "dev": "vite"\
+    "migrate:local": "wrangler d1 migrations apply DB --local",
+    "migrate:remote": "wrangler d1 migrations apply DB --remote",
+    "deploy:only": "wrangler deploy",
+    "deploy": "pnpm run db:generate && pnpm run migrate:remote && wrangler deploy",
+    "db:generate": "drizzle-kit generate --config=drizzle.config.ts"
   },
   "dependencies": {
     "@cloudflare/containers": "latest",
@@ -21,11 +25,13 @@
     "@octokit/webhooks-methods": "^4.1.0",
     "@tsndr/cloudflare-worker-jwt": "^3.2.0",
     "agents": "^0.2.20",
-    "drizzle-orm": "latest",
+    "drizzle-orm": "^0.45.0",
     "hono": "^4.0.0",
     "kysely": "latest",
     "kysely-d1": "latest",
-    "zod": "^3.23.0"
+    "yaml": "^2.8.1",
+    "zod": "^3.23.0",
+    "zod-to-json-schema": "^3.24.6"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.10.5",
@@ -38,6 +44,7 @@
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "tailwindcss": "^4.1.17",
+    "drizzle-kit": "^0.31.8",
     "typescript": "^5.6.0",
     "vite": "^7.2.2",
     "vitest": "~3.2.0",

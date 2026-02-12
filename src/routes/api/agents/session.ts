@@ -13,6 +13,7 @@ const sessionApi = new OpenAPIHono<{ Bindings: Bindings }>()
 const route = createRoute({
   method: 'post',
   path: '/session',
+  operationId: 'createAgentSession',
   request: {
     body: {
       content: {

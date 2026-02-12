@@ -13,10 +13,15 @@ export type Bindings = {
   GITHUB_TOKEN: string
   LOG_LEVEL: string
   ETAG_KV: KVNamespace
+  COMMENTS_KV: KVNamespace
   WORKER_API_KEY: string
-  CORE_GITHUB_API: D1Database
+  DB: D1Database
+  GEMINI_AGENT: DurableObjectNamespace
+  // --- END MODIFICATION ---
+  ASSETS: Fetcher
   CLOUDFLARE_API_TOKEN?: string
   GITHUB_ACTION_CLOUDFLARE_ACCOUNT_ID?: string
+  ASSETS: Fetcher
 }
 
 // Create a new OpenAPIHono app with the defined Bindings
