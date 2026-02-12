@@ -29,6 +29,7 @@ type VibeChatResponse = {
   jules?: {
     dispatched: boolean;
     message: string;
+    sessionId?: string;
   } | null;
   error?: string;
 };
@@ -114,6 +115,9 @@ export function VibeCodingTab({
             ? `Jules Dispatch: ${data.jules.message}`
             : `Jules Dispatch Skipped: ${data.jules.message}`,
         );
+        if (data.jules.sessionId) {
+            detailBlocks.push(`Session ID: ${data.jules.sessionId}`);
+        }
       }
 
       append("assistant", [data.reply || "Done.", ...detailBlocks].join("\n\n").trim());

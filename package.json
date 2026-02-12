@@ -32,6 +32,7 @@
     "@cloudflare/containers": "latest",
     "@cloudflare/sandbox": "latest",
     "@google/genai": "^1.31.0",
+    "@google/jules-sdk": "^0.0.6",
     "@hono/swagger-ui": "latest",
     "@hono/zod-openapi": "latest",
     "@hono/zod-validator": "^0.7.5",

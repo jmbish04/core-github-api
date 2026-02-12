@@ -408,3 +408,7 @@ export type SelectSearch = typeof searches.$inferSelect;
 export type InsertSearch = typeof searches.$inferInsert;
 export type SelectRepoAnalysis = typeof repoAnalysis.$inferSelect;
 export type InsertRepoAnalysis = typeof repoAnalysis.$inferInsert;
+
+// --- Research Exports ---
+export * from './schema-research';
+export * from './schema-research-orchestrator';

@@ -7,7 +7,7 @@ import {
   type Tool,
 } from "@openai/agents";
 import { desc } from "drizzle-orm";
-import type { Env } from "../types";
+
 import {
   DEFAULT_WORKERS_AI_MODEL,
   resolveDefaultAiModel,

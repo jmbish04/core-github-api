@@ -19,3 +19,5 @@ export * from "./schema-research-orchestrator";
 export * from "./schema-pricing";
 export * from "./schema-stars";
 export * from "./schema-daily-research";
+export * from "./schema-jules";
+

@@ -39,6 +39,8 @@ import settingsApi from "@/routes/api/settings";
 import researchApi from "@/routes/api/research";
 import browserRender from "@services/browser_render";
 import authApi from "@/routes/auth";
+import julesApi from "@/routes/api/jules";
+
 
 
 // --- 1. Middleware ---
@@ -507,7 +509,10 @@ sharedApi.route('/health', healthApi)
 sharedApi.route('/chat', chatApi)
 sharedApi.route('/workflows', workflowsApi)
 sharedApi.route('/settings', settingsApi)
+sharedApi.route('/settings', settingsApi)
 sharedApi.route('/research', researchApi)
+sharedApi.route('/jules', julesApi)
+
 
 // Mount browser-render BEFORE sharedApi to avoid shadowing if sharedApi captures /api base
 app.route('/api/browser-render', browserRender)
@@ -550,6 +555,8 @@ export { DataProcessor } from "@/do/DataProcessor";
 export { GithubSearchWorkflow } from "@/workflows/search";
 export { DeepResearchWorkflow } from "@/workflows/DeepResearchWorkflow";
 export { ResearchAgent } from "@/agents/ResearchAgent";
+export { JulesOverseer } from "@/agents/JulesOverseer";
+
 
 // Sandbox SDK — the Sandbox Durable Object class is provided by the SDK
 export { Sandbox } from '@cloudflare/sandbox'
@@ -632,6 +639,37 @@ async function handleScheduled(event: ScheduledController, env: Env, ctx: Execut
       console.error('[Scheduled] Pricing scraper failed:', error);
     }
   }
+
+  // Jules Overseer Check (Every 3 hours)
+  if (event.cron === '0 */3 * * *') {
+     console.log('[Scheduled] Starting Jules Overseer check...');
+     try {
+        // We use a singleton ID for the overseer
+        const id = env.JULES_OVERSEER.idFromName('singleton-overseer');
+        const stub = env.JULES_OVERSEER.get(id);
+        
+        // Trigger the check via calling fetch (since it's a DO)
+        // Or better, if it exposes a specific RPC method via the SDK, we can use that if we cast it.
+        // For standard Agents/DOs, we usually just hit an endpoint or "run" it.
+        // BaseAgent supports 'run' but for a cron we might want a specific method.
+        // Since we can't easily call 'checkActiveSessions' directly via fetch without routing,
+        // We will assume the agent handles a specific 'action' in its run method or expose a scheduled handler
+        // But since this is `handleScheduled` in the worker, we need to invoke the DO.
+        // The Agent SDK usually expects a "task" or "instruction".
+        
+        // Let's use the standard Agent "run" logic to instruct it to check sessions?
+        // OR, let's just make `JulesOverseer` have a `fetch` handler that calls `checkActiveSessions`
+        // if we hit a specific path. 
+        
+        // Simpler for now: The agent is a DO. We can send a request to it.
+        await stub.fetch('http://internal/schedule/check');
+        
+        console.log('[Scheduled] Jules Overseer check initiated');
+     } catch (error) {
+        console.error('[Scheduled] Jules Overseer check failed:', error);
+     }
+  }
+
   
   // Existing scheduled tasks...
   // Health checks, cleanup, etc.

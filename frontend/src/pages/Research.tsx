@@ -4,6 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, Play, CheckCircle2, XCircle, Copy } from "lucide-react";
+import { Streamdown } from "streamdown";
+
 
 interface ConsoleMessage {
   timestamp: string;
@@ -289,8 +291,10 @@ export default function Research() {
               {results.insights && (
                 <div>
                   <h3 className="font-semibold mb-2">AI Insights</h3>
-                  <div className="bg-muted p-4 rounded-lg whitespace-pre-wrap">
-                    {results.insights}
+                  <div className="bg-muted p-4 rounded-lg prose prose-sm dark:prose-invert max-w-none break-words">
+                    <Streamdown>
+                      {results.insights}
+                    </Streamdown>
                   </div>
                 </div>
               )}

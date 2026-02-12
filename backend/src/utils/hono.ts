@@ -5,7 +5,7 @@
  */
 
 import { OpenAPIHono } from '@hono/zod-openapi'
-import type { Env } from '../types'
+
 
 import { v4 as uuidv4 } from 'uuid'
 import type { OrchestratorAgent } from '../agents/orchestrator'

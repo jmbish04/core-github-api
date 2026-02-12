@@ -54,9 +54,9 @@ export const researchFiles = sqliteTable('research_files', {
     .default(sql`(datetime('now'))`)
     .$onUpdate(() => new Date().toISOString()),
 }, (table) => ({
-  ownerRepoIdx: index('owner_repo_idx').on(table.owner, table.repo),
-  filepathIdx: index('filepath_idx').on(table.filepath),
-  createdAtIdx: index('created_at_idx').on(table.createdAt),
+  ownerRepoIdx: index('research_owner_repo_idx').on(table.owner, table.repo),
+  filepathIdx: index('research_filepath_idx').on(table.filepath),
+  createdAtIdx: index('research_created_at_idx').on(table.createdAt),
 }));
 
 export type SelectResearchFile = typeof researchFiles.$inferSelect;

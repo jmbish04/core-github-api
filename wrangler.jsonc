@@ -113,6 +113,11 @@
 			"binding": "AI_GATEWAY_TOKEN",
 			"store_id": "8c42fa70938644e0a8a109744467375f",
 			"secret_name": "CLOUDFLARE_AI_GATEWAY_TOKEN"
+		},
+		{
+			"binding": "JULES_API_KEY",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "JULES_API_KEY"
 		}
 	],
 	"durable_objects": {
@@ -164,6 +169,10 @@
 			{
 				"name": "RESEARCH_AGENT",
 				"class_name": "ResearchAgent"
+			},
+			{
+				"name": "JULES_OVERSEER",
+				"class_name": "JulesOverseer"
 			}
 		]
 	},
@@ -223,6 +232,12 @@
 			"tag": "v9",
 			"new_sqlite_classes": [
 				"ResearchAgent"
+			]
+		},
+		{
+			"tag": "v10",
+			"new_sqlite_classes": [
+				"JulesOverseer"
 			]
 		}
 	],
@@ -303,7 +318,9 @@
 			"0 9 * * *",
 			// Weekly at 2:00 AM UTC on Mondays - Scrapes AI model pricing
 			// Stores pricing snapshots in D1 and alerts if data becomes stale
-			"0 2 * * 1"
+			"0 2 * * 1",
+			// Every 3 hours - Jules Overseer Check
+			"0 */3 * * *"
 		]
 	}
 }

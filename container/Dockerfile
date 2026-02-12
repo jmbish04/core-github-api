@@ -4,6 +4,7 @@
 
 FROM docker.io/cloudflare/sandbox:0.7.0-python AS python-stage
 FROM docker.io/cloudflare/sandbox:0.7.0-opencode AS opencode-stage
+
 FROM docker.io/cloudflare/sandbox:0.7.0
 
 # --- Merge Python variant assets ---
@@ -16,7 +17,8 @@ COPY --from=python-stage /usr/local/bin/ipython* /usr/local/bin/
 
 # --- Merge OpenCode variant assets ---
 # OpenCode CLI for AI-powered coding agents
-COPY --from=opencode-stage /root/.opencode /root/.opencode
+COPY --from=opencode-stage /root/.opencode /tmp/opencode
+RUN mv /tmp/opencode /root/.opencode
 ENV PATH="/root/.opencode/bin:${PATH}"
 
 # --- Install additional system dependencies ---

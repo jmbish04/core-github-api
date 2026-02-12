@@ -4,7 +4,7 @@
 declare namespace Cloudflare {
 	interface GlobalProps {
 		mainModule: typeof import("./backend/src/index");
-		durableNamespaces: "OrchestratorAgent" | "RetrofitAgent" | "RoomDO" | "GeminiAgent" | "PlannerAgent" | "DataProcessor" | "Supervisor" | "DeepReasoningAgent" | "RepoAgent" | "Sandbox" | "OwnerAgent" | "ResearchAgent";
+		durableNamespaces: "OrchestratorAgent" | "RetrofitAgent" | "RoomDO" | "GeminiAgent" | "PlannerAgent" | "DataProcessor" | "Supervisor" | "DeepReasoningAgent" | "RepoAgent" | "Sandbox" | "OwnerAgent" | "ResearchAgent" | "JulesOverseer";
 	}
 	interface Env {
 		ETAG_KV: KVNamespace;
@@ -29,6 +29,7 @@ declare namespace Cloudflare {
 		SANDBOX: DurableObjectNamespace<import("./backend/src/index").Sandbox>;
 		OWNER_AGENT: DurableObjectNamespace<import("./backend/src/index").OwnerAgent>;
 		RESEARCH_AGENT: DurableObjectNamespace<import("./backend/src/index").ResearchAgent>;
+		JULES_OVERSEER: DurableObjectNamespace<import("./backend/src/index").JulesOverseer>;
 		DB: D1Database;
 		DB_WEBHOOKS: D1Database;
 		GITHUB_CLIENT_ID: SecretsStoreSecret;
@@ -41,6 +42,7 @@ declare namespace Cloudflare {
 		GITHUB_APP_PRIVATE_KEY_PT3: SecretsStoreSecret;
 		WORKER_API_KEY: SecretsStoreSecret;
 		AI_GATEWAY_TOKEN: SecretsStoreSecret;
+		JULES_API_KEY: SecretsStoreSecret;
 		EMAIL_SENDER: SendEmail;
 		VECTORIZE: VectorizeIndex;
 		RESEARCH_INDEX: VectorizeIndex;

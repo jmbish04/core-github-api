@@ -653,6 +653,8 @@ async function savePlanToProjectTables(
   return { epicsCreated, userStoriesCreated, tasksCreated };
 }
 
+import { JulesService } from "@services/jules";
+
 async function dispatchTaskToJules(
   env: Env,
   payload: {
@@ -661,51 +663,32 @@ async function dispatchTaskToJules(
     repoFullName: string;
     prompt: string;
   },
-): Promise<{ dispatched: boolean; message: string }> {
-  const julesApiUrl = (env as any).JULES_API_URL as string | undefined;
-  const julesApiToken = (env as any).JULES_API_TOKEN as string | undefined;
-
-  if (!julesApiUrl) {
-    return {
-      dispatched: false,
-      message: "Jules API is not configured in this environment.",
-    };
-  }
-
+): Promise<{ dispatched: boolean; message: string; sessionId?: string }> {
   try {
-    const response = await fetch(julesApiUrl, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        ...(julesApiToken
-          ? {
-              authorization: `Bearer ${julesApiToken}`,
-            }
-          : {}),
-      },
-      body: JSON.stringify({
-        source: "core-github-api",
-        createdAt: new Date().toISOString(),
-        projectId: payload.projectId,
-        projectName: payload.projectName,
-        targetRepo: payload.repoFullName,
-        prompt: payload.prompt,
-      }),
-    });
-
-    if (!response.ok) {
-      const details = await response.text();
-      return {
-        dispatched: false,
-        message: `Jules API rejected task (${response.status}): ${details}`,
-      };
+    const julesService = JulesService.getInstance(env);
+    
+    // Parse repo owner/name
+    let repo: { owner: string; repo: string } | undefined;
+    if (payload.repoFullName) {
+      const parts = payload.repoFullName.split('/');
+      if (parts.length === 2) {
+        repo = { owner: parts[0], repo: parts[1] };
+      }
     }
+
+    const session = await julesService.startSession({
+      prompt: payload.prompt,
+      repo,
+      autoPr: false // Default to false for safe handoff
+    });
 
     return {
       dispatched: true,
-      message: "Task dispatched to Jules successfully.",
+      message: `Task dispatched to Jules successfully. Session ID: ${session.id}`,
+      sessionId: session.id
     };
   } catch (error: any) {
+    console.error("[projects] Failed to dispatch task to Jules:", error);
     return {
       dispatched: false,
       message: error?.message || "Failed to dispatch task to Jules.",

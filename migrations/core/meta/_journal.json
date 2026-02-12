@@ -162,6 +162,13 @@
       "when": 1770896100414,
       "tag": "0022_slimy_miss_america",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "6",
+      "when": 1770912586370,
+      "tag": "0023_romantic_vengeance",
+      "breakpoints": true
     }
   ]
 }
