@@ -1,0 +1,11 @@
+packages:
+  - frontend
+  - container
+
+onlyBuiltDependencies:
+  - core-js-pure
+  - esbuild
+  - node-pty
+  - protobufjs
+  - sharp
+  - workerd

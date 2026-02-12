@@ -106,6 +106,62 @@
       "when": 1765231687349,
       "tag": "0014_fresh_gamora",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "6",
+      "when": 1770655827830,
+      "tag": "0015_late_patch",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "6",
+      "when": 1770658310871,
+      "tag": "0016_strange_ultimo",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1770733109488,
+      "tag": "0017_peaceful_leopardon",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1770733920745,
+      "tag": "0018_gigantic_nick_fury",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1770734293707,
+      "tag": "0019_breezy_echo",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "6",
+      "when": 1770874273336,
+      "tag": "0020_puzzling_senator_kelly",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "6",
+      "when": 1770892719471,
+      "tag": "0021_nice_venus",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "6",
+      "when": 1770896100414,
+      "tag": "0022_slimy_miss_america",
+      "breakpoints": true
     }
   ]
 }

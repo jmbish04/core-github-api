@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -30,8 +29,12 @@ import {
     DialogTitle,
     DialogTrigger,
 } from "@/components/ui/dialog";
-import { Loader2, Eye, Search, ChevronLeft, ChevronRight, Webhook } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Loader2, Eye, Search, ChevronLeft, ChevronRight, Webhook, Radio } from "lucide-react";
 import { format } from "date-fns";
+import { LiveEventsTab } from "@/components/webhooks/LiveEventsTab";
+
+// ── Raw Deliveries Tab (existing D1 table view) ─────────────────
 
 interface WebhookDelivery {
     id: string;
@@ -63,7 +66,7 @@ const EVENT_TYPES = [
     "delete"
 ];
 
-export default function WebhooksPage() {
+function RawDeliveriesTab() {
     const [page, setPage] = useState(1);
     const [limit, setLimit] = useState(50);
     const [eventFilter, setEventFilter] = useState<string>("all");
@@ -154,14 +157,7 @@ export default function WebhooksPage() {
     ];
 
     return (
-        <div className="container mx-auto py-8 space-y-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Webhooks</h1>
-                    <p className="text-muted-foreground">Monitor incoming GitHub events and their payloads.</p>
-                </div>
-            </div>
-
+        <div className="space-y-4">
             <div className="flex flex-wrap items-center gap-4">
                 <div className="w-[200px]">
                     <Select value={eventFilter} onValueChange={(val) => { setEventFilter(val); setPage(1); }}>
@@ -262,6 +258,44 @@ export default function WebhooksPage() {
                     </div>
                 </div>
             )}
+        </div>
+    );
+}
+
+// ── Main Page ───────────────────────────────────────────────────
+
+export default function WebhooksPage() {
+    return (
+        <div className="container mx-auto py-8 space-y-6">
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight">Webhooks</h1>
+                    <p className="text-muted-foreground">
+                        Monitor incoming GitHub events, live feeds, and automated workflows.
+                    </p>
+                </div>
+            </div>
+
+            <Tabs defaultValue="live" className="w-full">
+                <TabsList>
+                    <TabsTrigger value="live" className="gap-1.5">
+                        <Radio className="size-3.5" />
+                        Live Events
+                    </TabsTrigger>
+                    <TabsTrigger value="raw" className="gap-1.5">
+                        <Webhook className="size-3.5" />
+                        Raw Deliveries
+                    </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="live" className="mt-4">
+                    <LiveEventsTab />
+                </TabsContent>
+
+                <TabsContent value="raw" className="mt-4">
+                    <RawDeliveriesTab />
+                </TabsContent>
+            </Tabs>
         </div>
     );
 }

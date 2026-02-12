@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/context/auth-context';
 import { Loader2, CheckCircle2, XCircle, AlertCircle, Play, Activity, Server, Cpu, Brain } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -32,6 +32,7 @@ export default function HealthPage() {
     const [isAnalyzing, setIsAnalyzing] = useState<string | null>(null); // ID of failing step being analyzed
     const [analysisResult, setAnalysisResult] = useState<Record<string, any>>({});
     const [lastRun, setLastRun] = useState<{ id: string, status: string, results: HealthResult[], created_at: string } | null>(null);
+    const [error, setError] = useState<string | null>(null);
 
     // Fetch latest on mount
     useEffect(() => {
@@ -40,24 +41,33 @@ export default function HealthPage() {
 
     const fetchLatest = async () => {
         try {
+            setError(null);
             const headers: Record<string, string> = {};
             if (apiKey) headers['x-api-key'] = apiKey;
 
-            const res = await fetch('/api/health/latest', { headers });
+            const res = await fetch('/api/health/latest', {
+                headers,
+                credentials: 'include'
+            });
             if (res.ok) {
                 const data = await res.json();
                 if (data.run) {
                     setLastRun({ ...data.run, results: data.results });
                 }
+            } else {
+                const details = await res.text();
+                setError(details || `Health service returned ${res.status}`);
             }
         } catch (e) {
             console.error("Failed to fetch latest health", e);
+            setError('Failed to reach health service.');
         }
     };
 
     const runTests = async () => {
         setIsLoading(true);
         setAnalysisResult({});
+        setError(null);
         try {
             const headers: Record<string, string> = { 'Content-Type': 'application/json' };
             if (apiKey) headers['x-api-key'] = apiKey;
@@ -65,15 +75,20 @@ export default function HealthPage() {
             const res = await fetch('/api/health/run', {
                 method: 'POST',
                 headers,
+                credentials: 'include',
                 body: JSON.stringify({ trigger: 'web' }) // Explicit manual trigger
             });
 
-            if (!res.ok) throw new Error('Run failed');
+            if (!res.ok) {
+                const details = await res.text();
+                throw new Error(details || 'Run failed');
+            }
 
             const data = await res.json();
             setLastRun({ id: data.runId, status: data.status, results: data.results, created_at: new Date().toISOString() });
         } catch (e: any) {
             console.error(e);
+            setError(e.message || 'Failed to run health checks.');
         } finally {
             setIsLoading(false);
         }
@@ -88,6 +103,7 @@ export default function HealthPage() {
             const res = await fetch('/api/health/analyze', {
                 method: 'POST',
                 headers,
+                credentials: 'include',
                 body: JSON.stringify({
                     failureDetails: result,
                     context: `Category: ${result.category}, Step: ${result.name}`
@@ -100,9 +116,13 @@ export default function HealthPage() {
                 // Handle different response formats (string vs object)
                 const analysis = typeof data === 'string' ? { analysis: data, fixes: [] } : data;
                 setAnalysisResult(prev => ({ ...prev, [result.id]: analysis }));
+            } else {
+                const details = await res.text();
+                setError(details || `Analysis failed with status ${res.status}`);
             }
         } catch (e) {
             console.error(e);
+            setError('Failed to run AI analysis.');
         } finally {
             setIsAnalyzing(null);
         }
@@ -157,6 +177,17 @@ export default function HealthPage() {
                     </Button>
                 </div>
             </div>
+
+            {error && (
+                <Card className="border-red-200 bg-red-50/40">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-base text-red-800">Health Service Error</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <CardDescription className="text-red-700">{error}</CardDescription>
+                    </CardContent>
+                </Card>
+            )}
 
             {/* Stats Overview */}
             <div className="grid gap-4 md:grid-cols-4">
@@ -294,4 +325,3 @@ export default function HealthPage() {
         </div>
     );
 }
-

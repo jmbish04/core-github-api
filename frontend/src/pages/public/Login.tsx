@@ -1,15 +1,16 @@
 
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/context/auth-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Lock } from 'lucide-react';
+import { GithubLoginButton } from "react-social-login-buttons";
 
 export default function LoginPage() {
     const [keyInput, setKeyInput] = useState('');
-    const { login } = useAuth();
+    const { setApiKey } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
 
@@ -19,7 +20,8 @@ export default function LoginPage() {
         e.preventDefault();
         if (!keyInput.trim()) return;
 
-        login(keyInput.trim());
+        setApiKey(keyInput.trim());
+        alert("Authentication successful");
         navigate(from, { replace: true });
     };
 
@@ -46,10 +48,27 @@ export default function LoginPage() {
                             />
                         </div>
                     </CardContent>
-                    <CardFooter>
+                    <CardFooter className="flex flex-col space-y-2">
                         <Button type="submit" className="w-full">
                             Unlock
                         </Button>
+                        <div className="relative">
+                            <div className="absolute inset-0 flex items-center">
+                                <span className="w-full border-t" />
+                            </div>
+                            <div className="relative flex justify-center text-xs uppercase">
+                                <span className="bg-background px-2 text-muted-foreground">
+                                    Or continue with
+                                </span>
+                            </div>
+                        </div>
+                            <GithubLoginButton 
+                                onClick={() => {
+                                    const returnTo = encodeURIComponent(from);
+                                    window.location.href = `${import.meta.env.VITE_API_URL || ""}/auth/github/login?return_to=${returnTo}`;
+                                }} 
+                                className="w-full"
+                            />
                     </CardFooter>
                 </form>
             </Card>

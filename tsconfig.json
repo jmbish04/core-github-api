@@ -5,29 +5,46 @@
     "moduleResolution": "bundler",
     "lib": [
       "esnext",
-      "dom"
+      "dom",
+      "WebWorker"
     ],
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "outDir": "dist",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["backend/src/*"],
+      "@db": ["backend/src/db/index.ts"],
+      "@db/*": ["backend/src/db/*"],
+      "@agents/*": ["backend/src/agents/*"],
+      "@utils/*": ["backend/src/utils/*"],
+      "@services/*": ["backend/src/services/*"],
+      "@custom-types/*": ["backend/src/types/*"],
+      "@logging": ["backend/src/lib/logger.ts"],
+      "@agent-sdk": ["backend/src/lib/agent-sdk.ts"],
+      "@budget": ["backend/src/lib/budget-tracker.ts"],
+      "@model-config": ["backend/src/lib/model-config.ts"],
+      "@sandbox-sdk-tools": ["backend/src/sandbox-sdk-tools/index.ts"],
+      "@sandbox-sdk-tools/*": ["backend/src/sandbox-sdk-tools/*"]
+    },
     "types": [
       "node",
-      "@cloudflare/workers-types"
+      "@cloudflare/workers-types",
+      "./worker-configuration.d.ts"
     ]
   },
   "include": [
-    "src",
+    "backend/src/**/*.ts",
+    "worker-configuration.d.ts",
     "tests",
-    "worker-configuration.d.ts",
-    "worker-configuration.d.ts",
     "scripts/github/extract_pr_code_comments.ts",
     "landing-generator"
   ],
   "exclude": [
     "node_modules",
     "dist",
-    "src/examples"
+    "backend/src/examples"
   ]
 }

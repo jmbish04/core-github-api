@@ -8,6 +8,7 @@ import {
     type Node,
     type Edge,
     type OnConnect,
+    type NodeMouseHandler,
 } from '@xyflow/react';
 import '@xyflow/react/dist/base.css';
 import './turbo.css';
@@ -31,9 +32,11 @@ const defaultEdgeOptions = {
 interface FlowProps {
     initialNodes: Node[];
     initialEdges: Edge[];
+    selectedNodeId?: string;
+    onNodeSelect?: (node: Node) => void;
 }
 
-const Flow = ({ initialNodes, initialEdges }: FlowProps) => {
+const Flow = ({ initialNodes, initialEdges, selectedNodeId, onNodeSelect }: FlowProps) => {
     const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
     const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
 
@@ -47,15 +50,31 @@ const Flow = ({ initialNodes, initialEdges }: FlowProps) => {
         (params) => setEdges((els) => addEdge(params, els)),
         [setEdges],
     );
+    const onNodeClick: NodeMouseHandler = useCallback(
+        (_event, node) => {
+            onNodeSelect?.(node);
+        },
+        [onNodeSelect],
+    );
+
+    const renderedNodes = React.useMemo(
+        () =>
+            nodes.map((node) => ({
+                ...node,
+                selected: node.id === selectedNodeId,
+            })),
+        [nodes, selectedNodeId],
+    );
 
     return (
         <div className="h-[600px] w-full border rounded-lg overflow-hidden bg-[rgb(17,17,17)]">
             <ReactFlow
-                nodes={nodes}
+                nodes={renderedNodes}
                 edges={edges}
                 onNodesChange={onNodesChange}
                 onEdgesChange={onEdgesChange}
                 onConnect={onConnect}
+                onNodeClick={onNodeClick}
                 fitView
                 nodeTypes={nodeTypes}
                 edgeTypes={edgeTypes}

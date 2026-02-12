@@ -1,0 +1,119 @@
+name: Daily Trend Hunter
+on:
+  schedule:
+    - cron: "0 8 * * *" # Runs at 8:00 AM UTC daily
+  workflow_dispatch:
+
+jobs:
+  hunt:
+    name: Fetch Trends & Updates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install requests pygithub openai
+
+      - name: Run Hunter Script
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }} # Optional: if you want AI summarization
+          WORKER_API_URL: "https://core-github-api.hacolby.workers.dev/upsert/daily-trends"
+          WORKER_API_KEY: ${{ secrets.WORKER_API_KEY }}
+        run: |
+          cat <<EOF > hunter.py
+          import os
+          import requests
+          import json
+          from datetime import datetime, timedelta
+          from github import Github
+
+          def main():
+              g = Github(os.environ["GITHUB_TOKEN"])
+              worker_url = os.environ["WORKER_API_URL"]
+              worker_secret = os.environ["WORKER_API_KEY"]
+              
+              # 1. Get User's Existing Stars (to avoid duplicates)
+              # We optimize by only fetching the IDs
+              me = g.get_user("${{ github.repository_owner }}")
+              starred_ids = set()
+              print("Fetching user stars...")
+              for repo in me.get_starred():
+                  starred_ids.add(repo.id)
+
+              # 2. Define Search Queries
+              date_since = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
+              queries = [
+                  f"language:typescript created:>{date_since} sort:stars",
+                  f"language:python created:>{date_since} sort:stars",
+                  f"topic:google-apps-script created:>{date_since}",
+                  f"topic:cloudflare-workers created:>{date_since}"
+              ]
+
+              # 3. Define Watched Orgs for "New Releases"
+              watched_orgs = ["cloudflare", "openai", "google-gemini", "langchain-ai"]
+              
+              results = {
+                  "date": datetime.now().isoformat(),
+                  "trending": [],
+                  "org_updates": []
+              }
+
+              # Execute Searches
+              print("Scanning for trending repos...")
+              for q in queries:
+                  repos = g.search_repositories(query=q)
+                  count = 0
+                  for repo in repos:
+                      if count >= 10: break # Top 10 per category
+                      if repo.id in starred_ids: continue
+                      
+                      results["trending"].append({
+                          "name": repo.full_name,
+                          "description": repo.description,
+                          "stars": repo.stargazers_count,
+                          "url": repo.html_url,
+                          "language": repo.language,
+                          "category": q.split(" ")[0]
+                      })
+                      count += 1
+
+              # Execute Org Watch
+              print("Scanning watched orgs...")
+              for org_name in watched_orgs:
+                  try:
+                      org = g.get_organization(org_name)
+                      # check recent repos
+                      for repo in org.get_repos(sort="created", direction="desc"):
+                          if (datetime.now() - repo.created_at).days > 30: break
+                          results["org_updates"].append({
+                              "type": "new_repo",
+                              "org": org_name,
+                              "name": repo.name,
+                              "url": repo.html_url,
+                              "description": repo.description
+                          })
+                  except Exception as e:
+                      print(f"Skipping {org_name}: {e}")
+
+              # 4. Post to Worker
+              print(f"Found {len(results['trending'])} trending and {len(results['org_updates'])} org updates.")
+              headers = {
+                  "Content-Type": "application/json",
+                  "X-API-Key": worker_secret,
+                  "User-Agent": "github-actions/hunter"
+              }
+              resp = requests.post(worker_url, json=results, headers=headers)
+              resp.raise_for_status()
+              print("Successfully uploaded to Worker.")
+
+          if __name__ == "__main__":
+              main()
+          EOF
+
+          python hunter.py

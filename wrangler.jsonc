@@ -1,7 +1,7 @@
 {
 	"name": "core-github-api",
-	"main": "src/index.ts",
-	"compatibility_date": "2024-09-23",
+	"main": "backend/src/index.ts",
+	"compatibility_date": "2026-02-10",
 	"compatibility_flags": [
 		"nodejs_compat"
 	],
@@ -10,14 +10,33 @@
 	},
 	"vars": {
 		"LOG_LEVEL": "debug",
-		"GEMINI_MODEL": "gemini-2.5-flash"
-		// "CLOUDFLARE_AI_GATEWAY": "https://gateway.ai.cloudflare.com/v1/..."
+		"AI_DEFAULT_PROVIDER": "worker-ai",
+		"AI_DEFAULT_MODEL": "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+		"GEMINI_MODEL": "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+		"AI_GATEWAY_NAME": "core-github-api",
+		"GITHUB_OWNER": "jmbish04",
+		"BASE_URL": "https://core-github-api.hacolby.workers.dev"
 	},
 	"containers": [
 		{
 			"class_name": "DataProcessor",
-			"image": "container/Dockerfile",
-			"max_instances": 1
+			"image": "./container/Dockerfile",
+			"max_instances": 1,
+			"instance_type": {
+				"vcpu": 1,
+				"memory_mib": 3072,
+				"disk_mb": 4096
+			}
+		},
+		{
+			"class_name": "Sandbox",
+			"image": "./container/Dockerfile",
+			"max_instances": 5,
+			"instance_type": {
+				"vcpu": 1,
+				"memory_mib": 4096,
+				"disk_mb": 6144
+			}
 		}
 	],
 	"ai": {
@@ -36,12 +55,66 @@
 	],
 	"assets": {
 		"directory": "./public",
-		"binding": "ASSETS"
+		"binding": "ASSETS",
+		"run_worker_first": true,
+		"not_found_handling": "none"
 	},
 	// "secrets": [
 	//   "GITHUB_TOKEN",
 	//   "WORKER_API_KEY"
 	// ],
+	"secrets_store_secrets": [
+		{
+			"binding": "GITHUB_CLIENT_ID",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "CORE_GITHUB_API_GITHUB_CLIENT_ID"
+		},
+		{
+			"binding": "GITHUB_CLIENT_SECRET",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "CORE_GITHUB_API_GITHUB_SECRET"
+		},
+		{
+			"binding": "GITHUB_APP_ID",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "CORE_GITHUB_API_GITHUB_APP_ID"
+		},
+		{
+			"binding": "GITHUB_TOKEN",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "GITHUB_TOKEN"
+		},
+		{
+			"binding": "CLOUDFLARE_API_TOKEN",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "CLOUDFLARE_API_TOKEN"
+		},
+		{
+			"binding": "GITHUB_APP_PRIVATE_KEY_PT1",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "CORE_GITHUB_API_GITHUB_APP_PRIVATE_KEY_PT1"
+		},
+		{
+			"binding": "GITHUB_APP_PRIVATE_KEY_PT2",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "CORE_GITHUB_API_GITHUB_APP_PRIVATE_KEY_PT2"
+		},
+		{
+			"binding": "GITHUB_APP_PRIVATE_KEY_PT3",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "CORE_GITHUB_API_GITHUB_APP_PRIVATE_KEY_PT3"
+		},
+		{
+			"binding": "WORKER_API_KEY",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "WORKER_API_KEY"
+		},
+		{
+			"binding": "AI_GATEWAY_TOKEN",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "CLOUDFLARE_AI_GATEWAY_TOKEN"
+		}
+	],
 	"durable_objects": {
 		"bindings": [
 			{
@@ -65,6 +138,10 @@
 				"class_name": "PlannerAgent"
 			},
 			{
+				"name": "REPO_AGENT",
+				"class_name": "RepoAgent"
+			},
+			{
 				"name": "SUPERVISOR",
 				"class_name": "Supervisor"
 			},
@@ -75,6 +152,18 @@
 			{
 				"name": "COLBY_OPS",
 				"class_name": "DataProcessor"
+			},
+			{
+				"name": "SANDBOX",
+				"class_name": "Sandbox"
+			},
+			{
+				"name": "OWNER_AGENT",
+				"class_name": "OwnerAgent"
+			},
+			{
+				"name": "RESEARCH_AGENT",
+				"class_name": "ResearchAgent"
 			}
 		]
 	},
@@ -111,6 +200,30 @@
 				"Supervisor",
 				"DeepReasoningAgent"
 			]
+		},
+		{
+			"tag": "v6",
+			"new_sqlite_classes": [
+				"RepoAgent"
+			]
+		},
+		{
+			"tag": "v7",
+			"new_sqlite_classes": [
+				"Sandbox"
+			]
+		},
+		{
+			"tag": "v8",
+			"new_sqlite_classes": [
+				"OwnerAgent"
+			]
+		},
+		{
+			"tag": "v9",
+			"new_sqlite_classes": [
+				"ResearchAgent"
+			]
 		}
 	],
 	"workflows": [
@@ -118,6 +231,16 @@
 			"name": "GithubSearchWorkflow",
 			"binding": "GITHUB_SEARCH_WORKFLOW",
 			"class_name": "GithubSearchWorkflow"
+		},
+		{
+			"name": "deep-research-workflow",
+			"binding": "DEEP_RESEARCH_WORKFLOW",
+			"class_name": "DeepResearchWorkflow"
+		},
+		{
+			"name": "research-orchestrator",
+			"binding": "RESEARCH_ORCHESTRATOR",
+			"class_name": "ResearchOrchestrator"
 		}
 	],
 	"kv_namespaces": [
@@ -129,6 +252,24 @@
 		{
 			"binding": "COMMENTS_KV",
 			"id": "82d47893d39a4b0fb574b1a760e06452"
+		},
+		{
+			"binding": "AGENT_CACHE",
+			"id": "9f070471888c435297b4bce51924f2df"
+		}
+	],
+	// wrangler vectorize create core-github-api-vectors --preset @cf/baai/bge-large-en-v1.5
+	// wrangler vectorize create core-github-api-research --dimensions=1024 --metric=cosine
+	"vectorize": [
+		{
+			"binding": "VECTORIZE",
+			"index_name": "core-github-api-vectors",
+			"remote": true
+		},
+		{
+			"binding": "RESEARCH_INDEX",
+			"index_name": "core-github-api-research",
+			"remote": true
 		}
 	],
 	"d1_databases": [
@@ -145,5 +286,24 @@
 			"database_id": "a03ad237-66aa-4af7-b19b-c39720e9b6a6",
 			"migrations_dir": "migrations/webhooks"
 		}
-	]
+	],
+	// Email sending bindings for Email Routing
+	// Targeted binding - sends only to the specified destination address
+	"send_email": [
+		{
+			"name": "EMAIL_SENDER"
+		}
+	],
+	// Scheduled triggers for automated tasks
+	// Cron format: minute hour day month day-of-week
+	"triggers": {
+		"crons": [
+			// Daily at 9:00 AM UTC - Triggers Research Orchestrator workflow
+			// Analyzes trending GitHub repositories and sends email report
+			"0 9 * * *",
+			// Weekly at 2:00 AM UTC on Mondays - Scrapes AI model pricing
+			// Stores pricing snapshots in D1 and alerts if data becomes stale
+			"0 2 * * 1"
+		]
+	}
 }

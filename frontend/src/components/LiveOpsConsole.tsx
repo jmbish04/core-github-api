@@ -1,9 +1,6 @@
 
 // frontend/src/components/LiveOpsConsole.tsx
 import { useEffect, useRef, useState } from 'react';
-import { Terminal } from '@xterm/xterm';
-import { FitAddon } from '@xterm/addon-fit';
-import { AttachAddon } from '@xterm/addon-attach';
 import { useColbySocket } from '@/hooks/useColbySocket';
 import { Card, CardHeader, CardContent, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,7 +8,6 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ContainerStatusBadge } from './ContainerStatusBadge';
 import { StopCircle, MessageSquare, Send, RotateCcw } from 'lucide-react';
-import '@xterm/xterm/css/xterm.css';
 import {
     Empty,
     EmptyDescription,
@@ -27,7 +23,7 @@ interface LiveOpsConsoleProps {
 
 export function LiveOpsConsole({ operationId }: LiveOpsConsoleProps) {
     const terminalRef = useRef<HTMLDivElement>(null);
-    const xtermRef = useRef<Terminal | null>(null);
+    const xtermRef = useRef<any | null>(null);
     const [status, setStatus] = useState<'idle' | 'running' | 'completed' | 'failed' | 'intervention_needed'>('idle');
     const [messages, setMessages] = useState<{ role: 'user' | 'ai', content: string }[]>([]);
     const [input, setInput] = useState('');
@@ -50,39 +46,59 @@ export function LiveOpsConsole({ operationId }: LiveOpsConsoleProps) {
     useEffect(() => {
         if (!terminalRef.current || !operationId) return;
 
-        // 1. Initialize Xterm
-        const term = new Terminal({
-            cursorBlink: true,
-            theme: { background: '#09090b' },
-            fontFamily: 'Menlo, Monaco, "Courier New", monospace',
-            fontSize: 12,
+        let cleanup: (() => void) | undefined;
+        let isMounted = true;
+
+        (async () => {
+            const [{ default: XTerm }, { FitAddon }, { AttachAddon }] = await Promise.all([
+                import('@xterm/xterm'),
+                import('@xterm/addon-fit'),
+                import('@xterm/addon-attach'),
+            ]);
+            await import('@xterm/xterm/css/xterm.css');
+            if (!isMounted || !terminalRef.current) return;
+
+            // 1. Initialize Xterm
+            const term = new XTerm({
+                cursorBlink: true,
+                theme: { background: '#09090b' },
+                fontFamily: 'Menlo, Monaco, "Courier New", monospace',
+                fontSize: 12,
+            });
+
+            const fitAddon = new FitAddon();
+            term.loadAddon(fitAddon);
+
+            // 2. Connect Terminal Socket (Raw PTY)
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const host = window.location.host;
+            const socketUrl = `${protocol}//${host}/api/ops/${operationId}/console?type=terminal`; // Explicitly 'terminal'
+
+            console.log(`[LiveOps] Connecting Terminal to ${socketUrl}`);
+            const socket = new WebSocket(socketUrl);
+
+            const attachAddon = new AttachAddon(socket);
+            term.loadAddon(attachAddon);
+
+            term.open(terminalRef.current);
+            fitAddon.fit();
+            xtermRef.current = term;
+
+            const resizeObserver = new ResizeObserver(() => fitAddon.fit());
+            resizeObserver.observe(terminalRef.current);
+
+            cleanup = () => {
+                socket.close();
+                term.dispose();
+                resizeObserver.disconnect();
+            };
+        })().catch((error) => {
+            console.error('[LiveOps] Failed to initialize terminal', error);
         });
 
-        const fitAddon = new FitAddon();
-        term.loadAddon(fitAddon);
-
-        // 2. Connect TErminal Socket (Raw PTY)
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const host = window.location.host;
-        const socketUrl = `${protocol}//${host}/api/ops/${operationId}/console?type=terminal`; // Explicitly 'terminal'
-
-        console.log(`[LiveOps] Connecting Terminal to ${socketUrl}`);
-        const socket = new WebSocket(socketUrl);
-
-        const attachAddon = new AttachAddon(socket);
-        term.loadAddon(attachAddon);
-
-        term.open(terminalRef.current);
-        fitAddon.fit();
-        xtermRef.current = term;
-
-        const resizeObserver = new ResizeObserver(() => fitAddon.fit());
-        resizeObserver.observe(terminalRef.current);
-
         return () => {
-            socket.close();
-            term.dispose();
-            resizeObserver.disconnect();
+            isMounted = false;
+            cleanup?.();
         };
     }, [operationId]);
 

@@ -1,38 +1,60 @@
 # container/Dockerfile
-FROM node:20-slim
+# Multi-variant sandbox image with JS/TS, Python, and OpenCode capabilities
+# All three cloudflare/sandbox base images are layered into a single image.
 
-# 1. Install System Dependencies
-# python3/make/g++ are needed to build node-pty
-# git/curl are needed for the agent's operations
-RUN apt-get update && apt-get install -y \
-    python3 \
+FROM docker.io/cloudflare/sandbox:0.7.0-python AS python-stage
+FROM docker.io/cloudflare/sandbox:0.7.0-opencode AS opencode-stage
+FROM docker.io/cloudflare/sandbox:0.7.0
+
+# --- Merge Python variant assets ---
+# Python 3.11 + pip + venv + pre-installed data-science packages
+COPY --from=python-stage /usr/bin/python3* /usr/bin/
+COPY --from=python-stage /usr/lib/python3* /usr/lib/python3/
+COPY --from=python-stage /usr/local/lib/python3* /usr/local/lib/python3/
+COPY --from=python-stage /usr/local/bin/pip* /usr/local/bin/
+COPY --from=python-stage /usr/local/bin/ipython* /usr/local/bin/
+
+# --- Merge OpenCode variant assets ---
+# OpenCode CLI for AI-powered coding agents
+COPY --from=opencode-stage /root/.opencode /root/.opencode
+ENV PATH="/root/.opencode/bin:${PATH}"
+
+# --- Install additional system dependencies ---
+RUN apt-get update && apt-get install -y --no-install-recommends \
     make \
     g++ \
-    git \
-    curl \
-    ca-certificates \
+    gnupg \
     && rm -rf /var/lib/apt/lists/*
 
-# 2. Setup Workspace
-WORKDIR /app
+# --- Install global Node.js tools ---
+RUN npm install -g typescript ts-node vitest
 
-# 3. Install App Dependencies
-COPY package.json tsconfig.json ./
-RUN npm install
+# --- Install code-server (browser IDE) ---
+RUN curl -fsSL https://code-server.dev/install.sh | sh -s -- --method standalone --prefix /usr/local
 
-# 4. Install Global Tools (Your Agent's Toolkit)
-# Replace these with your actual CLI tools if hosted on npm
-RUN npm install -g typescript ts-node
-# RUN npm install -g @colby/cli gemini-chat-cli
+# --- Install trufflehog (secret scanner) ---
+RUN set -eux; \
+    ARCH="$(dpkg --print-architecture)"; \
+    case "$ARCH" in \
+      amd64) TG_ARCH="amd64" ;; \
+      arm64) TG_ARCH="arm64" ;; \
+      *) echo "Unsupported architecture: $ARCH" && exit 1 ;; \
+    esac; \
+    TG_URL="$(curl -fsSL https://api.github.com/repos/trufflesecurity/trufflehog/releases/latest \
+      | grep -Eo "https://[^\"]*trufflehog_[^\" ]*_linux_${TG_ARCH}\\.tar\\.gz" \
+      | head -n 1)"; \
+    test -n "$TG_URL"; \
+    curl -sSfL "$TG_URL" \
+      | tar -xz -C /tmp; \
+    mv /tmp/trufflehog /usr/local/bin/trufflehog; \
+    chmod +x /usr/local/bin/trufflehog
 
-# 5. Copy Source
-COPY src ./src
-
-# 6. Build
-RUN npm run build
-
-# 7. Expose Port (Standard for Cloudflare Containers)
+# --- Expose ports for local development ---
+# Port 8788: Control API (Supervisor)
+# Port 8080: code-server (debug/IDE)
+EXPOSE 8788
 EXPOSE 8080
 
-# 8. Start
-CMD ["node", "dist/server.js"]
+# --- Use sandbox entrypoint ---
+# The /sandbox binary starts the HTTP API server that enables SDK communication.
+ENTRYPOINT ["/sandbox"]

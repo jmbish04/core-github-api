@@ -1,5 +1,5 @@
 import { ChatInterface } from '@/components/chat/chat-interface';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/context/auth-context';
 
 export default function ChatPage() {
     const { apiKey } = useAuth();

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import { useQueryClient } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -29,11 +30,13 @@ interface NewProjectDialogProps {
 
 export function NewProjectDialog({ open, onOpenChange }: NewProjectDialogProps) {
     const navigate = useNavigate();
+    const queryClient = useQueryClient();
     const [messages, setMessages] = useState<{ role: 'ai' | 'user', content: string }[]>([
         { role: 'ai', content: "Hello! I'm your Expedition Copilot. What kind of project are we building today? I can help suggest infrastructure choices." }
     ]);
     const [chatInput, setChatInput] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [submitError, setSubmitError] = useState<string | null>(null);
 
     const form = useForm<FormValues>({
         resolver: zodResolver(formSchema),
@@ -61,17 +64,37 @@ export function NewProjectDialog({ open, onOpenChange }: NewProjectDialogProps) 
 
     const onSubmit = async (data: FormValues) => {
         setIsSubmitting(true);
-        console.log("Submitting Project Draft:", { form: data, chatHistory: messages });
+        setSubmitError(null);
 
-        // TODO: Call API to create repo_draft (and potentially project/repo immediately or via HIL)
-        // For now, we simulate success and redirect
+        try {
+            const res = await fetch('/api/projects', {
+                method: 'POST',
+                headers: {
+                    'content-type': 'application/json',
+                },
+                credentials: 'include',
+                body: JSON.stringify({
+                    name: data.name,
+                    description: data.description,
+                    visibility: data.visibility,
+                    infraType: data.infraType,
+                    owner: 'jmbish04',
+                }),
+            });
 
-        setTimeout(() => {
+            const json = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                throw new Error(json?.error || `Failed to create project (${res.status})`);
+            }
+
+            await queryClient.invalidateQueries({ queryKey: ['projects'] });
             setIsSubmitting(false);
             onOpenChange(false);
-            navigate('/control-center/projects'); // Refresh or go to specific project
-            // In real app, we might redirect to /control-center/project/:id/settings
-        }, 1500);
+            navigate('/control-center/projects');
+        } catch (error: any) {
+            setIsSubmitting(false);
+            setSubmitError(error?.message || 'Failed to create project');
+        }
     };
 
     return (
@@ -169,6 +192,10 @@ export function NewProjectDialog({ open, onOpenChange }: NewProjectDialogProps) 
                                         )}
                                     />
                                 </div>
+
+                                {submitError && (
+                                    <p className="text-sm text-destructive">{submitError}</p>
+                                )}
 
                                 <Button type="submit" className="w-full mt-6" disabled={isSubmitting}>
                                     {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Launch Expedition"}
