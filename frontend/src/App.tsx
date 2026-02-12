@@ -10,6 +10,7 @@ import WorkflowsLanding from "@/pages/public/WorkflowsLanding";
 import WorkflowEditor from "@/pages/public/WorkflowEditor";
 import WorkflowNew from "@/pages/public/WorkflowNew";
 import Research from "@/pages/Research";
+import ToolsPage from "@/pages/control/global/Tools";
 
 import { PRCommandCenter } from "@/pages/control/global/PRCommandCenter";
 import Dashboard from "@/pages/control/global/Dashboard";
@@ -43,6 +44,7 @@ function App() {
             <Route path="/" element={<Home />} />
             <Route path="/docs" element={<Docs />} />
             <Route path="/health" element={guard(<Health />)} />
+            <Route path="/tools" element={guard(<ToolsPage />)} />
             <Route path="/settings" element={guard(<SettingsPage />)} />
 
             <Route path="/workflows" element={<WorkflowsLanding />} />
@@ -70,6 +72,15 @@ function App() {
             <Route path="/control-center/webhooks" element={guard(<Webhooks />)} />
             <Route path="/control-center/todos" element={guard(<Todo />)} />
             <Route path="/control-center/settings" element={guard(<SettingsPage />)} />
+
+            {/* Project-First Navigation Routes */}
+            <Route path="/project/:owner/:repo/dashboard" element={guard(<ProjectDashboard />)} />
+            <Route path="/project/:owner/:repo/kanban" element={guard(<Kanban />)} />
+            <Route path="/project/:owner/:repo/chat" element={guard(<Chat />)} />
+            <Route path="/project/:owner/:repo/roadmap" element={guard(<Roadmap />)} />
+            <Route path="/project/:owner/:repo/pr-center" element={guard(<PRCommandCenter />)} />
+            <Route path="/project/:owner/:repo/settings" element={guard(<SettingsPage />)} />
+            <Route path="/project/:owner/:repo/icebox" element={guard(<Todo />)} />
 
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>

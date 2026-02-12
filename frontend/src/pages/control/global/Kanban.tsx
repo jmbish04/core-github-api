@@ -5,6 +5,7 @@ import {
     KanbanHeader,
     KanbanProvider,
 } from "@/components/kibo-ui/kanban";
+import { useNavigate, useParams } from 'react-router-dom';
 import { useState, useMemo } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -27,11 +28,19 @@ const shortDateFormatter = new Intl.DateTimeFormat("en-US", {
 export default function KanbanPage() {
     const queryClient = useQueryClient();
 
+    const params = useParams();
+    const owner = params.owner || params.username;
+    const repo = params.repo || params.repo_name;
+
     // Fetch Tasks & Metadata
     const { data, isLoading } = useQuery({
-        queryKey: ['tasks'],
+        queryKey: ['tasks', owner, repo],
         queryFn: async () => {
-            const res = await fetch('/api/tasks');
+            const url = (owner && repo) 
+                ? `/api/tasks/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/tasks`
+                : '/api/tasks';
+            
+            const res = await fetch(url);
             if (!res.ok) throw new Error('Failed to fetch tasks');
             const json = await res.json();
 
@@ -48,6 +57,9 @@ export default function KanbanPage() {
                 dueDate: t.dueDate ? new Date(t.dueDate) : undefined
             }));
 
+            // If we are in project view but API doesn't return columns meta for it, use defaults
+            // or existing global logic. Current API might not return meta for project specific?
+            // Assuming API structure is similar for both.
             return {
                 tasks: mappedTasks,
                 columns: json.meta?.columns || []

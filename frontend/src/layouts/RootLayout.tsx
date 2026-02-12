@@ -1,6 +1,6 @@
 
 import { NavLink, Outlet } from "react-router-dom";
-import { Sidebar } from "@/components/navigation/Sidebar";
+import { AppSidebar } from "@/components/layout/AppSidebar";
 import { HealthWidget } from "@/components/health/HealthWidget";
 
 export default function RootLayout() {
@@ -18,7 +18,7 @@ export default function RootLayout() {
 
     return (
         <div className="flex min-h-screen bg-background text-foreground font-sans antialiased">
-            <Sidebar />
+            <AppSidebar />
             <main className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
                 <header className="h-14 border-b px-6 flex items-center justify-between bg-card/50 backdrop-blur-md sticky top-0 z-10 gap-4">
                     <div className="flex items-center gap-4 min-w-0">

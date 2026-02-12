@@ -10,6 +10,7 @@ import { NewProjectDialog } from '@/components/projects/NewProjectDialog';
 import { getControlCenterUserId } from '@/lib/control-user';
 import { pushRecentProject, removeRecentProject } from '@/lib/project-recents';
 import { cn } from '@/lib/utils';
+import { useProjectStore } from '@/stores/useProjectStore';
 
 interface Project {
     id: string;
@@ -130,6 +131,8 @@ export default function Projects() {
         },
     });
 
+    const openProjectInSidebar = useProjectStore((state) => state.openProject);
+
     const openProject = (project: Project) => {
         if (project.repoOwner && project.repoName) {
             pushRecentProject({
@@ -137,7 +140,17 @@ export default function Projects() {
                 repoName: project.repoName,
                 projectName: project.name,
             });
-            navigate(`/projects/${project.repoOwner}/${project.repoName}`);
+            
+            // Add to sidebar
+            openProjectInSidebar({
+                id: parseInt(project.repoId) || 0,
+                owner: project.repoOwner,
+                name: project.repoName,
+                full_name: `${project.repoOwner}/${project.repoName}`,
+                description: project.description
+            });
+
+            navigate(`/project/${project.repoOwner}/${project.repoName}/dashboard`);
             return;
         }
 

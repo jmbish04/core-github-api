@@ -258,7 +258,9 @@ export default function ProjectDashboard() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const userId = getControlCenterUserId();
-  const { username = "", repo_name: repoName = "" } = useParams();
+  const params = useParams();
+  const username = params.username || params.owner || "";
+  const repoName = params.repo_name || params.repo || "";
   const [selectedFile, setSelectedFile] = useState("");
   const [commandOpen, setCommandOpen] = useState(false);
   const [assistantSeedPrompt, setAssistantSeedPrompt] = useState<string | null>(null);
