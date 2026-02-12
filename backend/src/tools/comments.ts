@@ -124,7 +124,8 @@ commentsTools.openapi(extractRoute, async (c) => {
             line: comment.line, // The line of the comment
             start_line: comment.start_line, // If multi-line
             original_line: comment.original_line,
-            body: comment.body,
+            // Strip Gemini Code Assist priority badges (e.g., ![high](https://www.gstatic.com/codereviewagent/high-priority.svg))
+            body: comment.body.replace(/!\[.*?\]\(https:\/\/www\.gstatic\.com\/codereviewagent\/.*?-priority\.svg\)/g, '').trim(),
             diff_hunk: comment.diff_hunk,
             suggestion,
             user: {
