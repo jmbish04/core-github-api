@@ -78,7 +78,9 @@ export function AppSidebar({ className }: { className?: string }) {
       {/* Footer / Global Actions */}
       <div className="p-4 border-t mt-auto">
          <div className="flex justify-center">
-            <HealthWidget />
+         <div className="flex justify-center">
+            {/* HealthWidget moved to top header only */}
+         </div>
          </div>
       </div>
     </div>

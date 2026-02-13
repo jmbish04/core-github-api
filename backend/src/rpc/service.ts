@@ -70,7 +70,7 @@ export class GitHubWorkerRPC {
    * Create or update a file in a GitHub repository
    */
   async upsertFile(request: UpsertFileRequest): Promise<UpsertFileResponse> {
-    const octokit = getOctokit(this.env)
+    const octokit = await getOctokit(this.env)
     const { owner, repo, path, content, message, sha } = request
 
     const { data } = await octokit.repos.createOrUpdateFileContents({
@@ -107,7 +107,7 @@ export class GitHubWorkerRPC {
    * List repository contents with a tree-style representation
    */
   async listRepoTree(request: ListRepoTreeRequest): Promise<ListRepoTreeResponse> {
-    const octokit = getOctokit(this.env)
+    const octokit = await getOctokit(this.env)
     const { owner, repo, ref, path, recursive } = request
 
     const treeSha = ref ?? 'HEAD'
@@ -190,7 +190,7 @@ export class GitHubWorkerRPC {
    * Open a new pull request
    */
   async openPullRequest(request: OpenPullRequestRequest): Promise<OpenPullRequestResponse> {
-    const octokit = getOctokit(this.env)
+    const octokit = await getOctokit(this.env)
     const { owner, repo, head, base, title, body } = request
 
     const { data } = await octokit.pulls.create({
@@ -222,7 +222,7 @@ export class GitHubWorkerRPC {
    * Create a new issue
    */
   async createIssue(request: CreateIssueRequest): Promise<CreateIssueResponse> {
-    const octokit = getOctokit(this.env)
+    const octokit = await getOctokit(this.env)
     const { owner, repo, title, body, labels } = request
 
     const { data } = await octokit.issues.create({
@@ -259,7 +259,7 @@ export class GitHubWorkerRPC {
    * Example: octokitRest({ namespace: 'repos', method: 'get', params: { owner: 'octocat', repo: 'hello-world' } })
    */
   async octokitRest(request: OctokitRestRequest): Promise<OctokitRestResponse> {
-    const octokit = getOctokit(this.env)
+    const octokit = await getOctokit(this.env)
     const { namespace, method, params = {} } = request
 
     // @ts-ignore - Dynamic method invocation
@@ -283,7 +283,7 @@ export class GitHubWorkerRPC {
    * Execute a GraphQL query against the GitHub API
    */
   async octokitGraphQL(request: OctokitGraphQLRequest): Promise<OctokitGraphQLResponse> {
-    const octokit = getOctokit(this.env)
+    const octokit = await getOctokit(this.env)
     const { query, variables = {} } = request
 
     try {
@@ -340,7 +340,7 @@ export class GitHubWorkerRPC {
    * Search for GitHub repositories
    */
   async searchRepositories(request: SearchRepositoriesRequest): Promise<SearchRepositoriesResponse> {
-    const octokit = getOctokit(this.env)
+    const octokit = await getOctokit(this.env)
     const { query, sort, order, per_page = 30, page = 1 } = request
 
     const { data } = await octokit.search.repos({

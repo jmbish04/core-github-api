@@ -27,7 +27,9 @@
       "@budget": ["backend/src/lib/budget-tracker.ts"],
       "@model-config": ["backend/src/lib/model-config.ts"],
       "@sandbox-sdk-tools": ["backend/src/sandbox-sdk-tools/index.ts"],
-      "@sandbox-sdk-tools/*": ["backend/src/sandbox-sdk-tools/*"]
+      "@sandbox-sdk-tools/*": ["backend/src/sandbox-sdk-tools/*"],
+      "@ai-config": ["backend/src/lib/ai-config.ts"],
+      "@agent-utils": ["backend/src/lib/agent-utils.ts"]
     },
     "types": [
       "node",

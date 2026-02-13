@@ -15,7 +15,9 @@
 		"GEMINI_MODEL": "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
 		"AI_GATEWAY_NAME": "core-github-api",
 		"GITHUB_OWNER": "jmbish04",
-		"BASE_URL": "https://core-github-api.hacolby.workers.dev"
+		"BASE_URL": "https://core-github-api.hacolby.workers.dev",
+		"MAX_AI_BUDGET": "50",
+		"USE_OPENAI_MODELS": "false"
 	},
 	"containers": [
 		{
@@ -173,6 +175,22 @@
 			{
 				"name": "JULES_OVERSEER",
 				"class_name": "JulesOverseer"
+			},
+			{
+				"name": "TOPIC_ORCHESTRATOR",
+				"class_name": "TopicOrchestratorAgent"
+			},
+			{
+				"name": "WEB_SEARCH_AGENT",
+				"class_name": "WebSearchAgent"
+			},
+			{
+				"name": "JUDGE_AGENT",
+				"class_name": "JudgeAgent"
+			},
+			{
+				"name": "REPORTING_AGENT",
+				"class_name": "ReportingAgent"
 			}
 		]
 	},
@@ -239,6 +257,15 @@
 			"new_sqlite_classes": [
 				"JulesOverseer"
 			]
+		},
+		{
+			"tag": "v11",
+			"new_sqlite_classes": [
+				"TopicOrchestratorAgent",
+				"WebSearchAgent",
+				"JudgeAgent",
+				"ReportingAgent"
+			]
 		}
 	],
 	"workflows": [
@@ -252,12 +279,21 @@
 			"binding": "DEEP_RESEARCH_WORKFLOW",
 			"class_name": "DeepResearchWorkflow"
 		},
+
 		{
 			"name": "research-orchestrator",
 			"binding": "RESEARCH_ORCHESTRATOR",
 			"class_name": "ResearchOrchestrator"
+		},
+		{
+			"name": "topic-research-workflow",
+			"binding": "TOPIC_RESEARCH_WORKFLOW",
+			"class_name": "TopicResearchWorkflow"
 		}
 	],
+	"browser": {
+		"binding": "BROWSER"
+	},
 	"kv_namespaces": [
 		{
 			"binding": "ETAG_KV",
@@ -304,11 +340,7 @@
 	],
 	// Email sending bindings for Email Routing
 	// Targeted binding - sends only to the specified destination address
-	"send_email": [
-		{
-			"name": "EMAIL_SENDER"
-		}
-	],
+	"send_email": [{"name": "SEB", "destination_address": "justin@126colby.com"}],
 	// Scheduled triggers for automated tasks
 	// Cron format: minute hour day month day-of-week
 	"triggers": {

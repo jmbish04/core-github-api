@@ -36,10 +36,12 @@ import healthApi from "@/routes/api/health";
 import chatApi from "@/routes/api/chat";
 import workflowsApi from "@/routes/api/workflows";
 import settingsApi from "@/routes/api/settings";
-import researchApi from "@/routes/api/research";
+import research from "./routes/api/research";
 import browserRender from "@services/browser_render";
 import authApi from "@/routes/auth";
 import julesApi from "@/routes/api/jules";
+import dailyTrendsApi from "@/routes/daily-trends";
+import { sendEmail } from "@utils/email";
 
 
 
@@ -510,8 +512,9 @@ sharedApi.route('/chat', chatApi)
 sharedApi.route('/workflows', workflowsApi)
 sharedApi.route('/settings', settingsApi)
 sharedApi.route('/settings', settingsApi)
-sharedApi.route('/research', researchApi)
+sharedApi.route('/research', research)
 sharedApi.route('/jules', julesApi)
+sharedApi.route('/daily-trends', dailyTrendsApi)
 
 
 // Mount browser-render BEFORE sharedApi to avoid shadowing if sharedApi captures /api base
@@ -554,6 +557,14 @@ export { DeepReasoningAgent } from "@agents/deep-reasoning";
 export { DataProcessor } from "@/do/DataProcessor";
 export { GithubSearchWorkflow } from "@/workflows/search";
 export { DeepResearchWorkflow } from "@/workflows/DeepResearchWorkflow";
+// Research Agents (Topic Research)
+export { TopicOrchestratorAgent } from "./agents/TopicOrchestratorAgent";
+export { WebSearchAgent } from "./agents/WebSearchAgent";
+export { JudgeAgent } from "./agents/JudgeAgent";
+export { ReportingAgent } from "./agents/ReportingAgent";
+export { TopicResearchWorkflow } from "./workflows/TopicResearchWorkflow";
+
+// Existing Exports
 export { ResearchAgent } from "@/agents/ResearchAgent";
 export { JulesOverseer } from "@/agents/JulesOverseer";
 
@@ -569,13 +580,35 @@ async function handleScheduled(event: ScheduledController, env: Env, ctx: Execut
     console.log('[Scheduled] Starting daily research scan...');
     
     try {
-      // Trigger Research Orchestrator
-      const workflow = await env.RESEARCH_ORCHESTRATOR.create({
+      const db = getDb(env.DB);
+      
+      // 1. Create a "Daily Trends" Brief
+      const [brief] = await db.insert(schema.researchBriefs).values({
+          title: `Daily Trends - ${new Date().toISOString().split('T')[0]}`,
+          rawBriefContent: JSON.stringify({ 
+              topic: "Trending GitHub Repositories", 
+              depth: "shallow",
+              goals: ["Find high-growth repos", "Identify new AI tools"] 
+          }),
+          status: "researching",
+          createdAt: new Date(),
+          updatedAt: new Date()
+      }).returning();
+
+      // 2. Trigger Workflow with mode="trending"
+      const workflow = await env.TOPIC_RESEARCH_WORKFLOW.create({
         params: {
-          mode: "trending",
-          query: "trending repositories this week in TypeScript, Python, or Go",
-          maxCandidates: 5,
-          requireApproval: false, // Auto-approve for daily scans
+          briefId: brief.id,
+          plan: {
+             topic: "Trending GitHub Repositories",
+             goals: ["Find high-growth repos", "Identify new AI tools"],
+             search_queries: [
+                 "github trending repositories this week",
+                 "best new open source AI tools 2026",
+                 "growing typescript libraries 2026"
+             ]
+          },
+          mode: "trending"
         },
       });
       
@@ -597,13 +630,30 @@ async function handleScheduled(event: ScheduledController, env: Env, ctx: Execut
                 console.log('[Scheduled] Research workflow completed');
                 
                 // Send email report
-                const { getResearchReportData, sendResearchReport } = await import("@/lib/email-reports");
-                const output = status.output as { sessionId: string };
-                const reportData = await getResearchReportData(env, output.sessionId);
+                // status.output contains { status: "complete", candidates: [...] }
+                const output = status.output as any;
+                const candidates = output.candidates || [];
                 
-                if (reportData) {
-                  await sendResearchReport(env, reportData);
-                  console.log('[Scheduled] Email report sent');
+                if (candidates.length > 0 && env.SEB) {
+                   const htmlContent = `
+                      <h2 style="color: #111827; margin-top: 0;">Daily Trends Report</h2>
+                      <p style="color: #4b5563;">Found <strong>${candidates.length}</strong> trending items today.</p>
+                      <ul style="padding-left: 20px;">
+                          ${candidates.map((c: any) => `
+                              <li style="margin-bottom: 15px;">
+                                  <a href="${c.url}" style="color: #2563eb; text-decoration: none; font-weight: 600;">${c.title || c.url}</a><br/>
+                                  <span style="color: #6b7280; font-size: 14px;">${c.judgement.reasoning}</span>
+                              </li>
+                          `).join('')}
+                      </ul>
+                   `;
+                   
+                   await sendEmail(env, {
+                      to: "colby@internal.system", // Configure real recipient
+                      subject: `Daily Trends - ${brief.title}`,
+                      contentHtml: htmlContent,
+                      plainTextFallback: `Found ${candidates.length} trending items.`
+                   });
                 }
                 break;
               } else if (status.status === "errored" || status.status === "terminated") {
@@ -612,10 +662,6 @@ async function handleScheduled(event: ScheduledController, env: Env, ctx: Execut
               }
               
               attempts++;
-            }
-            
-            if (attempts >= maxAttempts) {
-              console.warn('[Scheduled] Research workflow timeout after 10 minutes');
             }
           } catch (error) {
             console.error('[Scheduled] Error processing research results:', error);
@@ -724,59 +770,38 @@ async function handleScheduled(event: ScheduledController, env: Env, ctx: Execut
       const successfulWorkflows = results.filter(r => r.status === 'triggered');
       const failedWorkflows = results.filter(r => r.status === 'failed');
       
-      const htmlReport = `
-<!DOCTYPE html>
-<html>
-<head>
-  <style>
-    body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
-    h1 { color: #333; }
-    .summary { background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0; }
-    .repo-list { list-style: none; padding: 0; }
-    .repo-item { padding: 10px; margin: 5px 0; background: #fff; border-left: 3px solid #4CAF50; }
-    .failed { border-left-color: #f44336; }
-    .footer { margin-top: 30px; color: #666; font-size: 12px; }
-  </style>
-</head>
-<body>
-  <h1>Daily GitHub Research Digest</h1>
-  <p>Date: ${today.toLocaleDateString()}</p>
-  
-  <div class="summary">
-    <h2>Summary</h2>
-    <p><strong>Total Repositories Analyzed:</strong> ${trendingRepos.length}</p>
-    <p><strong>Successful Workflows:</strong> ${successfulWorkflows.length}</p>
-    <p><strong>Failed Workflows:</strong> ${failedWorkflows.length}</p>
-  </div>
-  
-  <h2>Trending Repositories</h2>
-  <ul class="repo-list">
-    ${results.map(r => `
-      <li class="repo-item ${r.status === 'failed' ? 'failed' : ''}">
-        <strong>${r.repo}</strong><br>
-        ${r.status === 'triggered' ? `✅ Workflow ID: ${r.workflowId}` : `❌ Error: ${r.error}`}
-      </li>
-    `).join('')}
-  </ul>
-  
-  <div class="footer">
-    <p>This is an automated report from the Agentic Research Team.</p>
-    <p>Powered by Cloudflare Workers</p>
-  </div>
-</body>
-</html>
+      const htmlContent = `
+        <h2 style="color: #111827; margin-top: 0; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">Daily GitHub Research Digest</h2>
+        
+        <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 25px 0;">
+          <h3 style="margin-top: 0; color: #111827;">Summary</h3>
+          <p style="margin: 5px 0;"><strong>Total Analyzed:</strong> ${trendingRepos.length}</p>
+          <p style="margin: 5px 0; color: #059669;"><strong>Successful Workflows:</strong> ${successfulWorkflows.length}</p>
+          <p style="margin: 5px 0; color: #dc2626;"><strong>Failed Workflows:</strong> ${failedWorkflows.length}</p>
+        </div>
+        
+        <h3 style="color: #111827;">Trending Repositories</h3>
+        <ul style="list-style: none; padding: 0;">
+          ${results.map(r => `
+            <li style="padding: 15px; margin: 10px 0; background: #ffffff; border: 1px solid #e5e7eb; border-left: 4px solid ${r.status === 'failed' ? '#ef4444' : '#10b981'}; border-radius: 6px;">
+              <strong style="color: #111827; font-size: 16px;">${r.repo}</strong><br>
+              <span style="font-size: 14px; color: #4b5563; display: inline-block; margin-top: 5px;">
+                ${r.status === 'triggered' ? `✅ Workflow ID: ${r.workflowId}` : `❌ Error: ${r.error}`}
+              </span>
+            </li>
+          `).join('')}
+        </ul>
       `;
-      
-      // Send email (if EMAIL_SENDER is configured)
-      if (env.EMAIL_SENDER) {
+
+      // Send email
+      if (env.SEB) {
         try {
-          await env.EMAIL_SENDER.send({
-            from: 'research@example.com',
+          await sendEmail(env, {
             to: 'team@example.com',
             subject: `Daily Research Digest - ${today.toLocaleDateString()}`,
-            html: htmlReport,
+            contentHtml: htmlContent,
+            plainTextFallback: `Summary: ${successfulWorkflows.length} successful, ${failedWorkflows.length} failed.`
           });
-          console.log('[Scheduler] Email report sent successfully');
         } catch (error: any) {
           console.error('[Scheduler] Failed to send email:', error);
         }

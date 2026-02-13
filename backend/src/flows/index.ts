@@ -342,7 +342,7 @@ async function setRepoSecret(
 
 flows.openapi(createNewRepoRoute, async (c) => {
   const { owner, name, description, private: isPrivate, auto_init } = c.req.valid('json')
-  const octokit = getOctokit(c.env)
+  const octokit = await getOctokit(c.env)
 
   console.log(`[flows/create-new-repo] Creating repository ${owner}/${name}`)
 
@@ -441,7 +441,7 @@ flows.openapi(createNewRepoRoute, async (c) => {
 
 flows.openapi(retrofitWorkflowsRoute, async (c) => {
   const { owner, repos, date_active_gt, date_active_lt, date_added_gt, date_added_lt, force } = c.req.valid('json')
-  const octokit = getOctokit(c.env)
+  const octokit = await getOctokit(c.env)
 
   console.log(`[flows/retrofit-workflows] Starting retrofit for owner: ${owner}`)
 

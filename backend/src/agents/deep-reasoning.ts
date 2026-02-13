@@ -53,6 +53,7 @@ export class DeepReasoningAgent extends BaseAgent<Env, BaseAgentState> {
       this.logger.info("Executing deep reasoning", { promptLength: prompt.length, provider });
 
       const model = resolveDefaultAiModel(this.env, provider);
+      
       const agent = new OpenAIAgent({
         name: "DeepReasoningAgent",
         model,

@@ -48,7 +48,7 @@ export class GardenerOrchestrator {
         // 1. Build Context
         const ctx: GardenerContext = {
             env: c.env,
-            executionCtx: c.executionCtx,
+            executionCtx: c.executionCtx as any,
             repo: {
                 owner: repo.owner.login || repo.owner.name,
                 name: repo.name,

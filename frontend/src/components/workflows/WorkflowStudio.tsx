@@ -304,10 +304,10 @@ export function WorkflowStudio({ workflow, mode }: WorkflowStudioProps) {
             onValueChange={(value) => setActiveTab((value as "overview" | "diagram" | "runs") || "overview")}
             className="min-h-0 flex-1"
           >
-            <TabsList className="grid w-full max-w-sm grid-cols-2">
+            <TabsList className="grid w-full max-w-lg grid-cols-3">
               <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="diagram">Diagram</TabsTrigger>
               <TabsTrigger value="runs">Runs</TabsTrigger>
+              <TabsTrigger value="diagram">Diagram</TabsTrigger>
             </TabsList>
 
             <TabsContent value="overview" className="mt-4 min-h-0 flex-1">

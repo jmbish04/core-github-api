@@ -12,14 +12,15 @@ export default function RootLayout() {
         { label: "Health", href: "/health" },
         { label: "Workflows", href: "/workflows" },
         { label: "Docs", href: "/docs" },
+        { label: "Spark Core", href: "/spark" },
         { label: "Settings", href: "/settings" },
         { label: "Control Center", href: "/control-center/dashboard" },
     ];
 
     return (
-        <div className="flex min-h-screen bg-background text-foreground font-sans antialiased">
+        <div className="flex h-screen bg-background text-foreground font-sans antialiased overflow-hidden">
             <AppSidebar />
-            <main className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
+            <main className="flex-1 flex flex-col h-full overflow-hidden relative">
                 <header className="h-14 border-b px-6 flex items-center justify-between bg-card/50 backdrop-blur-md sticky top-0 z-10 gap-4">
                     <div className="flex items-center gap-4 min-w-0">
                         <div className="flex items-center gap-2 text-muted-foreground shrink-0">

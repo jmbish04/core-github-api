@@ -2,6 +2,7 @@ import { drizzle } from 'drizzle-orm/d1';
 import { aiCostLogs, budgetEvents, sessions } from '../db/schema';
 import { sql, desc, eq, gt, and } from 'drizzle-orm';
 import { z } from 'zod';
+import Cloudflare from 'cloudflare';
 import { PRICING_CATALOG, guardCheck, type ModelPricing } from './pricing-registry';
 
 // ============================================================================
@@ -52,11 +53,41 @@ export class BudgetTracker {
   constructor(env: Env) {
     this.env = env;
     this.db = drizzle(env.DB);
-    if (env.CLOUDFLARE_API_TOKEN) {
+  }
+
+  private async getCloudflare(): Promise<Cloudflare | null> {
+    if (this.cf) return this.cf;
+
+    let apiToken: string | null = null;
+    
+    // Handle SecretsStoreSecret or simple string
+    const rawToken = this.env.CLOUDFLARE_API_TOKEN as any;
+    if (typeof rawToken === 'string') {
+        apiToken = rawToken;
+    } else if (rawToken && typeof rawToken.get === 'function') {
+         // Assuming SecretsStoreSecret has .get() which returns Promise<string>?
+         // Or maybe it's just a value binding? 
+         // Actually, usually secrets are strings in Env if not using SecretsStore?
+         // If using SecretsStore, it might be different. 
+         // I'll try generic access.
+         try {
+            const secret = await rawToken.get();
+            if (secret && typeof secret === 'object' && secret.value) apiToken = secret.value; // unwrapping?
+            else apiToken = secret;
+         } catch (e) {
+            console.warn('[BudgetTracker] Failed to retrieve CLOUDFLARE_API_TOKEN secret:', e);
+         }
+    } else if (rawToken) {
+        // Fallback checks
+        apiToken = String(rawToken);
+    }
+
+    if (apiToken) {
         this.cf = new Cloudflare({
-            apiToken: env.CLOUDFLARE_API_TOKEN
+            apiToken: apiToken
         });
     }
+    return this.cf;
   }
 
   /**
@@ -69,7 +100,9 @@ export class BudgetTracker {
         return;
     }
 
-    if (!this.cf || !this.env.CLOUDFLARE_ACCOUNT_ID) {
+    const cf = await this.getCloudflare();
+
+    if (!cf || !this.env.CLOUDFLARE_ACCOUNT_ID) {
         console.warn('[BudgetTracker] Missing Cloudflare credentials, skipping dynamic pricing fetch.');
         return;
     }
@@ -80,7 +113,7 @@ export class BudgetTracker {
         WORKERS_AI_PRICING_CACHE = WORKERS_AI_PRICING_CACHE || {};
 
         // 1. Search for the model
-        const response = await this.cf.ai.models.list({
+        const response = await cf.ai.models.list({
             account_id: this.env.CLOUDFLARE_ACCOUNT_ID,
             search: modelName,
         });
@@ -228,7 +261,7 @@ export class BudgetTracker {
         model: params.model,
         inputTokens: params.inputTokens,
         outputTokens: params.outputTokens,
-        costUsd: costMicros,
+        estimatedCost: costMicros,
         sessionId: params.sessionId || null,
         documentId: params.documentId || null,
         workflowName: params.workflowName || null,
@@ -261,7 +294,7 @@ export class BudgetTracker {
     // 1. Find the last reset timestamp
     const lastReset = await this.db.select()
       .from(budgetEvents)
-      .where(eq(budgetEvents.type, 'reset'))
+      .where(eq(budgetEvents.eventType, 'reset'))
       .orderBy(desc(budgetEvents.timestamp))
       .limit(1)
       .get();
@@ -274,7 +307,7 @@ export class BudgetTracker {
     // 2. Sum costs since that time
     const result = await this.db
       .select({ 
-        totalMicros: sql<number>`sum(${aiCostLogs.costUsd})` 
+        totalMicros: sql<number>`sum(${aiCostLogs.estimatedCost})` 
       })
       .from(aiCostLogs)
       .where(and(gt(aiCostLogs.timestamp, resetTime), notIgnored))
@@ -289,8 +322,10 @@ export class BudgetTracker {
   async resetBudget(note?: string): Promise<void> {
     await this.db.insert(budgetEvents).values({
         id: crypto.randomUUID(),
-        type: 'reset',
-        value: note || 'Manual Reset',
+        eventType: 'reset',
+        message: note || 'Manual Reset',
+        threshold: 0,
+        currentSpend: 0
     });
   }
 
@@ -304,7 +339,7 @@ export class BudgetTracker {
     // Get last reset time
     const lastReset = await this.db.select()
       .from(budgetEvents)
-      .where(eq(budgetEvents.type, 'reset'))
+      .where(eq(budgetEvents.eventType, 'reset'))
       .orderBy(desc(budgetEvents.timestamp))
       .limit(1)
       .get();

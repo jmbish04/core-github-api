@@ -54,7 +54,7 @@ const graphql = new OpenAPIHono<{ Bindings: Env }>()
 
 graphql.openapi(graphqlRoute, async (c) => {
   const { query, variables } = c.req.valid('json')
-  const gql = getGraphql(c.env)
+  const gql = await getGraphql(c.env)
 
   const response = await gql(query, variables)
 

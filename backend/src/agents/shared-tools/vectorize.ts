@@ -12,7 +12,7 @@ async function getEmbeddingClient(env: Env) {
   const baseUrl = await gateway.getUrl("openai"); // Specific OpenAI endpoint for real ada-002
   
   return new OpenAI({
-    apiKey: env.CLOUDFLARE_AI_GATEWAY_TOKEN,
+    apiKey: await env.AI_GATEWAY_TOKEN.get(),
     baseURL: baseUrl,
   });
 }

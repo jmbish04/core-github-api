@@ -169,6 +169,20 @@
       "when": 1770912586370,
       "tag": "0023_romantic_vengeance",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1770941674331,
+      "tag": "0024_third_thunderbolt_ross",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "6",
+      "when": 1770966422753,
+      "tag": "0025_wandering_havok",
+      "breakpoints": true
     }
   ]
 }

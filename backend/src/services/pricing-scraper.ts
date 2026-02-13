@@ -104,7 +104,8 @@ async function scrapeGooglePricing(env: Env): Promise<PricingData[]> {
  */
 export async function scrapePricing(env: Env, ctx: ExecutionContext): Promise<void> {
   const logger = new Logger(env, 'PricingScraper');
-  const db = env.DB;
+  const { getDb } = await import("@db");
+  const db = getDb(env.DB);
   
   logger.info('Starting pricing scrape');
   
@@ -159,7 +160,8 @@ export async function scrapePricing(env: Env, ctx: ExecutionContext): Promise<vo
  */
 export async function checkPricingStaleness(env: Env): Promise<void> {
   const logger = new Logger(env, 'PricingScraper');
-  const db = env.DB;
+  const { getDb } = await import("@db");
+  const db = getDb(env.DB);
   
   try {
     // Get the most recent pricing snapshot
@@ -268,7 +270,7 @@ export async function getLatestPricing(
     const result = await db
       .select()
       .from(pricingSnapshots)
-      .where(eq(pricingSnapshots.provider, provider))
+      .where(eq(pricingSnapshots.provider, provider as any))
       .where(eq(pricingSnapshots.modelId, modelId))
       .orderBy(desc(pricingSnapshots.scrapedAt))
       .limit(1);

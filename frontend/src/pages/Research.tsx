@@ -303,11 +303,11 @@ export default function Research() {
               {results.readmeContent && (
                 <div>
                   <h3 className="font-semibold mb-2">README Preview</h3>
-                  <div className="bg-muted p-4 rounded-lg max-h-64 overflow-y-auto">
-                    <pre className="text-sm whitespace-pre-wrap">
-                      {results.readmeContent.substring(0, 500)}...
-                    </pre>
-                  </div>
+                    <div className="bg-muted p-4 rounded-lg prose prose-sm dark:prose-invert max-w-none break-words max-h-96 overflow-y-auto">
+                      <Streamdown>
+                        {results.readmeContent}
+                      </Streamdown>
+                    </div>
                 </div>
               )}
             </div>

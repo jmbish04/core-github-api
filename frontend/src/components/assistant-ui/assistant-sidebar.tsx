@@ -28,11 +28,11 @@ export function AssistantSidebar({
 }: AssistantSidebarProps) {
   return (
     <ResizablePanelGroup orientation="horizontal" className="h-full rounded-lg border">
-      <ResizablePanel defaultSize={65} minSize={35}>
+      <ResizablePanel defaultSize={65} minSize={30} className="flex-1">
         <div className="h-full overflow-hidden">{children}</div>
       </ResizablePanel>
       <ResizableHandle withHandle />
-      <ResizablePanel defaultSize={35} minSize={25}>
+      <ResizablePanel defaultSize={35} minSize={20} maxSize={50}>
         <WorkflowThread
           workflowKey={workflowKey}
           workflowTitle={workflowTitle}

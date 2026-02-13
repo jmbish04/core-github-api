@@ -9,7 +9,10 @@ import CommentsViewer from "@/pages/control/global/CommentsViewer";
 import WorkflowsLanding from "@/pages/public/WorkflowsLanding";
 import WorkflowEditor from "@/pages/public/WorkflowEditor";
 import WorkflowNew from "@/pages/public/WorkflowNew";
-import Research from "@/pages/Research";
+import SparkLanding from "@/pages/public/SparkLanding";
+import ResearchDashboard from "@/pages/research/ResearchDashboard";
+import ResearchIntake from "@/pages/research/ResearchIntake";
+import ResearchDetail from "@/pages/research/ResearchDetail";
 import ToolsPage from "@/pages/control/global/Tools";
 
 import { PRCommandCenter } from "@/pages/control/global/PRCommandCenter";
@@ -50,7 +53,12 @@ function App() {
             <Route path="/workflows" element={<WorkflowsLanding />} />
             <Route path="/workflows/new" element={<WorkflowNew />} />
             <Route path="/workflows/:workflowId" element={<WorkflowEditor />} />
-            <Route path="/research" element={<Research />} />
+            <Route path="/spark" element={<SparkLanding />} />
+            
+            {/* Research Routes */}
+            <Route path="/control-center/research" element={guard(<ResearchDashboard />)} />
+            <Route path="/control-center/research/new" element={guard(<ResearchIntake />)} />
+            <Route path="/control-center/research/:id" element={guard(<ResearchDetail />)} />
 
             <Route path="/dashboard" element={guard(<Navigate to="/control-center/dashboard" replace />)} />
             <Route path="/projects" element={guard(<Navigate to="/control-center/projects" replace />)} />

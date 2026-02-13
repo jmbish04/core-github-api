@@ -80,6 +80,8 @@ ${score.weaknesses.map((w) => `- ⚠️ ${w}`).join("\n")}
   return markdown.trim();
 }
 
+import { sendEmail } from "@utils/email";
+
 /**
  * Send email report via SendEmail binding
  * Uses destination_address binding, so recipient is pre-configured
@@ -89,42 +91,34 @@ export async function sendResearchReport(
   reportData: ResearchReportData
 ): Promise<void> {
   const markdown = generateResearchReport(reportData);
+  const { sessionId } = reportData;
 
-  // Check if EMAIL_SENDER binding exists
-  if (!env.EMAIL_SENDER) {
-    console.warn("[Email] EMAIL_SENDER binding not configured, skipping email");
-    return;
-  }
+  // Render markdown to simple HTML for the body
+  // Note: For a proper implementation, we should use a markdown-to-html library
+  // But for now, we'll wrap it in pre tags to preserve formatting or just use the utility
+  // The utility buildOptimizedTemplate wraps content in a nice table.
+  // We can convert newlines to <br> for basic formatting if we don't have a parser.
+  const htmlContent = `
+    <div style="font-family: monospace; white-space: pre-wrap;">
+      ${markdown.replace(/</g, "&lt;").replace(/>/g, "&gt;")}
+    </div>
+  `;
 
-  try {
-    // Import EmailMessage from cloudflare:email
-    const { EmailMessage } = await import("cloudflare:email");
-    
-    // Extract domain from BASE_URL
-    const domain = env.BASE_URL.replace("https://", "").replace("http://", "");
-    
-    // Create MIME message with proper headers
-    // Note: recipient can be undefined when using destination_address binding
-    const emailContent = [
-      `From: Research Bot <research@${domain}>`,
-      `Subject: Daily Research Report - ${new Date().toLocaleDateString()}`,
-      `Content-Type: text/plain; charset=utf-8`,
-      ``,
-      markdown,
-    ].join("\r\n");
-
-    const message = new EmailMessage(
-      `research@${domain}`,
-      "", // Empty string when using destination_address binding
-      emailContent
-    );
-
-    await env.EMAIL_SENDER.send(message);
-
-    console.log("[Email] Research report sent successfully");
-  } catch (error) {
-    console.error("[Email] Failed to send report:", error);
-    throw error;
+  if (env.SEB) {
+    try {
+        await sendEmail(env, {
+          to: "research@yourdomain.com", // This will be overridden by the binding's destination_address if configured as strict
+          subject: `Daily Research Report - ${new Date().toLocaleDateString()}`,
+          contentHtml: htmlContent,
+          plainTextFallback: markdown
+        });
+        console.log("[Email] Research report sent successfully");
+    } catch (error) {
+        console.error("[Email] Failed to send report:", error);
+        throw error;
+    }
+  } else {
+      console.warn("[Email] SEB binding not configured, skipping email");
   }
 }
 

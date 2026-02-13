@@ -126,11 +126,28 @@ export async function createGatewayClient(
   console.log(logMsg);
 
   // Get AI Gateway token from Secrets Store
-  const apiToken = await env.AI_GATEWAY_TOKEN.get();
+  let apiToken = "";
+  try {
+    apiToken = await env.AI_GATEWAY_TOKEN.get();
+  } catch (e) {}
+
+  if (!apiToken) {
+    try {
+      // Fallback to CLOUDFLARE_API_TOKEN if gateway token is missing
+      apiToken = await env.CLOUDFLARE_API_TOKEN.get();
+      if (apiToken) console.log(`\x1b[1;33m⚠️ [AI-CONFIG] Using CLOUDFLARE_API_TOKEN as fallback\x1b[0m`);
+    } catch (e) {}
+  }
+
+  if (!apiToken) {
+    console.error("❌ [AI-CONFIG] Missing AI_GATEWAY_TOKEN and CLOUDFLARE_API_TOKEN");
+    // We don't throw yet to allow non-gateway scenarios if applicable, but OpenAI SDK will likely fail.
+    // Better to provide a dummy key if strictly simulating, but let's stick to "" and let SDK handle or throw context.
+  }
 
   return new OpenAI({ 
     baseURL: baseUrl, 
-    apiKey: apiToken || "",
+    apiKey: apiToken || "missing-token", // Pass non-empty string to avoid immediate constructor error, allow connection error to fire later if needed? No, SDK validation is strict.
     dangerouslyAllowBrowser: true,
     fetch: wrappedFetch,
   });

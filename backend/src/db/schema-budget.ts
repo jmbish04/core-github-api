@@ -5,13 +5,15 @@ import { sql } from 'drizzle-orm';
  * AI Cost Logs - Track AI model usage and costs
  */
 export const aiCostLogs = sqliteTable('ai_cost_logs', {
-  id: text('id').primaryKey(),
+  id: text('id').primaryKey(), // UUID
   sessionId: text('session_id'),
   model: text('model').notNull(),
   inputTokens: integer('input_tokens').notNull().default(0),
   outputTokens: integer('output_tokens').notNull().default(0),
   totalTokens: integer('total_tokens').notNull().default(0),
   estimatedCost: real('estimated_cost').notNull().default(0),
+  documentId: text('document_id'),
+  workflowName: text('workflow_name'),
   timestamp: integer('timestamp', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
 }, (table) => ({
   sessionIdx: index('ai_cost_logs_session_idx').on(table.sessionId),
