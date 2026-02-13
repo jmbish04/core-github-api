@@ -23,7 +23,7 @@ jobs:
       - name: Run search script
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: python scripts/search_repos.py
+        run: python scripts/github/workflows/search_repos.py
       
       - name: Upload results
         uses: actions/upload-artifact@v4
