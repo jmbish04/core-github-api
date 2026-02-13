@@ -28,7 +28,7 @@ export function AssistantSidebar({
 }: AssistantSidebarProps) {
   return (
     <ResizablePanelGroup orientation="horizontal" className="h-full rounded-lg border">
-      <ResizablePanel defaultSize={65} minSize={30} className="flex-1">
+      <ResizablePanel defaultSize={65} minSize={30}>
         <div className="h-full overflow-hidden">{children}</div>
       </ResizablePanel>
       <ResizableHandle withHandle />

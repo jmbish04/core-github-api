@@ -496,6 +496,16 @@ export default function ProjectDashboard() {
       );
     });
 
+  const groupedTasks = useMemo(() => {
+    const byPhase = new Map<string, Array<{ id: string; title: string; status: string }>>();
+    for (const task of taskQuery.data?.tasks || []) {
+      const key = task.phaseId || "ungrouped";
+      if (!byPhase.has(key)) byPhase.set(key, []);
+      byPhase.get(key)?.push(task);
+    }
+    return byPhase;
+  }, [taskQuery.data?.tasks]);
+
   if (lookupQuery.isLoading || overviewQuery.isLoading) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
@@ -523,15 +533,6 @@ export default function ProjectDashboard() {
 
   const overview = overviewQuery.data;
   const projectDetails = detailsQuery.data;
-  const groupedTasks = useMemo(() => {
-    const byPhase = new Map<string, Array<{ id: string; title: string; status: string }>>();
-    for (const task of taskQuery.data?.tasks || []) {
-      const key = task.phaseId || "ungrouped";
-      if (!byPhase.has(key)) byPhase.set(key, []);
-      byPhase.get(key)?.push(task);
-    }
-    return byPhase;
-  }, [taskQuery.data?.tasks]);
 
   return (
     <ProjectDashboardLayout>

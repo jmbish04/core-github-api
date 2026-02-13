@@ -1,20 +1,24 @@
+import { Hono } from 'hono';
+import { zValidator } from '@hono/zod-validator';
+import { z } from 'zod';
+import { eq, desc, like, sql, and, inArray } from 'drizzle-orm';
+import { drizzle } from 'drizzle-orm/d1';
 
-import { Hono } from 'hono'
-import { Bindings } from '@utils/hono'
-import { getWebhooksDb } from '@db/webhooks'
-import { webhookDeliveries } from '@db/schema-webhooks'
-import { getDb } from '@db'
-import { tasks, repos } from '@db/schema'
-import { desc, like, and, eq, sql, inArray } from 'drizzle-orm'
-import { z } from 'zod'
-import { zValidator } from '@hono/zod-validator'
-import type { GitHubWebhookPayload, GitHubIssuesPayload } from '@custom-types/github-webhooks'
-import { ensureRepositoryFromWebhook } from '@services/repository-sync'
+// Internal schema & database imports
+import { getDb } from '@db';
+import { tasks, repos } from '@db/schema';
+import { webhookDeliveries } from '@db/schema-webhooks';
 
-const app = new Hono<{ Bindings: Env }>()
+// Types & Services
+import type { GitHubWebhookPayload, GitHubIssuesPayload } from '@custom-types/github-webhooks';
+import { ensureRepositoryFromWebhook } from '@services/repository-sync';
 
-// Webhook listener
-app.post('/', async (c) => {
+const webhooksApi = new Hono<{ Bindings: Env }>();
+
+// ==========================================
+// POST / : GitHub Webhook Sync Listener
+// ==========================================
+webhooksApi.post('/', async (c) => {
     const event = c.req.header('x-github-event');
     const signature = c.req.header('x-hub-signature-256');
     const deliveryId = c.req.header('x-github-delivery');
@@ -22,6 +26,7 @@ app.post('/', async (c) => {
 
     if (!event || !deliveryId) return c.text('Missing event or delivery ID', 400);
 
+    // Sync Repository in background
     if (body.repository) {
         c.executionCtx.waitUntil(
             ensureRepositoryFromWebhook(c.env, body.repository).catch((error) => {
@@ -30,8 +35,8 @@ app.post('/', async (c) => {
         );
     }
 
-    // 1. Log the webhook
-    const webhooksDb = getWebhooksDb(c.env.DB_WEBHOOKS)
+    // 1. Log the webhook delivery securely to the Webhooks D1 DB
+    const webhooksDb = drizzle(c.env.DB_WEBHOOKS);
     await webhooksDb.insert(webhookDeliveries).values({
         id: crypto.randomUUID(),
         delivery_id: deliveryId,
@@ -41,20 +46,23 @@ app.post('/', async (c) => {
         created_at: new Date().toISOString()
     });
 
-    // 2. Handle Sync Logic
+    // 2. Handle Task/Kanban Sync Logic
     if (event === 'issues') {
         const issuesPayload = body as GitHubIssuesPayload & Record<string, any>;
         const action = String(issuesPayload.action || '');
         const issue = issuesPayload.issue;
         const repository = issuesPayload.repository;
-        const db = getDb(c.env.DB);
+        const db = getDb(c.env.DB); // Primary Database
 
-        // Import Enums/Mapper locally or at top level (using top level imports added below)
+        // Import Enums/Mapper locally to avoid top-level circular dependencies if any
         const { TaskStatus, KanbanColumn } = await import('@custom-types/enums');
         const { StatusMapper } = await import('@services/statusMapper');
 
         // Find internal repo ID
-        const repoRecord = await db.select().from(repos).where(and(eq(repos.owner, repository.owner.login), eq(repos.name, repository.name))).limit(1);
+        const repoRecord = await db.select()
+            .from(repos)
+            .where(and(eq(repos.owner, repository.owner.login), eq(repos.name, repository.name)))
+            .limit(1);
 
         if (repoRecord.length) {
             const internalRepoId = repoRecord[0].id;
@@ -76,11 +84,10 @@ app.post('/', async (c) => {
                 // Open state
                 if (assignee) {
                     status = TaskStatus.TODO;
-                    kanbanColumn = StatusMapper.mapStatusToColumn(status); // Usually PLANNED if TODO
+                    kanbanColumn = StatusMapper.mapStatusToColumn(status);
                 }
 
                 if (action === 'assigned' || action === 'unassigned') {
-                    // Check assignee again 
                     if (assignee) kanbanColumn = KanbanColumn.PLANNED;
                     else kanbanColumn = KanbanColumn.BACKLOG;
 
@@ -89,7 +96,7 @@ app.post('/', async (c) => {
                     status = syncedStatus;
 
                 } else if (action === 'edited' && kanbanColumn !== KanbanColumn.DONE) {
-                    // Treat edits as activity -> in_progress?
+                    // Treat edits as activity
                     if (kanbanColumn !== KanbanColumn.BACKLOG) {
                         status = TaskStatus.IN_PROGRESS;
                         kanbanColumn = KanbanColumn.IN_PROGRESS;
@@ -100,10 +107,6 @@ app.post('/', async (c) => {
             // Determine Timestamps
             let startAt: string | undefined;
             let endAt: string | undefined;
-
-            if (status === TaskStatus.IN_PROGRESS || kanbanColumn === KanbanColumn.IN_PROGRESS) {
-                // Potential start time
-            }
 
             if (status === TaskStatus.DONE || kanbanColumn === KanbanColumn.DONE) {
                 endAt = new Date().toISOString();
@@ -132,9 +135,12 @@ app.post('/', async (c) => {
                 });
             } else if (action === 'edited' || action === 'closed' || action === 'reopened') {
                 // Update existing task
-                const existingTask = await db.select().from(tasks).where(and(eq(tasks.repoId, internalRepoId), eq(tasks.githubIssueId, issue.number))).limit(1);
+                const existingTask = await db.select()
+                    .from(tasks)
+                    .where(and(eq(tasks.repoId, internalRepoId), eq(tasks.githubIssueId, issue.number)))
+                    .limit(1);
 
-                let updatePayload: any = {
+                const updatePayload: any = {
                     title: issue.title,
                     description: issue.body,
                     status: status,
@@ -164,27 +170,31 @@ app.post('/', async (c) => {
     return c.json({ success: true });
 });
 
-// Getter (existing)
+// ==========================================
+// GET / : List Webhooks with Zod Validation
+// ==========================================
 const QuerySchema = z.object({
     page: z.string().optional().default('1'),
-    limit: z.string().optional().default('50'),
-    event: z.string().optional(),
-    repo: z.string().optional(),
+    limit: z.string().optional().default('10'),
+    type: z.string().optional(),
     search: z.string().optional(),
-})
+});
 
-app.get('/', zValidator('query', QuerySchema), async (c) => {
-    const { page, limit, event, repo, search } = c.req.valid('query')
-    const pageNumber = parseInt(page)
-    const limitNumber = parseInt(limit)
-    const offset = (pageNumber - 1) * limitNumber
+webhooksApi.get('/', zValidator('query', QuerySchema), async (c) => {
+    const db = drizzle(c.env.DB_WEBHOOKS);
+    const { page, limit, search, type } = c.req.valid('query');
+    
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const offset = (pageNum - 1) * limitNum;
 
-    const db = getWebhooksDb(c.env.DB_WEBHOOKS)
-
-    const conditions = []
-
-    if (event && event !== 'all') {
-        const events = event.split(',').map(e => e.trim());
+    const conditions = [];
+    if (search) {
+        conditions.push(like(webhookDeliveries.payload, `%${search}%`));
+    }
+    if (type && type !== 'all') {
+        // Handle comma-separated lists to match legacy flexibility
+        const events = type.split(',').map(e => e.trim());
         if (events.length > 1) {
             conditions.push(inArray(webhookDeliveries.event, events));
         } else {
@@ -192,42 +202,64 @@ app.get('/', zValidator('query', QuerySchema), async (c) => {
         }
     }
 
-    if (repo) {
-        // Basic search within the JSON payload for the repo name
-        // This isn't perfect but works for simple filtering without a dedicated column
-        conditions.push(like(webhookDeliveries.payload, `%${repo}%`))
-    }
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-    if (search) {
-        conditions.push(like(webhookDeliveries.payload, `%${search}%`))
-    }
+    const [results, countResult] = await Promise.all([
+        db.select()
+            .from(webhookDeliveries)
+            .where(whereClause)
+            .orderBy(desc(webhookDeliveries.created_at))
+            .limit(limitNum)
+            .offset(offset)
+            .all(),
+        db.select({ count: sql<number>`count(*)` })
+            .from(webhookDeliveries)
+            .where(whereClause)
+            .get()
+    ]);
 
-    const whereClause = conditions.length > 0 ? and(...conditions) : undefined
-
-    // Get total count
-    const [{ count }] = await db
-        .select({ count: sql<number>`count(*)` })
-        .from(webhookDeliveries)
-        .where(whereClause)
-
-    // Get data
-    const data = await db
-        .select()
-        .from(webhookDeliveries)
-        .where(whereClause)
-        .orderBy(desc(webhookDeliveries.created_at))
-        .limit(limitNumber)
-        .offset(offset)
+    const total = countResult?.count || 0;
 
     return c.json({
-        data,
-        meta: {
-            total: count,
-            page: pageNumber,
-            limit: limitNumber,
-            totalPages: Math.ceil(count / limitNumber),
-        },
-    })
-})
+        data: results,
+        pagination: {
+            page: pageNum,
+            limit: limitNum,
+            total: total,
+            totalPages: Math.ceil(total / limitNum)
+        }
+    });
+});
 
-export default app
+// ==========================================
+// GET /stats : Webhook Delivery Analytics
+// ==========================================
+webhooksApi.get('/stats', async (c) => {
+    const db = drizzle(c.env.DB_WEBHOOKS);
+
+    const [total, recent] = await Promise.all([
+        db.select({ count: sql<number>`count(*)` }).from(webhookDeliveries).get(),
+        db.select({ count: sql<number>`count(*)` })
+            .from(webhookDeliveries)
+            .where(sql`created_at > datetime('now', '-24 hours')`)
+            .get()
+    ]);
+
+    const topEvents = await db.select({
+        event: webhookDeliveries.event,
+        count: sql<number>`count(*)`
+    })
+    .from(webhookDeliveries)
+    .groupBy(webhookDeliveries.event)
+    .orderBy(desc(sql`count(*)`))
+    .limit(5)
+    .all();
+
+    return c.json({
+        total: total?.count || 0,
+        recent24h: recent?.count || 0,
+        topEvents
+    });
+});
+
+export default webhooksApi;

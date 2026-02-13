@@ -44,7 +44,7 @@ export default function DashboardPage() {
 
                     {/* Left Column: Repository Health */}
                     <div className="flex flex-col gap-6">
-                        <RepoHealthCard />
+                        <RepoHealthCard owner="jmbish04" repo="core-github-api" />
                         <Card className="border-zinc-800 bg-zinc-900/50">
                             <CardHeader>
                                 <CardTitle className="text-sm font-medium text-zinc-400">Security Status</CardTitle>

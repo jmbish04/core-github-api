@@ -1,301 +1,263 @@
+
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import {
-    TableBody,
-    TableCell,
-    TableColumnHeader,
-    TableHead,
-    TableHeader,
-    TableHeaderGroup,
-    TableProvider,
-    TableRow
-} from "@/components/kibo-ui/table";
-import { type ColumnDef } from "@tanstack/react-table";
-import { Badge } from "@/components/ui/badge";
+import { format } from "date-fns";
+import axios from "axios";
+import { 
+  Search, 
+  Filter, 
+  Webhook, 
+  Activity, 
+  AlertCircle, 
+  CheckCircle,
+  Clock,
+  ChevronLeft,
+  ChevronRight 
+} from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Eye, Search, ChevronLeft, ChevronRight, Webhook, Radio } from "lucide-react";
-import { format } from "date-fns";
-import { LiveEventsTab } from "@/components/webhooks/LiveEventsTab";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
-// ── Raw Deliveries Tab (existing D1 table view) ─────────────────
-
-interface WebhookDelivery {
-    id: string;
-    delivery_id: string;
-    event: string;
-    action: string | null;
-    created_at: string;
-    payload: any;
-}
-
-const EVENT_COLORS: Record<string, string> = {
-    push: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
-    pull_request: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300",
-    issue_comment: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300",
-    issues: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
-    workflow_run: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300",
-    default: "bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-300"
+type WebhookDelivery = {
+  id: string;
+  delivery_id: string;
+  event: string;
+  action: string | null;
+  created_at: string;
+  payload: any;
 };
 
-const EVENT_TYPES = [
-    "push",
-    "pull_request",
-    "issue_comment",
-    "issues",
-    "workflow_run",
-    "workflow_job",
-    "check_run",
-    "create",
-    "delete"
-];
+type WebhooksResponse = {
+  data: WebhookDelivery[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+};
 
-function RawDeliveriesTab() {
-    const [page, setPage] = useState(1);
-    const [limit, setLimit] = useState(50);
-    const [eventFilter, setEventFilter] = useState<string>("all");
-    const [repoFilter, setRepoFilter] = useState("");
-    const [search, setSearch] = useState("");
-
-    const { data, isLoading } = useQuery({
-        queryKey: ['webhooks', page, limit, eventFilter, repoFilter, search],
-        queryFn: async () => {
-            const params = new URLSearchParams({
-                page: page.toString(),
-                limit: limit.toString(),
-                ...(eventFilter !== 'all' && { event: eventFilter }),
-                ...(repoFilter && { repo: repoFilter }),
-                ...(search && { search })
-            });
-            const res = await fetch(`/api/webhooks?${params}`);
-            if (!res.ok) throw new Error('Failed to fetch webhooks');
-            return res.json() as Promise<{ data: WebhookDelivery[], meta: { total: number, totalPages: number } }>;
-        }
-    });
-
-    const columns: ColumnDef<WebhookDelivery>[] = [
-        {
-            accessorKey: "created_at",
-            header: ({ column }) => <TableColumnHeader column={column} title="Timestamp" />,
-            cell: ({ row }) => format(new Date(row.original.created_at), "MMM d, yyyy HH:mm:ss"),
-        },
-        {
-            accessorKey: "event",
-            header: ({ column }) => <TableColumnHeader column={column} title="Event Type" />,
-            cell: ({ row }) => (
-                <Badge
-                    variant="outline"
-                    className={`border-none ${EVENT_COLORS[row.original.event] || EVENT_COLORS.default}`}
-                >
-                    {row.original.event}
-                </Badge>
-            ),
-        },
-        {
-            id: "repo",
-            header: ({ column }) => <TableColumnHeader column={column} title="Repository" />,
-            cell: ({ row }) => {
-                const payload = row.original.payload;
-                const repoName = payload?.repository?.full_name || payload?.repository?.name || "Unknown";
-                return (
-                    <Badge variant="secondary" className="font-mono font-normal">
-                        {repoName}
-                    </Badge>
-                );
-            }
-        },
-        {
-            accessorKey: "action",
-            header: ({ column }) => <TableColumnHeader column={column} title="Action" />,
-            cell: ({ row }) => row.original.action || "-",
-        },
-        {
-            id: "actions",
-            header: ({ column }) => <TableColumnHeader column={column} title="View" />,
-            cell: ({ row }) => (
-                <Dialog>
-                    <DialogTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                            <Eye className="size-4" />
-                        </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-3xl max-h-[80vh] flex flex-col">
-                        <DialogHeader>
-                            <DialogTitle className="flex items-center gap-2">
-                                <Webhook className="size-5" />
-                                {row.original.event} Delivery
-                            </DialogTitle>
-                            <DialogDescription>
-                                Delivery ID: {row.original.delivery_id}
-                            </DialogDescription>
-                        </DialogHeader>
-                        <div className="flex-1 overflow-auto bg-muted p-4 rounded-md">
-                            <pre className="text-xs font-mono whitespace-pre-wrap">
-                                {JSON.stringify(row.original.payload, null, 2)}
-                            </pre>
-                        </div>
-                    </DialogContent>
-                </Dialog>
-            )
-        }
-    ];
-
-    return (
-        <div className="space-y-4">
-            <div className="flex flex-wrap items-center gap-4">
-                <div className="w-[200px]">
-                    <Select value={eventFilter} onValueChange={(val) => { setEventFilter(val); setPage(1); }}>
-                        <SelectTrigger>
-                            <SelectValue placeholder="Event Type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">All Events</SelectItem>
-                            {EVENT_TYPES.map(evt => (
-                                <SelectItem key={evt} value={evt}>{evt}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </div>
-
-                <div className="w-[200px]">
-                    <Input
-                        placeholder="Filter by Repo..."
-                        value={repoFilter}
-                        onChange={(e) => { setRepoFilter(e.target.value); setPage(1); }}
-                    />
-                </div>
-
-                <div className="flex-1 max-w-sm">
-                    <div className="relative">
-                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                        <Input
-                            type="search"
-                            placeholder="Search payload..."
-                            className="pl-8"
-                            value={search}
-                            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-                        />
-                    </div>
-                </div>
-
-                <div className="w-[100px] ml-auto">
-                    <Select value={limit.toString()} onValueChange={(val) => { setLimit(Number(val)); setPage(1); }}>
-                        <SelectTrigger>
-                            <SelectValue placeholder="Limit" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="25">25</SelectItem>
-                            <SelectItem value="50">50</SelectItem>
-                            <SelectItem value="100">100</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
-            </div>
-
-            {isLoading ? (
-                <div className="h-64 flex items-center justify-center">
-                    <Loader2 className="animate-spin size-8 text-muted-foreground" />
-                </div>
-            ) : (
-                <div className="border rounded-md">
-                    <TableProvider columns={columns} data={data?.data || []}>
-                        <TableHeader>
-                            {({ headerGroup }) => (
-                                <TableHeaderGroup headerGroup={headerGroup} key={headerGroup.id}>
-                                    {({ header }) => <TableHead header={header} key={header.id} />}
-                                </TableHeaderGroup>
-                            )}
-                        </TableHeader>
-                        <TableBody>
-                            {({ row }) => (
-                                <TableRow key={row.id} row={row}>
-                                    {({ cell }) => <TableCell cell={cell} key={cell.id} />}
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </TableProvider>
-
-                    <div className="flex items-center justify-between p-4 border-t">
-                        <div className="text-sm text-muted-foreground">
-                            Showing {(page - 1) * limit + 1} to {Math.min(page * limit, data?.meta.total || 0)} of {data?.meta.total} entries
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setPage(p => Math.max(1, p - 1))}
-                                disabled={page === 1}
-                            >
-                                <ChevronLeft className="size-4 mr-1" />
-                                Previous
-                            </Button>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setPage(p => p + 1)}
-                                disabled={page >= (data?.meta.totalPages || 1)}
-                            >
-                                Next
-                                <ChevronRight className="size-4 ml-1" />
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-}
-
-// ── Main Page ───────────────────────────────────────────────────
+type WebhookStats = {
+  total: number;
+  recent24h: number;
+  topEvents: Array<{ event: string; count: number }>;
+};
 
 export default function WebhooksPage() {
-    return (
-        <div className="container mx-auto py-8 space-y-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Webhooks</h1>
-                    <p className="text-muted-foreground">
-                        Monitor incoming GitHub events, live feeds, and automated workflows.
-                    </p>
-                </div>
-            </div>
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState("all");
 
-            <Tabs defaultValue="live" className="w-full">
-                <TabsList>
-                    <TabsTrigger value="live" className="gap-1.5">
-                        <Radio className="size-3.5" />
-                        Live Events
-                    </TabsTrigger>
-                    <TabsTrigger value="raw" className="gap-1.5">
-                        <Webhook className="size-3.5" />
-                        Raw Deliveries
-                    </TabsTrigger>
-                </TabsList>
+  const { data: webhooks, isLoading } = useQuery({
+    queryKey: ["webhooks", page, search, typeFilter],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: "10",
+        search,
+        type: typeFilter !== "all" ? typeFilter : "",
+      });
+      // Use axios to ensure auth headers/cookies are sent
+      const res = await axios.get<WebhooksResponse>(`/api/webhooks?${params}`);
+      return res.data;
+    },
+    placeholderData: (previousData) => previousData,
+  });
 
-                <TabsContent value="live" className="mt-4">
-                    <LiveEventsTab />
-                </TabsContent>
+  const { data: stats } = useQuery({
+    queryKey: ["webhooks-stats"],
+    queryFn: async () => {
+      const res = await axios.get<WebhookStats>("/api/webhooks/stats");
+      return res.data;
+    },
+  });
 
-                <TabsContent value="raw" className="mt-4">
-                    <RawDeliveriesTab />
-                </TabsContent>
-            </Tabs>
+  return (
+    <div className="flex flex-col h-screen bg-zinc-950 text-zinc-50 font-sans">
+      <header className="border-b border-zinc-800 py-4 px-6 flex items-center justify-between bg-zinc-900/50 backdrop-blur-sm">
+        <div className="flex items-center gap-4">
+          <Webhook className="w-6 h-6 text-purple-400" />
+          <h1 className="text-xl font-bold tracking-tight">Webhooks</h1>
         </div>
-    );
+      </header>
+
+      <main className="flex-1 overflow-hidden p-6 space-y-6">
+        {/* Stats Row */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card className="bg-zinc-900/50 border-zinc-800">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-zinc-400">Total Deliveries</CardTitle>
+              <Activity className="h-4 w-4 text-emerald-400" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats?.total.toLocaleString() || "0"}</div>
+              <p className="text-xs text-zinc-500">All time received</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-zinc-900/50 border-zinc-800">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-zinc-400">Past 24 Hours</CardTitle>
+              <Clock className="h-4 w-4 text-blue-400" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats?.recent24h.toLocaleString() || "0"}</div>
+              <p className="text-xs text-zinc-500">Recent activity</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-zinc-900/50 border-zinc-800">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-zinc-400">Top Event</CardTitle>
+              <Webhook className="h-4 w-4 text-purple-400" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold capitalize">
+                {stats?.topEvents?.[0]?.event || "None"}
+              </div>
+              <p className="text-xs text-zinc-500">
+                {stats?.topEvents?.[0]?.count || 0} occurrences
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Filters & Table */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2 flex-1 max-w-md">
+              <div className="relative flex-1">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-zinc-500" />
+                <Input
+                  placeholder="Search payload..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-8 bg-zinc-900/50 border-zinc-700"
+                />
+              </div>
+              <Select value={typeFilter} onValueChange={setTypeFilter}>
+                <SelectTrigger className="w-[180px] bg-zinc-900/50 border-zinc-700">
+                  <SelectValue placeholder="Filter by type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Events</SelectItem>
+                  <SelectItem value="push">Push</SelectItem>
+                  <SelectItem value="pull_request">Pull Request</SelectItem>
+                  <SelectItem value="issues">Issues</SelectItem>
+                  <SelectItem value="workflow_run">Workflow Run</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="flex items-center gap-2">
+               <Button
+                 variant="outline"
+                 size="sm"
+                 onClick={() => setPage(p => Math.max(1, p - 1))}
+                 disabled={page === 1 || isLoading}
+               >
+                 <ChevronLeft className="h-4 w-4" />
+               </Button>
+               <span className="text-sm text-zinc-400">
+                 Page {webhooks?.pagination.page || 1} of {webhooks?.pagination.totalPages || 1}
+               </span>
+               <Button
+                 variant="outline"
+                 size="sm"
+                 onClick={() => setPage(p => p + 1)}
+                 disabled={page >= (webhooks?.pagination.totalPages || 1) || isLoading}
+               >
+                 <ChevronRight className="h-4 w-4" />
+               </Button>
+            </div>
+          </div>
+
+          <div className="rounded-md border border-zinc-800 bg-zinc-900/30 overflow-hidden">
+            <Table>
+              <TableHeader className="bg-zinc-900/50">
+                <TableRow className="border-zinc-800 hover:bg-transparent">
+                  <TableHead className="text-zinc-400">Event</TableHead>
+                  <TableHead className="text-zinc-400">Action</TableHead>
+                  <TableHead className="text-zinc-400">Delivery ID</TableHead>
+                  <TableHead className="text-zinc-400">Time</TableHead>
+                  <TableHead className="text-right text-zinc-400">Payload</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isLoading ? (
+                   <TableRow>
+                     <TableCell colSpan={5} className="h-24 text-center text-zinc-500">
+                       Loading webhooks...
+                     </TableCell>
+                   </TableRow>
+                ) : webhooks?.data.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="h-24 text-center text-zinc-500">
+                      No webhooks found.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  webhooks?.data.map((hook) => (
+                    <TableRow key={hook.id} className="border-zinc-800 hover:bg-zinc-800/50">
+                      <TableCell>
+                        <Badge variant="outline" className="bg-zinc-950/50 text-blue-300 border-blue-900/30">
+                          {hook.event}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-zinc-300 font-medium">
+                        {hook.action || "-"}
+                      </TableCell>
+                      <TableCell className="text-xs text-zinc-500 font-mono">
+                        {hook.delivery_id.substring(0, 8)}...
+                      </TableCell>
+                      <TableCell className="text-zinc-400 text-sm">
+                        {format(new Date(hook.created_at), "MMM d, HH:mm:ss")}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                              <Search className="h-4 w-4" />
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="max-w-2xl bg-zinc-950 border-zinc-800 text-zinc-100">
+                            <DialogHeader>
+                              <DialogTitle>Webhook Payload</DialogTitle>
+                              <CardDescription>{hook.event} • {hook.delivery_id}</CardDescription>
+                            </DialogHeader>
+                            <ScrollArea className="h-[400px] w-full rounded-md border border-zinc-800 bg-zinc-900 p-4">
+                              <pre className="text-xs font-mono text-zinc-300">
+                                {JSON.stringify(hook.payload, null, 2)}
+                              </pre>
+                            </ScrollArea>
+                          </DialogContent>
+                        </Dialog>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
 }

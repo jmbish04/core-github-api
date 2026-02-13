@@ -11,6 +11,7 @@ export default function RootLayout() {
         { label: "Research", href: "/research" },
         { label: "Health", href: "/health" },
         { label: "Workflows", href: "/workflows" },
+        { label: "Webhooks", href: "/control-center/webhooks" },
         { label: "Docs", href: "/docs" },
         { label: "Spark Core", href: "/spark" },
         { label: "Settings", href: "/settings" },
@@ -19,7 +20,7 @@ export default function RootLayout() {
 
     return (
         <div className="flex h-screen bg-background text-foreground font-sans antialiased overflow-hidden">
-            <AppSidebar />
+            <AppSidebar className="shrink-0" />
             <main className="flex-1 flex flex-col h-full overflow-hidden relative">
                 <header className="h-14 border-b px-6 flex items-center justify-between bg-card/50 backdrop-blur-md sticky top-0 z-10 gap-4">
                     <div className="flex items-center gap-4 min-w-0">

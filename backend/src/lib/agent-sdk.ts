@@ -118,7 +118,7 @@ export async function createGatewayClient(
   };
 
   // LOGGING: Explicitly stated model usage as requested
-  const useOpenAI = false; // Default to Workers AI (USE_OPENAI_MODELS not in Env)
+  const useOpenAI = env.USE_OPENAI_MODELS || false; // Default to Workers AI (USE_OPENAI_MODELS not in Env)
   const tag = debugTag ? ` \x1b[1;37m[${debugTag}]\x1b[0m` : '';
   const logMsg = useOpenAI 
     ? `\x1b[1;32m🟢 [AI-CONFIG] USING OPENAI MODELS (Reliability Mode)${tag}\x1b[0m` 

@@ -205,6 +205,10 @@ app.get('/api/config', (c) => {
   })
 })
 
+// Route for /api/webhooks
+app.route('/api/webhooks', webhooksApi);
+app.route('/api/health', healthApi);
+
 
 // --- 3. API Spec Generation Apps ---
 

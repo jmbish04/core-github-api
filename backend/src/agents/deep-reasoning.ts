@@ -1,7 +1,7 @@
 import { callable } from "agents";
-import { Agent as OpenAIAgent } from "@openai/agents";
+// import { Agent as OpenAIAgent } from "@openai/agents";
 import { resolveDefaultAiModel, resolveDefaultAiProvider, type SupportedProvider } from "../lib/agent-ai";
-import { BaseAgent, BaseAgentState } from "@agent-sdk";
+import { BaseAgent, BaseAgentState, OpenAIAgent } from "@agent-sdk";
 import { Logger } from "@logging";
 
 interface DeepReasoningInput {
@@ -45,7 +45,13 @@ export class DeepReasoningAgent extends BaseAgent<Env, BaseAgentState> {
       const input = (await request.json()) as DeepReasoningInput;
       const defaultProvider = resolveDefaultAiProvider(this.env);
       const { prompt, schema, provider = defaultProvider } = input;
-
+      
+      // DEBUG: Check environment keys
+      const hasAiGateway = !!await this.env.AI_GATEWAY_TOKEN?.get();
+      const hasCfToken = !!await this.env.CLOUDFLARE_API_TOKEN?.get();
+      const hasOpenAi = !!await this.env.OPENAI_API_KEY?.get(); // If it were an env var
+      console.log(`[DeepReasoning] Keys present: AI_GATEWAY=${hasAiGateway}, CF_TOKEN=${hasCfToken}, OPENAI_ENV=${hasOpenAi}`);
+      
       if (!prompt || !schema) {
         return new Response("Missing prompt or schema", { status: 400 });
       }
@@ -53,14 +59,18 @@ export class DeepReasoningAgent extends BaseAgent<Env, BaseAgentState> {
       this.logger.info("Executing deep reasoning", { promptLength: prompt.length, provider });
 
       const model = resolveDefaultAiModel(this.env, provider);
+
+      // Resolve API Key (support cleartext or Secret)
+      // let apiKey = await this.env.OPENAI_API_KEY?.get();
       
       const agent = new OpenAIAgent({
         name: "DeepReasoningAgent",
         model,
+        // apiKey, // should be configured on the @agents-sdk.ts
         outputType: schema as any,
         instructions:
           "You are a deep technical reasoning assistant. Return only output that matches the requested JSON schema.",
-      });
+      } as any);
 
       const result = await this.runAgent(agent, prompt);
       return Response.json(result.finalOutput ?? {});

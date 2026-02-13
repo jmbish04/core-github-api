@@ -3,8 +3,13 @@ import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import { Activity, GitPullRequest, AlertCircle } from 'lucide-react';
 
-export function RepoHealthCard() {
-    const repoParams = { owner: 'colby-dev', repo: 'core-api' };
+interface RepoHealthCardProps {
+    owner?: string;
+    repo?: string;
+}
+
+export function RepoHealthCard({ owner = 'colby-dev', repo = 'core-api' }: RepoHealthCardProps) {
+    const repoParams = { owner, repo };
 
     const { data } = useQuery({
         queryKey: ['stats', repoParams],
