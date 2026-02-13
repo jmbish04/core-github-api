@@ -1,0 +1,22 @@
+name: Search Cloudflare Workers with shadcn
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * 0'
+
+jobs:
+  search:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Search for shadcn in Cloudflare Workers projects
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "=== Repositories with shadcn and wrangler config ==="
+          
+          # Combine results from both searches
+          gh search code 'shadcn (path:wrangler.toml OR path:wrangler.jsonc)' \
+            --limit 100 \
+            --json repository \
+            --jq '[.[] | .repository] | unique_by(.fullName) | sort_by(.stargazersCount) | reverse | .[0:20] | .[] | "\(.fullName) - ⭐ \(.stargazersCount) - \(.url)"'
