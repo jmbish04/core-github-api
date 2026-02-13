@@ -27,7 +27,7 @@ jobs:
           
       - name: Run Search Script
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GHUB_TOKEN }}
         run: python scripts/github/workflows/search_repos.py
         
       - name: Upload Search Results Artifact
