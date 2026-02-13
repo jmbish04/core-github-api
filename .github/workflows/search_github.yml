@@ -9,25 +9,24 @@ jobs:
   search:
     runs-on: ubuntu-latest
     steps:
-      - name: Search for shadcn in Cloudflare Workers projects
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: pip install requests
+      
+      - name: Run search script
         env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          echo "=== Repositories with shadcn and wrangler config ==="
-          
-          # Search for wrangler.toml
-          echo "Searching wrangler.toml files..."
-          gh search code 'shadcn path:wrangler.toml' \
-            --limit 100 \
-            --json repository > toml_results.json
-          
-          # Search for wrangler.jsonc
-          echo "Searching wrangler.jsonc files..."
-          gh search code 'shadcn path:wrangler.jsonc' \
-            --limit 100 \
-            --json repository > jsonc_results.json
-          
-          # Combine and deduplicate results, sort by stars
-          echo ""
-          echo "=== Top 20 by Stars ==="
-          j*
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python scripts/search_repos.py
+      
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: search-results
+          path: results.json
