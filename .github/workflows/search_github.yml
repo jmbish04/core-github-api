@@ -15,8 +15,19 @@ jobs:
         run: |
           echo "=== Repositories with shadcn and wrangler config ==="
           
-          # Combine results from both searches
-          gh search code 'shadcn (path:wrangler.toml OR path:wrangler.jsonc)' \
+          # Search for wrangler.toml
+          echo "Searching wrangler.toml files..."
+          gh search code 'shadcn path:wrangler.toml' \
             --limit 100 \
-            --json repository \
-            --jq '[.[] | .repository] | unique_by(.fullName) | sort_by(.stargazersCount) | reverse | .[0:20] | .[] | "\(.fullName) - ⭐ \(.stargazersCount) - \(.url)"'
+            --json repository > toml_results.json
+          
+          # Search for wrangler.jsonc
+          echo "Searching wrangler.jsonc files..."
+          gh search code 'shadcn path:wrangler.jsonc' \
+            --limit 100 \
+            --json repository > jsonc_results.json
+          
+          # Combine and deduplicate results, sort by stars
+          echo ""
+          echo "=== Top 20 by Stars ==="
+          j*
