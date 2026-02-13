@@ -19,22 +19,25 @@ jobs:
         with:
           python-version: '3.12'
           cache: 'pip'
+          # Explicitly target the nested requirements file so the cache hash doesn't fail
+          cache-dependency-path: 'scripts/github/workflows/requirements.txt'
           
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -requirements.txt
+          # Execute the install targeting the exact explicit path
+          python -m pip install -r scripts/github/workflows/requirements.txt
           
       - name: Run Search Script
         env:
-          GITHUB_TOKEN: ${{ secrets.GHUB_TOKEN }}
+          # Reverted to the native GitHub-provided token to avoid 401/403 errors
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python scripts/github/workflows/search_repos.py
         
       - name: Upload Search Results Artifact
         uses: actions/upload-artifact@v4
         with:
           name: search-results-json
-          # Updated to target the exact explicit path written by the Python script
           path: scripts/github/workflows/results.json
           retention-days: 14
           if-no-files-found: error
