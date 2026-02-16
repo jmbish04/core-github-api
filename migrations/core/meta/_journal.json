@@ -183,6 +183,27 @@
       "when": 1770966422753,
       "tag": "0025_wandering_havok",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "6",
+      "when": 1770994426698,
+      "tag": "0026_awesome_jigsaw",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "6",
+      "when": 1771025989638,
+      "tag": "0027_rare_molecule_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "6",
+      "when": 1771056550825,
+      "tag": "0028_normal_wrecking_crew",
+      "breakpoints": true
     }
   ]
 }

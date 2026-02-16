@@ -8,7 +8,7 @@ import { OpenAPIHono, createRoute } from '@hono/zod-openapi'
 import { z } from 'zod'
 import { getDb, schema } from "@db";
 import { eq, desc } from 'drizzle-orm'
-import { chatThreads, chatMessages } from "@db/schema-chat";
+import { chatThreads, chatMessages } from "@/db/schemas/agents/chat";
 import { v4 as uuidv4 } from 'uuid'
 import { getAgentByName } from 'agents'
 

@@ -59,20 +59,25 @@ export function AppSidebar({ className }: { className?: string }) {
              )}
           </div>
           
-           <div className="h-px bg-border/50 mx-2" />
+              <div className="h-px bg-border/50 mx-2" />
            
-           {/* Global Tools */}
-           <div className="space-y-1">
-             <h3 className="px-2 text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">
-               Global Tools
-             </h3>
-             <GlobalNavItem href="/tools" icon={Wrench} label="Toolbox" />
-             <GlobalNavItem href="/research" icon={BookOpen} label="Deep Research" />
-             <GlobalNavItem href="/health" icon={Activity} label="System Health" />
-             <GlobalNavItem href="/settings" icon={Settings} label="Global Settings" />
-           </div>
+              <div className="space-y-1">
+                <GlobalNavItem href="/control-center/workflows" icon={Activity} label="Workflows" />
+                <GlobalNavItem href="/control-center/webhooks" icon={Wrench} label="Webhooks" />
+              </div>
 
-        </div>
+              <div className="h-px bg-border/50 mx-2 my-2" />
+              
+              <div className="space-y-1">
+                <h3 className="px-2 text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">
+                  Global Tools
+                </h3>
+                <GlobalNavItem href="/tools" icon={Wrench} label="Toolbox" />
+                <GlobalNavItem href="/control-center/research" icon={BookOpen} label="Deep Research" />
+                <GlobalNavItem href="/health" icon={Activity} label="System Health" />
+                <GlobalNavItem href="/control-center/settings" icon={Settings} label="Global Settings" />
+              </div>
+          </div>
       </ScrollArea>
 
       {/* Footer / Global Actions */}

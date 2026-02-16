@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { eq, sql } from "drizzle-orm";
 import { getDb } from "@db";
-import { organizationSettings, userSettings } from "@db/schema-settings";
+import { organizationSettings, userSettings } from "@/db/schemas/app/settings";
 import {
   GOLDEN_PATH_DEFAULTS,
   GOLDEN_PATH_SYSTEM_PROMPT,
@@ -64,43 +64,48 @@ async function ensureSettingsTables(db: ReturnType<typeof getDb>) {
 }
 
 settingsApi.get("/", async (c) => {
-  const db = getDb(c.env.DB);
-  await ensureSettingsTables(db);
-  const userId = normalizeUserId(c.req.query("userId") || c.req.header("x-user-id"));
+  try {
+    const db = getDb(c.env.DB);
+    await ensureSettingsTables(db);
+    const userId = normalizeUserId(c.req.query("userId") || c.req.header("x-user-id"));
 
-  const existing = await db
-    .select()
-    .from(userSettings)
-    .where(eq(userSettings.userId, userId))
-    .limit(1)
-    .then((rows) => rows[0]);
+    const existing = await db
+      .select()
+      .from(userSettings)
+      .where(eq(userSettings.userId, userId))
+      .limit(1)
+      .then((rows) => rows[0]);
 
-  const settings = existing
-    ? {
-        userId: existing.userId,
-        preferredProvider: existing.preferredProvider,
-        preferredModel: existing.preferredModel,
-        enforceGoldenPath: Boolean(existing.enforceGoldenPath),
-        customInstructions: existing.customInstructions || "",
-        goldenPathOverrides: parseOverrides(existing.goldenPathOverridesJson),
-      }
-    : {
-        userId,
-        preferredProvider: "worker-ai",
-        preferredModel: "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
-        enforceGoldenPath: true,
-        customInstructions: "",
-        goldenPathOverrides: {},
-      };
+    const settings = existing
+      ? {
+          userId: existing.userId,
+          preferredProvider: existing.preferredProvider,
+          preferredModel: existing.preferredModel,
+          enforceGoldenPath: Boolean(existing.enforceGoldenPath),
+          customInstructions: existing.customInstructions || "",
+          goldenPathOverrides: parseOverrides(existing.goldenPathOverridesJson),
+        }
+      : {
+          userId,
+          preferredProvider: "worker-ai",
+          preferredModel: "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+          enforceGoldenPath: true,
+          customInstructions: "",
+          goldenPathOverrides: {},
+        };
 
-  return c.json({
-    success: true,
-    settings,
-    goldenPath: {
-      defaults: GOLDEN_PATH_DEFAULTS,
-      systemPrompt: GOLDEN_PATH_SYSTEM_PROMPT,
-    },
-  });
+    return c.json({
+      success: true,
+      settings,
+      goldenPath: {
+        defaults: GOLDEN_PATH_DEFAULTS,
+        systemPrompt: GOLDEN_PATH_SYSTEM_PROMPT,
+      },
+    });
+  } catch (error: any) {
+    console.error("[api/settings] Failed to fetch settings:", error);
+    return c.json({ success: false, error: error.message }, 500);
+  }
 });
 
 settingsApi.put("/", async (c) => {

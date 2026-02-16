@@ -1,5 +1,5 @@
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi';
-import { BudgetTracker } from '@budget';
+import { BudgetTracker } from '@/ai/utils/budget-tracker';
 
 const app = new OpenAPIHono<{ Bindings: Env }>();
 

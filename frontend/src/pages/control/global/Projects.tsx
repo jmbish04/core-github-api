@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Filter, GitBranch, FolderGit2, Loader2, ArrowRight, Star } from 'lucide-react';
+import { Plus, Search, Filter, GitBranch, FolderGit2, Loader2, ArrowRight, Star, RefreshCw } from 'lucide-react';
 import { NewProjectDialog } from '@/components/projects/NewProjectDialog';
 import { getControlCenterUserId } from '@/lib/control-user';
 import { pushRecentProject, removeRecentProject } from '@/lib/project-recents';
@@ -174,9 +174,25 @@ export default function Projects() {
                     <h1 className="text-3xl font-bold tracking-tight">Projects</h1>
                     <p className="text-muted-foreground">Manage your repositories and expeditions.</p>
                 </div>
-                <Button onClick={() => setIsNewProjectOpen(true)} className="gap-2">
-                    <Plus className="w-4 h-4" /> New Project
-                </Button>
+                <div className="flex gap-2">
+                    <Button 
+                        variant="outline" 
+                        onClick={() => {
+                            queryClient.invalidateQueries({ queryKey: ['projects'] });
+                            // Optional: Trigger a hard sync via API if needed, but for now invalidate is good
+                            // Actually, let's do the hard sync as requested
+                            fetch('/api/projects?sync=true', { credentials: 'include' }).then(() => {
+                                queryClient.invalidateQueries({ queryKey: ['projects'] });
+                            });
+                        }}
+                    >
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                        Sync GitHub
+                    </Button>
+                    <Button onClick={() => setIsNewProjectOpen(true)} className="gap-2">
+                        <Plus className="w-4 h-4" /> New Project
+                    </Button>
+                </div>
             </div>
 
             {/* Filters */}

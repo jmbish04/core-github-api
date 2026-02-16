@@ -5,7 +5,7 @@
 
 import { Hono } from "hono";
 import { getDb } from "@db";
-import { researchBriefs, researchCandidates, researchExecutionLogs } from "@/db/schema-topic-research";
+import { researchBriefs, researchCandidates, researchExecutionLogs } from "@/db/schemas/github/research";
 import { eq, desc } from "drizzle-orm";
 
 const app = new Hono<{ Bindings: Env }>();

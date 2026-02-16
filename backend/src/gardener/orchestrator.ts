@@ -9,9 +9,9 @@ import { CodeAuditor } from './auditor'
 import { WorkerTypeFixer } from './fixers/worker-type-fixer'
 import type { GardenerContext, AuditResult } from './types'
 import { getDb } from '../db'
-import { repositories } from '../db/schema-repos'
+import { repositories } from '../db/schemas/github/repos'
 import { eq } from 'drizzle-orm'
-import { fetchTemplateFiles } from '../tools/templates'
+import { fetchTemplateFiles } from '../ai/mcp/tools/github/templates'
 import { encode } from '../utils/base64'
 
 // Registry of available fixers

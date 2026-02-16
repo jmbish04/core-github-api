@@ -9,8 +9,8 @@
  * Falls back to the Supervisor DO relay for legacy operations.
  */
 
-import { SandboxClient } from "@sandbox-sdk-tools";
-import type { ProcessInfo, SandboxExecResult } from "@sandbox-sdk-tools";
+import { SandboxClient } from "@/ai/mcp/tools/sandbox-sdk";
+import type { ProcessInfo, SandboxExecResult } from "@/ai/mcp/tools/sandbox-sdk";
 import type { Sandbox } from "@cloudflare/sandbox";
 
 export { type ProcessInfo };

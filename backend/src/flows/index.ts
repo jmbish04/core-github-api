@@ -5,11 +5,11 @@
  */
 
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
-import { getOctokit } from '../octokit/core'
+import { getOctokit } from '@/services/octokit/core'
 
-import { DEFAULT_WORKFLOWS, shouldIncludeCloudflareWorkflow } from './workflowTemplates'
-import { encode } from '../utils/base64'
-import { getDb, schema } from '../db'
+import { DEFAULT_WORKFLOWS, shouldIncludeCloudflareWorkflow } from '@/flows/workflowTemplates'
+import { encode } from '@/utils/base64'
+import { getDb, schema } from '@/db'
 
 // --- 1. Zod Schema Definitions ---
 

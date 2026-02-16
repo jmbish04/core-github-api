@@ -26,33 +26,51 @@ type ExtractedComment = {
 type extracted_comment_path = string;
 
 export default function CommentsViewerPage() {
-    const { id } = useParams();
+    const { id, owner, repo, number } = useParams();
     const [comments, setComments] = useState<ExtractedComment[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        if (!id) return;
-
         const fetchComments = async () => {
             try {
-                // Fetch from the Worker API
-                // Route: /api/tools/comments/:id
-                const res = await fetch(`/api/tools/comments/${id}`, {
-                    headers: {
-                        // 'x-api-key': 'YOUR_API_KEY' // TODO: Public access might require a different auth strategy or be fully open for this specific route if configured.
-                        // For now, assuming standard auth or public if implemented as such. 
-                        // The plan said "unprotected frontend", so we assume the backend endpoint allows public access or we need a token.
-                        // Since this is a "viewer", strictly speaking it should be public-read for the specific ID.
-                    }
-                });
+                let url = '';
+                if (id) {
+                     url = `/api/tools/comments/${id}`;
+                } else if (owner && repo && number) {
+                    // Start extraction or fetch existing
+                    url = `/api/tools/comments/extract`; // This is POST, we might need adjustments
+                    // For viewer, we might want a direct get if extracted.
+                    // For now, let's assume we can hit the extract endpoint to get the ID or data
+                    // Or actually, let's just make the backend support GET /api/tools/comments/pr/:owner/:repo/:number
+                    // But to save backend change time, we can reuse the ID logic if the backend stored it deterministically or simple fetch if public.
+                    
+                    // Actually, the user wants to view extracted comments.
+                    // Let's try to fetch by constructed ID if we made it deterministic, or add a query param support.
+                    // The backend `comments.ts` uses `extractionId = ${owner}-${repo}-${pull_number}-${Date.now()}` which is non-deterministic.
+                    // We need to update backend to support lookup by PR or make ID deterministic.
+                    
+                    // RETRY: Backend change was to update the LINK. 
+                    // To actually view it, we need to fetch it.
+                    // New backend route or method needed?
+                    // Let's mock for now or use a new backend route `get_by_pr`.
+                    // Actually, better to just hit the extract endpoint again? No, that triggers extraction.
+                    
+                    // Implementing sidebar idea: simple route that Lists comments for a PR.
+                    // We'll add a new backend route: GET /api/tools/comments/:owner/:repo/:number
+                    url = `/api/tools/comments/${owner}/${repo}/${number}`;
+                }
+
+                if (!url) return;
+
+                const res = await fetch(url);
 
                 if (!res.ok) {
                     throw new Error('Failed to fetch comments');
                 }
 
                 const data = await res.json();
-                setComments(data);
+                setComments(Array.isArray(data) ? data : []); 
             } catch (err: any) {
                 setError(err.message);
             } finally {
@@ -61,7 +79,7 @@ export default function CommentsViewerPage() {
         };
 
         fetchComments();
-    }, [id]);
+    }, [id, owner, repo, number]);
 
     const handleCopy = () => {
         const text = comments.map(c =>
@@ -107,7 +125,9 @@ export default function CommentsViewerPage() {
                     <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                         <div>
                             <div className="flex items-center gap-2 text-sm text-gray-400 mb-2">
-                                <span>Extraction ID: {id}</span>
+                            <div className="flex items-center gap-2 text-sm text-gray-400 mb-2">
+                                <span>{id ? `Extraction ID: ${id}` : `PR: ${owner}/${repo}#${number}`}</span>
+                            </div>
                             </div>
                             <h1 className="text-3xl font-bold flex items-center gap-3">
                                 <FiMessageSquare className="text-purple-500" />

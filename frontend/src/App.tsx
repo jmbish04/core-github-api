@@ -74,6 +74,7 @@ function App() {
             <Route path="/control-center/workflows/new" element={guard(<WorkflowNew />)} />
             <Route path="/control-center/workflows/:workflowId" element={guard(<WorkflowEditor />)} />
             <Route path="/control-center/view-comments/:id" element={guard(<CommentsViewer />)} />
+            <Route path="/view-comments/:owner/:repo/pull/:number" element={<CommentsViewer />} />
             <Route path="/control-center/pr-center" element={guard(<PRCommandCenter />)} />
             <Route path="/control-center/kanban" element={guard(<Kanban />)} />
             <Route path="/control-center/roadmap" element={guard(<Roadmap />)} />

@@ -1,8 +1,8 @@
 import { eq, inArray, or, sql } from "drizzle-orm";
 import { getDb } from "../db";
-import { projects } from "../db/schema-roadmap";
-import { repositories } from "../db/schema-repos";
-import { getOctokit } from "../octokit/core";
+import { projects } from "../db/schemas/projects/roadmap";
+import { repositories } from "../db/schemas/github/repos";
+import { getOctokit } from "./octokit/core";
 import type { Bindings } from "../utils/hono";
 
 type RepoVisibility = "public" | "private" | "internal";

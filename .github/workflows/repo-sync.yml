@@ -26,13 +26,14 @@ jobs:
         env:
           # GitHub & Worker Auth
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          WORKER_API_KEY: ${{ secrets.WORKER_API_KEY }}
-          WORKER_API_URL: "https://core-github-api.hacolby.workers.dev"
 
           # Cloudflare AI Gateway (AI Agent)
           CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CF_GATEWAY_ID: ${{ secrets.CLOUDFLARE_GATEWAY_ID }}
-          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_AI_GATEWAY_TOKEN }}
+          WORKER_API_URL: ${{ secrets.WORKER_API_URL_BASE }}
+          WORKER_API_KEY: ${{ secrets.WORKER_API_KEY }}
+          QUERY: ${{ github.event.inputs.query }}
 
           # Target User
           TARGET_USER: ${{ github.repository_owner }}

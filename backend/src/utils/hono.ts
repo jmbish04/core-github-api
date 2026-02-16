@@ -8,9 +8,8 @@ import { OpenAPIHono } from '@hono/zod-openapi'
 
 
 import { v4 as uuidv4 } from 'uuid'
-import type { OrchestratorAgent } from '../agents/orchestrator'
-import type { PlannerAgent } from '../agents/planner'
-import type { GeminiAgent } from '../agents/gemini'
+import type { OrchestratorAgent } from '../ai/agents/Orchestrator'
+import type { PlannerAgent } from '../ai/agents/Planner'
 
 // Re-export Env as Bindings for compatibility
 export type Bindings = Env

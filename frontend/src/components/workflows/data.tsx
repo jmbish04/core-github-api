@@ -245,7 +245,22 @@ export const createRepoEdges: Edge[] = [
 ];
 
 
+// --- Jules Orchestrator Flow ---
+export const julesOrchestratorNodes: Node<TurboNodeData>[] = [
+    { id: 'webhook', position: { x: 0, y: 100 }, data: { icon: <FiGithub />, title: 'Webhook', subtitle: 'PR / Issue Event' }, type: 'turbo' },
+    { id: 'standards', position: { x: 250, y: 100 }, data: { icon: <FiCheckCircle />, title: 'Standards', subtitle: 'Migration Pillars' }, type: 'turbo' },
+    { id: 'jules-api', position: { x: 500, y: 50 }, data: { icon: <FiCpu />, title: 'Jules API', subtitle: 'Start Session' }, type: 'turbo' },
+    { id: 'overseer', position: { x: 500, y: 200 }, data: { icon: <FiTrello />, title: 'Overseer DO', subtitle: 'Track & Poll' }, type: 'turbo' },
+    { id: 'pr', position: { x: 750, y: 100 }, data: { icon: <FiGithub />, title: 'Pull Request', subtitle: 'Auto-Created PR' }, type: 'turbo' },
+];
 
+export const julesOrchestratorEdges: Edge[] = [
+    { id: 'e1', source: 'webhook', target: 'standards', animated: true },
+    { id: 'e2', source: 'standards', target: 'jules-api', animated: true },
+    { id: 'e3', source: 'standards', target: 'overseer', animated: true },
+    { id: 'e4', source: 'jules-api', target: 'overseer', animated: true },
+    { id: 'e5', source: 'overseer', target: 'pr', animated: true },
+];
 
 
 export const workflows = {
@@ -257,4 +272,6 @@ export const workflows = {
     'extract-comments': { nodes: extractCommentsNodes, edges: extractCommentsEdges, title: 'Extract Comments', description: 'Utilities for parsing and formatting code comments involved in specific PRs.' },
     'clear-conflicts': { nodes: clearConflictsNodes, edges: clearConflictsEdges, title: 'Clear Conflicts', description: 'AI-assisted merge conflict resolution (Coming Soon).' },
     'create-repo': { nodes: createRepoNodes, edges: createRepoEdges, title: 'Create Repository', description: 'Scaffolds new Cloudflare Worker repositories with defined stack presets.' },
+    'jules-orchestrator': { nodes: julesOrchestratorNodes, edges: julesOrchestratorEdges, title: 'Jules Orchestrator', description: 'Dispatches implementation tasks to Google Jules with standards enforcement, session tracking, and automatic PR creation.' },
 };
+

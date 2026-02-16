@@ -8,126 +8,110 @@ import { Separator } from '@/components/ui/separator';
 import { GitPullRequest, GitMerge, ShieldAlert, Sparkles, Play } from 'lucide-react';
 import { useColbySocket } from '@/hooks/useColbySocket';
 
-export function PRCommandCenter() {
-    const [activeTab, setActiveTab] = useState("context");
+interface PR {
+    number: number;
+    title: string;
+    state: string;
+    draft: boolean;
+    author: string;
+    url: string;
+    updatedAt: string;
+}
 
-    // Mock Data
-    const contextItems = [
-        { type: 'comment', file: 'src/worker.ts', line: 42, content: 'User requested rate limiting here.' },
-        { type: 'rag', source: 'Cloudflare Docs', title: 'Rate Limiting', content: 'Use the leaky bucket algorithm...' },
-    ];
+interface PRCommandCenterProps {
+    repoOwner: string;
+    repoName: string;
+    initialPrs: PR[];
+}
+
+export function PRCommandCenter({ repoOwner, repoName, initialPrs }: PRCommandCenterProps) {
+    const [activeTab, setActiveTab] = useState("overview");
+    const [selectedPrId, setSelectedPrId] = useState<number | null>(initialPrs.length > 0 ? initialPrs[0].number : null);
+
+    const selectedPr = initialPrs.find(pr => pr.number === selectedPrId);
 
     const handleAction = (action: string) => {
         console.log("Triggering PR Action:", action);
         // TODO: Call API
     };
 
+    if (initialPrs.length === 0) {
+        return (
+            <div className="h-64 flex flex-col items-center justify-center text-muted-foreground border border-dashed rounded-lg bg-zinc-950/30">
+                <GitPullRequest className="w-8 h-8 mb-4 opacity-50" />
+                <p>No open pull requests found.</p>
+                <Button variant="outline" size="sm" className="mt-4">Refresh</Button>
+            </div>
+        )
+    }
+
     return (
         <div className="h-[calc(100vh-100px)] flex flex-col gap-4">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h2 className="text-2xl font-bold flex items-center gap-2">
-                        <GitPullRequest className="w-6 h-6 text-purple-400" />
-                        PR #12: Feature/RateLimiting
-                    </h2>
-                    <p className="text-zinc-500">Integrating generic rate limiter middleware.</p>
-                </div>
-                <div className="flex gap-2">
-                    <Badge variant="outline" className="text-emerald-400 border-emerald-900 bg-emerald-950/20">Open</Badge>
-                    <Badge variant="secondary">Checks Passed</Badge>
-                </div>
+            {/* PR Selector if multiple */}
+            <div className="flex gap-2 overflow-x-auto pb-2">
+                {initialPrs.map(pr => (
+                    <Button 
+                        key={pr.number} 
+                        variant={selectedPrId === pr.number ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setSelectedPrId(pr.number)}
+                        className="whitespace-nowrap"
+                    >
+                        #{pr.number}
+                    </Button>
+                ))}
             </div>
 
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
-                <TabsList className="bg-zinc-900 border border-zinc-800 w-full justify-start">
-                    <TabsTrigger value="overview">Overview</TabsTrigger>
-                    <TabsTrigger value="code">Code</TabsTrigger>
-                    <TabsTrigger value="context">Colby Context</TabsTrigger>
-                    <TabsTrigger value="workflows">Workflows</TabsTrigger>
-                </TabsList>
+            {selectedPr && (
+                <>
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h2 className="text-2xl font-bold flex items-center gap-2">
+                            <GitPullRequest className="w-6 h-6 text-purple-400" />
+                            #{selectedPr.number}: {selectedPr.title}
+                        </h2>
+                        <p className="text-zinc-500">Author: {selectedPr.author} · Last updated: {new Date(selectedPr.updatedAt).toLocaleDateString()}</p>
+                    </div>
+                    <div className="flex gap-2">
+                        <Badge variant="outline" className="text-emerald-400 border-emerald-900 bg-emerald-950/20">{selectedPr.state}</Badge>
+                         {selectedPr.draft && <Badge variant="secondary">Draft</Badge>}
+                    </div>
+                </div>
 
-                <TabsContent value="context" className="flex-1 flex gap-6 mt-4 overflow-hidden">
-                    {/* Left: Context List */}
-                    <Card className="flex-1 border-zinc-800 bg-zinc-950 flex flex-col">
-                        <CardHeader>
-                            <CardTitle className="text-sm">Extracted Context</CardTitle>
-                        </CardHeader>
-                        <CardContent className="flex-1 p-0">
-                            <ScrollArea className="h-full px-6 pb-6">
-                                <div className="space-y-6">
-                                    {/* Comments Section */}
-                                    <div>
-                                        <h4 className="text-xs font-semibold text-zinc-400 uppercase mb-2">Code Comments</h4>
-                                        {contextItems.filter(i => i.type === 'comment').map((item, i) => (
-                                            <div key={i} className="bg-zinc-900/50 p-3 rounded border border-zinc-800 mb-2">
-                                                <div className="flex justify-between text-xs text-zinc-500 mb-1">
-                                                    <span>{item.file}:{item.line}</span>
-                                                </div>
-                                                <p className="text-sm text-zinc-300">{item.content}</p>
-                                            </div>
-                                        ))}
-                                    </div>
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
+                    <TabsList className="bg-zinc-900 border border-zinc-800 w-full justify-start">
+                        <TabsTrigger value="overview">Overview</TabsTrigger>
+                        <TabsTrigger value="comments">Comments</TabsTrigger>
+                        <TabsTrigger value="context">Colby Context</TabsTrigger>
+                    </TabsList>
 
-                                    <Separator className="bg-zinc-800" />
+                    <TabsContent value="overview" className="flex-1 flex gap-6 mt-4 overflow-hidden">
+                         <div className="flex items-center justify-center h-40 text-zinc-500 border border-dashed rounded w-full">
+                            PR Overview Placeholder for {repoOwner}/{repoName}#{selectedPr.number}
+                         </div>
+                    </TabsContent>
 
-                                    {/* RAG Section */}
-                                    <div>
-                                        <h4 className="text-xs font-semibold text-zinc-400 uppercase mb-2 mt-4">Relevant Documentation (RAG)</h4>
-                                        {contextItems.filter(i => i.type === 'rag').map((item, i) => (
-                                            <div key={i} className="bg-blue-950/20 p-3 rounded border border-blue-900/30 mb-2">
-                                                <div className="flex items-center gap-2 text-xs text-blue-400 mb-1">
-                                                    <Sparkles className="w-3 h-3" />
-                                                    <span>{item.source} · {item.title}</span>
-                                                </div>
-                                                <p className="text-sm text-zinc-300">{item.content}</p>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            </ScrollArea>
-                        </CardContent>
-                    </Card>
-
-                    {/* Right: Actions */}
-                    <Card className="w-80 border-zinc-800 bg-zinc-900/30 h-fit">
-                        <CardHeader>
-                            <CardTitle className="text-sm">Quick Actions</CardTitle>
-                            <CardDescription>Automated interventions.</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                            <Button variant="secondary" className="w-full justify-start" onClick={() => handleAction('fix_all')}>
-                                <Sparkles className="w-4 h-4 mr-2" />
-                                Fix All Issues
+                    <TabsContent value="comments" className="flex-1 flex gap-6 mt-4 overflow-hidden">
+                         <div className="w-full flex flex-col items-center gap-4">
+                            <p className="text-muted-foreground">Manage and view extracted comments.</p>
+                            <Button variant="default" asChild>
+                                <a href={`/view-comments/${repoOwner}/${repoName}/pull/${selectedPr.number}`} target="_blank" rel="noreferrer">
+                                    <Sparkles className="w-4 h-4 mr-2" />
+                                    Launch Comments Viewer
+                                </a>
                             </Button>
-                            <Button variant="outline" className="w-full justify-start border-red-900/50 text-red-400 hover:bg-red-950/50" onClick={() => handleAction('resolve_conflicts')}>
-                                <GitMerge className="w-4 h-4 mr-2" />
-                                Resolve Conflicts
-                            </Button>
-                            <Button variant="outline" className="w-full justify-start" onClick={() => handleAction('deploy_preview')}>
-                                <Play className="w-4 h-4 mr-2" />
-                                Deploy Preview
-                            </Button>
+                         </div>
+                    </TabsContent>
 
-                            <Separator className="bg-zinc-800 my-2" />
-
-                            <div className="p-3 bg-yellow-950/20 border border-yellow-900/30 rounded text-xs text-yellow-500">
-                                <ShieldAlert className="w-4 h-4 inline mr-1" />
-                                Wait for checks to complete before merging.
-                            </div>
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-
-                <TabsContent value="overview">
-                    <div className="flex items-center justify-center h-40 text-zinc-500">Overview Placeholder</div>
-                </TabsContent>
-                <TabsContent value="code">
-                    <div className="flex items-center justify-center h-40 text-zinc-500">Code Diff Placeholder</div>
-                </TabsContent>
-                <TabsContent value="workflows">
-                    <div className="flex items-center justify-center h-40 text-zinc-500">Workflow Graph Placeholder</div>
-                </TabsContent>
-            </Tabs>
+                    <TabsContent value="context" className="flex-1 flex gap-6 mt-4 overflow-hidden">
+                        {/* Reuse previous mock layout for context as placeholder */}
+                         <div className="flex items-center justify-center h-40 text-zinc-500 border border-dashed rounded w-full">
+                            Context Visualization for {repoOwner}/{repoName}
+                         </div>
+                    </TabsContent>
+                </Tabs>
+                </>
+            )}
         </div>
     );
 }

@@ -7,7 +7,7 @@ import { drizzle } from 'drizzle-orm/d1';
 // Internal schema & database imports
 import { getDb } from '@db';
 import { tasks, repos } from '@db/schema';
-import { webhookDeliveries } from '@db/schema-webhooks';
+import { webhookDeliveries } from '@/db/schemas/github/webhooks';
 
 // Types & Services
 import type { GitHubWebhookPayload, GitHubIssuesPayload } from '@custom-types/github-webhooks';
@@ -35,16 +35,32 @@ webhooksApi.post('/', async (c) => {
         );
     }
 
+
     // 1. Log the webhook delivery securely to the Webhooks D1 DB
-    const webhooksDb = drizzle(c.env.DB_WEBHOOKS);
-    await webhooksDb.insert(webhookDeliveries).values({
-        id: crypto.randomUUID(),
-        delivery_id: deliveryId,
-        event,
-        payload: JSON.stringify(body),
-        signature_sha256: signature || '',
-        created_at: new Date().toISOString()
-    });
+    try {
+        const webhooksDb = drizzle(c.env.DB_WEBHOOKS);
+        await webhooksDb.insert(webhookDeliveries).values({
+            id: crypto.randomUUID(),
+            delivery_id: deliveryId,
+            event,
+            payload: JSON.stringify(body),
+            signature_sha256: signature || '',
+            created_at: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error('[api/webhooks] Failed to log webhook delivery:', error);
+        // Continue processing to avoid failing the webhook acknowledgement entirely if just DB log fails?
+        // But if DB log fails, maybe we should warn.
+    }
+
+    // Trigger Stats Update on Push
+    if (event === 'push' && body.repository) {
+        c.executionCtx.waitUntil(
+            import('@services/stats-updater').then(m => 
+                m.updateRepoStats(c.env, body.repository.owner.login, body.repository.name)
+            )
+        );
+    }
 
     // 2. Handle Task/Kanban Sync Logic
     if (event === 'issues') {
@@ -165,6 +181,52 @@ webhooksApi.post('/', async (c) => {
                     .where(and(eq(tasks.repoId, internalRepoId), eq(tasks.githubIssueId, issue.number)));
             }
         }
+    } else if (event === 'issue_comment') {
+        const payload = body as any;
+        const action = payload.action;
+        const comment = payload.comment;
+        const issue = payload.issue;
+        const repository = payload.repository;
+        const db = getDb(c.env.DB);
+
+        // Only process created comments
+        if (action === 'created') {
+            const body = comment.body.trim();
+            
+            // Check for slash commands
+            if (body.startsWith('/colby')) {
+                const octokit = await import('../../services/octokit/core').then(m => m.getOctokit(c.env));
+                
+                // Add eyes emoji to acknowledge receipt
+                await octokit.reactions.createForIssueComment({
+                    owner: repository.owner.login,
+                    repo: repository.name,
+                    comment_id: comment.id,
+                    content: 'eyes'
+                });
+
+                // Parse command
+                // For now, simpler logic to demonstrate flow
+                // Real implementation would delegate to an Agent/Workflow
+                const isSuccess = true; // Placeholder for actual execution result
+
+                if (isSuccess) {
+                     await octokit.reactions.createForIssueComment({
+                        owner: repository.owner.login,
+                        repo: repository.name,
+                        comment_id: comment.id,
+                        content: 'hooray' // 🎉
+                    });
+                } else {
+                     await octokit.reactions.createForIssueComment({
+                        owner: repository.owner.login,
+                        repo: repository.name,
+                        comment_id: comment.id,
+                        content: '-1' // 👎
+                    });
+                }
+            }
+        }
     }
 
     return c.json({ success: true });
@@ -204,21 +266,25 @@ webhooksApi.get('/', zValidator('query', QuerySchema), async (c) => {
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-    const [results, countResult] = await Promise.all([
-        db.select()
+    // 1. Get Total Count
+    const totalResult = await db.select({ count: sql<number>`count(*)` })
+        .from(webhookDeliveries)
+        .where(whereClause)
+        .get();
+    
+    const total = totalResult?.count || 0;
+
+    // 2. Get Results (if total > 0)
+    let results: typeof webhookDeliveries.$inferSelect[] = [];
+    if (total > 0) {
+        results = await db.select()
             .from(webhookDeliveries)
             .where(whereClause)
             .orderBy(desc(webhookDeliveries.created_at))
             .limit(limitNum)
             .offset(offset)
-            .all(),
-        db.select({ count: sql<number>`count(*)` })
-            .from(webhookDeliveries)
-            .where(whereClause)
-            .get()
-    ]);
-
-    const total = countResult?.count || 0;
+            .all();
+    }
 
     return c.json({
         data: results,
@@ -226,7 +292,7 @@ webhooksApi.get('/', zValidator('query', QuerySchema), async (c) => {
             page: pageNum,
             limit: limitNum,
             total: total,
-            totalPages: Math.ceil(total / limitNum)
+            totalPages: Math.ceil(total / limitNum) || 1
         }
     });
 });

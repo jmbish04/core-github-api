@@ -16,9 +16,15 @@ jobs:
       - name: Run Research Agent
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           PAYLOAD: ${{ toJSON(github.event.client_payload) }}
+          
+          # GitHub & Worker Auth
+          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CF_GATEWAY_ID: ${{ secrets.CLOUDFLARE_GATEWAY_ID }}
+          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_AI_GATEWAY_TOKEN }}
+          WORKER_API_URL: ${{ secrets.WORKER_API_URL_BASE }}
           WORKER_API_KEY: ${{ secrets.WORKER_API_KEY }}
+
         run: |
           cat <<EOF > agent.py
           import os

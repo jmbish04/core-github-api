@@ -12,20 +12,35 @@ export interface HealthRun {
     metadata?: any;
 }
 
+export type HealthCategory = 'github' | 'ai' | 'api' | 'webhooks' | 'mcp' | 'agents' | 'browser' | 'git' | 'sandbox';
+
 export interface HealthResult {
     id: string;
     run_id: string;
-    category: 'github' | 'ai' | 'api' | 'webhooks';
+    category: HealthCategory;
     name: string;
     status: 'success' | 'failure' | 'pending' | 'skipped';
     message?: string;
     details?: any;
     duration_ms?: number;
+    ai_suggestion?: string | null;
     timestamp: string;
 }
 
 export interface HealthCheckResult {
-    status: 'healthy' | 'degraded' | 'unhealthy';
-    details: any;
-    results: Partial<HealthResult>[];
+    checkType: string;
+    success: boolean;
+    steps: HealthStepResult[];
+    totalDurationMs: number;
+    error?: string;
+    status?: 'healthy' | 'degraded' | 'unhealthy';
+}
+
+export interface HealthStepResult {
+    name: string;
+    status: 'success' | 'failure' | 'warning' | 'SKIPPED';
+    message: string;
+    details?: any;
+    durationMs: number;
+    analysis?: import('../ai/utils/diagnostician').HealthFailureAnalysis;
 }

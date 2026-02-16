@@ -1,5 +1,5 @@
 import { getDb } from "@db";
-import { researchExecutionLogs } from "@/db/schema-topic-research";
+import { researchExecutionLogs } from "@/db/schemas/github/research";
 import { createId } from "@paralleldrive/cuid2";
 
 type Context = ExecutionContext | DurableObjectState;

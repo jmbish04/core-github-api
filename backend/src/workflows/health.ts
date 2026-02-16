@@ -1,16 +1,12 @@
-
-;
-import { getWebhooksDb } from '../db/webhooks';
-import { webhookDeliveries } from '../db/schema-webhooks';
+import { getWebhooksDb } from '@/db';
+import { webhookDeliveries } from '@/db/schemas/github/webhooks';
 import { desc, gt, and, like } from 'drizzle-orm';
-import { createGitHubIssue, createGitHubComment, updateGitHubIssue } from '../tools/github';
-import { HealthResult } from '../health/types';
-import { v4 as uuidv4 } from 'uuid';
+import { createGitHubIssue, createGitHubComment, updateGitHubIssue } from '../ai/mcp/tools/github/github';
+import { HealthStepResult } from '../health/health-check';
 
-export async function checkGitHubHealth(env: Env, runId: string): Promise<HealthResult[]> {
+export async function checkGitHubHealth(env: Env): Promise<HealthStepResult> {
     const start = Date.now();
-    const results: HealthResult[] = [];
-
+    
     // Sub-function results container
     const details: any = {
         api: { status: 'pending', steps: [] },
@@ -39,33 +35,23 @@ export async function checkGitHubHealth(env: Env, runId: string): Promise<Health
             details.webhooks.verification !== 'failed' &&
             !details.webhooks.gaps;
 
-        results.push({
-            id: uuidv4(),
-            run_id: runId,
-            category: 'github',
+        return {
             name: 'Core GitHub Integration',
             status: isHealthy ? 'success' : 'failure',
             message: isHealthy ? 'Operational' : 'Issues detected',
-            details: JSON.stringify(details),
-            duration_ms: Date.now() - start,
-            timestamp: new Date().toISOString()
-        });
+            details: details,
+            durationMs: Date.now() - start
+        };
 
     } catch (e: any) {
-        results.push({
-            id: uuidv4(),
-            run_id: runId,
-            category: 'github',
+        return {
             name: 'Core GitHub Integration',
             status: 'failure',
             message: e.message,
-            details: JSON.stringify({ stack: e.stack }),
-            duration_ms: Date.now() - start,
-            timestamp: new Date().toISOString()
-        });
+            details: { ...details, stack: e.stack },
+            durationMs: Date.now() - start
+        };
     }
-
-    return results;
 }
 
 async function checkWebhookGaps(env: Env) {

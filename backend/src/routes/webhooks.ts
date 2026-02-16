@@ -8,14 +8,14 @@ import type { Context } from 'hono'
 import type { Bindings } from "@utils/hono"
 import { getAgentByName } from 'agents'
 import { App, Octokit } from 'octokit'
-import { withCompatOctokit } from "@/octokit/compat"
-import { getWebhooksDb, schema } from "@db/webhooks"
-import { webhookDeliveries } from "@db/schema-webhooks"
-import * as eventTables from "@db/schema-webhooks"
+import { withCompatOctokit } from "@/services/octokit/compat"
+import { getWebhooksDb, schema } from "@db"
+import { webhookDeliveries } from "@/db/schemas/github/webhooks"
+import * as eventTables from "@/db/schemas/github/webhooks"
 import { sql } from "drizzle-orm"
 import { GardenerOrchestrator } from "@/gardener/orchestrator"
 import { SlashCommandRouter } from "@/gardener/router"
-import { sanitizeRepoName } from '@sandbox-sdk-tools'
+import { sanitizeRepoName } from '@/ai/mcp/tools/sandbox-sdk'
 import type { GitHubWebhookPayload } from "@/types/github-webhooks"
 import { matchAutomations } from "@/automations/registry"
 import {
@@ -26,6 +26,8 @@ import {
 } from "@services/proactive-intelligence"
 import { ensureRepositoryFromWebhook } from "@services/repository-sync"
 import { getGitHubPrivateKey, getGitHubAppId } from "@utils/secrets"
+import { JULES_STANDARDS } from "@/config/jules-standards"
+import { JulesService } from "@/services/jules"
 
 export async function webhookHandler(c: Context<{ Bindings: Env }>): Promise<Response> {
   const deliveryId = c.req.header('x-github-delivery')
@@ -376,6 +378,41 @@ export async function webhookHandler(c: Context<{ Bindings: Env }>): Promise<Res
         })
         break;
       case 'issue_comment':
+        // 1. Check for Gemini Code Assist feedback
+        const isGemini = payload.comment?.user?.login?.toLowerCase().includes('gemini') || 
+                         payload.comment?.user?.login === 'google-code-assist' || 
+                         payload.comment?.user?.type === 'Bot'; 
+        
+        if (isGemini && payload.action === 'created') {
+             const feedback = payload.comment.body;
+             if (feedback && (feedback.includes('Review') || feedback.includes('suggestion'))) {
+                  // Only run if we can identify the repo/pr context
+                  try {
+                      const julesService = JulesService.getInstance(c.env);
+                      const prompt = `Gemini Code Assist provided a review on PR #${payload.issue?.number}. 
+                      
+                      Feedback:
+                      ${feedback}
+                      
+                      Please apply the fixes suggested in the feedback.`;
+ 
+                      await julesService.startSession({
+                          prompt: prompt,
+                          repo: { 
+                              owner: payload.repository?.owner?.login, 
+                              repo: payload.repository?.name,
+                              // Jules needs to infer branch from PR number or default to main if not provided.
+                              // Ideally we'd fetch the PR here.
+                          },
+                          autoPr: true 
+                      });
+                      console.log(`[Jules] Triggered auto-fix session for PR #${payload.issue?.number}`);
+                  } catch (err) {
+                      console.error(`[Jules] Failed to trigger auto-fix:`, err);
+                  }
+             }
+        }
+
         const commentBody = payload.comment?.body || '';
         if (commentBody.includes('/colby')) {
           if (payload.action === 'created' && appId && privateKey) {
@@ -492,6 +529,23 @@ export async function webhookHandler(c: Context<{ Bindings: Env }>): Promise<Res
         })
         break;
       case 'pull_request':
+        if (payload.action === 'opened' && appId && privateKey && payload.installation?.id) {
+            try {
+                const app = new App({ appId: appId, privateKey: privateKey });
+                const octokit = withCompatOctokit(await app.getInstallationOctokit(payload.installation.id));
+                
+                await octokit.rest.issues.createComment({
+                    owner: payload.repository?.owner?.login,
+                    repo: payload.repository?.name,
+                    issue_number: payload.pull_request?.number,
+                    body: "/gemini review"
+                });
+                console.log(`[Jules] Requested Gemini review for PR #${payload.pull_request?.number}`);
+            } catch (err) {
+                console.error(`[Jules] Failed to request review:`, err);
+            }
+        }
+
         await insertPayload(eventTables.pullRequest, {
           pr_number: payload.pull_request?.number,
           title: payload.pull_request?.title,
@@ -539,6 +593,24 @@ export async function webhookHandler(c: Context<{ Bindings: Env }>): Promise<Res
       case 'push':
         // 1. Run Gardener Orchestrator for proactive fixes (Fire & Forget)
         if (payload.ref === `refs/heads/${payload.repository?.default_branch}`) {
+          // 1. Jules Standards Enforcement (Orchestrator)
+          try {
+              const julesPrompt = `\n\n${JULES_STANDARDS}\n\nAnalyze this push for standards compliance.`;
+              // We invoke Jules directly here
+              const julesService = JulesService.getInstance(c.env);
+              await julesService.startSession({
+                  prompt: `New Push detected to ${payload.repository?.full_name}. ${julesPrompt}`,
+                  repo: {
+                      owner: payload.repository?.owner?.login,
+                      repo: payload.repository?.name,
+                      branch: payload.repository?.default_branch
+                  }
+              });
+              console.log(`[Jules] Started standards analysis session for ${payload.repository?.full_name}`);
+          } catch (err) {
+              console.error('[Jules] Failed to start analysis:', err);
+          }
+
           try {
             if (payload.installation?.id && appId && privateKey) {
               const app = new App({ appId: appId, privateKey: privateKey });
@@ -567,6 +639,41 @@ export async function webhookHandler(c: Context<{ Bindings: Env }>): Promise<Res
         })
         break;
       case 'repository':
+        if (payload.action === 'created' && appId && privateKey && payload.installation?.id) {
+             try {
+                const app = new App({ appId: appId, privateKey: privateKey });
+                const octokit = withCompatOctokit(await app.getInstallationOctokit(payload.installation.id));
+                const workflowContent = `name: Jules Maintainer
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  notify-jules:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify Core GitHub API
+        run: |
+          curl -X POST "\${{ secrets.CORE_API_URL }}/api/webhooks" \\
+          -H "Content-Type: application/json" \\
+          -H "X-GitHub-Event: push" \\
+          -d @$GITHUB_EVENT_PATH
+`;
+                // Create file
+                await octokit.rest.repos.createOrUpdateFileContents({
+                    owner: payload.repository?.owner?.login,
+                    repo: payload.repository?.name,
+                    path: '.github/workflows/jules-maintainer.yml',
+                    message: "ci: add jules-maintainer workflow",
+                    content: btoa(workflowContent)
+                });
+                console.log(`[Jules] Injected maintainer workflow into ${payload.repository?.full_name}`);
+             } catch (err) {
+                 console.error(`[Jules] Failed to inject workflow:`, err);
+             }
+        }
+
         if (shouldRunLeakPlumber(payload)) {
           c.executionCtx.waitUntil(
             runLeakPlumberWorkflow({

@@ -1,10 +1,9 @@
 import { App } from "octokit";
 import { z } from "zod";
 import { Agent as OpenAIAgent } from "@openai/agents";
-import { createRunner, resolveDefaultAiModel, resolveDefaultAiProvider } from "../lib/agent-ai";
-import type { Bindings } from "../utils/hono";
-import { getGitHubPrivateKey, getGitHubAppId } from "../utils/secrets";
-import { SandboxClient } from "@sandbox-sdk-tools";
+import { createRunner, resolveDefaultAiModel, resolveDefaultAiProvider } from "@/ai/agent-ai";
+import { getGitHubPrivateKey, getGitHubAppId } from "@/utils/secrets";
+import { SandboxClient } from "@/ai/mcp/tools/sandbox-sdk";
 
 const LEAK_CHECK_TIMEOUT_MS = 10 * 60 * 1000;
 const BUG_CHECK_TIMEOUT_MS = 5 * 60 * 1000;
@@ -23,8 +22,8 @@ const GeneratedTestSchema = z.object({
   notes: z.array(z.string()).default([]),
 });
 
-import type { SandboxExecResult } from "@sandbox-sdk-tools";
-import { shellEscape, sanitizeForPath, truncateOutput } from "@sandbox-sdk-tools";
+import type { SandboxExecResult } from "@/ai/mcp/tools/sandbox-sdk";
+import { shellEscape, sanitizeForPath, truncateOutput } from "@/ai/mcp/tools/sandbox-sdk";
 
 function toShortLog(output: string, max = 4000): string {
   return truncateOutput(output, max);
@@ -149,14 +148,14 @@ async function getCompromisedBindings(env: Env, scanOutput: string): Promise<str
   const cfToken = await env.CLOUDFLARE_API_TOKEN?.get();
 
   const candidates: Array<[string, string | undefined]> = [
-    ["WORKER_API_KEY", (env as any).WORKER_API_KEY],
+    ["WORKER_API_KEY", await env.WORKER_API_KEY.get()],
     ["GITHUB_TOKEN", githubToken],
-    ["GEMINI_API_KEY", (env as any).GEMINI_API_KEY],
-    ["GOOGLE_API_KEY", (env as any).GOOGLE_API_KEY],
-    ["AI_GATEWAY_TOKEN", (env as any).AI_GATEWAY_TOKEN],
+    ["GEMINI_API_KEY", await env.GEMINI_API_KEY.get()],
+    ["GOOGLE_API_KEY", await env.GEMINI_API_KEY.get()],
+    ["AI_GATEWAY_TOKEN", await env.AI_GATEWAY_TOKEN.get()],
     ["CLOUDFLARE_API_TOKEN", cfToken],
-    ["OPENAI_API_KEY", (env as any).OPENAI_API_KEY],
-    ["ANTHROPIC_API_KEY", (env as any).ANTHROPIC_API_KEY],
+    ["OPENAI_API_KEY", await env.OPENAI_API_KEY.get()],
+    ["ANTHROPIC_API_KEY", await env.ANTHROPIC_API_KEY.get()],
   ];
 
   const leaked = new Set<string>();
@@ -169,8 +168,8 @@ async function getCompromisedBindings(env: Env, scanOutput: string): Promise<str
   }
 
   // Heuristic fallback if values are redacted in scan output.
-  if (scanOutput.toLowerCase().includes("cloudflare")) leaked.add("CLOUDFLARE_API_TOKEN");
-  if (scanOutput.toLowerCase().includes("github")) leaked.add("GITHUB_TOKEN");
+  if (scanOutput.toLowerCase().includes("cloudflare")) leaked.add(cfToken);
+  if (scanOutput.toLowerCase().includes("github")) leaked.add(githubToken);
 
   return Array.from(leaked);
 }
@@ -180,14 +179,23 @@ async function rotateWorkerSecret(
   secretName: string,
 ): Promise<{ success: boolean; detail: string }> {
   const accountId =
-    (env as any).CLOUDFLARE_ACCOUNT_ID || env.GITHUB_ACTION_CLOUDFLARE_ACCOUNT_ID;
+    await env.CLOUDFLARE_ACCOUNT_ID.get()
   const apiToken = await env.CLOUDFLARE_API_TOKEN.get();
-  const scriptName = (env as any).CLOUDFLARE_WORKER_NAME || "core-github-api";
+  const scriptName = env.CLOUDFLARE_WORKER_NAME || "core-github-api";
+  const errors = [];
+  if (!accountId) {
+    console.error("Missing CLOUDFLARE_ACCOUNT_ID.");
+    errors.push(`Missing CLOUDFLARE_ACCOUNT_ID`);
+  }
+    if (!apiToken) {
+    console.error("Missing CLOUDFLARE_API_TOKEN.");
+    errors.push(`Missing CLOUDFLARE_API_TOKEN`);
+  }
 
-  if (!accountId || !apiToken) {
+  if(errors.length > 0) {
     return {
       success: false,
-      detail: "Missing CLOUDFLARE_ACCOUNT_ID/GITHUB_ACTION_CLOUDFLARE_ACCOUNT_ID or CLOUDFLARE_API_TOKEN.",
+      detail: errors.join(", "),
     };
   }
 

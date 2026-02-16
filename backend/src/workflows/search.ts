@@ -5,11 +5,11 @@
  */
 
 import { WorkflowEntrypoint, WorkflowStep, WorkflowEvent } from 'cloudflare:workers';
-import { getOctokit } from '../octokit/core';
-import { getWebhooksDb } from '../db/webhooks';
-import { searches, repoAnalysis } from '../db/schema-webhooks';
+import { getOctokit } from '@/services/octokit/core';
+import { getWebhooksDb } from '@/db';
+import { searches, repoAnalysis } from '@/db/schemas/github/webhooks';
 import { eq, and, inArray } from 'drizzle-orm';
-import type { Bindings } from '../utils/hono';
+import type { Bindings } from '@/utils/hono';
 import { getAgentByName } from 'agents';
 
 interface GithubSearchWorkflowParams {

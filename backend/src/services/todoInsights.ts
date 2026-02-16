@@ -9,7 +9,7 @@ import { eq } from "drizzle-orm";
 import { BrowserService } from "./browser_render";
 import { Agent as OpenAIAgent } from "@openai/agents";
 import { z } from "zod";
-import { createRunner, resolveDefaultAiModel, resolveDefaultAiProvider } from "../lib/agent-ai";
+import { createRunner, resolveDefaultAiModel, resolveDefaultAiProvider } from "../ai/agent-ai";
 
 const TodoInsightItemSchema = z.object({
     type: z.enum(["offer_to_help", "enrich_todo", "research"]).default("enrich_todo"),

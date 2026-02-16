@@ -1,0 +1,125 @@
+/**
+ * @module DeepReasoningAgent
+ * @description Cloudflare Durable Object Agent responsible for handling complex, 
+ * deep-reasoning AI tasks using structured JSON schema outputs and multimodal model routing.
+ * @version 1.0.0
+ */
+
+import { callable } from "agents";
+import { resolveDefaultAiModel, resolveDefaultAiProvider, type SupportedProvider } from "@/ai/providers/config";
+import { BaseAgent, BaseAgentState, OpenAIAgent } from "@/ai/agent-sdk";
+import { Logger } from "@logging";
+
+/**
+ * @interface DeepReasoningInput
+ * @description Defines the expected JSON payload for deep reasoning requests.
+ */
+interface DeepReasoningInput {
+  /** The core instruction or query for the AI to reason about. */
+  prompt: string;
+  /** The JSON schema defining the exact structure the AI must return. */
+  schema: object;
+  /** Optional override for the AI provider (e.g., "openai", "worker-ai"). */
+  provider?: SupportedProvider;
+  /** Optional parameters to tune the depth and verbosity of the reasoning process. */
+  reasoningParams?: {
+    effort?: "low" | "medium" | "high";
+    summary?: "auto" | "concise" | "detailed";
+  };
+}
+
+/**
+ * @class DeepReasoningAgent
+ * @extends BaseAgent<Env, BaseAgentState>
+ * @description Maintains execution context and routing logic for deep reasoning inference.
+ * Intercepts POST requests, resolves the appropriate AI provider/model, and enforces 
+ * strict JSON schema compliance on the output.
+ */
+export class DeepReasoningAgent extends BaseAgent<Env, BaseAgentState> {
+  protected logger: Logger;
+
+  /**
+   * @constructor
+   * @param {DurableObjectState} state - The Durable Object state injected by Cloudflare.
+   * @param {Env} env - Global environment bindings.
+   */
+  constructor(state: DurableObjectState, env: Env) {
+    super(state, env);
+    this.logger = new Logger(env, "DeepReasoningAgent");
+  }
+
+  /**
+   * @method healthProbe
+   * @description A callable RPC endpoint to verify the agent's active status and timestamp.
+   * @returns {Object} JSON object containing status, agent name, and current ISO timestamp.
+   */
+  @callable()
+  healthProbe() {
+    return {
+      status: "ok",
+      agent: "DeepReasoningAgent",
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  /**
+   * @method onRequest
+   * @description The primary fetch handler for the Agent. Routes GET requests to the health probe
+   * and POST requests to the generative reasoning workflow.
+   * @param {Request} request - The incoming HTTP Request.
+   * @returns {Promise<Response>} HTTP Response containing the structured AI output or an error.
+   */
+  async onRequest(request: Request): Promise<Response> {
+    const url = new URL(request.url);
+    
+    // Route for health checks
+    if (request.method === "GET" && url.pathname === "/health-probe") {
+      return Response.json(this.healthProbe());
+    }
+
+    if (request.method !== "POST") {
+      return new Response("Method not allowed", { status: 405 });
+    }
+
+    try {
+      const input = (await request.json()) as DeepReasoningInput;
+      const defaultProvider = resolveDefaultAiProvider(this.env);
+      const { prompt, schema, provider = defaultProvider } = input;
+      
+      // DEBUG: Verify environment keys are accessible for AI Gateway/Provider routing
+      const hasAiGateway = !!(await this.env.AI_GATEWAY_TOKEN?.get?.() ?? this.env.AI_GATEWAY_TOKEN);
+      const hasCfToken = !!(await this.env.CLOUDFLARE_API_TOKEN?.get?.() ?? this.env.CLOUDFLARE_API_TOKEN);
+      const hasOpenAi = !!(await this.env.OPENAI_API_KEY?.get?.() ?? this.env.OPENAI_API_KEY); 
+      
+      console.log(`[DeepReasoning] Keys present: AI_GATEWAY=${hasAiGateway}, CF_TOKEN=${hasCfToken}, OPENAI_ENV=${hasOpenAi}`);
+      
+      if (!prompt || !schema) {
+        return new Response("Missing prompt or schema", { status: 400 });
+      }
+
+      this.logger.info("Executing deep reasoning", { promptLength: prompt.length, provider });
+
+      const model = resolveDefaultAiModel(this.env, provider);
+
+      /**
+       * Instantiate the OpenAI Agent wrapper.
+       * The underlying runAgent() call handles client creation via createGatewayClient 
+       * internally, injecting the resolved API keys and Gateway routing transparently.
+       */
+      const agent = new OpenAIAgent({
+        name: "DeepReasoningAgent",
+        model,
+        outputType: schema as any,
+        instructions:
+          "You are a deep technical reasoning assistant. Return only output that matches the requested JSON schema.",
+      } as any);
+
+      const result = await this.runAgent(agent, prompt);
+      
+      return Response.json(result.finalOutput ?? {});
+    } catch (error: any) {
+      this.logger.error("Deep reasoning failed", { error: error.message, stack: error.stack });
+      return new Response(`Error: ${error.message}`, { status: 500 });
+    }
+  }
+}

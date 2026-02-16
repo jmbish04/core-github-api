@@ -4,20 +4,20 @@ import TOML from "@iarna/toml";
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@db";
-import { projects, projectPhases } from "../../db/schema-roadmap";
-import { tasks } from "../../db/schema-project";
-import { projectPlans } from "../../db/schema-plans";
-import { projectFavorites } from "../../db/schema-favorites";
-import { userSettings } from "../../db/schema-settings";
-import { repoTags, repositories } from "../../db/schema-repos";
+import { projects, projectPhases } from "../../db/schemas/projects/roadmap";
+import { tasks } from "../../db/schemas/projects/tasks";
+import { projectPlans } from "../../db/schemas/projects/plans";
+import { projectFavorites } from "../../db/schemas/github/favorites";
+import { userSettings } from "../../db/schemas/app/settings";
+import { repoTags, repositories } from "../../db/schemas/github/repos";
 import {
   createRunner,
   resolveDefaultAiModel,
   resolveDefaultAiProvider,
   runTextAgent,
-} from "@/lib/agent-ai";
-import { CodeGeneratorAgent } from "@agents/code-generator-agent";
-import { getOctokit } from "@/octokit/core";
+} from "@/ai/agent-ai";
+import { CodeGeneratorAgent } from "@/ai/agents/SoftwareEngineer";
+import { getOctokit } from "@/services/octokit/core";
 import {
   createOrGetRepositoryForProject,
   ensureProjectForRepository,
@@ -487,9 +487,7 @@ async function fetchCloudflareDeployments(
   env: Env,
   workerName: string,
 ): Promise<Array<{ id: string; createdAt: string; source: string }>> {
-  const accountId =
-    (env as any).CLOUDFLARE_ACCOUNT_ID ||
-    (env as any).GITHUB_ACTION_CLOUDFLARE_ACCOUNT_ID;
+  const accountId = await env.CLOUDFLARE_ACCOUNT_ID.get();
   const apiToken = await env.CLOUDFLARE_API_TOKEN.get();
 
   if (!accountId || !apiToken || !workerName) {

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { IconGitBranch } from "@tabler/icons-react"
 import {
   ArrowLeft,
   CalendarClock,
@@ -545,8 +546,12 @@ export default function ProjectDashboard() {
           <div className="flex items-center gap-2">
             <FolderGit2 className="h-5 w-5 text-blue-400" />
             <h1 className="text-3xl font-bold tracking-tight">{overview.project.name}</h1>
-            <Badge variant="outline">{overview.project.status}</Badge>
-            <Badge variant="secondary">{overview.repository.owner}/{overview.repository.name}</Badge>
+            <div className="flex items-center gap-2">
+                 <Badge variant="outline" className="text-base py-1 px-3 border-zinc-700">{overview.project.status}</Badge>
+                 <span className="text-muted-foreground">/</span>
+                 {/* <Badge variant="secondary" className="text-base py-1 px-3 bg-zinc-800"></Badge> */}
+                 <Button variant="outline" size="icon"><IconGitBranch /> {overview.repository.owner}/{overview.repository.name}</Button>
+            </div>
           </div>
           <p className="max-w-4xl text-muted-foreground">
             {overview.project.description || "Generating repository summary with Worker AI..."}
@@ -670,13 +675,15 @@ export default function ProjectDashboard() {
               <CardContent>
                 <div className="grid h-[520px] grid-cols-[320px_1fr] overflow-hidden rounded-md border">
                   <div className="border-r bg-card/60">
-                    <ScrollArea className="h-full">
-                      <TreeProvider
-                        defaultExpandedIds={["src", "backend", "frontend", "app"]}
-                        selectedIds={selectedFile ? [selectedFile] : []}
-                      >
-                        <TreeView>{renderNodes(treeData)}</TreeView>
-                      </TreeProvider>
+                    <ScrollArea className="h-full pr-2.5">
+                      <div className="h-full overflow-y-auto">
+                        <TreeProvider
+                          defaultExpandedIds={["src", "backend", "frontend", "app"]}
+                          selectedIds={selectedFile ? [selectedFile] : []}
+                        >
+                          <TreeView>{renderNodes(treeData)}</TreeView>
+                        </TreeProvider>
+                      </div>
                     </ScrollArea>
                   </div>
                   <div className="flex min-h-0 flex-col">
@@ -882,7 +889,7 @@ export default function ProjectDashboard() {
                   Generate Plan Blueprint
                 </Button>
                 <Button
-                  variant="outline"
+                  variant="secondary"
                   onClick={() =>
                     queueAssistantPrompt(
                       "Assign top pending plan tasks to an implementation agent and create actionable execution steps.",
@@ -953,7 +960,13 @@ export default function ProjectDashboard() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <PRCommandCenter />
+            <CardContent>
+              <PRCommandCenter 
+                repoOwner={overview.repository.owner} 
+                repoName={overview.repository.name}
+                initialPrs={overview.pendingPrs}
+              />
+            </CardContent>
             </CardContent>
           </Card>
           </PRCommandCenterTab>

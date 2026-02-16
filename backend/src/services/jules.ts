@@ -1,7 +1,7 @@
 
 import { jules, JulesError } from '@google/jules-sdk';
 import { getDb } from '@db';
-import { julesSessions } from '../db/schema-jules';
+import { julesSessions } from '@/db/schemas/agents/jules';
 import { eq } from 'drizzle-orm';
 
 
@@ -38,6 +38,7 @@ export class JulesService {
     prompt: string;
     repo?: { owner: string; repo: string; branch?: string };
     autoPr?: boolean;
+    sessionId?: string;
   }) {
     try {
       const client = await this.getClient();
@@ -45,6 +46,10 @@ export class JulesService {
         prompt: params.prompt,
         autoPr: params.autoPr
       };
+
+      if (params.sessionId) {
+        options.id = params.sessionId;
+      }
 
       if (params.repo) {
         options.source = {
@@ -71,12 +76,9 @@ export class JulesService {
           createdAt: now,
           updatedAt: now,
           lastActivityAt: now,
-          // If we had projectId passed in startSession params, we would save it here
-          // For now leaving it null or we should update startSession signature
-        }).onConflictDoNothing(); // Prevent crasing if ID exists (unlikely)
+        }).onConflictDoNothing(); 
       } catch (dbError) {
         console.error('[JulesService] Failed to track session in D1:', dbError);
-        // Don't fail the session start if tracking fails, but log it
       }
 
       return session;

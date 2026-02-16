@@ -18,7 +18,7 @@ load_dotenv()
 
 BASE_URL = os.getenv("BASE_URL", "https://core-github-api.hacolby.workers.dev")
 # Try to get key from env, otherwise warn. The user can export it or put in .env
-WORKER_API_KEY = os.getenv("WORKER_API_KEY") or os.getenv("CORE_GITHUB_API_KEY")
+WORKER_API_KEY = os.getenv("WORKER_API_KEY")
 
 def log(msg, type="INFO"):
     print(f"[{type}] {msg}")

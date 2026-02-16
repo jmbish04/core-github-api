@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "7babcb49-bc36-4e78-a93e-40a319d61e2f",
+  "id": "155c9b37-7b94-425f-90f9-d8805a3bd4ea",
   "prevId": "48669e87-7034-4d82-91aa-a9becdd1a390",
   "tables": {
     "check_run": {
@@ -570,6 +570,67 @@
           "onUpdate": "no action"
         }
       },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "daily_trends": {
+      "name": "daily_trends",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "date": {
+          "name": "date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "trend_summary": {
+          "name": "trend_summary",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "top_picks": {
+          "name": "top_picks",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "sent_in_email": {
+          "name": "sent_in_email",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "daily_trends_date_idx": {
+          "name": "daily_trends_date_idx",
+          "columns": [
+            "date"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
@@ -2552,6 +2613,65 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
+    "research_judge_logs": {
+      "name": "research_judge_logs",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "query": {
+          "name": "query",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "is_relevant": {
+          "name": "is_relevant",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "ai_features": {
+          "name": "ai_features",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "summary": {
+          "name": "summary",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "confidence_score": {
+          "name": "confidence_score",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
     "searches": {
       "name": "searches",
       "columns": {
@@ -3782,393 +3902,6 @@
           "onUpdate": "no action"
         }
       },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "research_files": {
-      "name": "research_files",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "owner": {
-          "name": "owner",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "repo": {
-          "name": "repo",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "filename": {
-          "name": "filename",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "filepath": {
-          "name": "filepath",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "extension": {
-          "name": "extension",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "size_bytes": {
-          "name": "size_bytes",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "analysis": {
-          "name": "analysis",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "(datetime('now'))"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false,
-          "default": "(datetime('now'))"
-        }
-      },
-      "indexes": {
-        "owner_repo_idx": {
-          "name": "owner_repo_idx",
-          "columns": [
-            "owner",
-            "repo"
-          ],
-          "isUnique": false
-        },
-        "filepath_idx": {
-          "name": "filepath_idx",
-          "columns": [
-            "filepath"
-          ],
-          "isUnique": false
-        },
-        "created_at_idx": {
-          "name": "created_at_idx",
-          "columns": [
-            "created_at"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "analysis_artifacts": {
-      "name": "analysis_artifacts",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "session_id": {
-          "name": "session_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "repo_id": {
-          "name": "repo_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "artifact_type": {
-          "name": "artifact_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "content": {
-          "name": "content",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "analysis_artifacts_session_id_research_sessions_id_fk": {
-          "name": "analysis_artifacts_session_id_research_sessions_id_fk",
-          "tableFrom": "analysis_artifacts",
-          "tableTo": "research_sessions",
-          "columnsFrom": [
-            "session_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "repo_scores": {
-      "name": "repo_scores",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "session_id": {
-          "name": "session_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "owner": {
-          "name": "owner",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "repo": {
-          "name": "repo",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "repo_id": {
-          "name": "repo_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "sample_score": {
-          "name": "sample_score",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "sample_reasoning": {
-          "name": "sample_reasoning",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "code_quality": {
-          "name": "code_quality",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "modularity": {
-          "name": "modularity",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "performance": {
-          "name": "performance",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "security": {
-          "name": "security",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "analysis_summary": {
-          "name": "analysis_summary",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "final_score": {
-          "name": "final_score",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "judge_reasoning": {
-          "name": "judge_reasoning",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "strengths": {
-          "name": "strengths",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "weaknesses": {
-          "name": "weaknesses",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "recommendation": {
-          "name": "recommendation",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "status": {
-          "name": "status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "repo_scores_session_id_research_sessions_id_fk": {
-          "name": "repo_scores_session_id_research_sessions_id_fk",
-          "tableFrom": "repo_scores",
-          "tableTo": "research_sessions",
-          "columnsFrom": [
-            "session_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "research_sessions": {
-      "name": "research_sessions",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "mode": {
-          "name": "mode",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "query": {
-          "name": "query",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "status": {
-          "name": "status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "started_at": {
-          "name": "started_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "completed_at": {
-          "name": "completed_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "error_message": {
-          "name": "error_message",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
