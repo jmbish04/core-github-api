@@ -4,7 +4,6 @@ import json
 import time
 import requests
 import base64
-import urllib.parse
 from datetime import datetime, timezone
 
 # --- CONFIGURATION ---
@@ -20,7 +19,8 @@ OUTPUT_FILE = os.path.join(ROOT_DIR, 'results.json')
 HEADERS = {
     'Authorization': f'Bearer {GITHUB_TOKEN}',
     'Accept': 'application/vnd.github+json',
-    'User-Agent': 'Cloudflare-Worker-Discovery-Bot/1.0'
+    'User-Agent': 'Cloudflare-Worker-Discovery-Bot/1.0',
+    'X-GitHub-Api-Version': '2022-11-28' # Best practice for GitHub API stability
 }
 
 # Tags to search for in package.json
@@ -34,7 +34,10 @@ TECH_SIGNATURES = {
 def analyze_stack(repo_name):
     """Enriches the repo by checking its package.json dependencies."""
     tags = []
-    url = f"https://api.github.com{repo_name}/contents/package.json"
+    
+    # 🐛 FIX 1: Added '/repos/' prefix for the contents API
+    url = f"https://api.github.com/repos/{repo_name}/contents/package.json"
+    
     try:
         res = requests.get(url, headers=HEADERS, timeout=5)
         if res.status_code == 200:
@@ -45,8 +48,9 @@ def analyze_stack(repo_name):
                 for pkg, label in sigs.items():
                     if any(pkg in k for k in all_deps):
                         tags.append(label)
-    except:
-        pass
+    except Exception:
+        pass # Silently fail if package.json doesn't exist to keep the loop moving
+        
     return list(set(tags)) if tags else ["Standard Worker"]
 
 def get_already_registered_repos():
@@ -67,12 +71,19 @@ def get_already_registered_repos():
 def search_broad_workers():
     """Searches for ANY valid worker config file using correct URL formatting."""
     
-    # 1. Define and Encode Query
-    raw_query = 'compatibility_date path:/(wrangler\\.jsonc|wrangler\\.toml)/'
-    encoded_query = urllib.parse.quote(raw_query)
+    # 🐛 FIX 2: Replaced regex with native GitHub boolean filename search for stability
+    raw_query = 'compatibility_date filename:wrangler.toml OR filename:wrangler.jsonc'
     
-    # 2. Correct URL Construction
-    url = f"https://api.github.com{encoded_query}&sort=indexed&order=desc&per_page=100"
+    # 🐛 FIX 3: Point to the actual /search/code endpoint explicitly
+    url = "https://api.github.com/search/code"
+    
+    # Let requests handle the urlencoding natively using the `params` dict
+    params = {
+        'q': raw_query,
+        'sort': 'indexed',
+        'order': 'desc',
+        'per_page': 100
+    }
     
     print(f"🌊 Casting wide net: {raw_query}")
     
@@ -80,7 +91,8 @@ def search_broad_workers():
     already_found = get_already_registered_repos()
     
     try:
-        res = requests.get(url, headers=HEADERS, timeout=30)
+        res = requests.get(url, headers=HEADERS, params=params, timeout=30)
+        
         if res.status_code != 200:
             print(f"❌ Error: {res.status_code} - {res.text}")
             return []
@@ -104,15 +116,20 @@ def search_broad_workers():
             
             stack_tags = analyze_stack(name)
             
+            # Handle edge cases where description returns `None`
+            description = repo.get('description')
+            if not description:
+                description = 'No description'
+            
             results.append({
                 "name": name,
                 "url": repo['html_url'],
-                "description": repo.get('description', 'No description'),
+                "description": description,
                 "detected_stack": stack_tags,
                 "config_file": item['name'],
                 "discovered_at": datetime.now(timezone.utc).isoformat()
             })
-            time.sleep(1) # Safety delay for secondary rate limits
+            time.sleep(1) # Crucial safety delay for secondary rate limits
 
         return results
 
@@ -122,11 +139,15 @@ def search_broad_workers():
 
 def main():
     if not GITHUB_TOKEN:
-        print("❌ Error: GITHUB_TOKEN not set")
+        print("❌ Error: GITHUB_TOKEN not set in environment.")
         return
 
     discoveries = search_broad_workers()
     
+    if not discoveries:
+        print("⚠️ No new discoveries made or error encountered.")
+        return
+        
     # Save to artifact file
     with open(OUTPUT_FILE, 'w', encoding='utf-8') as f:
         json.dump(discoveries, f, indent=2)
