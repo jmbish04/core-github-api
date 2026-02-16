@@ -1,13 +1,12 @@
 import { GoogleGenAI } from "@google/genai";
 
-import { env } from "process";
 import { getAIGatewayUrl } from "../utils/ai-gateway";
 
 // Extended Env to include Gemini secrets and optional model config
 type GeminiEnv = Env;
 
 // Default Configuration
-export const DEFAULT_GEMINI_MODEL = env.GEMINI_MODEL || "gemini-2.5-pro";
+export const DEFAULT_GEMINI_MODEL = "gemini-2.5-pro";
 
 /**
  * Initialize Gemini Client using Cloudflare AI Gateway
