@@ -11,15 +11,15 @@ import { getAgentByName } from 'agents'
 // 'app' is the Hono app that handles all our API routes
 import { app, Bindings } from "@utils/hono";
 import { logSecretStatus } from "@utils/debug-secrets";
-import { GitHubWorkerRPC } from "@/rpc";
+import { GitHubWorkerRPC } from "@/routes/rpc";
 import { convertOpenAPIToYAML, buildCompleteOpenAPIDocument } from "@utils/openapi";
-import { MCP_TOOLS, getToolStats, getTool, MCPExecuteRequest, TOOL_ROUTES, serializeTools } from "@/mcp/tools";
+import { MCP_TOOLS, getToolStats, getTool, MCPExecuteRequest, TOOL_ROUTES, serializeTools } from "@/ai/mcp/tools";
 import { getDb, schema } from "@db";
 import { eq, and, desc } from 'drizzle-orm'
 
 // Import routes
-import octokitApi from "@/octokit";
-import toolsApi from "@/tools";
+import octokitApi from "@/services/octokit";
+import toolsApi from "@/ai/mcp/tools/github/index";
 import agentsApi from "@/routes/api/agents";
 import retrofitApi from "@/retrofit";
 import flowsApi from "@/flows";
@@ -41,6 +41,10 @@ import browserRender from "@services/browser_render";
 import authApi from "@/routes/auth";
 import julesApi from "@/routes/api/jules";
 import dailyTrendsApi from "@/routes/daily-trends";
+import ghActionsApi from "@/routes/api/gh-actions";
+import standardsApi from "@/routes/api/standards";
+import invokeApi from "@/routes/api/jules/invoke";
+import trendingReposApi from "@/routes/api/trending-repos";
 import { sendEmail } from "@utils/email";
 
 
@@ -519,6 +523,10 @@ sharedApi.route('/settings', settingsApi)
 sharedApi.route('/research', research)
 sharedApi.route('/jules', julesApi)
 sharedApi.route('/daily-trends', dailyTrendsApi)
+sharedApi.route('/', ghActionsApi)
+sharedApi.route('/actions/daily-trends', trendingReposApi)
+sharedApi.route('/standards', standardsApi)
+sharedApi.route('/jules/invoke', invokeApi)
 
 
 // Mount browser-render BEFORE sharedApi to avoid shadowing if sharedApi captures /api base
@@ -545,32 +553,31 @@ async function handleQueue(batch: MessageBatch<any>, env: Env): Promise<void> {
 
 // --- 7. Export Handlers ---
 import { HealthCoordinator } from "@/health/coordinator";
-import { getOctokit } from "@/octokit/core";
+import { getOctokit } from "@/services/octokit/core";
 
 
 // Helper to re-export Durable Objects
-export { OrchestratorAgent } from "@agents/orchestrator";
+export { OrchestratorAgent } from "@/ai/agents/Orchestrator";
 export { RetrofitAgent } from "@/retrofit/RetrofitAgent";
 export { RoomDO } from "@/do/RoomDO";
-export { GeminiAgent } from "@agents/gemini";
-export { PlannerAgent } from "@agents/planner";
-export { RepoAgent } from "@agents/repo";
-export { OwnerAgent } from "@agents/OwnerAgent";
-export { Supervisor } from "@/objects/Supervisor";
-export { DeepReasoningAgent } from "@agents/deep-reasoning";
-export { DataProcessor } from "@/do/DataProcessor";
-export { GithubSearchWorkflow } from "@/workflows/search";
-export { DeepResearchWorkflow } from "@/workflows/DeepResearchWorkflow";
+export { PlannerAgent } from "@/ai/agents/Planner";
+export { RepoAgent } from "@/ai/agents/github/Repo";
+export { OwnerAgent } from "@/ai/agents/github/Owner";
+export { Supervisor } from "@/ai/agents/Supervisor";
+export { DeepReasoningAgent } from "@/ai/agents/DeepReasoning";
+// export { DataProcessor } from "@/do/DataProcessor";
+export { GeminiAgent } from "@/ai/agents/Gemini";
+export { GithubSearchWorkflow, DeepResearchWorkflow, TopicResearchWorkflow } from "@/workflows";
+
 // Research Agents (Topic Research)
-export { TopicOrchestratorAgent } from "./agents/TopicOrchestratorAgent";
-export { WebSearchAgent } from "./agents/WebSearchAgent";
-export { JudgeAgent } from "./agents/JudgeAgent";
-export { ReportingAgent } from "./agents/ReportingAgent";
-export { TopicResearchWorkflow } from "./workflows/TopicResearchWorkflow";
+export { TopicOrchestratorAgent } from "./ai/agents/TopicOrchestrator";
+export { WebSearchAgent } from "./ai/agents/WebSearch";
+export { JudgeAgent } from "./ai/agents/Judge";
+export { ReportingAgent } from "./ai/agents/Reporting";
 
 // Existing Exports
-export { ResearchAgent } from "@/agents/ResearchAgent";
-export { JulesOverseer } from "@/agents/JulesOverseer";
+export { ResearchAgent } from "@/ai/agents/Research";
+export { JulesOverseer } from "@/ai/agents/JulesOverseer";
 
 
 // Sandbox SDK — the Sandbox Durable Object class is provided by the SDK
@@ -721,11 +728,12 @@ async function handleScheduled(event: ScheduledController, env: Env, ctx: Execut
   }
 
   
-  // Existing scheduled tasks...
-  // Health checks, cleanup, etc.
-  // Run health checks
-  const healthService = new HealthCoordinator(env);
-  ctx.waitUntil(healthService.runAllChecks('scheduled'));
+  // Weekly Health Suite (Sundays 3:00 AM UTC)
+  if (event.cron === '0 3 * * 0') {
+    console.log('[Scheduled] Starting weekly health suite...');
+    const healthService = new HealthCoordinator(env);
+    ctx.waitUntil(healthService.runAllChecks('scheduled'));
+  }
   
   // Daily Discovery: Research trending repositories
   ctx.waitUntil((async () => {
