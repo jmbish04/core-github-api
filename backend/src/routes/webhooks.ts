@@ -30,6 +30,19 @@ import { JULES_STANDARDS } from "@/config/jules-standards"
 import { JulesService } from "@/services/jules"
 import { StandardizationService } from "@/services/standardization"
 import { generateUuid } from "@/utils/common"
+import { summarizeWebhookPayload } from "@/utils/webhook-summary"
+import {
+  detectPRAuthorAgent,
+  isCodeReviewBot,
+  formatAgentFixComment,
+  type ExtractedReviewComment,
+} from "@/services/pr-agent-tagger"
+import {
+  fetchBuildLogs,
+  inferWorkerName,
+  analyzeBuildFailure,
+  formatBuildFailureComment,
+} from "@/services/build-failure-analyzer"
 
 export async function webhookHandler(c: Context<{ Bindings: Env }>): Promise<Response> {
   const deliveryId = c.req.header('x-github-delivery')
@@ -224,10 +237,12 @@ export async function webhookHandler(c: Context<{ Bindings: Env }>): Promise<Res
       delivery_id: deliveryId,
       event: eventName,
       action: action || null,
+      repo_full_name: repoFullName || null,
       signature_sha256: signature,
       user_agent: userAgent || null,
       content_type: contentType || null,
       payload: payload, // Store full payload in metadata table too
+      summary_payload: summarizeWebhookPayload(payload),
       hook_id: hookId ? parseInt(hookId) : null,
       installation_id: installationTargetId ? parseInt(installationTargetId) : null,
        installation_type: installationTargetType || null,
@@ -276,6 +291,88 @@ export async function webhookHandler(c: Context<{ Bindings: Env }>): Promise<Res
         })
         break;
       case 'check_run':
+        // === Build Failure Analysis: Detect CF build failures and post agent-targeted fix ===
+        if (payload.action === 'completed' && payload.check_run?.conclusion === 'failure') {
+          c.executionCtx.waitUntil(
+            (async () => {
+              try {
+                const checkRun = payload.check_run;
+                const prList = checkRun?.pull_requests || [];
+                if (prList.length === 0 || !payload.repository || !payload.installation?.id) return;
+
+                // Check if this is a Cloudflare-related check
+                const checkName = (checkRun?.name || '').toLowerCase();
+                const appName = (checkRun?.app?.name || '').toLowerCase();
+                const isCloudflareCheck =
+                  checkName.includes('cloudflare') ||
+                  checkName.includes('deploy') ||
+                  checkName.includes('wrangler') ||
+                  appName.includes('cloudflare') ||
+                  appName.includes('workers');
+
+                if (!isCloudflareCheck) return;
+
+                console.log(`[BuildAnalyzer] Cloudflare build failure detected for check ${checkRun?.id}`);
+
+                const prNumber = prList[0]?.number;
+                if (!prNumber) return;
+
+                // Detect the PR author agent
+                const app = new App({ appId: appId!, privateKey: privateKey! });
+                const octokit = withCompatOctokit(await app.getInstallationOctokit(payload.installation.id));
+
+                const prRes = await octokit.rest.pulls.get({
+                  owner: payload.repository.owner?.login,
+                  repo: payload.repository.name,
+                  pull_number: prNumber,
+                });
+
+                const agentInfo = detectPRAuthorAgent({
+                  headRef: prRes.data.head?.ref,
+                  body: prRes.data.body,
+                  authorLogin: prRes.data.user?.login,
+                });
+
+                if (!agentInfo) {
+                  console.log(`[BuildAnalyzer] No agent detected for PR #${prNumber}, skipping.`);
+                  return;
+                }
+
+                // Fetch build logs
+                const workerName = inferWorkerName(payload.repository.full_name || payload.repository.name);
+                const logs = await fetchBuildLogs(c.env, workerName);
+
+                if (!logs) {
+                  console.warn(`[BuildAnalyzer] Could not fetch build logs for ${workerName}`);
+                  return;
+                }
+
+                // Analyze with Worker AI
+                const analysis = await analyzeBuildFailure(c.env, logs, {
+                  prNumber,
+                  prTitle: prRes.data.title,
+                  headRef: prRes.data.head?.ref || '',
+                  repoFullName: payload.repository.full_name || `${payload.repository.owner?.login}/${payload.repository.name}`,
+                });
+
+                // Post comment
+                const commentBody = formatBuildFailureComment(agentInfo.tag, prNumber, analysis);
+
+                await octokit.rest.issues.createComment({
+                  owner: payload.repository.owner?.login,
+                  repo: payload.repository.name,
+                  issue_number: prNumber,
+                  body: commentBody,
+                });
+
+                console.log(`[BuildAnalyzer] Posted ${agentInfo.tag} build failure analysis on PR #${prNumber}`);
+              } catch (error) {
+                console.error('[BuildAnalyzer] Failed to analyze build failure:', error);
+              }
+            })()
+          );
+        }
+
         await insertPayload(eventTables.checkRun, {
           check_run_id: payload.check_run?.id,
           head_sha: payload.check_run?.head_sha,
@@ -571,6 +668,72 @@ export async function webhookHandler(c: Context<{ Bindings: Env }>): Promise<Res
         })
         break;
       case 'pull_request_review':
+        // === Agent Tagging: When a bot submits a review, tag the PR author agent ===
+        if (payload.action === 'submitted' && payload.review?.user?.login) {
+          const reviewerLogin = payload.review.user.login;
+          if (isCodeReviewBot(reviewerLogin)) {
+            c.executionCtx.waitUntil(
+              (async () => {
+                try {
+                  const prData = payload.pull_request;
+                  if (!prData || !payload.repository || !payload.installation?.id) return;
+
+                  const agentInfo = detectPRAuthorAgent({
+                    headRef: prData.head?.ref,
+                    body: prData.body,
+                    authorLogin: prData.user?.login,
+                  });
+
+                  if (!agentInfo) {
+                    console.log(`[AgentTagger] No agent detected for PR #${prData.number}, skipping.`);
+                    return;
+                  }
+
+                  // Fetch code review comments for this PR
+                  const app = new App({ appId: appId!, privateKey: privateKey! });
+                  const octokit = withCompatOctokit(await app.getInstallationOctokit(payload.installation.id));
+
+                  const reviewCommentsRes = await octokit.rest.pulls.listReviewComments({
+                    owner: payload.repository.owner?.login,
+                    repo: payload.repository.name,
+                    pull_number: prData.number,
+                    per_page: 100,
+                  });
+
+                  // Filter to comments from the reviewing bot
+                  const botComments: ExtractedReviewComment[] = reviewCommentsRes.data
+                    .filter((c: any) => c.user?.login === reviewerLogin)
+                    .map((c: any) => ({
+                      path: c.path || '',
+                      line: c.line || c.original_line || null,
+                      body: c.body || '',
+                      diff_hunk: c.diff_hunk,
+                      suggestion: c.body?.match(/```suggestion\n([\s\S]*?)\n```/)?.[1] || undefined,
+                    }));
+
+                  if (botComments.length === 0) {
+                    console.log(`[AgentTagger] No bot comments found for PR #${prData.number}`);
+                    return;
+                  }
+
+                  const commentBody = formatAgentFixComment(agentInfo.tag, prData.number, botComments);
+
+                  await octokit.rest.issues.createComment({
+                    owner: payload.repository.owner?.login,
+                    repo: payload.repository.name,
+                    issue_number: prData.number,
+                    body: commentBody,
+                  });
+
+                  console.log(`[AgentTagger] Posted ${agentInfo.tag} fix comment on PR #${prData.number} with ${botComments.length} comments`);
+                } catch (error) {
+                  console.error('[AgentTagger] Failed to process review:', error);
+                }
+              })()
+            );
+          }
+        }
+
         await insertPayload(eventTables.pullRequestReview, {
           review_id: payload.review?.id,
           pr_number: payload.pull_request?.number,

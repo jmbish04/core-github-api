@@ -51,8 +51,9 @@ function App() {
             <Route path="/" element={<Home />} />
             <Route path="/docs" element={<Docs />} />
             <Route path="/health" element={guard(<Health />)} />
-            <Route path="/tools" element={guard(<ToolsPage />)} />
-            <Route path="/settings" element={guard(<SettingsPage />)} />
+            {/* Global Tools Route with Optional Tab Parameter */}
+            <Route path="/tools/:tool_name?" element={guard(<ToolsPage />)} />
+            <Route path="/settings" element={<Navigate to="/control-center/settings/general" replace />} />
 
             <Route path="/workflows" element={<WorkflowsLanding />} />
             <Route path="/workflows/new" element={<WorkflowNew />} />
@@ -71,6 +72,7 @@ function App() {
             <Route path="/dashboard" element={guard(<Navigate to="/control-center/dashboard" replace />)} />
             <Route path="/projects" element={guard(<Navigate to="/control-center/projects" replace />)} />
             <Route path="/projects/:username/:repo_name" element={guard(<ProjectDashboard />)} />
+            <Route path="/projects/:username/:repo_name/:tab" element={guard(<ProjectDashboard />)} />
 
             <Route path="/control-center" element={guard(<Navigate to="/control-center/dashboard" replace />)} />
             <Route path="/control-center/dashboard" element={guard(<Dashboard />)} />
@@ -88,7 +90,8 @@ function App() {
             <Route path="/control-center/roadmap" element={guard(<Roadmap />)} />
             <Route path="/control-center/webhooks" element={guard(<Webhooks />)} />
             <Route path="/control-center/todos" element={guard(<Todo />)} />
-            <Route path="/control-center/settings" element={guard(<SettingsPage />)} />
+            <Route path="/control-center/settings" element={guard(<Navigate to="/control-center/settings/general" replace />)} />
+            <Route path="/control-center/settings/:tab" element={guard(<SettingsPage />)} />
             <Route path="/control-center/standardization" element={guard(<Standardization />)} />
             <Route path="/apps" element={guard(<AppStore />)} />
 
@@ -98,8 +101,11 @@ function App() {
             <Route path="/project/:owner/:repo/chat" element={guard(<Chat />)} />
             <Route path="/project/:owner/:repo/roadmap" element={guard(<Roadmap />)} />
             <Route path="/project/:owner/:repo/pr-center" element={guard(<PRCommandCenter />)} />
-            <Route path="/project/:owner/:repo/settings" element={guard(<SettingsPage />)} />
+            <Route path="/project/:owner/:repo/settings" element={guard(<Navigate to="/control-center/settings/general" replace />)} />
             <Route path="/project/:owner/:repo/icebox" element={guard(<Todo />)} />
+            <Route path="/project/:owner/:repo/tools/:tool_name?" element={guard(<ToolsPage />)} />
+            {/* Dashboard tab catch-all (must be AFTER specific routes) */}
+            <Route path="/project/:owner/:repo/:tab" element={guard(<ProjectDashboard />)} />
 
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>

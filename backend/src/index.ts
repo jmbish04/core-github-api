@@ -536,6 +536,7 @@ app.get('/ws', async (c) => {
 
 import todosApi from "@/routes/api/todos";
 import projectsApi from "@/routes/api/projects";
+import prOverviewApi from "@/routes/api/pr-overview";
 
 // Optional: Add swagger UI (points to the new 3.1.0 JSON spec)
 app.get('/doc', swaggerUI({ url: '/openapi.json' }))
@@ -608,6 +609,7 @@ sharedApi.route('/', ghActionsApi)
 sharedApi.route('/actions/daily-trends', trendingReposApi)
 sharedApi.route('/standards', standardsApi)
 sharedApi.route('/appstore', appstoreApi)
+sharedApi.route('/', prOverviewApi)
 // Mount browser-render BEFORE sharedApi to avoid shadowing if sharedApi captures /api base
 app.route('/api/browser-render', browserRender)
 
@@ -639,7 +641,8 @@ const eagerApi = new OpenAPIHono<{ Bindings: Env }>()
   .route('/', ghActionsApi)
   .route('/actions/daily-trends', trendingReposApi)
   .route('/standards', standardsApi)
-  .route('/appstore', appstoreApi);
+  .route('/appstore', appstoreApi)
+  .route('/', prOverviewApi);
 
 export type AppType = typeof eagerApi
   & { '/octokit': typeof octokitApi }
