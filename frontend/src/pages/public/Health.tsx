@@ -5,8 +5,9 @@ import { useAuth } from '@/context/auth-context';
 import {
     Loader2, CheckCircle2, XCircle, AlertCircle, Play, Activity,
     Server, Cpu, Brain, GitBranch, Globe, Settings2, History,
-    ChevronDown, ChevronRight, Zap, Shield, Copy,
+    ChevronDown, ChevronRight, Zap, Shield, Copy, Check,
 } from 'lucide-react';
+import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 
@@ -249,6 +250,7 @@ export default function HealthPage() {
     const [lastRun, setLastRun] = useState<RunWithResults | null>(null);
     const [history, setHistory] = useState<RunWithResults[]>([]);
     const [error, setError] = useState<string | null>(null);
+    const { isCopied: reportCopied, copy: copyReport } = useCopyToClipboard();
 
     const headers = useMemo(() => {
         const h: Record<string, string> = {};
@@ -402,12 +404,11 @@ export default function HealthPage() {
                                         `- [${r.status.toUpperCase()}] ${r.category}/${r.name}: ${r.message || 'OK'}`
                                     )
                                 ].join('\n');
-                                navigator.clipboard.writeText(report);
-                                alert("Report copied to clipboard!"); 
+                                copyReport(report);
                             }}
                         >
-                            <Copy className="mr-2 h-4 w-4" />
-                            Copy Report
+                            {reportCopied ? <Check className="mr-2 h-4 w-4 text-green-500" /> : <Copy className="mr-2 h-4 w-4" />}
+                            {reportCopied ? 'Copied!' : 'Copy Report'}
                         </Button>
                     )}
                     <Button

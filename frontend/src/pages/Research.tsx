@@ -3,7 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, Play, CheckCircle2, XCircle, Copy } from "lucide-react";
+import { Loader2, Play, CheckCircle2, XCircle, Copy, Check } from "lucide-react";
+import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { Streamdown } from "streamdown";
 
 
@@ -29,6 +30,7 @@ export default function Research() {
   const [results, setResults] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const consoleRef = useRef<HTMLDivElement>(null);
+  const { isCopied: resultsCopied, copy: copyToClipboard } = useCopyToClipboard();
   const eventSourceRef = useRef<EventSource | null>(null);
 
   // Auto-scroll console to bottom
@@ -161,7 +163,7 @@ export default function Research() {
 
   const copyResults = () => {
     if (results) {
-      navigator.clipboard.writeText(JSON.stringify(results, null, 2));
+      copyToClipboard(JSON.stringify(results, null, 2));
       addConsoleMessage("info", "Results copied to clipboard", "📋");
     }
   };
@@ -258,8 +260,8 @@ export default function Research() {
                 <CardDescription>AI-generated insights and statistics</CardDescription>
               </div>
               <Button variant="outline" size="sm" onClick={copyResults}>
-                <Copy className="mr-2 h-4 w-4" />
-                Copy JSON
+                {resultsCopied ? <Check className="mr-2 h-4 w-4 text-green-500" /> : <Copy className="mr-2 h-4 w-4" />}
+                {resultsCopied ? 'Copied!' : 'Copy JSON'}
               </Button>
             </div>
           </CardHeader>

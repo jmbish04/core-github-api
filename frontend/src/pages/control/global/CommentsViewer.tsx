@@ -3,7 +3,8 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Sidebar } from "@/components/navigation/Sidebar";
-import { FiCopy, FiDownload, FiMessageSquare, FiGithub, FiArrowLeft } from "react-icons/fi";
+import { FiCopy, FiDownload, FiMessageSquare, FiGithub, FiArrowLeft, FiCheck } from "react-icons/fi";
+import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 
 // Types matching the backend response
 type ExtractedComment = {
@@ -30,6 +31,7 @@ export default function CommentsViewerPage() {
     const [comments, setComments] = useState<ExtractedComment[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const { isCopied, copy } = useCopyToClipboard();
 
     useEffect(() => {
         const fetchComments = async () => {
@@ -85,7 +87,7 @@ export default function CommentsViewerPage() {
         const text = comments.map(c =>
             `[${c.path}:${c.line}] ${c.user.login}: ${c.body}`
         ).join('\n---\n');
-        navigator.clipboard.writeText(text);
+        copy(text);
     };
 
     const handleDownload = () => {
@@ -140,7 +142,8 @@ export default function CommentsViewerPage() {
 
                         <div className="flex gap-2">
                             <Button variant="outline" onClick={handleCopy}>
-                                <FiCopy className="mr-2" /> Copy All
+                                {isCopied ? <FiCheck className="mr-2 text-green-500" /> : <FiCopy className="mr-2" />}
+                                {isCopied ? 'Copied!' : 'Copy All'}
                             </Button>
                             <Button variant="outline" onClick={handleDownload}>
                                 <FiDownload className="mr-2" /> JSON
