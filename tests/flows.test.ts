@@ -15,7 +15,7 @@ describe('Flows API', () => {
 
   describe('Workflow Templates', () => {
     it('should have PR comment extractor workflow template', async () => {
-      const { DEFAULT_WORKFLOWS } = await import('../src/flows/workflowTemplates')
+      const { DEFAULT_WORKFLOWS } = await import('../backend/src/flows/workflowTemplates')
 
       const prWorkflow = DEFAULT_WORKFLOWS.find((w) =>
         w.path.includes('pr-comment-extractor')
@@ -28,7 +28,7 @@ describe('Flows API', () => {
     })
 
     it('should have Cloudflare deploy workflow template', async () => {
-      const { DEFAULT_WORKFLOWS } = await import('../src/flows/workflowTemplates')
+      const { DEFAULT_WORKFLOWS } = await import('../backend/src/flows/workflowTemplates')
 
       const deployWorkflow = DEFAULT_WORKFLOWS.find((w) =>
         w.path.includes('deploy-worker')
@@ -42,7 +42,7 @@ describe('Flows API', () => {
     })
 
     it('should have Auto-Apply Gemini workflow template', async () => {
-      const { DEFAULT_WORKFLOWS } = await import('../src/flows/workflowTemplates')
+      const { DEFAULT_WORKFLOWS } = await import('../backend/src/flows/workflowTemplates')
 
       const geminiWorkflow = DEFAULT_WORKFLOWS.find((w) =>
         w.path.includes('auto-apply-gemini')
@@ -56,7 +56,7 @@ describe('Flows API', () => {
     })
 
     it('should detect wrangler config files correctly', async () => {
-      const { shouldIncludeCloudflareWorkflow } = await import('../src/flows/workflowTemplates')
+      const { shouldIncludeCloudflareWorkflow } = await import('../backend/src/flows/workflowTemplates')
 
       expect(shouldIncludeCloudflareWorkflow(['wrangler.toml', 'package.json'])).toBe(true)
       expect(shouldIncludeCloudflareWorkflow(['wrangler.jsonc', 'README.md'])).toBe(true)

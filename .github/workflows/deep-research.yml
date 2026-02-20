@@ -1,0 +1,94 @@
+name: Deep Research Agent
+on:
+  repository_dispatch:
+    types: [deep-research]
+
+jobs:
+  agent:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install openai requests pygithub
+
+      - name: Run Research Agent
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PAYLOAD: ${{ toJSON(github.event.client_payload) }}
+          
+          # GitHub & Worker Auth
+          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CF_GATEWAY_ID: ${{ secrets.CLOUDFLARE_GATEWAY_ID }}
+          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_AI_GATEWAY_TOKEN }}
+          WORKER_API_URL: ${{ secrets.WORKER_API_URL_BASE }}
+          WORKER_API_KEY: ${{ secrets.WORKER_API_KEY }}
+
+        run: |
+          cat <<EOF > agent.py
+          import os
+          import json
+          import requests
+          from github import Github
+          from openai import OpenAI
+
+          def research():
+              payload = json.loads(os.environ["PAYLOAD"])
+              query = payload.get("query")
+              callback = payload.get("callback_url")
+              
+              client = OpenAI()
+              g = Github(os.environ["GITHUB_TOKEN"])
+
+              print(f"Researching: {query}")
+
+              # 1. AI Planning: Generate GitHub Search Queries
+              plan = client.chat.completions.create(
+                  model="gpt-4o",
+                  messages=[
+                      {"role": "system", "content": "You are a GitHub Research Agent. Convert the user request into 3 specific GitHub search queries. Return JSON array of strings."},
+                      {"role": "user", "content": query}
+                  ],
+                  response_format={"type": "json_object"}
+              )
+              search_queries = json.loads(plan.choices[0].message.content).get("queries", [])
+
+              # 2. Execution
+              findings = []
+              for q in search_queries:
+                  print(f"Executing search: {q}")
+                  repos = g.search_repositories(q, sort="stars", order="desc")
+                  for repo in repos[:3]: # Top 3 per query
+                      try:
+                          readme = repo.get_readme().decoded_content.decode("utf-8")[:2000] # First 2k chars
+                      except:
+                          readme = "No README available"
+                      
+                      findings.append({
+                          "name": repo.full_name,
+                          "url": repo.html_url,
+                          "stars": repo.stargazers_count,
+                          "readme_snippet": readme
+                      })
+
+              # 3. Synthesis
+              report = client.chat.completions.create(
+                  model="gpt-4o",
+                  messages=[
+                      {"role": "system", "content": "Summarize these GitHub repositories based on the user's research goal."},
+                      {"role": "user", "content": f"Goal: {query}\n\nData: {json.dumps(findings)}"}
+                  ]
+              )
+
+              # 4. Callback
+              requests.post(callback, json={
+                  "query": query,
+                  "summary": report.choices[0].message.content,
+                  "repos": [f["url"] for f in findings]
+              }, headers={"X-API-Key": os.environ["WORKER_API_KEY"]})
+
+          if __name__ == "__main__":
+              research()
+          EOF
+          python agent.py

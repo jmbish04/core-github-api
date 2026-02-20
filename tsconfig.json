@@ -3,14 +3,51 @@
     "target": "esnext",
     "module": "esnext",
     "moduleResolution": "bundler",
-    "lib": ["esnext", "dom"],
+    "lib": [
+      "esnext",
+      "dom",
+      "WebWorker"
+    ],
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "outDir": "dist",
-    "types": ["node"]
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["backend/src/*"],
+      "@db": ["backend/src/db/index.ts"],
+      "@db/*": ["backend/src/db/*"],
+      "@agents/*": ["backend/src/ai/agents/*"],
+      "@utils/*": ["backend/src/utils/*"],
+      "@services/*": ["backend/src/services/*"],
+      "@custom-types/*": ["backend/src/types/*"],
+      "@logging": ["backend/src/lib/logger.ts"],
+      "@agent-sdk": ["backend/src/ai/agent-sdk.ts"],
+      "@budget": ["backend/src/ai/utils/budget-tracker.ts"],
+      "@model-config": ["backend/src/ai/utils/model-config.ts"],
+      "@sandbox-sdk-tools": ["backend/src/ai/mcp/tools/sandbox-sdk/index.ts"],
+      "@sandbox-sdk-tools/*": ["backend/src/ai/mcp/tools/sandbox-sdk/*"],
+      "@ai-config": ["backend/src/ai/ai-config.ts"],
+      "@agent-utils": ["backend/src/ai/agent-utils.ts"],
+      "@health-check": ["backend/src/health/health-check.ts"],
+    },
+    "types": [
+      "node",
+      "@cloudflare/workers-types",
+      "./worker-configuration.d.ts"
+    ]
   },
-  "include": ["src", "tests", "worker-configuration.d.ts"],
-  "exclude": ["node_modules", "dist", "src/examples"]
+  "include": [
+    "backend/src/**/*.ts",
+    "worker-configuration.d.ts",
+    "tests",
+    "scripts/github/extract_pr_code_comments.ts",
+    "landing-generator"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "backend/src/examples"
+  ]
 }

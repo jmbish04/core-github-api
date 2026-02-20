@@ -169,7 +169,7 @@ export class BlueprintGenerator {
     };
   }
 
-  private static generateRoadmap() {
+  private static generateRoadmap(analysis: WorkerAnalysis) {
     return {
       title: 'Roadmap',
       milestones: [
@@ -207,7 +207,7 @@ export class BlueprintGenerator {
     };
   }
 
-  private static generateCTA() {
+  private static generateCTA(analysis: WorkerAnalysis) {
     return {
       tagline: 'Ready to transform your GitHub workflow?',
       buttons: [
