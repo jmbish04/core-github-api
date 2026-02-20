@@ -1,9 +1,13 @@
+
 import { eq, inArray, or, sql } from "drizzle-orm";
-import { getDb } from "../db";
-import { projects } from "../db/schemas/projects/roadmap";
-import { repositories } from "../db/schemas/github/repos";
-import { getOctokit } from "./octokit/core";
-import type { Bindings } from "../utils/hono";
+import { getDb } from "@db";
+import { projects } from "@db/schemas/projects/roadmap";
+import { repositories } from "@db/schemas/github/repos";
+import { Octokit } from "octokit";
+import { getGithubConfigs } from "@github-utils";
+import { getOctokit } from "@services/octokit/core";
+import type { Bindings } from "@utils/hono";
+import { generateUuid } from "@/utils/common";
 
 type RepoVisibility = "public" | "private" | "internal";
 
@@ -273,8 +277,8 @@ function splitFullName(fullName?: string | null): { owner?: string; name?: strin
 }
 
 export function resolveGitHubOwner(env: Env, owner?: string): string {
-  const configuredOwner = (env as Bindings & { GITHUB_OWNER?: string }).GITHUB_OWNER;
-  const resolved = owner || configuredOwner || "jmbish04";
+  const config = getGithubConfigs(env);
+  const resolved = owner || config.owner;
   return resolved.trim();
 }
 
@@ -695,7 +699,7 @@ export async function syncOwnerRepositories(
     const projectsToCreate = syncRows
       .filter((row) => !existingRepoIds.has(row.id))
       .map((row) => ({
-        id: crypto.randomUUID(),
+        id: generateUuid(),
         repoId: row.id,
         name: row.name,
         description: row.description || null,

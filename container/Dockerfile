@@ -1,11 +1,22 @@
 # container/Dockerfile
+
+# =====================================================================================
+# 🛑 CRITICAL VERSION SYNCHRONIZATION REQUIREMENT 🛑
+# Always match the Docker image version to your npm package version (`@cloudflare/sandbox`). 
+#
+# Why this matters: The SDK automatically checks version compatibility on startup. 
+# Mismatched versions WILL cause features to break or behave unexpectedly (e.g., 
+# 500 Internal Server Error when executing commands). If you upgrade the SDK in 
+# package.json, you MUST upgrade ALL base image tags below to the exact same version.
+# =====================================================================================
+
 # Multi-variant sandbox image with JS/TS, Python, and OpenCode capabilities
 # All three cloudflare/sandbox base images are layered into a single image.
 
-FROM docker.io/cloudflare/sandbox:0.7.0-python AS python-stage
-FROM docker.io/cloudflare/sandbox:0.7.0-opencode AS opencode-stage
+FROM docker.io/cloudflare/sandbox:0.7.4-python AS python-stage
+FROM docker.io/cloudflare/sandbox:0.7.4-opencode AS opencode-stage
 
-FROM docker.io/cloudflare/sandbox:0.7.0
+FROM docker.io/cloudflare/sandbox:0.7.4
 
 # --- Merge Python variant assets ---
 # Python 3.11 + pip + venv + pre-installed data-science packages
@@ -17,9 +28,8 @@ COPY --from=python-stage /usr/local/bin/ipython* /usr/local/bin/
 
 # --- Merge OpenCode variant assets ---
 # OpenCode CLI for AI-powered coding agents
-COPY --from=opencode-stage /root/.opencode /tmp/opencode
-RUN mv /tmp/opencode /root/.opencode
-ENV PATH="/root/.opencode/bin:${PATH}"
+COPY --from=opencode-stage /usr/local/lib/node_modules/opencode-ai /usr/local/lib/node_modules/opencode-ai
+RUN ln -s /usr/local/lib/node_modules/opencode-ai/bin/opencode /usr/local/bin/opencode
 
 # --- Install additional system dependencies ---
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -58,5 +68,5 @@ EXPOSE 8788
 EXPOSE 8080
 
 # --- Use sandbox entrypoint ---
-# The /sandbox binary starts the HTTP API server that enables SDK communication.
-ENTRYPOINT ["/sandbox"]
+# The Sandbox binary starts the HTTP API server that enables SDK communication.
+ENTRYPOINT ["/container-server/sandbox"]

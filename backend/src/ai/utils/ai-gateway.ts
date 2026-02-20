@@ -24,16 +24,27 @@ interface GatewayOptions {
  * 1. Base URL (for SDKs): getAIGatewayUrl(env, { provider: 'openai' })
  * 2. Full URL (for fetch): getAIGatewayUrl(env, { provider: 'google-ai-studio', modelName: 'gemini-1.5-pro', apiVersion: 'v1beta' })
  */
-export function getAIGatewayUrl(
+export async function getAIGatewayUrl(
     env: Env,
     options: GatewayOptions
-): string {
-    if (!env.CLOUDFLARE_ACCOUNT_ID) {
-        throw new Error("Missing CLOUDFLARE_ACCOUNT_ID in environment variables");
+): Promise<string> {
+    let accountId: string = '';
+    let gatewayName: string = '';
+    // Check if CLOUDFLARE_ACCOUNT_ID is available
+    try{
+      accountId = await env.CLOUDFLARE_ACCOUNT_ID.get();
+    }catch(e){
+      throw new Error(`Missing CLOUDFLARE_ACCOUNT_ID in environment variables; ${JSON.stringify(e)}`);
     }
 
-    const gatewayName = env.AI_GATEWAY_NAME || "ask-cloudflare-mcp";
-    const baseUrl = `https://gateway.ai.cloudflare.com/v1/${env.CLOUDFLARE_ACCOUNT_ID}/${gatewayName}/${options.provider}`;
+    // Check if AI_GATEWAY_NAME is available
+    try{
+      gatewayName = env.AI_GATEWAY_NAME;
+    }catch(e){
+      throw new Error(`Missing AI_GATEWAY_NAME in environment variables; ${JSON.stringify(e)}`);
+    }
+
+    const baseUrl = `https://gateway.ai.cloudflare.com/v1/${accountId}/${gatewayName}/${options.provider}`;
 
     // If no specific model/endpoint is requested, return the base SDK url
     if (!options.modelName) {
@@ -45,11 +56,12 @@ export function getAIGatewayUrl(
         case "openai":
             return `${baseUrl}/chat/completions`;
 
-        case "google-ai-studio":
+        case "google-ai-studio": {
             // Defaults to 'v1beta' if not provided
             const version = options.apiVersion || "v1beta";
             // Google REST API format: .../{version}/models/{model}:generateContent
             return `${baseUrl}/${version}/models/${options.modelName}:generateContent`;
+        }
 
         default:
             return baseUrl;

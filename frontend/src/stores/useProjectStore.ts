@@ -5,7 +5,7 @@ export interface Repository {
   id: number;
   owner: string;
   name: string;
-  full_name: string; // "jmbish04/repo-name"
+  full_name: string; // "env.GITHUB_OWNER/repo-name"
   description?: string;
 }
 

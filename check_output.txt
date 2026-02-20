@@ -1,0 +1,28 @@
+
+> cloudflare-worker-github-proxy@1.0.0 check /Volumes/Projects/workers/core-github-api
+> tsc --noEmit
+
+backend/src/ai/agents/base/orchestrator.ts(13,13): error TS2610: 'logger' is defined as an accessor in class 'BaseAgent<Env, BaseAgentState>', but is overridden here in 'BaseOrchestrator' as an instance property.
+backend/src/ai/agents/base/task_assignee.ts(12,13): error TS2610: 'logger' is defined as an accessor in class 'BaseAgent<Env, BaseAgentState>', but is overridden here in 'BaseTaskAssignee' as an instance property.
+backend/src/ai/agents/DeepReasoning.ts(39,13): error TS2610: 'logger' is defined as an accessor in class 'BaseAgent<Env, BaseAgentState>', but is overridden here in 'DeepReasoningAgent' as an instance property.
+backend/src/ai/agents/github/Repo.ts(184,50): error TS2339: Property 'get' does not exist on type 'string'.
+backend/src/ai/agents/Planner.ts(21,13): error TS2610: 'logger' is defined as an accessor in class 'BaseAgent<Env, BaseAgentState>', but is overridden here in 'PlannerAgent' as an instance property.
+backend/src/index.ts(127,53): error TS2339: Property 'get' does not exist on type 'string'.
+backend/src/index.ts(140,53): error TS2339: Property 'get' does not exist on type 'string'.
+backend/src/routes/api/jules/invoke.ts(60,24): error TS2339: Property 'get' does not exist on type 'never'.
+backend/src/routes/api/trending-repos.ts(14,53): error TS2339: Property 'get' does not exist on type 'string'.
+backend/src/routes/api/trending-repos.ts(51,55): error TS2339: Property 'get' does not exist on type 'string'.
+backend/src/routes/auth.ts(132,53): error TS2339: Property 'get' does not exist on type 'string'.
+backend/src/routes/webhooks.ts(60,52): error TS2339: Property 'get' does not exist on type 'string'.
+backend/src/services/github/secrets-manager.ts(45,45): error TS2339: Property 'rest' does not exist on type 'Promise<Octokit & { paginate: PaginateInterface; } & RestEndpointMethods & Api>'.
+backend/src/services/github/secrets-manager.ts(61,21): error TS2339: Property 'rest' does not exist on type 'Promise<Octokit & { paginate: PaginateInterface; } & RestEndpointMethods & Api>'.
+backend/src/services/proactive-intelligence.ts(151,49): error TS2339: Property 'get' does not exist on type 'string'.
+backend/src/services/standardization/agent-gen.ts(14,54): error TS2339: Property 'rest' does not exist on type 'Promise<Octokit & { paginate: PaginateInterface; } & RestEndpointMethods & Api>'.
+backend/src/services/standardization/agent-gen.ts(43,27): error TS2339: Property 'rest' does not exist on type 'Promise<Octokit & { paginate: PaginateInterface; } & RestEndpointMethods & Api>'.
+backend/src/services/standardization/agent-gen.ts(47,55): error TS2339: Property 'rest' does not exist on type 'Promise<Octokit & { paginate: PaginateInterface; } & RestEndpointMethods & Api>'.
+backend/src/services/standardization/agent-gen.ts(94,27): error TS2339: Property 'rest' does not exist on type 'Promise<Octokit & { paginate: PaginateInterface; } & RestEndpointMethods & Api>'.
+backend/src/services/standardization/mcp-sync.ts(19,44): error TS2339: Property 'rest' does not exist on type 'Promise<Octokit & { paginate: PaginateInterface; } & RestEndpointMethods & Api>'.
+backend/src/services/standardization/mcp-sync.ts(40,56): error TS2339: Property 'rest' does not exist on type 'Promise<Octokit & { paginate: PaginateInterface; } & RestEndpointMethods & Api>'.
+backend/src/services/standardization/mcp-sync.ts(61,27): error TS2339: Property 'rest' does not exist on type 'Promise<Octokit & { paginate: PaginateInterface; } & RestEndpointMethods & Api>'.
+backend/src/utils/secrets.ts(45,45): error TS2339: Property 'get' does not exist on type 'string'.
+ ELIFECYCLE  Command failed with exit code 2.

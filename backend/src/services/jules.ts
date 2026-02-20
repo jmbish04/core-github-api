@@ -143,6 +143,22 @@ export class JulesService {
   }
 
   /**
+   * Send a message to an active Jules Session
+   */
+  async sendMessage(sessionId: string, message: string) {
+      const session = await this.getSession(sessionId);
+      
+      // Attempt to invoke the underlying chat/message facility or gracefully error
+      if (typeof (session as any).sendMessage === "function") {
+          return await (session as any).sendMessage(message);
+      } else if (typeof (session as any).chat === "function") {
+          return await (session as any).chat(message);
+      } else {
+          console.warn(`[JulesService] Session Client does not expose sendMessage/chat. Defaulting fallback.`, sessionId);
+      }
+  }
+
+  /**
    * Wait for a specific state
    */
   async waitForState(sessionId: string, state: any) {

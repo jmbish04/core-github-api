@@ -1,4 +1,6 @@
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
+import { getGithubConfig } from '@utils/github/configs'
+import { generateUuid } from '@/utils/common';
 
 
 const app = new OpenAPIHono<{ Bindings: Env }>()
@@ -17,7 +19,8 @@ app.openapi(
     },
   }),
   async (c) => {
-    const clientId = await c.env.GITHUB_CLIENT_ID.get();
+    const { getGithubClientId, getGithubClientSecret, getWorkerApiKey } = await import("@utils/secrets");
+    const clientId = await getGithubClientId(c.env);
     if (!clientId) {
       return c.text('GITHUB_CLIENT_ID not configured', 500)
     }
@@ -27,7 +30,7 @@ app.openapi(
     
     // Store returnTo in state (simple JSON encoding)
     const stateObj = {
-        csrf: crypto.randomUUID(),
+        csrf: generateUuid(),
         returnTo
     };
     const state = btoa(JSON.stringify(stateObj));
@@ -69,10 +72,12 @@ app.openapi(
   async (c) => {
     const { code } = c.req.valid('query')
     
+    const { getGithubClientId, getGithubClientSecret, getWorkerApiKey } = await import("@utils/secrets");
+
     // Fetch secrets asynchronously
-    const clientId = await c.env.GITHUB_CLIENT_ID.get();
-    const clientSecret = await c.env.GITHUB_CLIENT_SECRET.get();
-    const allowedOwner = c.env.GITHUB_OWNER;
+    const clientId = await getGithubClientId(c.env);
+    const clientSecret = await getGithubClientSecret(c.env);
+    const allowedOwner = getGithubConfig(c.env, 'owner');
 
     if (!clientId || !clientSecret) {
       console.error('Missing OAuth configuration (Client ID or Secret)')
@@ -128,7 +133,7 @@ app.openapi(
     }
 
     // 4. Success - Redirect to Frontend with Worker API Key
-    const workerApiKey = await c.env.WORKER_API_KEY.get()
+    const workerApiKey = await getWorkerApiKey(c.env)
     if (!workerApiKey) {
         console.error('WORKER_API_KEY not configured in Secrets Store');
         return c.text('WORKER_API_KEY not configured', 500)

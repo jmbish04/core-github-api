@@ -2,7 +2,7 @@
  * Utilities for fetching and parsing Cloudflare documentation via llms.txt
  */
 
-import { BrowserService } from "../browser/browserRenderApi";
+import { BrowserService } from "@/ai/agents/tools/browser/browserRenderApi";
 
 export interface DocSection {
   title: string;

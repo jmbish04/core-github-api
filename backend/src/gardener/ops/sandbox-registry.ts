@@ -18,17 +18,19 @@ export { type ProcessInfo };
 export class SandboxToolRegistry {
     private client: SandboxClient;
 
+    private constructor(client: SandboxClient) {
+        this.client = client;
+    }
+
     /**
-     * @param sandboxBinding  The SANDBOX DO namespace from env
+     * @param env             The Cloudflare Worker environment bindings
      * @param sandboxId       Sandbox instance ID (e.g. sanitized repo name)
      */
-    constructor(
-        sandboxBinding: DurableObjectNamespace<Sandbox>,
-        sandboxId: string,
-    ) {
-        this.client = SandboxClient.create(sandboxBinding, sandboxId, {
+    static async create(env: Env, sandboxId: string): Promise<SandboxToolRegistry> {
+        const client = await SandboxClient.create(env, sandboxId, {
             normalizeId: true,
         });
+        return new SandboxToolRegistry(client);
     }
 
     /**

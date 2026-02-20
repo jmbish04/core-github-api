@@ -8,9 +8,10 @@ import { drizzle } from 'drizzle-orm/d1';
 import { getDb } from '@db';
 import { tasks, repos } from '@db/schema';
 import { webhookDeliveries } from '@/db/schemas/github/webhooks';
+import { generateUuid } from "@/utils/common";
 
 // Types & Services
-import type { GitHubWebhookPayload, GitHubIssuesPayload } from '@custom-types/github-webhooks';
+import type { GitHubWebhookPayload, GitHubIssuesPayload } from '@/types/github/webhooks';
 import { ensureRepositoryFromWebhook } from '@services/repository-sync';
 
 const webhooksApi = new Hono<{ Bindings: Env }>();
@@ -40,7 +41,7 @@ webhooksApi.post('/', async (c) => {
     try {
         const webhooksDb = drizzle(c.env.DB_WEBHOOKS);
         await webhooksDb.insert(webhookDeliveries).values({
-            id: crypto.randomUUID(),
+            id: generateUuid(),
             delivery_id: deliveryId,
             event,
             payload: JSON.stringify(body),
@@ -71,7 +72,7 @@ webhooksApi.post('/', async (c) => {
         const db = getDb(c.env.DB); // Primary Database
 
         // Import Enums/Mapper locally to avoid top-level circular dependencies if any
-        const { TaskStatus, KanbanColumn } = await import('@custom-types/enums');
+        const { TaskStatus, KanbanColumn } = await import('@/types/project-management/enums');
         const { StatusMapper } = await import('@services/statusMapper');
 
         // Find internal repo ID
@@ -135,7 +136,7 @@ webhooksApi.post('/', async (c) => {
                 }
 
                 await db.insert(tasks).values({
-                    id: crypto.randomUUID(),
+                    id: generateUuid(),
                     repoId: internalRepoId,
                     title: issue.title,
                     description: issue.body,

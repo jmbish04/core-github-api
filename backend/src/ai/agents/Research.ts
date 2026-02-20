@@ -9,7 +9,7 @@ import { BaseAgent, BaseAgentState } from "@/ai/agent-sdk";
 import { Logger } from "@logging";
 import { Agent } from "@openai/agents";
 import { getAgentModelName } from "@/ai/utils/model-config";
-import { getOctokit } from "../../services/octokit/core";
+import { getOctokit } from "@services/octokit/core";
 import { z } from "zod";
 
 interface ResearchState extends BaseAgentState {
@@ -24,12 +24,11 @@ interface ResearchState extends BaseAgentState {
 // Moved inside onStart to access this.env
 
 export class ResearchAgent extends BaseAgent<Env, ResearchState> {
-  protected logger: Logger;
+  // logger inherited from BaseAgent
   protected agent!: Agent;
 
   constructor(state: DurableObjectState, env: Env) {
     super(state, env);
-    this.logger = new Logger(env, "ResearchAgent");
   }
 
   initialState: ResearchState = {
@@ -58,7 +57,7 @@ export class ResearchAgent extends BaseAgent<Env, ResearchState> {
           },
           regex_filter: { 
             type: "string" as const, 
-            description: "Optional JS-compatible regex string to filter the search results locally (e.g., `^src\/.*\.ts$`). Application happens after fetching results." 
+            description: "Optional JS-compatible regex string to filter the search results locally (e.g., `^src/.*.ts$`). Application happens after fetching results." 
           },
           max_results: { 
             type: "number" as const, 
@@ -77,7 +76,7 @@ export class ResearchAgent extends BaseAgent<Env, ResearchState> {
           const octokit = await getOctokit(this.env);
           
           // 1. Pre-process query
-          let finalQuery = args.query;
+          const finalQuery = args.query;
           
           // 2. Perform Search
           try {

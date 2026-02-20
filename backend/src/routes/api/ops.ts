@@ -1,8 +1,45 @@
+import { OpenAPIHono, createRoute } from "@hono/zod-openapi";
+import { z } from "zod";
+import { OpsVerificationService } from "@services/verification/ops";
 
-import { Hono } from 'hono';
-import { Bindings } from "@utils/hono";
+const opsApi = new OpenAPIHono<{ Bindings: Env }>();
 
-const opsApi = new Hono<{ Bindings: Env }>();
+const VerificationSchema = z.object({
+    owner: z.string(),
+    repo: z.string()
+});
+
+// --- 1. Verify MCP Config ---
+opsApi.openapi(createRoute({
+    method: 'post',
+    path: '/verify/mcp-config',
+    operationId: 'verifyMcpConfig',
+    request: { body: { content: { 'application/json': { schema: VerificationSchema } } } },
+    responses: {
+        200: { description: 'Verification Result', content: { 'application/json': { schema: z.object({ success: z.boolean(), result: z.any().optional(), error: z.string().optional() }) } } }
+    }
+}), async (c) => {
+    const { owner, repo } = c.req.valid('json');
+    const result = await OpsVerificationService.verifyMcpConfig(c.env, owner, repo);
+    return c.json(result);
+});
+
+// --- 2. Verify Secrets Sync ---
+opsApi.openapi(createRoute({
+    method: 'post',
+    path: '/verify/secrets-sync',
+    operationId: 'verifySecretsSync',
+    request: { body: { content: { 'application/json': { schema: VerificationSchema } } } },
+    responses: {
+        200: { description: 'Verification Result', content: { 'application/json': { schema: z.object({ success: z.boolean(), result: z.any().optional(), error: z.string().optional() }) } } }
+    }
+}), async (c) => {
+    const { owner, repo } = c.req.valid('json');
+    const result = await OpsVerificationService.verifySecretsSync(c.env, owner, repo);
+    return c.json(result);
+});
+
+// --- 3. Supervisor DO Forwarding ---
 
 // All routes under /api/ops/:id/... are forwarded to the Supervisor DO
 opsApi.all('/:id/*', async (c) => {
@@ -13,8 +50,21 @@ opsApi.all('/:id/*', async (c) => {
     // We strip the /api/ops/:id prefix to forward a cleaner URL to the DO
     // e.g. /api/ops/123/websocket -> /websocket
     //      /api/ops/123/chat -> /chat
-    const url = new URL(c.req.url);
-    const path = url.pathname.replace(`/api/ops/${id}`, '');
+    // Note: The router is mounted at /api/ops in index.ts, so c.req.path is /:id/* or /verify/* (relative to app)
+    // Actually, in Hono `app.route('/api/ops', opsApi)`, the sub-app sees path relative to mount?
+    // Let's rely on standard URL parsing to be safe.
+    
+    const url = new URL(c.req.url); // Use full URL
+    // If mounted at /api/ops, path is /api/ops/123/foo
+    // We want /foo forwarded to DO? Or /api/ops/123/foo -> /foo?
+    // User snippet: path = url.pathname.replace(`/api/ops/${id}`, '')
+    
+    // Safety check for mount path
+    let path = url.pathname;
+    if (path.includes(`/api/ops/${id}`)) {
+         path = path.replace(`/api/ops/${id}`, '');
+    }
+    
     const newUrl = new URL(path, url.origin); // keep origin, change path
     newUrl.search = url.search; // keep query params
 
@@ -32,7 +82,11 @@ opsApi.all('/:id', async (c) => {
     const stub = c.env.SUPERVISOR.get(doId);
 
     // Forward as /status by default or let DO handle root
+    // User snippet: newUrl = new URL('/status', c.req.url)
+    // If we assume DO expects /status for root access
     const newUrl = new URL('/status', c.req.url);
+    newUrl.search = new URL(c.req.url).search;
+    
     return stub.fetch(new Request(newUrl, c.req.raw));
 });
 

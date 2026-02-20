@@ -7,6 +7,7 @@
 import { OpenAPIHono, createRoute } from '@hono/zod-openapi'
 import { z } from 'zod'
 import { getAgentByName } from 'agents'
+import { generateUuid } from "@/utils/common";
 
 const chatApi = new OpenAPIHono<{ Bindings: Env }>()
 
@@ -50,7 +51,7 @@ const route = createRoute({
 chatApi.openapi(route, async (c) => {
     const { message, sessionId: providedSessionId, history } = c.req.valid('json')
 
-    const sessionId = providedSessionId || crypto.randomUUID()
+    const sessionId = providedSessionId || generateUuid()
     const getByName = getAgentByName as any
     const stub = await getByName(c.env.GEMINI_AGENT, sessionId)
 

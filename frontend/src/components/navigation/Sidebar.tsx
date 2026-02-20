@@ -9,6 +9,7 @@ import {
     Settings,
     ChevronDown,
     ChevronRight,
+    Package,
     LayoutDashboard,
     Trello,
     GitPullRequest,
@@ -65,6 +66,7 @@ export function Sidebar({ className }: SidebarProps) {
     const mainLinks = [
         { name: "Home", href: "/", icon: Home },
         { name: "Health", href: "/health", icon: Activity },
+        { name: "App Store", href: "/apps", icon: Package },
     ];
 
     const docsLinks = [

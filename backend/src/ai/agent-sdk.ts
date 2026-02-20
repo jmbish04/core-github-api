@@ -58,6 +58,7 @@ export interface Tool {
  * Returns the client instance to be injected into run(), avoiding global state race conditions.
  */
 import { BudgetTracker } from "@/ai/utils/budget-tracker";
+import { Logger } from "@/lib/logger";
 
 /**
  * Creates a scoped OpenAI client configured for the AI Gateway.
@@ -97,7 +98,12 @@ export async function createGatewayClient(
           bodyObj.temperature = 0.1;
         }
         init = { ...init, body: JSON.stringify(bodyObj) };
-      } catch {}
+      } catch(error) {
+        console.log(`[AI-CONFIG] Error parsing request body: ${JSON.stringify(error)}`);
+        const logger = new Logger(env, "AI-AGENT-SDK-CONFIG");
+        logger.error(`Error parsing request body`, { error });
+        await logger.flush();
+      }
     }
     
     const response = await globalThis.fetch(input, init);
@@ -126,29 +132,35 @@ export async function createGatewayClient(
   };
 
   // LOGGING: Explicitly stated model usage as requested
-  const useOpenAI = env.USE_OPENAI_MODELS || false; // Default to Workers AI (USE_OPENAI_MODELS not in Env)
-  const tag = debugTag ? ` \x1b[1;37m[${debugTag}]\x1b[0m` : '';
+  const logger = new Logger(env, "AI-CONFIG");
+  const useOpenAI = env.USE_OPENAI_MODELS || false;
+  const tag = debugTag ? `[${debugTag}]` : '';
   const logMsg = useOpenAI 
-    ? `\x1b[1;32m🟢 [AI-CONFIG] USING OPENAI MODELS (Reliability Mode)${tag}\x1b[0m` 
-    : `\x1b[1;33m🟠 [AI-CONFIG] USING WORKER-AI MODELS (Falback/Cost Mode)${tag}\x1b[0m`;
-  console.log(logMsg);
+    ? `🟢 USING OPENAI MODELS (Reliability Mode)${tag}` 
+    : `🟠 USING WORKER-AI MODELS (Falback/Cost Mode)${tag}`;
+  
+  logger.info(logMsg, { useOpenAI, debugTag, modelSlug });
 
   // Get AI Gateway token from Secrets Store
   let apiToken = "";
   try {
     apiToken = await env.AI_GATEWAY_TOKEN.get();
-  } catch (e) {}
+  } catch (e) {
+    // empty
+  }
 
   if (!apiToken) {
     try {
       // Fallback to CLOUDFLARE_API_TOKEN if gateway token is missing
       apiToken = await env.CLOUDFLARE_API_TOKEN.get();
-      if (apiToken) console.log(`\x1b[1;33m⚠️ [AI-CONFIG] Using CLOUDFLARE_API_TOKEN as fallback\x1b[0m`);
-    } catch (e) {}
+      if (apiToken) logger.warn(`⚠️ Using CLOUDFLARE_API_TOKEN as fallback`);
+    } catch (e) {
+        // empty
+    }
   }
 
   if (!apiToken) {
-    console.error("❌ [AI-CONFIG] Missing AI_GATEWAY_TOKEN and CLOUDFLARE_API_TOKEN. Using dummy key to prevent immediate crash.");
+    logger.error("❌ Missing AI_GATEWAY_TOKEN and CLOUDFLARE_API_TOKEN. Using dummy key to prevent immediate crash.");
     apiToken = "dummy-key-for-sdk-init"; 
   }
 
@@ -177,8 +189,10 @@ export async function createRunner(
   
   // Get Token
   let apiKey = "";
-  try { apiKey = await env.AI_GATEWAY_TOKEN.get(); } catch (e) {}
-  if (!apiKey) try { apiKey = await env.CLOUDFLARE_API_TOKEN.get(); } catch (e) {}
+  try { apiKey = await env.AI_GATEWAY_TOKEN.get(); } catch (e) { // empty 
+  }
+  if (!apiKey) try { apiKey = await env.CLOUDFLARE_API_TOKEN.get(); } catch (e) { // empty 
+  }
   if (!apiKey) apiKey = "dummy-key";
 
   // Get URL
@@ -234,8 +248,20 @@ export abstract class BaseAgent<
     history: []
   } as unknown as State;
 
+  private _logger?: Logger;
+
+  protected get logger(): Logger {
+    return this._logger ?? new Logger(this.env as unknown as Env, this.constructor.name);
+  }
+
+  protected set logger(value: Logger) {
+    this._logger = value;
+  }
+
   protected setStatus(status: State["status"]) {
-    console.log(`[${this.constructor.name}] Status: ${status}`);
+    if (this.state.status !== status) {
+       this.logger.info(`Status changed: ${this.state.status} -> ${status}`);
+    }
     this.setState({
       ...this.state,
       status
@@ -270,14 +296,16 @@ export abstract class BaseAgent<
         inputItems = [{ role: "system", content: context }, ...inputItems];
       }
 
-      console.log(`[${this.constructor.name}] 🤖 Executing ${agent.name} (maxTurns=${maxTurns})...`);
+      this.logger.info(`🤖 Executing ${agent.name} (maxTurns=${maxTurns})...`, { 
+        inputLength: JSON.stringify(input).length 
+      });
       
       try {
         // 2. Resolve model and sync Gateway
         const rawModel = typeof agent.model === 'string' ? agent.model : getAgentModel('default', this.env);
         
         // CRITICAL FIX: Ensure the model name uses the workers-ai/ prefix for compat endpoints
-        let compatModel = getCompatModelName(rawModel);
+        const compatModel = getCompatModelName(rawModel);
         
         // Update agent instance to use compat name for the OpenAI API call
         (agent as any).model = compatModel;
@@ -291,8 +319,8 @@ export abstract class BaseAgent<
         // @ts-ignore - 'client' option exists in runtime but might be missing in strict types
         const result = await run(agent, inputItems, { maxTurns, client });
         return result;
-      } catch (error) {
-        console.error(`[${this.constructor.name}] 💥 Execution Error:`, error);
+      } catch (error: any) {
+        this.logger.error(`💥 Execution Error: ${error.message}`, { error });
         this.setStatus("failed");
         throw error;
       }
@@ -343,6 +371,7 @@ export abstract class BaseAgent<
       }
 
       console.log(`[${this.constructor.name}] ↺ Loop ${attempts + 1} failed. Feedback: ${judgment?.feedback}`);
+      this.logger.warn(`↺ Loop ${attempts + 1} failed`, { feedback: judgment?.feedback });
       
       currentInput = [
         ...genResult.history,
@@ -402,9 +431,9 @@ export async function createGatewayAgent<Output extends AgentOutputType = any>(
         const result = await run(agent, inputItems, { client });
         return { data: result.finalOutput };
       } catch (error: any) {
-        console.warn(`[GatewayAgent] Primary failed (${compatModel}).`, error);
-        console.debug(error.stack);
-        console.warn(`[GatewayAgent] Switching to Fallback.`);
+        const logger = new Logger(env as unknown as Env, "GatewayAgent");
+        logger.warn(`Primary failed (${compatModel})`, { error });
+        logger.warn(`Switching to Fallback.`);
 
         // Fallback: same gateway sync pattern
         const fallbackModel = getAgentModel('fallback', env as unknown as Env);

@@ -297,7 +297,7 @@ export async function extractCodeSnippets(
  * Parse PR URL to extract owner, repo, and PR number
  */
 export function parsePRUrl(prUrl: string): { owner: string; repo: string; prNumber: number } | null {
-  const regex = /github\.com\/([^\/]+)\/([^\/]+)\/pull\/(\d+)/;
+  const regex = new RegExp("github\\.com/([^/]+)/([^/]+)/pull/(\\d+)");
   const match = prUrl.match(regex);
 
   if (!match) {

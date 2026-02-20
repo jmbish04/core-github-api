@@ -1,13 +1,14 @@
 
 /**
  * @file src/tools/templates.ts
- * @description Dynamic template fetching from jmbish04/core-repo-templates.
+ * @description Dynamic template fetching from env.GITHUB_OWNER/env.TEMPLATES_REPO_NAME.
  * @owner AI-Builder
  */
 
-;
-import { getOctokit } from '../../../../services/octokit/core';
-import { decode } from '../../../../utils/base64';
+
+import { getOctokit } from '@services/octokit/core';
+import { decode } from '@utils/base64';
+import { getGithubConfigs } from '@utils/github/configs';
 
 export const INFRA_TYPES = [
         'python_script',
@@ -20,11 +21,6 @@ export const INFRA_TYPES = [
 
 export type InfraType = typeof INFRA_TYPES[number];
 
-const TEMPLATE_REPO = {
-        owner: 'jmbish04',
-        repo: 'core-repo-templates'
-};
-
 /**
  * Recursively fetches files from the template repository.
  * Replaces {{name}} and {{project_name}} placeholders in text files.
@@ -34,16 +30,22 @@ const TEMPLATE_REPO = {
  */
 export async function fetchTemplateFiles(env: Env, infra: string, projectName: string): Promise<Record<string, string>> {
         const octokit = await getOctokit(env);
+        const config = getGithubConfigs(env);
+        const templateRepo = {
+            owner: config.owner,
+            repo: config.templateRepo
+        };
+
         const files: Record<string, string> = {};
         const infraType = INFRA_TYPES.includes(infra as any) ? infra : 'generic';
 
-        console.log(`[Templates] Fetching templates for ${infraType} from ${TEMPLATE_REPO.owner}/${TEMPLATE_REPO.repo}`);
+        console.log(`[Templates] Fetching templates for ${infraType} from ${templateRepo.owner}/${templateRepo.repo}`);
 
         async function fetchDir(path: string) {
                 try {
                         const { data } = await octokit.rest.repos.getContent({
-                                owner: TEMPLATE_REPO.owner,
-                                repo: TEMPLATE_REPO.repo,
+                                owner: templateRepo.owner,
+                                repo: templateRepo.repo,
                                 path
                         });
 
@@ -52,8 +54,8 @@ export async function fetchTemplateFiles(env: Env, infra: string, projectName: s
                                         if (item.type === 'file') {
                                                 // Fetch file content
                                                 const { data: fileData } = await octokit.rest.repos.getContent({
-                                                        owner: TEMPLATE_REPO.owner,
-                                                        repo: TEMPLATE_REPO.repo,
+                                                        owner: templateRepo.owner,
+                                                        repo: templateRepo.repo,
                                                         path: item.path
                                                 });
 

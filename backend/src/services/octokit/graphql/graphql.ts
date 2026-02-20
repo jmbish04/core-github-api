@@ -5,8 +5,8 @@
  */
 
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
-import { getGraphql } from '../core'
-import { Bindings } from '../../../utils/hono'
+import { getGraphql } from '@services/octokit/core'
+import { Bindings } from '@utils/hono'
 
 // --- 1. Zod Schema Definitions ---
 

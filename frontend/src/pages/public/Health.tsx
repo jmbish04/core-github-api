@@ -1,14 +1,28 @@
 
-import { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/auth-context';
 import {
     Loader2, CheckCircle2, XCircle, AlertCircle, Play, Activity,
     Server, Cpu, Brain, GitBranch, Globe, Settings2, History,
-    ChevronDown, ChevronRight, Zap, Shield,
+    ChevronDown, ChevronRight, Zap, Shield, Copy,
 } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+
+// ─── Utilities ──────────────────────────────────────────────────────────
+
+function formatDuration(ms: number): string {
+    if (ms < 1000) return `${ms}ms`;
+    const seconds = Math.floor(ms / 1000);
+    if (seconds < 60) return `${seconds}s`;
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ${seconds % 60}s`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ${minutes % 60}m`;
+    const days = Math.floor(hours / 24);
+    return `${days}d ${hours % 24}h`;
+}
 
 // ─── Types ──────────────────────────────────────────────────────────────
 
@@ -51,7 +65,7 @@ interface RunStats {
 
 // ─── Category Registry ──────────────────────────────────────────────────
 
-const CATEGORY_META: Record<HealthCategory, { icon: JSX.Element; label: string; color: string }> = {
+const CATEGORY_META: Record<HealthCategory, { icon: React.ReactNode; label: string; color: string }> = {
     github:   { icon: <GitBranch className="w-5 h-5" />,  label: 'GitHub Integration',     color: 'text-purple-400' },
     ai:       { icon: <Brain className="w-5 h-5" />,      label: 'AI Providers',            color: 'text-cyan-400' },
     api:      { icon: <Server className="w-5 h-5" />,     label: 'API & Database',          color: 'text-blue-400' },
@@ -213,7 +227,7 @@ function HistoryTimeline({ history }: { history: RunWithResults[] }) {
                                 {failed > 0 && <span className="text-red-400 font-mono">{failed}✗</span>}
                                 <span className="text-muted-foreground font-mono">{total} total</span>
                                 {run.duration_ms && (
-                                    <span className="text-muted-foreground font-mono">{run.duration_ms}ms</span>
+                                    <span className="text-muted-foreground font-mono">{formatDuration(run.duration_ms)}</span>
                                 )}
                             </div>
                         </div>
@@ -367,6 +381,35 @@ export default function HealthPage() {
                     <div className="text-right text-sm text-muted-foreground hidden sm:block">
                         {stats.lastRunAt !== '-' ? new Date(stats.lastRunAt).toLocaleString() : 'Never checked'}
                     </div>
+                    {lastRun && (
+                        <Button
+                            variant="outline"
+                            size="lg"
+                            onClick={() => {
+                                const report = [
+                                    `# Health Report (${new Date().toLocaleString()})`,
+                                    `Status: ${lastRun.run.status}`,
+                                    `Stats: ${stats.passed} Passed, ${stats.failed} Failed, ${stats.total} Total`,
+                                    `Duration: ${formatDuration(stats.duration)}`,
+                                    '',
+                                    '## Failures',
+                                    ...lastRun.results
+                                        .filter(r => r.status === 'failure')
+                                        .map(r => `- [${r.category}] ${r.name}: ${r.message}`),
+                                    '',
+                                    '## All Results',
+                                    ...lastRun.results.map(r => 
+                                        `- [${r.status.toUpperCase()}] ${r.category}/${r.name}: ${r.message || 'OK'}`
+                                    )
+                                ].join('\n');
+                                navigator.clipboard.writeText(report);
+                                alert("Report copied to clipboard!"); 
+                            }}
+                        >
+                            <Copy className="mr-2 h-4 w-4" />
+                            Copy Report
+                        </Button>
+                    )}
                     <Button
                         onClick={runTests}
                         disabled={isLoading}
@@ -434,7 +477,7 @@ export default function HealthPage() {
                         <Cpu className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{stats.duration}ms</div>
+                        <div className="text-2xl font-bold">{formatDuration(stats.duration)}</div>
                     </CardContent>
                 </Card>
             </div>

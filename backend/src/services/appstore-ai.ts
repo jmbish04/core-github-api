@@ -1,0 +1,66 @@
+import { GoogleGenAI } from '@google/genai';
+import { z } from 'zod';
+import { zodToJsonSchema } from 'zod-to-json-schema';
+import { generateUuid } from '@/utils/common';
+
+export const AgentResponseSchema = z.object({
+  summary: z.string().describe("A concise 1-2 sentence summary of what this application does."),
+  assigned_tag_names: z.array(z.string()).describe("List of existing tag names assigned to this application."),
+  new_tags_to_create: z.array(
+    z.object({
+      name: z.string().describe("Name of the new tag. Examples: 'Frontend', 'Backend', 'API', 'Shadcn', 'E-commerce'"),
+      description: z.string().describe("Short description of what the tag represents"),
+      hex_color: z.string().describe("A suitable hex color code for this tag (e.g., #3b82f6)"),
+    })
+  ).describe("Any new tags that should be created because no existing tag aptly categorizes the app.")
+});
+
+export async function analyzeApplication(
+  env: Env,
+  appName: string,
+  appType: string,
+  description: string | null,
+  existingTags: { name: string; description: string | null }[]
+): Promise<z.infer<typeof AgentResponseSchema>> {
+  const geminiApiKey = await env.GEMINI_API_KEY.get();
+  if (!geminiApiKey) {
+    throw new Error('GEMINI_API_KEY is not configured in the Secrets Store.');
+  }
+
+  const ai = new GoogleGenAI({ apiKey: geminiApiKey });
+
+  const prompt = `
+You are an expert Cloudflare application analyzer.
+
+Analyze the following application:
+- Name: ${appName}
+- Type: ${appType}
+- Description: ${description || 'No description provided.'}
+
+Existing tags in the system (you can assign these):
+${existingTags.length > 0 ? existingTags.map(t => `- ${t.name}: ${t.description}`).join('\n') : 'No existing tags.'}
+
+Your tasks:
+1. Provide a concise 1-2 sentence summary.
+2. Assign relevant tags from the "Existing tags" list. Provide the exact tag names.
+3. If the application requires a category not present in the existing tags (e.g., "Frontend", "Shadcn", "API", "AI", "GitHub API"), create new tags. Provide a description and a suitable hex color for each new tag.
+
+Respond strictly matching the required JSON schema.
+`;
+
+  const result = await ai.models.generateContent({
+    model: "gemini-2.5-flash",
+    contents: [{ role: "user", parts: [{ text: prompt }] }],
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: zodToJsonSchema(AgentResponseSchema as any) as any,
+    }
+  });
+
+  const text = result.text;
+  if (!text) {
+    throw new Error('No text returned from Gemini API.');
+  }
+
+  return JSON.parse(text) as z.infer<typeof AgentResponseSchema>;
+}

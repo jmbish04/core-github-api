@@ -1,13 +1,14 @@
 // src/routes/api/tasks.ts
 import { Hono } from 'hono';
-import { Bindings } from '../../utils/hono';
-import { getDb } from '../../db';
-import { tasks, repos, taskEvents, taskComments } from '../../db/schema';
+import { Bindings } from '@utils/hono';
+import { getDb } from '@db';
+import { tasks, repos, taskEvents, taskComments } from '@db/schema';
 import { eq, and } from 'drizzle-orm';
-import { createGitHubIssue, updateGitHubIssue, createGitHubComment } from '../../ai/mcp/tools/github/github';
+import { createGitHubIssue, updateGitHubIssue, createGitHubComment } from '@/ai/mcp/tools/github/github';
 
-import { TaskStatus, KanbanColumn } from '../../types/enums';
-import { StatusMapper } from '../../services/statusMapper';
+import { TaskStatus, KanbanColumn } from '@/types/project-management/enums';
+import { StatusMapper } from '@services/statusMapper';
+import { generateUuid } from "@/utils/common";
 
 // Define standardized task statuses/columns
 export const TASK_STATUSES = [
@@ -34,7 +35,7 @@ async function logTaskEvent(
 ) {
     try {
         await db.insert(taskEvents).values({
-            id: crypto.randomUUID(),
+            id: generateUuid(),
             requestId,
             taskId,
             githubIssueId,
@@ -223,7 +224,7 @@ tasksApi.patch('/tasks/:id', async (c) => {
     }
 
     // Prepare DB Update Payload
-    let updatePayload: any = {
+    const updatePayload: any = {
         updatedAt: new Date().toISOString()
     };
 

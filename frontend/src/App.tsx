@@ -14,6 +14,10 @@ import ResearchDashboard from "@/pages/research/ResearchDashboard";
 import ResearchIntake from "@/pages/research/ResearchIntake";
 import ResearchDetail from "@/pages/research/ResearchDetail";
 import ToolsPage from "@/pages/control/global/Tools";
+import CloudflareChat from "@/pages/control/global/CloudflareChat";
+import CloudflareDocsInfo from "@/pages/public/CloudflareDocsInfo";
+import Standardization from "@/pages/control/global/Standardization";
+import AppStore from "@/pages/control/global/AppStore";
 
 import { PRCommandCenter } from "@/pages/control/global/PRCommandCenter";
 import Dashboard from "@/pages/control/global/Dashboard";
@@ -59,6 +63,10 @@ function App() {
             <Route path="/control-center/research" element={guard(<ResearchDashboard />)} />
             <Route path="/control-center/research/new" element={guard(<ResearchIntake />)} />
             <Route path="/control-center/research/:id" element={guard(<ResearchDetail />)} />
+            
+            {/* Cloudflare Tool Routes */}
+            <Route path="/control-center/cloudflare-chat" element={guard(<CloudflareChat />)} />
+            <Route path="/docs/cloudflare-agent" element={<CloudflareDocsInfo />} />
 
             <Route path="/dashboard" element={guard(<Navigate to="/control-center/dashboard" replace />)} />
             <Route path="/projects" element={guard(<Navigate to="/control-center/projects" replace />)} />
@@ -81,6 +89,8 @@ function App() {
             <Route path="/control-center/webhooks" element={guard(<Webhooks />)} />
             <Route path="/control-center/todos" element={guard(<Todo />)} />
             <Route path="/control-center/settings" element={guard(<SettingsPage />)} />
+            <Route path="/control-center/standardization" element={guard(<Standardization />)} />
+            <Route path="/apps" element={guard(<AppStore />)} />
 
             {/* Project-First Navigation Routes */}
             <Route path="/project/:owner/:repo/dashboard" element={guard(<ProjectDashboard />)} />

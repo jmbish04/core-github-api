@@ -4,7 +4,7 @@
  * @owner AI-Builder
  */
 
-import type { Fixer, AuditResult, GardenerContext } from '../types'
+import type { Fixer, AuditResult, GardenerContext } from '@/gardener/types'
 
 export class WorkerTypeFixer implements Fixer {
     id = 'fix-worker-types';
@@ -58,7 +58,7 @@ ${currentContent}
             // For this scaffold, we'll do a simple string replace to demonstrate intent without burning tokens yet.
 
             // Simple heuristic replacement for demonstration:
-            let newContent = currentContent.replace(/import\s+.*from\s+['"]@cloudflare\/workers-types['"][;]?\n?/g, '');
+            const newContent = currentContent.replace(/import\s+.*from\s+['"]@cloudflare\/workers-types['"][;]?\n?/g, '');
             // This is naive; the AI version would be safer.
 
             if (newContent === currentContent) {
@@ -169,7 +169,7 @@ Detected via Gardener Audit Rule: \`no-explicit-worker-types\`.`;
                 const content = atob(fileData.content);
 
                 // Heuristic Fix
-                let newContent = content.replace(/import\s+.*from\s+['"]@cloudflare\/workers-types['"][;]?\n?/g, '');
+                const newContent = content.replace(/import\s+.*from\s+['"]@cloudflare\/workers-types['"][;]?\n?/g, '');
                 if (newContent !== content) {
                     await ctx.octokit.repos.createOrUpdateFileContents({
                         owner: ctx.repo.owner,

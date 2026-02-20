@@ -5,7 +5,7 @@
  */
 
 import { z } from "zod";
-import { getOctokit } from "../../../../services/octokit/core";
+import { getOctokit } from "@services/octokit/core";
 
 /**
  * Definition for a tool that can be executed directly by the agent.

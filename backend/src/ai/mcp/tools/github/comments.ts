@@ -6,7 +6,7 @@
  */
 
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
-import { getOctokit } from '../../../../services/octokit/core'
+import { getOctokit } from '@services/octokit/core'
 
 
 // --- Schemas ---

@@ -1,5 +1,5 @@
 
-import { generateStructured } from "../providers/worker-ai";
+import { generateStructuredResponse } from "@/ai/providers";
 
 export interface HealthFailureAnalysis {
     rootCause: string;
@@ -21,7 +21,8 @@ export async function analyzeFailure(
     env: Env,
     stepName: string,
     errorMsg: string,
-    details?: any
+    details?: any,
+    options?: { reasoningEffort?: "low" | "medium" | "high" }
 ): Promise<HealthFailureAnalysis | null> {
     if (!env.AI) return null;
 
@@ -94,11 +95,12 @@ export async function analyzeFailure(
 
 
     try {
-        const analysis = await generateStructured<HealthFailureAnalysis>(
+        const analysis = await generateStructuredResponse<HealthFailureAnalysis>(
             env,
             prompt,
             schema,
-            { reasoningEffort: "high" }
+            undefined,
+            { effort: options?.reasoningEffort || "high" }
         );
         return analysis;
     } catch (err) {

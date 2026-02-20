@@ -1,4 +1,4 @@
-import { MigrationPillar, DetailedQuestion } from "../../types";
+import { MigrationPillar, DetailedQuestion } from "@/ai/mcp/types";
 
 /**
  * Define the core Cloudflare Workers migration pillars

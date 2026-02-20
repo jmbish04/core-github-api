@@ -22,6 +22,7 @@ import {
 } from "@/schemas/research";
 import { getOctokit } from "@/services/octokit/core";
 import OpenAI from "openai";
+import { generateUuid } from "@/utils/common";
 
 export class ResearchOrchestrator extends WorkflowEntrypoint<
   Env,
@@ -40,7 +41,7 @@ export class ResearchOrchestrator extends WorkflowEntrypoint<
       const [session] = await db
         .insert(schema.researchSessions)
         .values({
-          id: crypto.randomUUID(),
+          id: generateUuid(),
           mode,
           query: query || null,
           status: "exploring",
@@ -147,7 +148,7 @@ Return ONLY the JSON array, no additional text.`;
       const db = getDb(this.env.DB_WEBHOOKS);
       for (const candidate of candidates) {
         await db.insert(schema.repoScores).values({
-          id: crypto.randomUUID(),
+          id: generateUuid(),
           sessionId,
           owner: candidate.owner,
           repo: candidate.repo,
@@ -159,7 +160,7 @@ Return ONLY the JSON array, no additional text.`;
 
         // Store sampling artifact
         await db.insert(schema.analysisArtifacts).values({
-          id: crypto.randomUUID(),
+          id: generateUuid(),
           sessionId,
           repoId: `${candidate.owner}/${candidate.repo}`,
           artifactType: "sample",
@@ -407,7 +408,7 @@ Provide a technical summary explaining your scores.`;
 
     // Store in D1
     const db = getDb(this.env.DB_WEBHOOKS);
-    const artifactId = crypto.randomUUID();
+    const artifactId = generateUuid();
 
     await db.insert(schema.analysisArtifacts).values({
       id: artifactId,
@@ -516,7 +517,7 @@ Provide:
     const db = getDb(this.env.DB_WEBHOOKS);
 
     await db.insert(schema.analysisArtifacts).values({
-      id: crypto.randomUUID(),
+      id: generateUuid(),
       sessionId,
       repoId: analysis.repoId,
       artifactType: "judge_score",

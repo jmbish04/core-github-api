@@ -1,9 +1,11 @@
 import { drizzle } from 'drizzle-orm/d1';
-import { aiCostLogs, budgetEvents, sessions } from '../../db/schema';
+import { aiCostLogs, budgetEvents, sessions } from '@db/schema';
+import { generateUuid } from '@/utils/common';
 import { sql, desc, eq, gt, and } from 'drizzle-orm';
 import { z } from 'zod';
 import Cloudflare from 'cloudflare';
 import { PRICING_CATALOG, guardCheck, type ModelPricing } from './pricing-registry';
+
 
 // ============================================================================
 // CLOUDFLARE PRICING SCHEMAS
@@ -270,7 +272,7 @@ export class BudgetTracker {
 
     try {
       await this.db.insert(aiCostLogs).values({
-        id: crypto.randomUUID(),
+        id: generateUuid(),
         model: params.model,
         inputTokens: params.inputTokens,
         outputTokens: params.outputTokens,
@@ -334,7 +336,7 @@ export class BudgetTracker {
    */
   async resetBudget(note?: string): Promise<void> {
     await this.db.insert(budgetEvents).values({
-        id: crypto.randomUUID(),
+        id: generateUuid(),
         eventType: 'reset',
         message: note || 'Manual Reset',
         threshold: 0,

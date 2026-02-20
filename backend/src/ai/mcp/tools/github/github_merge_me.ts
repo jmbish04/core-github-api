@@ -4,8 +4,9 @@
  */
 
 import { z } from "zod";
-import * as S from "../../../../schemas/apiSchemas";
-import { MCPTool } from "../index";
+import * as S from "@/schemas/apiSchemas";
+import { MCPTool } from "@/ai/mcp/index";
+import { DEFAULT_TEMPLATE_REPO, DEFAULT_GITHUB_OWNER } from "@github-utils";
 
 export const GITHUB_TOOLS: MCPTool[] = [
     {
@@ -114,7 +115,7 @@ export const GITHUB_TOOLS: MCPTool[] = [
         category: "GitHub Files",
         tags: ["github", "files", "tree"],
         inputSchema: z.object({
-            owner: z.string().default('jmbish04').describe("Repository owner"),
+            owner: z.string().default(DEFAULT_GITHUB_OWNER).describe("Repository owner"),
             repo: z.string().describe("Repository name"),
             path: z.string().optional().describe("Path in repository (optional)"),
             branch: z.string().optional().describe("Branch name (optional)"),

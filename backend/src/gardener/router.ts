@@ -40,11 +40,12 @@ export class SlashCommandRouter {
                 return { type: 'reply', body: "🛠️ **Standardization** is coming soon!" };
             // return new Standardizer(ctx.env).runFullAudit(ctx);
 
-            case 'fix-types':
+            case 'fix-types': {
                 // Run specific fixer implementation
                 const fixer = new WorkerTypeFixer();
                 const result = await fixer.fixAll(ctx);
                 return { type: 'reply', body: result };
+            }
 
             case 'fix-all':
                 // HEAVY TASK: Hand off to Container

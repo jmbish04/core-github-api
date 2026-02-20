@@ -5,6 +5,7 @@ import { getDb } from "@db";
 import { todos, todoTags, todoTagMap, todoLinks, todoAiInsights } from "@db/schema";
 import { eq, and, desc, inArray } from 'drizzle-orm';
 import { TodoInsightService } from "@services/todoInsights";
+import { generateUuid } from "@/utils/common";
 
 const todosApi = new Hono<{ Bindings: Env }>();
 
@@ -20,9 +21,9 @@ todosApi.get('/', async (c) => {
 
     // Fetch tags, links, and insights for these todos
     const todoIds = allTodos.map(t => t.id);
-    let tagMap: Record<string, any[]> = {};
-    let linkMap: Record<string, any[]> = {};
-    let insightMap: Record<string, any[]> = {};
+    const tagMap: Record<string, any[]> = {};
+    const linkMap: Record<string, any[]> = {};
+    const insightMap: Record<string, any[]> = {};
 
     if (todoIds.length > 0) {
         // Tags
@@ -69,7 +70,7 @@ todosApi.post('/', async (c) => {
     const body = await c.req.json();
     const { title, content, priority, status } = body as any;
     const db = getDb(c.env.DB);
-    const id = crypto.randomUUID();
+    const id = generateUuid();
 
     // ... (in POST /)
 

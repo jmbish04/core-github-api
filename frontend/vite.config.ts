@@ -11,6 +11,8 @@ export default defineConfig({
       "@diceui/timeline": path.resolve(__dirname, "./src/components/ui/diceui/timeline.tsx"),
       "@diceui/kanban": path.resolve(__dirname, "./src/components/ui/diceui/kanban.tsx"),
       "@diceui/stat": path.resolve(__dirname, "./src/components/ui/diceui/stat.tsx"),
+      "@db": path.resolve(__dirname, "../backend/src/db"),
+      "@api": path.resolve(__dirname, "../backend/src"),
     },
   },
   build: {

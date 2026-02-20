@@ -21,9 +21,9 @@ export const codeReviewRuns = sqliteTable(
         id: integer("id").primaryKey({ autoIncrement: true }),
 
         provider: text("provider").notNull(),          // "github"
-        repoOwner: text("repo_owner").notNull(),      // "jmbish04"
+        repoOwner: text("repo_owner").notNull(),      // "env.GITHUB_OWNER"
         repoName: text("repo_name").notNull(),        // "jh-poc-chrome-extension"
-        repoFullName: text("repo_full_name").notNull(), // "jmbish04/jh-poc-chrome-extension"
+        repoFullName: text("repo_full_name").notNull(), // "env.GITHUB_OWNER/jh-poc-chrome-extension"
 
         prNumber: integer("pr_number").notNull(),     // 7
         prTitle: text("pr_title"),                    // optional, useful for context

@@ -1,6 +1,6 @@
-import { BaseAgent, Agent } from "../../agent-sdk"; // Agent alias for OpenAIAgent
+import { BaseAgent, Agent } from "@agent-sdk"; // Agent alias for OpenAIAgent
 import { getAgentModel } from "@/ai/providers/config";
-import { Logger } from "../../../lib/logger";
+import { Logger } from "@logging";
 
 export interface AgentConfig {
   instructions?: string;
@@ -9,12 +9,12 @@ export interface AgentConfig {
 
 export abstract class BaseTaskAssignee extends BaseAgent<Env> {
   protected openaiAgent: Agent;
-  protected logger: Logger;
+
 
   constructor(state: any, env: Env, config: AgentConfig = {}) {
     super(state, env);
     const model = getAgentModel(config.moduleName || 'default', env);
-    this.logger = new Logger(env, `task-assignee/${config.moduleName || 'base'}`);
+    (this as any).logger = new Logger(env, `task-assignee/${config.moduleName || 'base'}`);
 
     this.openaiAgent = new Agent({
       name: config.moduleName || "TaskAssignee",

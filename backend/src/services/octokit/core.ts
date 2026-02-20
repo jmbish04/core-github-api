@@ -33,13 +33,8 @@ let gql: typeof graphql
  */
 const initOctokit = async (bindings: Env) => {
   if (!octokit) {
-    let token: string | null = null;
-    // Handle both string (local dev/legacy) and SecretStore (production) types
-    if (typeof bindings.GITHUB_TOKEN === 'string') {
-        token = bindings.GITHUB_TOKEN;
-    } else if (bindings.GITHUB_TOKEN && typeof (bindings.GITHUB_TOKEN as any).get === 'function') {
-        token = await (bindings.GITHUB_TOKEN as any).get();
-    }
+    const { getGithubToken } = await import('@utils/secrets');
+    const token = await getGithubToken(bindings);
 
     if (!token) {
         console.warn("GITHUB_TOKEN is missing or invalid");
@@ -79,21 +74,14 @@ const initOctokit = async (bindings: Env) => {
       },
     }) as Octokit
   }
-  if (!gql && octokit) {
-     // We can't easily extract the token back from octokit instance for graphql if we didn't save it.
-     // But we just resolved it above if we were in the !octokit block.
-     // If octokit was already initialized, we assume gql might be too, or we need the token again.
-     // Simplified: Just re-resolve token if gql is missing.
-      let token: string | null = null;
-      if (typeof bindings.GITHUB_TOKEN === 'string') {
-          token = bindings.GITHUB_TOKEN;
-      } else if (bindings.GITHUB_TOKEN && typeof (bindings.GITHUB_TOKEN as any).get === 'function') {
-          token = await (bindings.GITHUB_TOKEN as any).get();
-      }
-
+  
+  if (!gql) {
+     const { getGithubToken } = await import('@utils/secrets');
+     const token = await getGithubToken(bindings);
+     
     gql = graphql.defaults({
       headers: {
-        authorization: `token ${token}`,
+        authorization: `token ${token || ''}`,
       },
     })
   }

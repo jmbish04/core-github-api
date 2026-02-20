@@ -15,6 +15,7 @@
  */
 
 import { getSandbox, type Sandbox, type ExecResult, type ExecOptions } from "@cloudflare/sandbox";
+import { getSandboxOptions } from "@/ai/utils/sandbox";
 import type {
   SandboxExecOptions,
   SandboxExecResult,
@@ -42,12 +43,12 @@ export class SandboxClient {
   /**
    * Create a SandboxClient for a given sandbox ID.
    *
-   * @param binding    The Durable Object namespace binding (e.g. `env.SANDBOX`).
+   * @param env        The Cloudflare Worker environment bindings
    * @param sandboxId  Unique identifier for this sandbox instance.
    * @param options    Optional SDK options (keepAlive, sleepAfter, normalizeId, etc.)
    */
-  static create(
-    binding: DurableObjectNamespace<Sandbox>,
+  static async create(
+    env: Env,
     sandboxId: string,
     options?: {
       keepAlive?: boolean;
@@ -58,8 +59,13 @@ export class SandboxClient {
         portReadyTimeoutMS?: number;
       };
     },
-  ): SandboxClient {
-    const sandbox = getSandbox(binding, sandboxId, options);
+  ): Promise<SandboxClient> {
+    const defaultOptions = await getSandboxOptions(env);
+    const sandbox = getSandbox(
+      (env as any).SANDBOX,
+      sandboxId,
+      { ...defaultOptions, ...options }
+    );
     return new SandboxClient(sandbox);
   }
 

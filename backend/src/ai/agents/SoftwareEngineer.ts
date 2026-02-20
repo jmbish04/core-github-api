@@ -4,8 +4,8 @@ import {
   createRunner,
   resolveDefaultAiModel,
   resolveDefaultAiProvider,
-} from "../agent-ai";
-import { buildGoldenPathInstructions } from "../../standards/goldenPath";
+} from "@/ai/agent-ai";
+import { buildGoldenPathInstructions } from "@/standards/goldenPath";
 
 const CodeGeneratorResponseSchema = z.object({
   reply: z.string(),

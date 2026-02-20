@@ -2,7 +2,7 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
-import { JulesService } from "../../services/jules";
+import { JulesService } from "@services/jules";
 import { streamText } from "hono/streaming";
 
 
@@ -61,7 +61,7 @@ app.get("/stream/:sessionId", async (c) => {
   const sessionId = c.req.param("sessionId");
   const julesService = JulesService.getInstance(c.env);
 
-  return streamText(c, async (stream) => {
+  return streamText(c as any, async (stream) => {
     try {
       const activityStream = await julesService.streamSession(sessionId);
       

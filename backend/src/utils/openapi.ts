@@ -5,6 +5,7 @@
  */
 
 import YAML from "yaml";
+import { DEFAULT_GITHUB_OWNER } from "@github-utils";
 
 const HTTP_METHODS = ["get", "post", "put", "patch", "delete", "options", "head"] as const;
 
@@ -90,8 +91,8 @@ export function enhanceToOpenAPI31(doc: Record<string, any>): Record<string, any
       },
     ],
     externalDocs: {
-      description: "GitHub Worker Documentation",
-      url: "https://github.com/jmbish04/github-worker",
+      description: "Find more info here",
+      url: `https://github.com/${DEFAULT_GITHUB_OWNER}/github-worker`,
     },
     webhooks: doc.webhooks || {},
   };

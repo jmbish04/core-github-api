@@ -1,5 +1,6 @@
 import { BaseOrchestrator } from "./base/orchestrator";
 import { callable, getAgentByName } from "agents";
+import { generateUuid } from "@/utils/common";
 
 export class OrchestratorAgent extends BaseOrchestrator {
   
@@ -17,6 +18,15 @@ export class OrchestratorAgent extends BaseOrchestrator {
       status: "ok",
       agent: "OrchestratorAgent",
       timestamp: new Date().toISOString(),
+    };
+  }
+
+  @callable()
+  async start(prompt: string) {
+    this.logger.info(`Starting new session with prompt: ${prompt}`);
+    return { 
+      sessionId: generateUuid(),
+      message: "Session started" 
     };
   }
 

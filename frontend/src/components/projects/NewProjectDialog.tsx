@@ -78,7 +78,7 @@ export function NewProjectDialog({ open, onOpenChange }: NewProjectDialogProps) 
                     description: data.description,
                     visibility: data.visibility,
                     infraType: data.infraType,
-                    owner: 'jmbish04',
+                    owner: env.GITHUB_OWNER,
                 }),
             });
 

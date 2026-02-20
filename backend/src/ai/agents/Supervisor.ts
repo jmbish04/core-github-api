@@ -4,11 +4,12 @@ import { Agent, callable } from "agents";
 import { BaseAgent } from "./BaseAgent";
 import { DurableObject } from "cloudflare:workers";
 import { switchPort } from "@cloudflare/containers";
+import { generateUuid } from "@/utils/common";
 
 import { resolveDefaultAiModel, resolveDefaultAiProvider } from "@/ai/providers/config";
 
-import { checkGitHubHealth } from "../../workflows/health";
-import { runTextAgent } from "../agent-sdk";
+import { checkGitHubAPIHealth, checkWebhooksHealth } from '@/workflows/health';
+import { runTextAgent } from "@/ai/agent-sdk";
 
 export class Supervisor extends BaseAgent<Env> {
     private static readonly CONTAINER_API_ORIGIN = "http://container:8788";
@@ -143,14 +144,16 @@ export class Supervisor extends BaseAgent<Env> {
         this.broadcast("[Supervisor] 🏥 Starting GitHub Health Check...\n");
 
         try {
-            // checkGitHubHealth now returns a single HealthStepResult
-            const result = await checkGitHubHealth(this.env);
+            const results = [];
+            results.push(await checkGitHubAPIHealth(this.env));
+            results.push(await checkWebhooksHealth(this.env));
 
-            const overallStatus = (result.status === 'failure' || result.status === 'warning') ? 'unhealthy' : 'healthy';
+            const overallStatus = results.some(r => r.status === 'failure') ? 'unhealthy' :
+                                  results.some(r => r.status === 'warning') ? 'unhealthy' : 'healthy';
 
             const healthStatus = {
                 status: overallStatus,
-                details: { results: [result] }
+                details: { results: results }
             };
 
             this.healthStatus = healthStatus;
@@ -262,7 +265,7 @@ export class Supervisor extends BaseAgent<Env> {
         /*
         const origin = request.headers.get("x-forwarded-origin") || new URL(request.url).origin;
         const operationId = request.headers.get("x-operation-id") || `op-${Date.now()}`;
-        const sessionId = crypto.randomUUID();
+        const sessionId = generateUuid();
 
         const startCommand = [
             "mkdir -p /workspace",

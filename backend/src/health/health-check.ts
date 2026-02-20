@@ -1,11 +1,11 @@
-import { getDb } from "../db";
-import { healthRuns } from "../db/schemas/logs/health";
-import { checkHealth as checkAI } from "../ai/health";
-import { checkHealth as checkMCP } from "../ai/mcp/health";
-import { checkGitHubHealth as checkGit } from "../workflows/health";
-import { checkHealth as checkAgents } from "../ai/agents/health";
-import { checkHealth as checkBrowser } from "../ai/agents/tools/browser/health";
-import { analyzeFailure } from "../ai/utils/diagnostician";
+import { getDb } from "@db";
+import { healthRuns } from "@db/schemas/logs/health";
+import { checkHealth as checkAI } from "@/ai/health";
+import { checkHealth as checkMCP } from "@/ai/mcp/health";
+import { checkGitHubAPIHealth, checkWebhooksHealth } from "@/workflows/health";
+import { checkHealth as checkAgents } from "@/ai/agents/health";
+import { checkHealth as checkBrowser } from "@/ai/agents/tools/browser/health";
+import { analyzeFailure } from "@/ai/utils/diagnostician";
 import { v4 as uuidv4 } from 'uuid';
 
 import { HealthStepResult, HealthCheckResult } from "./types";
@@ -33,7 +33,8 @@ export async function runHealthCheck(
     // { id: 'data', name: 'Vectorize', fn: checkData },
     { id: 'ai', name: 'Worker AI', fn: checkAI },
     { id: 'mcp', name: 'MCP Server', fn: checkMCP },
-    { id: 'git', name: 'GitHub API', fn: checkGit },
+    { id: 'github_api', name: 'GitHub API', fn: checkGitHubAPIHealth },
+    { id: 'webhooks', name: 'Webhooks', fn: checkWebhooksHealth },
     // { id: 'containers', name: 'Containers', fn: checkContainers },
     { id: 'agents', name: 'Agents', fn: checkAgents },
     // { id: 'workflows', name: 'Workflows', fn: checkWorkflows }

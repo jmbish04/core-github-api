@@ -71,7 +71,7 @@ export function getPillarsForBindings(bindings: string[]): string[] {
 
   for (const binding of bindings) {
     for (const pillar of MIGRATION_PILLARS) {
-      if (pillar.bindings.some(b =>
+      if (pillar.bindings.some((b: string) =>
         b.toLowerCase().includes(binding.toLowerCase()) ||
         binding.toLowerCase().includes(b.toLowerCase())
       )) {

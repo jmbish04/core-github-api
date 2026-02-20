@@ -1,8 +1,8 @@
 import { WorkflowEntrypoint, WorkflowStep, WorkflowEvent } from "cloudflare:workers";
-import { TopicOrchestratorAgent } from "../../ai/agents/TopicOrchestrator";
-import { WebSearchAgent } from "../../ai/agents/WebSearch";
-import { JudgeAgent } from "../../ai/agents/Judge";
-import { ReportingAgent } from "../../ai/agents/Reporting";
+import { TopicOrchestratorAgent } from "@agents/TopicOrchestrator";
+import { WebSearchAgent } from "@agents/WebSearch";
+import { JudgeAgent } from "@agents/Judge";
+import { ReportingAgent } from "@agents/Reporting";
 import { getDb } from "@db";
 import { researchBriefs, researchCandidates, researchPlans } from "@/db/schemas/github/research";
 import { eq } from "drizzle-orm";
@@ -31,7 +31,7 @@ export class TopicResearchWorkflow extends WorkflowEntrypoint<Env, ResearchWorkf
       const allResults: any[] = [];
       
       for (const query of queries.slice(0, 3)) { // Limit to top 3 queries to save time/cost
-         // @ts-ignore - RPC method call
+
          const results = await searchAgent.search(briefId, query);
          allResults.push(...results);
       }
@@ -48,7 +48,7 @@ export class TopicResearchWorkflow extends WorkflowEntrypoint<Env, ResearchWorkf
        const criteria = JSON.stringify(plan.goals);
 
        const results = await Promise.all(candidatesToJudge.map(async (candidate: any) => {
-         // @ts-ignore - RPC method call
+
          const judgement = await judgeAgent.evaluateCandidate(briefId, candidate, criteria);
          
          return { ...candidate, judgement };

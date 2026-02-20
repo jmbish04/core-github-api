@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { Tool } from '../../agent-sdk';
+import { Tool } from '@/ai/agent-sdk';
 
 /**
  * Tool for reading from D1 database via SQL.

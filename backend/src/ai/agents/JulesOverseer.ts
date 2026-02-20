@@ -1,10 +1,9 @@
 import { BaseAgent } from "./BaseAgent";
-
 import { getDb } from "@db";
 import { julesSessions, julesJobs } from "@/db/schemas/agents/jules";
-import { eq, lt, and, notInArray, desc } from "drizzle-orm";
-import { JulesService } from "../../services/jules";
-
+import { alerts } from "@/db/schemas/app/alerts";
+import { eq, notInArray, desc } from "drizzle-orm";
+import { JulesService } from "@/services/jules";
 
 type SessionCheckResult = {
   sessionId: string;
@@ -41,63 +40,74 @@ export class JulesOverseer extends BaseAgent {
       .orderBy(desc(julesJobs.createdAt))
       .limit(20);
 
-    console.log(`[JulesOverseer] Checking ${activeJobs.length} active jobs`);
+    this.logger.info(`Checking ${activeJobs.length} active jobs`);
 
     for (const job of activeJobs) {
         try {
-            // Get session status from Jules Service (Agents SDK)
-            // We assume sessionId in job maps to the Agent ID
             const session = await julesService.getSession(job.sessionId);
             
-            // Check if context is loaded (if not, we might need to resume it)
-            // The prompt says: "If job is blocked... check if Jules is waiting for user input"
-            // "If job is pending... check if it has started"
-            
-            // We'll peek at the agent state
-            // note: session.info() might not exist on all adapters, checking previous code it did.
-            // Using `session` object directly if it's a stub.
-            // If `julesService.getSession` returns a stub, we might need to call methods on it.
-            // Assuming `session` is the stub.
-            
-            // For now, we update our job table based on what we can find.
-            // If the session is effectively "done" but job is pending, mark complete.
-            
-            // Note: The Agents SDK doesn't expose a generic "info" on the stub unless defined.
-            // We might need to implement a specific method on JulesAgent if it doesn't exist.
-            // But let's assume we can get basic status.
-            
-            // Simplification: We will just log for now as "monitored".
-            // Real implementation requires JulesAgent to expose a `getStatus()` RPC.
-            
             let status = 'unknown';
+            let julesContext = null;
+
             try {
-                // Try to get status if the agent supports it
-                // @ts-ignore - Assuming getStatus exists or we handle error
-                status = await session.getStatus(); 
+                // Fetch the status and history/info from Jules
+                const info = await session.info();
+                status = info.state || 'running';
+                julesContext = info || 'No context available'; 
             } catch (e) {
-                // Fallback or assume running
                 status = 'running';
             }
 
-            if (status === 'completed' || status === 'failed') {
+            if (status === 'completed' || status === 'failed' || status === 'ready_for_pr') {
+                if (status === 'ready_for_pr' || status === 'completed') {
+                    // Tell Jules to wrap up
+                    await julesService.sendMessage(job.sessionId, "The changes look good. Please proceed to submit the Pull Request.");
+                    
+                    // Fire an Alert for human follow-up
+                    await db.insert(alerts).values({
+                        id: crypto.randomUUID(),
+                        title: "Jules Remediation Completed",
+                        description: `Jules has finished the assigned task and submitted a PR for session ${job.sessionId}. Human review of the PR is recommended.`,
+                        processOrigin: "JulesOverseer",
+                        repoOrigin: job.repoFullName,
+                        workerOrigin: "core-github-api",
+                        isActionNeeded: true,
+                        actionRequired: "Review generated Pull Request in GitHub"
+                    });
+                }
+
                 await db.update(julesJobs)
-                    .set({ status: status as any })
+                    .set({ status: 'completed' })
                     .where(eq(julesJobs.id, job.id));
+                await db.update(julesSessions)
+                    .set({ status: 'completed' })
+                    .where(eq(julesSessions.id, job.sessionId));
+
                 results.push({ sessionId: job.sessionId, status, actionTaken: 'marked_completed' });
+
             } else if (status === 'waiting_for_user') {
-                 // Update job to blocked
+                 this.logger.info(`Session ${job.sessionId} is stuck. Booting AI Manager...`);
+                 
+                 // Update job to blocked so UI reflects it
                  if (job.status !== 'blocked') {
                      await db.update(julesJobs)
                         .set({ status: 'blocked' })
                         .where(eq(julesJobs.id, job.id));
                  }
-                 results.push({ sessionId: job.sessionId, status, actionTaken: 'marked_blocked' });
+
+                 // Run AI Manager to unblock Jules utilizing BaseAgent's native MCP integration
+                 const instructions = await this.evaluateStuckJules(julesContext);
+                 
+                 // Send the unblocking instructions back to Jules
+                 await julesService.sendMessage(job.sessionId, instructions);
+
+                 results.push({ sessionId: job.sessionId, status, actionTaken: 'unblocked_via_ai' });
             } else {
                  results.push({ sessionId: job.sessionId, status, actionTaken: 'monitoring' });
             }
 
-        } catch (err) {
-            console.error(`[JulesOverseer] Failed to inspect job ${job.id}`, err);
+        } catch (err: any) {
+            this.logger.error(`Failed to inspect job ${job.id}`, { error: err.message });
             results.push({ sessionId: job.sessionId, status: 'error', actionTaken: 'error' });
         }
     }
@@ -106,7 +116,38 @@ export class JulesOverseer extends BaseAgent {
   }
 
   async scheduled(event: ScheduledEvent) {
-    console.log("[JulesOverseer] Running scheduled check...");
+    this.logger.info("Running scheduled check...");
     await this.checkJulesStatus();
+  }
+
+  /**
+   * The AI Manager Logic
+   * Leverages BaseAgent to automatically gain access to Cloudflare MCP.
+   */
+  private async evaluateStuckJules(julesContext: any): Promise<string> {
+      const systemPrompt = `You are the Jules Overseer, an AI Engineering Manager overseeing an asynchronous coding agent named Jules.
+Jules is currently working on the repository \`jmbish04/core-github-api\` but has become stuck and is waiting for your instructions.
+
+YOUR DIRECTIVE:
+1. Review Jules's current status and the error/roadblock they are facing.
+2. Use your native Cloudflare MCP tools to query the official documentation if Jules is confused about Cloudflare-specific implementations (e.g., Workers, D1, KV, bindings).
+3. Formulate a clear, authoritative, and step-by-step response to unblock Jules and guide it toward the correct implementation.
+4. If Jules reports that the code is complete and asks for review/approval, explicitly instruct Jules to "Proceed to submit the Pull Request."`;
+
+      const userPrompt = `Jules is stuck. Here is their current context and last message: \n${JSON.stringify(julesContext, null, 2)}`;
+
+      try {
+          // Utilizing the BaseAgent's built-in ReAct loop + MCP server mount
+          const response = await this.runTextWithModel({
+              name: "JulesOverseer",
+              instructions: systemPrompt,
+              prompt: userPrompt
+          });
+          
+          return response;
+      } catch (error) {
+          this.logger.error("Failed to evaluate stuck Jules session", { error });
+          return "Please review the files, consult standard Cloudflare Worker documentation, and try an alternative approach.";
+      }
   }
 }

@@ -5,6 +5,7 @@ import { JulesService } from "@/services/jules";
 import { getDb } from "@/db";
 import { julesJobs } from "@/db/schemas/agents/jules";
 import { eq } from "drizzle-orm";
+import { generateUuid } from "@/utils/common";
 
 const invokeApi = new OpenAPIHono<{ Bindings: Env }>();
 
@@ -54,11 +55,8 @@ invokeApi.openapi(
   async (c) => {
     // Auth Check
     const apiKey = c.req.header("X-API-Key");
-    // Handle SecretsStoreSecret or string
-    const envKey = c.env.WORKER_API_KEY;
-    const validKey = typeof envKey === 'object' && envKey !== null && 'get' in envKey 
-        ? await envKey.get() 
-        : envKey as string;
+    const { getWorkerApiKey } = await import("@utils/secrets");
+    const validKey = await getWorkerApiKey(c.env);
 
     if (apiKey !== validKey) {
       return c.json({ error: "Unauthorized" }, 401);
@@ -70,7 +68,7 @@ invokeApi.openapi(
 
     // 1. Prepare Prompt with Standards
     const enhancedPrompt = `${body.prompt}\n\n${JULES_STANDARDS}`;
-    const sessionId = body.session_id || crypto.randomUUID();
+    const sessionId = body.session_id || generateUuid();
 
     // 2. Create Job Record
     const [job] = await db.insert(julesJobs).values({

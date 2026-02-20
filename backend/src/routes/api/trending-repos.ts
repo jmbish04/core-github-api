@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import { drizzle } from "drizzle-orm/d1";
-import * as schema from "../../db/schemas/github/webhooks";
+import * as schema from "@db/schemas/github/webhooks";
 import { eq } from "drizzle-orm";
 
 
@@ -11,7 +11,8 @@ const trendingReposApi = new Hono<{ Bindings: Env }>();
 // GET /actions/daily-trends/get/indexed/list
 trendingReposApi.get("/get/indexed/list", async (c) => {
   const apiKey = c.req.header("X-API-Key");
-  const expectedApiKey = await c.env.WORKER_API_KEY.get();
+  const { getWorkerApiKey } = await import("@utils/secrets");
+  const expectedApiKey = await getWorkerApiKey(c.env);
   if (apiKey !== expectedApiKey) {
     return c.json({ error: "Unauthorized" }, 401);
   }
@@ -48,7 +49,8 @@ trendingReposApi.post(
   ),
   async (c) => {
     const apiKey = c.req.header("X-API-Key");
-    const expectedApiKey = await c.env.WORKER_API_KEY.get();
+    const { getWorkerApiKey } = await import("@utils/secrets");
+    const expectedApiKey = await getWorkerApiKey(c.env);
     if (apiKey !== expectedApiKey) {
       return c.json({ error: "Unauthorized" }, 401);
     }

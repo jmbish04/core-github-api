@@ -1,19 +1,19 @@
 
-import { getDb } from '../db';
-import { healthRuns, healthResults, healthTestDefinitions } from '../db/schemas/logs/health';
+import { getDb } from '@db';
+import { healthRuns, healthResults, healthTestDefinitions } from '@db/schemas/logs/health';
 import { v4 as uuidv4 } from 'uuid';
 import { eq, desc, and, gt } from 'drizzle-orm';
 import { HealthResult, HealthCategory, HealthStepResult } from './types';
-import { analyzeFailure } from '../ai/utils/diagnostician';
+import { analyzeFailure } from '@/ai/utils/diagnostician';
 
 // ─── Import ALL distributed modular checks ──────────────────────────────
-import { checkGitHubHealth } from '../workflows/health';
-import { checkHealth as checkAIHealth } from '../ai/health';
-import { checkHealth as checkAgentsHealth } from '../ai/agents/health';
-import { checkHealth as checkMCPHealth } from '../ai/mcp/health';
-import { checkHealth as checkBrowserHealth } from '../ai/agents/tools/browser/health';
-import { checkHealth as checkGitSandboxHealth } from '../ai/agents/tools/git/health';
-import { checkAPIHealth } from '../api/health';
+import { checkGitHubAPIHealth, checkWebhooksHealth } from '@/workflows/health';
+import { checkHealth as checkAIHealth } from '@/ai/health';
+import { checkHealth as checkAgentsHealth } from '@/ai/agents/health';
+import { checkHealth as checkMCPHealth } from '@/ai/mcp/health';
+import { checkHealth as checkBrowserHealth } from '@/ai/agents/tools/browser/health';
+import { checkGitHealth, checkSandboxHealth } from '@/ai/agents/tools/git/health';
+import { checkAPIHealth } from '@/api/health';
 
 // ─── Check Registry ──────────────────────────────────────────────────────
 // Each check returns HealthStepResult and maps to a category for D1 persistence.
@@ -24,13 +24,15 @@ interface RegisteredCheck {
 }
 
 const CODE_CHECKS: RegisteredCheck[] = [
-    { id: 'db',       category: 'api',     fn: checkAPIHealth },
-    { id: 'ai',       category: 'ai',      fn: checkAIHealth },
-    { id: 'agents',   category: 'agents',  fn: checkAgentsHealth },
-    { id: 'mcp',      category: 'mcp',     fn: checkMCPHealth },
-    { id: 'github',   category: 'github',  fn: checkGitHubHealth },
-    { id: 'browser',  category: 'browser', fn: checkBrowserHealth },
-    { id: 'git',      category: 'git',     fn: checkGitSandboxHealth },
+    { id: 'db',       category: 'api',      fn: checkAPIHealth },
+    { id: 'ai',       category: 'ai',       fn: checkAIHealth },
+    { id: 'agents',   category: 'agents',   fn: checkAgentsHealth },
+    { id: 'mcp',      category: 'mcp',      fn: checkMCPHealth },
+    { id: 'browser',  category: 'browser',  fn: checkBrowserHealth },
+    { id: 'github',   category: 'github',   fn: checkGitHubAPIHealth },
+    { id: 'webhooks', category: 'webhooks', fn: checkWebhooksHealth },
+    { id: 'git',      category: 'git',      fn: checkGitHealth },
+    { id: 'sandbox',  category: 'sandbox',  fn: checkSandboxHealth },
 ];
 
 export class HealthCoordinator {
@@ -64,6 +66,7 @@ export class HealthCoordinator {
 
             // 2. Run ALL Code Checks in Parallel
             const checkPromises = CODE_CHECKS.map(async (check) => {
+                const checkStart = Date.now();
                 try {
                     return { check, result: await check.fn(this.env) };
                 } catch (e: any) {
@@ -73,8 +76,13 @@ export class HealthCoordinator {
                             name: check.id,
                             status: 'failure' as const,
                             message: e.message || 'Check threw an exception',
-                            durationMs: 0,
-                            details: undefined,
+                            durationMs: Date.now() - checkStart,
+                            details: {
+                                errorName: e.name,
+                                errorStack: e.stack,
+                                errorCause: e.cause,
+                                category: check.category
+                            },
                             analysis: undefined,
                         } as HealthStepResult
                     };
@@ -92,21 +100,39 @@ export class HealthCoordinator {
             for (const { check, result } of settledChecks) {
                 let aiSuggestion: string | null = null;
 
-                // Generate AI remediation for failures
-                if (result.status === 'failure' && this.env.AI) {
+                // Dispatch failure to the dedicated Agent DO
+                if (result.status === 'failure' && this.env.HEALTH_DIAGNOSTICIAN) {
                     try {
-                        const analysis = await analyzeFailure(
-                            this.env,
-                            result.name,
-                            result.message || 'Unknown failure',
-                            result.details
-                        );
-                        if (analysis) {
-                            aiSuggestion = `[${analysis.severity}] ${analysis.rootCause} — Fix: ${analysis.suggestedFix}`;
-                            result.analysis = analysis;
+                        const agentId = this.env.HEALTH_DIAGNOSTICIAN.idFromName('singleton');
+                        const agentStub = this.env.HEALTH_DIAGNOSTICIAN.get(agentId);
+                        
+                        const diagnosticResponse = await agentStub.fetch("http://do/diagnose", {
+                            method: "POST",
+                            body: JSON.stringify({
+                                errorName: result.name,
+                                errorMessage: result.message || 'Unknown failure',
+                                errorDetails: result.details || { notice: 'No details provided' },
+                                category: check.category,
+                                target: result.name
+                            })
+                        });
+
+                        if (diagnosticResponse.ok) {
+                            const rawAnalysis = await diagnosticResponse.json<{ severity: string, rootCause: string, suggestedFix: string, prUrl: string | null }>();
+                            aiSuggestion = `[${rawAnalysis.severity}] ${rawAnalysis.rootCause} — Fix: ${rawAnalysis.suggestedFix}`;
+                            if (rawAnalysis.prUrl) {
+                                aiSuggestion += `\nApplied Fix PR: ${rawAnalysis.prUrl}`;
+                            }
+                            result.analysis = {
+                                severity: rawAnalysis.severity as any,
+                                rootCause: rawAnalysis.rootCause,
+                                suggestedFix: rawAnalysis.suggestedFix,
+                                confidence: 1.0,
+                                fixPrompt: "Remediation managed by autonomous HealthDiagnostician DO"
+                            };
                         }
-                    } catch {
-                        // AI analysis is best-effort, don't block
+                    } catch (e) {
+                        console.error("Agent Diagnostic DO Call Failed", e);
                     }
                 }
 
@@ -127,7 +153,34 @@ export class HealthCoordinator {
             }
 
             // Add dynamic test results
-            results.push(...dynamicResults);
+            for (const r of dynamicResults) {
+                if (r.status === 'failure' && this.env.HEALTH_DIAGNOSTICIAN) {
+                    try {
+                        const agentId = this.env.HEALTH_DIAGNOSTICIAN.idFromName('singleton');
+                        const agentStub = this.env.HEALTH_DIAGNOSTICIAN.get(agentId);
+                        const diagnosticResponse = await agentStub.fetch("http://do/diagnose", {
+                            method: "POST",
+                            body: JSON.stringify({
+                                errorName: r.name,
+                                errorMessage: r.message,
+                                errorDetails: r.details,
+                                category: r.category,
+                                target: r.name
+                            })
+                        });
+                        if (diagnosticResponse.ok) {
+                            const rawAnalysis = await diagnosticResponse.json<{ severity: string, rootCause: string, suggestedFix: string, prUrl: string | null }>();
+                            r.ai_suggestion = `[${rawAnalysis.severity}] ${rawAnalysis.rootCause} — Fix: ${rawAnalysis.suggestedFix}`;
+                            if (rawAnalysis.prUrl) {
+                                r.ai_suggestion += `\nApplied Fix PR: ${rawAnalysis.prUrl}`;
+                            }
+                        }
+                    } catch (e) {
+                        console.error("Dynamic test agent diagnostic failed", e);
+                    }
+                }
+                results.push(r);
+            }
 
             // 5. Determine Overall Status
             const failureCount = results.filter(r => r.status === 'failure').length;
@@ -208,6 +261,14 @@ export class HealthCoordinator {
                     });
 
                     const isExpected = response.status === (def.expected_status || 200);
+                    let bodySnippet = '';
+                    
+                    try {
+                        const text = await response.text();
+                        bodySnippet = text.slice(0, 1000); // Capture up to 1000 chars for AI debugging
+                    } catch {
+                        // ignore body read errors
+                    }
 
                     results.push({
                         id: uuidv4(),
@@ -219,7 +280,12 @@ export class HealthCoordinator {
                             ? `${response.status} OK`
                             : `Expected ${def.expected_status}, got ${response.status}`,
                         duration_ms: Date.now() - start,
-                        details: { criticality: def.criticality, target: def.target },
+                        details: { 
+                            criticality: def.criticality, 
+                            target: def.target,
+                            responseBodySnippet: bodySnippet,
+                            actualStatus: response.status
+                        },
                         timestamp: new Date().toISOString()
                     });
                 } catch (e: any) {
@@ -231,7 +297,13 @@ export class HealthCoordinator {
                         status: 'failure',
                         message: e.message || 'Request failed',
                         duration_ms: Date.now() - start,
-                        details: { criticality: def.criticality, target: def.target },
+                        details: { 
+                            criticality: def.criticality, 
+                            target: def.target,
+                            errorName: e.name,
+                            errorStack: e.stack,
+                            errorCause: e.cause
+                        },
                         timestamp: new Date().toISOString()
                     });
                 }

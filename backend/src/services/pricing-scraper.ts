@@ -8,6 +8,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { eq, desc } from 'drizzle-orm';
 import { pricingSnapshots, type NewPricingSnapshot } from '@db';
 import { Logger } from '@logging';
+import { getGithubConfigs } from '@utils/github/configs';
 
 interface PricingData {
   modelId: string;
@@ -243,8 +244,9 @@ ${lastUpdate ? `**Last Update**: ${lastUpdate.toISOString()}` : '**Last Update**
 *This issue was automatically created by the pricing monitoring system.*
 `;
     
+    const config = getGithubConfigs(env);
     const response = await octokit.issues.create({
-      owner: env.GITHUB_OWNER,
+      owner: config.owner,
       repo: 'core-github-api',
       title,
       body,

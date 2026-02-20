@@ -204,6 +204,104 @@
       "when": 1771056550825,
       "tag": "0028_normal_wrecking_crew",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "6",
+      "when": 1771404650785,
+      "tag": "0029_worried_changeling",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "6",
+      "when": 1771407482219,
+      "tag": "0030_red_firedrake",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "6",
+      "when": 1771410018203,
+      "tag": "0031_lethal_frank_castle",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "6",
+      "when": 1771425574578,
+      "tag": "0032_spicy_korath",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "6",
+      "when": 1771428669750,
+      "tag": "0033_soft_starbolt",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "6",
+      "when": 1771580283054,
+      "tag": "0034_broad_apocalypse",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "6",
+      "when": 1771581254147,
+      "tag": "0035_great_rictor",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "6",
+      "when": 1771583022034,
+      "tag": "0036_sudden_harpoon",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "6",
+      "when": 1771583482960,
+      "tag": "0037_lyrical_lily_hollister",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "6",
+      "when": 1771584297480,
+      "tag": "0038_equal_luckman",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "6",
+      "when": 1771585205558,
+      "tag": "0039_remarkable_omega_red",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "6",
+      "when": 1771585800728,
+      "tag": "0040_peaceful_mandroid",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "6",
+      "when": 1771586424246,
+      "tag": "0041_white_zaladane",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "6",
+      "when": 1771591550522,
+      "tag": "0042_lumpy_zaran",
+      "breakpoints": true
     }
   ]
 }

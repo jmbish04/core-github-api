@@ -1,7 +1,7 @@
 import { callable } from "agents";
 import { Agent as OpenAIAgent } from "@openai/agents";
 import { z } from "zod";
-import { resolveDefaultAiModel, resolveDefaultAiProvider, createGatewayClient } from "../agent-sdk";
+import { resolveDefaultAiModel, resolveDefaultAiProvider, createGatewayClient } from "@/ai/agent-sdk";
 import { BaseAgent, BaseAgentState } from "@/ai/agent-sdk";
 import { Logger } from "@logging";
 
@@ -18,11 +18,10 @@ const PlanSchema = z.object({
 });
 
 export class PlannerAgent extends BaseAgent<Env, BaseAgentState> {
-  protected logger: Logger;
+
 
   constructor(state: DurableObjectState, env: Env) {
     super(state, env);
-    this.logger = new Logger(env, "PlannerAgent");
   }
 
   @callable()

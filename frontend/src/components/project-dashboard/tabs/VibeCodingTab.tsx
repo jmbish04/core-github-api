@@ -196,15 +196,21 @@ export function VibeCodingTab({
 
           <div className="space-y-2">
             <div className="flex flex-wrap gap-2">
-              <Badge variant="outline">Golden Path</Badge>
-              <Badge variant="outline">Scaffolding</Badge>
-              <Badge variant="outline">Jules Handoff</Badge>
+              <Badge variant="outline" className="cursor-pointer hover:bg-accent" onClick={() => setInput("Enforce Golden Path standards on this repo.")}>Golden Path</Badge>
+              <Badge variant="outline" className="cursor-pointer hover:bg-accent" onClick={() => setInput("Scaffold a new feature with strict typing.")}>Scaffolding</Badge>
+              <Badge variant="outline" className="cursor-pointer hover:bg-accent" onClick={() => setInput("Prepare a Jules Handoff task for this implementation.")}>Jules Handoff</Badge>
             </div>
             <Textarea
               rows={4}
               value={input}
               onChange={(event) => setInput(event.target.value)}
               placeholder={placeholder}
+              onKeyDown={(e) => {
+                   if (e.key === 'Enter' && !e.shiftKey) {
+                       e.preventDefault();
+                       void handleSend();
+                   }
+               }}
             />
             <div className="flex justify-end">
               <Button onClick={() => void handleSend()} disabled={isRunning}>

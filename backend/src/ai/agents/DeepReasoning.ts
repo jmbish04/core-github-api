@@ -7,7 +7,8 @@
 
 import { callable } from "agents";
 import { resolveDefaultAiModel, resolveDefaultAiProvider, type SupportedProvider } from "@/ai/providers/config";
-import { BaseAgent, BaseAgentState, OpenAIAgent } from "@/ai/agent-sdk";
+import { BaseAgentState } from "@/ai/agent-sdk";
+import { BaseAgent } from "@/ai/agents/BaseAgent";
 import { Logger } from "@logging";
 
 /**
@@ -35,8 +36,8 @@ interface DeepReasoningInput {
  * Intercepts POST requests, resolves the appropriate AI provider/model, and enforces 
  * strict JSON schema compliance on the output.
  */
-export class DeepReasoningAgent extends BaseAgent<Env, BaseAgentState> {
-  protected logger: Logger;
+export class DeepReasoningAgent extends BaseAgent<BaseAgentState> {
+
 
   /**
    * @constructor
@@ -45,7 +46,7 @@ export class DeepReasoningAgent extends BaseAgent<Env, BaseAgentState> {
    */
   constructor(state: DurableObjectState, env: Env) {
     super(state, env);
-    this.logger = new Logger(env, "DeepReasoningAgent");
+    (this as any).logger = new Logger(env, "DeepReasoningAgent");
   }
 
   /**
@@ -101,22 +102,16 @@ export class DeepReasoningAgent extends BaseAgent<Env, BaseAgentState> {
 
       const model = resolveDefaultAiModel(this.env, provider);
 
-      /**
-       * Instantiate the OpenAI Agent wrapper.
-       * The underlying runAgent() call handles client creation via createGatewayClient 
-       * internally, injecting the resolved API keys and Gateway routing transparently.
-       */
-      const agent = new OpenAIAgent({
+      const result = await this.runStructuredResponseWithModel({
         name: "DeepReasoningAgent",
-        model,
-        outputType: schema as any,
-        instructions:
-          "You are a deep technical reasoning assistant. Return only output that matches the requested JSON schema.",
-      } as any);
-
-      const result = await this.runAgent(agent, prompt);
+        instructions: "You are a deep technical reasoning assistant. Return only output that matches the requested JSON schema.",
+        prompt: prompt,
+        schema: schema as any,
+        provider: provider as any,
+        model: model
+      });
       
-      return Response.json(result.finalOutput ?? {});
+      return Response.json(result ?? {});
     } catch (error: any) {
       this.logger.error("Deep reasoning failed", { error: error.message, stack: error.stack });
       return new Response(`Error: ${error.message}`, { status: 500 });

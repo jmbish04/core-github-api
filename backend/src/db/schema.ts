@@ -24,3 +24,10 @@ export * from "./schemas/agents/events";
 export * from "./schemas/app/sessions";
 
 
+export * from "./schemas/projects/hierarchy";
+export * from "./schemas/app/config";
+export * from "./schemas/app/alerts";
+export * from "./schemas/app/standardization";
+export * from "./schemas/app/applications";
+export * from "./schemas/app/tags";
+export * from "./schemas/app/tag_application_mapping";

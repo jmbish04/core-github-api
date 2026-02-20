@@ -3,7 +3,7 @@
  * @description Orchestrates Cloudflare Containers for heavy duty tasks.
  */
 
-import type { GardenerContext } from '../types'
+import type { GardenerContext } from '@/gardener/types'
 
 export class ContainerManager {
     constructor(private env: any) { } // using any for env momentarily to avoid type hassles with dynamic binding

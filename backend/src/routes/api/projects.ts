@@ -1,15 +1,18 @@
 import { Hono } from "hono";
 import { Agent as OpenAIAgent } from "@openai/agents";
+import { getAgentByName } from "agents";
 import TOML from "@iarna/toml";
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@db";
-import { projects, projectPhases } from "../../db/schemas/projects/roadmap";
-import { tasks } from "../../db/schemas/projects/tasks";
-import { projectPlans } from "../../db/schemas/projects/plans";
-import { projectFavorites } from "../../db/schemas/github/favorites";
-import { userSettings } from "../../db/schemas/app/settings";
-import { repoTags, repositories } from "../../db/schemas/github/repos";
+import { projects, projectPhases } from "@db/schemas/projects/roadmap";
+import { generateLandingPage, type GeneratorConfig } from "@services/landing-generator";
+import { LandingPageAgent } from "@/ai/agents/LandingPageAgent";
+import { tasks } from "@db/schemas/projects/tasks";
+import { projectPlans } from "@db/schemas/projects/plans";
+import { projectFavorites } from "@db/schemas/github/favorites";
+import { userSettings } from "@db/schemas/app/settings";
+import { repoTags, repositories } from "@db/schemas/github/repos";
 import {
   createRunner,
   resolveDefaultAiModel,
@@ -24,8 +27,11 @@ import {
   resolveGitHubOwner,
   syncOwnerRepositoriesIfStale,
 } from "@services/repository-sync";
-import { KanbanColumn, TaskStatus } from "@/types/enums";
+import { KanbanColumn, TaskStatus } from "@/types/project-management/enums";
 import { buildGoldenPathInstructions } from "@/standards/goldenPath";
+import JSON5 from "json5";
+import { hierarchyRouter } from "./projects/hierarchy";
+import { generateUuid } from "@/utils/common";
 
 const projectsApi = new Hono<{ Bindings: Env }>();
 
@@ -444,7 +450,7 @@ async function fetchRecentRepositoryActivity(
     return response.data.map((event: any) => {
       const action = event?.payload?.action ? ` (${event.payload.action})` : "";
       return {
-        id: String(event.id || crypto.randomUUID()),
+        id: String(event.id || generateUuid()),
         type: String(event.type || "Event"),
         actor: String(event.actor?.login || "unknown"),
         createdAt: String(event.created_at || new Date().toISOString()),
@@ -516,7 +522,7 @@ async function fetchCloudflareDeployments(
         deployment?.id ||
           deployment?.deployment_id ||
           deployment?.version_id ||
-          crypto.randomUUID(),
+          generateUuid(),
       ),
       createdAt: String(
         deployment?.created_on ||
@@ -547,8 +553,8 @@ async function savePlanToProjectTables(
   await db.delete(projectPlans).where(eq(projectPlans.projectId, projectId));
 
   for (const epic of plan.epics) {
-    const phaseId = crypto.randomUUID();
-    const epicPlanId = crypto.randomUUID();
+    const phaseId = generateUuid();
+    const epicPlanId = generateUuid();
 
     await db.insert(projectPhases).values({
       id: phaseId,
@@ -578,8 +584,8 @@ async function savePlanToProjectTables(
     epicsCreated += 1;
 
     for (const [storyIndex, story] of epic.userStories.entries()) {
-      const storyTaskId = crypto.randomUUID();
-      const storyPlanId = crypto.randomUUID();
+      const storyTaskId = generateUuid();
+      const storyPlanId = generateUuid();
       await db.insert(tasks).values({
         id: storyTaskId,
         repoId,
@@ -613,7 +619,7 @@ async function savePlanToProjectTables(
 
       for (const [taskIndex, taskTitle] of story.tasks.entries()) {
         await db.insert(tasks).values({
-          id: crypto.randomUUID(),
+          id: generateUuid(),
           repoId,
           title: taskTitle,
           description: `User story: ${story.title}`,
@@ -626,7 +632,7 @@ async function savePlanToProjectTables(
           updatedAt: now,
         });
         await db.insert(projectPlans).values({
-          id: crypto.randomUUID(),
+          id: generateUuid(),
           projectId,
           parentId: storyPlanId,
           itemType: "task",
@@ -1077,7 +1083,7 @@ projectsApi.post("/", async (c) => {
 
     const now = new Date().toISOString();
     const newProject = {
-      id: crypto.randomUUID(),
+      id: generateUuid(),
       repoId,
       name,
       description: body.description || null,
@@ -1437,7 +1443,21 @@ projectsApi.post("/:id/assistant", async (c) => {
     ].join("\n");
 
     const result = await runner.run(agent, aiInput);
-    const parsed = AssistantResponseSchema.parse(result.finalOutput || { reply: "" });
+    
+    let parsedObj: any;
+    try {
+      // Try to parse as JSON if it's a string, otherwise use as is
+      parsedObj = typeof result.finalOutput === 'string' 
+        ? JSON.parse(result.finalOutput) 
+        : result.finalOutput;
+    } catch (e) {
+      // If JSON parse fails, treat the whole output as the reply
+      parsedObj = { reply: String(result.finalOutput || "") };
+    }
+
+    // Validate against schema, but fallback to just reply if validation fails
+    const validation = AssistantResponseSchema.safeParse(parsedObj);
+    const parsed = validation.success ? validation.data : { reply: String(result.finalOutput || "") };
 
     let planSaved:
       | {
@@ -1485,6 +1505,235 @@ projectsApi.post("/:id/assistant", async (c) => {
       500,
     );
   }
+});
+
+// Landing Page Generator Routes
+
+projectsApi.post("/:projectId/landing-page/preview", async (c) => {
+	const db = getDb(c.env.DB);
+	const projectId = c.req.param("projectId");
+	const body = await c.req.json<{
+		config?: GeneratorConfig;
+		prompt?: string;
+	}>();
+
+	// 1. Get Repo Context
+	const project = await db
+		.select()
+		.from(projects)
+		.where(eq(projects.id, projectId))
+		.limit(1)
+		.then((rows) => rows[0]);
+
+	if (!project) {
+		return c.json({ success: false, error: "Project not found" }, 404);
+	}
+
+	const repoRecord = await db
+		.select()
+		.from(repositories)
+		.where(eq(repositories.id, project.repoId))
+		.limit(1)
+		.then((rows) => rows[0]);
+
+	if (!repoRecord || !repoRecord.owner || !repoRecord.name) {
+		return c.json({ success: false, error: "Repository not found for project" }, 404);
+	}
+
+	const owner = repoRecord.owner;
+	const repo = repoRecord.name;
+	const octokit = await getOctokit(c.env);
+
+	// 2. Hydrate Config if missing
+	const config: GeneratorConfig = body.config || { customAnalysis: {} };
+    if (!config.customAnalysis) config.customAnalysis = {};
+
+	if (!config.wranglerConfig || !config.packageJson) {
+		try {
+			const [wranglerContentResponse, packageJsonContentResponse] = await Promise.all([
+				octokit.rest.repos
+					.getContent({
+						owner,
+						repo,
+						path: "wrangler.jsonc",
+					})
+					.catch(() =>
+						octokit.rest.repos.getContent({
+							owner,
+							repo,
+							path: "wrangler.toml",
+						}),
+					)
+					.catch(() =>
+						octokit.rest.repos.getContent({
+							owner,
+							repo,
+							path: "wrangler.json",
+						}),
+					),
+				octokit.rest.repos.getContent({
+					owner,
+					repo,
+					path: "package.json",
+				}),
+			]);
+
+			if ("content" in wranglerContentResponse.data) {
+				const content = Buffer.from(wranglerContentResponse.data.content, "base64").toString("utf8");
+				try {
+					config.wranglerConfig = JSON5.parse(content);
+				} catch (e) {
+					console.warn("Failed to parse wrangler config as JSON5, trying TOML", e);
+					try {
+						config.wranglerConfig = TOML.parse(content);
+					} catch (tomlError) {
+						console.error("Failed to parse wrangler config as TOML:", tomlError);
+					}
+				}
+			}
+
+			if ("content" in packageJsonContentResponse.data) {
+				config.packageJson = JSON.parse(Buffer.from(packageJsonContentResponse.data.content, "base64").toString("utf8"));
+			}
+		} catch (e) {
+			console.error("Failed to fetch repo config:", e);
+			// Continue with partial config
+		}
+	}
+
+	// 3. Apply AI Refinement if prompt exists
+	if (body.prompt) {
+		const getByName = getAgentByName as any;
+		// Use a global singleton ID since the logic is stateless (config passed in input)
+		// but using projectId allows for potential future statefulness or load balancing per project
+		const agent = await getByName(c.env.LANDING_PAGE_AGENT, "landing-generator");
+		try {
+			const refinement = await agent.refineConfig({
+				currentConfig: config.customAnalysis,
+				prompt: body.prompt,
+			});
+			config.customAnalysis = { ...config.customAnalysis, ...refinement };
+		} catch (e) {
+			console.error("Failed to parse AI refinement:", e);
+		}
+	}
+
+	// 4. Generate HTML
+	try {
+		const html = await generateLandingPage(config);
+		return c.json({ success: true, html, config });
+	} catch (e: any) {
+		return c.json({ success: false, error: e.message }, 500);
+	}
+});
+
+projectsApi.post("/:projectId/landing-page/pr", async (c) => {
+	const db = getDb(c.env.DB);
+	const projectId = c.req.param("projectId");
+	const { html, branchName, prTitle } = await c.req.json<{
+		html: string;
+		branchName: string;
+		prTitle: string;
+	}>();
+
+	const project = await db
+		.select()
+		.from(projects)
+		.where(eq(projects.id, projectId))
+		.limit(1)
+		.then((rows) => rows[0]);
+
+	if (!project) return c.json({ success: false, error: "Project not found" }, 404);
+
+	const repoRecord = await db
+		.select()
+		.from(repositories)
+		.where(eq(repositories.id, project.repoId))
+		.limit(1)
+		.then((rows) => rows[0]);
+
+	if (!repoRecord || !repoRecord.owner || !repoRecord.name) {
+		return c.json({ success: false, error: "Repository not found for project" }, 404);
+	}
+
+	const owner = repoRecord.owner;
+	const repo = repoRecord.name;
+	const octokit = await getOctokit(c.env);
+
+	try {
+		// 1. Get default branch SHA
+		const { data: repoData } = await octokit.rest.repos.get({ owner, repo });
+		const defaultBranch = repoData.default_branch;
+		const { data: refData } = await octokit.rest.git.getRef({
+			owner,
+			repo,
+			ref: `heads/${defaultBranch}`,
+		});
+		const baseSha = refData.object.sha;
+
+		// 2. Create new branch
+		await octokit.rest.git.createRef({
+			owner,
+			repo,
+			ref: `refs/heads/${branchName}`,
+			sha: baseSha,
+		});
+
+		// 3. Create blob for HTML
+		const { data: blobData } = await octokit.rest.git.createBlob({
+			owner,
+			repo,
+			content: Buffer.from(html).toString("base64"), // Base64 encoded
+			encoding: "base64",
+		});
+
+		// 4. Create tree
+		const { data: treeData } = await octokit.rest.git.createTree({
+			owner,
+			repo,
+			base_tree: baseSha,
+			tree: [
+				{
+					path: "public/index.html",
+					mode: "100644",
+					type: "blob",
+					sha: blobData.sha,
+				},
+			],
+		});
+
+		// 5. Create commit
+		const { data: commitData } = await octokit.rest.git.createCommit({
+			owner,
+			repo,
+			message: "feat: add landing page (generated)",
+			tree: treeData.sha,
+			parents: [baseSha],
+		});
+
+		// 6. Update branch ref
+		await octokit.rest.git.updateRef({
+			owner,
+			repo,
+			ref: `heads/${branchName}`,
+			sha: commitData.sha,
+		});
+
+		// 7. Create PR
+		const { data: prData } = await octokit.rest.pulls.create({
+			owner,
+			repo,
+			title: prTitle,
+			head: branchName,
+			base: defaultBranch,
+			body: "This PR adds a generated landing page at `public/index.html`.\n\nGenerated by Colby Landing Page Agent.",
+		});
+
+		return c.json({ success: true, prUrl: prData.html_url });
+	} catch (e: any) {
+		console.error("PR Creation Failed:", e);
+		return c.json({ success: false, error: e.message }, 500);
+	}
 });
 
 projectsApi.post("/:id/vibe-coding/chat", async (c) => {
@@ -1621,7 +1870,7 @@ projectsApi.post("/:id/phases", async (c) => {
   const body = await c.req.json();
 
   const newPhase = {
-    id: crypto.randomUUID(),
+    id: generateUuid(),
     projectId,
     name: body.name,
     description: body.description,
@@ -1744,5 +1993,7 @@ projectsApi.post("/phases/:phaseId/generate-instructions", async (c) => {
     return c.json({ success: false, error: error.message }, 500);
   }
 });
+
+projectsApi.route('/hierarchy', hierarchyRouter);
 
 export default projectsApi;

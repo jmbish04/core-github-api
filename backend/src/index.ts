@@ -8,9 +8,11 @@ import { OpenAPIHono } from '@hono/zod-openapi'
 import type { MiddlewareHandler } from 'hono'
 import { swaggerUI } from '@hono/swagger-ui'
 import { getAgentByName } from 'agents'
+import { generateUuid } from '@/utils/common'
 // 'app' is the Hono app that handles all our API routes
 import { app, Bindings } from "@utils/hono";
 import { logSecretStatus } from "@utils/debug-secrets";
+import { getWorkerApiKey, getGithubToken } from "@utils/secrets";
 import { GitHubWorkerRPC } from "@/routes/rpc";
 import { convertOpenAPIToYAML, buildCompleteOpenAPIDocument } from "@utils/openapi";
 import { MCP_TOOLS, getToolStats, getTool, MCPExecuteRequest, TOOL_ROUTES, serializeTools } from "@/ai/mcp/tools";
@@ -43,13 +45,29 @@ import julesApi from "@/routes/api/jules";
 import dailyTrendsApi from "@/routes/daily-trends";
 import ghActionsApi from "@/routes/api/gh-actions";
 import standardsApi from "@/routes/api/standards";
+import standardizationWebhook from "@/routes/api/webhooks/standardization";
 import invokeApi from "@/routes/api/jules/invoke";
 import trendingReposApi from "@/routes/api/trending-repos";
+import configApi from "@/routes/api/config";
 import { sendEmail } from "@utils/email";
-
-
+import appstoreApi from "@/routes/api/appstore";
+import { cors } from 'hono/cors'
 
 // --- 1. Middleware ---
+
+// CORS
+// CORS
+app.use('*', async (c, next) => {
+  const corsMiddleware = cors({
+    origin: ['http://localhost:5173', 'http://localhost:3000', c.env.BASE_URL || ''],
+    allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+    allowHeaders: ['Content-Type', 'Authorization', 'X-API-Key', 'x-api-key'],
+    exposeHeaders: ['Content-Length', 'X-Kuma-Revision'],
+    maxAge: 600,
+    credentials: true,
+  });
+  return corsMiddleware(c as any, next);
+});
 
 // Logging middleware
 app.use('*', async (c, next) => {
@@ -123,8 +141,8 @@ const requireApiKey: MiddlewareHandler<{ Bindings: Env }> = async (c, next) => {
 
   // Diagnostic: Check all secrets from Secrets Store
   try {
-    const workerApiKey = await c.env.WORKER_API_KEY.get()
-    const githubToken = await c.env.GITHUB_TOKEN.get()
+    const workerApiKey = await getWorkerApiKey(c.env)
+    const githubToken = await getGithubToken(c.env)
     const aiGatewayToken = await c.env.AI_GATEWAY_TOKEN.get()
     
     console.log('[Secrets Diagnostic]', {
@@ -136,7 +154,7 @@ const requireApiKey: MiddlewareHandler<{ Bindings: Env }> = async (c, next) => {
     console.error('[Secrets Diagnostic Error]', err)
   }
 
-  const expectedApiKey = await c.env.WORKER_API_KEY.get()
+  const expectedApiKey = await getWorkerApiKey(c.env)
 
   if (!expectedApiKey) {
     console.error('WORKER_API_KEY is not configured')
@@ -167,9 +185,9 @@ const requireApiKey: MiddlewareHandler<{ Bindings: Env }> = async (c, next) => {
     }
   }
 
-  // 4. Check Query Param (key) - useful for quick debugging or specific WS cases if cookies fail
+  // 4. Check Query Param (key or token) - useful for quick debugging or specific WS cases if cookies fail
   if (!providedApiKey) {
-    providedApiKey = c.req.query('key');
+    providedApiKey = c.req.query('key') || c.req.query('token');
   }
 
   if (providedApiKey !== expectedApiKey) {
@@ -202,12 +220,9 @@ import { dailyResearchHandler } from "@/routes/daily-research";
 app.post('/upsert/daily-research', dailyResearchHandler)
 
 // Config endpoint - exposes public configuration to the frontend
-app.get('/api/config', (c) => {
-  return c.json({
-    owner: (c.env as any).GITHUB_OWNER || '',
-    features: { automations: true, liveEvents: true },
-  })
-})
+// Config endpoint - exposes public configuration to the frontend
+// app.get('/api/config') replaced by sharedApi.route('/config', configApi)
+
 
 // Route for /api/webhooks
 app.route('/api/webhooks', webhooksApi);
@@ -518,7 +533,7 @@ sharedApi.route('/landing-generator', landingGeneratorApi)
 sharedApi.route('/health', healthApi)
 sharedApi.route('/chat', chatApi)
 sharedApi.route('/workflows', workflowsApi)
-sharedApi.route('/settings', settingsApi)
+sharedApi.route('/config', configApi)
 sharedApi.route('/settings', settingsApi)
 sharedApi.route('/research', research)
 sharedApi.route('/jules', julesApi)
@@ -526,9 +541,7 @@ sharedApi.route('/daily-trends', dailyTrendsApi)
 sharedApi.route('/', ghActionsApi)
 sharedApi.route('/actions/daily-trends', trendingReposApi)
 sharedApi.route('/standards', standardsApi)
-sharedApi.route('/jules/invoke', invokeApi)
-
-
+sharedApi.route('/appstore', appstoreApi)
 // Mount browser-render BEFORE sharedApi to avoid shadowing if sharedApi captures /api base
 app.route('/api/browser-render', browserRender)
 
@@ -538,7 +551,11 @@ app.route('/api', sharedApi)
 app.route('/mcp', sharedApi)
 app.route('/a2a', sharedApi)
 app.route('/api/webhooks', webhooksApi)
+app.route('/api/webhooks/standardization', standardizationWebhook)
 app.route('/auth', authApi)
+
+export type AppType = typeof sharedApi;
+
 
 
 // --- 6. Helper Functions for Queue ---
@@ -578,6 +595,8 @@ export { ReportingAgent } from "./ai/agents/Reporting";
 // Existing Exports
 export { ResearchAgent } from "@/ai/agents/Research";
 export { JulesOverseer } from "@/ai/agents/JulesOverseer";
+export { CloudflareDocsAgent } from "@/ai/agents/CloudflareDocs";
+export { HealthDiagnostician } from "@/ai/agents/HealthDiagnostician";
 
 
 // Sandbox SDK — the Sandbox Durable Object class is provided by the SDK
@@ -832,7 +851,11 @@ export default {
    */
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     // Debug secrets on every request (non-blocking)
-    ctx.waitUntil(logSecretStatus(env));
+    // Debug secrets on every request (non-blocking) - REMOVED to prevent log spam
+    // ctx.waitUntil(logSecretStatus(env));
+    
+    // Prepare global context with requestId
+    const requestId = request.headers.get('x-request-id') || generateUuid()
     
     const url = new URL(request.url);
     const hasFileExtension = /\.[a-zA-Z0-9]+$/.test(url.pathname);

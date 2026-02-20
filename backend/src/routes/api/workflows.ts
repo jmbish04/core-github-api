@@ -1,7 +1,8 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
-import { Bindings } from "../../utils/hono";
+import { Bindings } from "@utils/hono";
+import { DEFAULT_GITHUB_OWNER, DEFAULT_TEMPLATE_REPO } from "@github-utils";
 
 const TranscriptMessageSchema = z.object({
   id: z.string().optional(),
@@ -35,7 +36,7 @@ const WorkflowCanvasSchema = z.object({
 });
 
 const JulesTaskSchema = z.object({
-  targetRepo: z.string().default("jmbish04/core-github-api"),
+  targetRepo: z.string().default(`${DEFAULT_GITHUB_OWNER}/${DEFAULT_TEMPLATE_REPO}`),
   workflowKey: z.string(),
   workflowTitle: z.string(),
   mode: z.enum(["new", "edit"]),

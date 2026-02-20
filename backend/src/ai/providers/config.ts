@@ -75,6 +75,15 @@ export function resolveDefaultAiModel(env: Partial<Env>, provider?: SupportedPro
   if (effectiveProvider === 'worker-ai' || effectiveProvider === 'workers-ai') {
     return DEFAULT_WORKERS_AI_MODEL;
   }
+  if (effectiveProvider === 'openai') {
+    return (env as Partial<Env> & { OPENAI_MODEL?: string }).OPENAI_MODEL || 'openai/gpt-4o-mini';
+  }
+  if (effectiveProvider === 'gemini' || effectiveProvider === 'google-ai-studio') {
+    return (env as Partial<Env> & { GEMINI_MODEL?: string }).GEMINI_MODEL || 'google-ai-studio/gemini-3.0-flash';
+  }
+  if (effectiveProvider === 'anthropic') {
+    return (env as Partial<Env> & { ANTHROPIC_MODEL?: string }).ANTHROPIC_MODEL || 'anthropic/claude-4-5-sonnet-latest';
+  }
 
   return DEFAULT_WORKERS_AI_MODEL;
 }

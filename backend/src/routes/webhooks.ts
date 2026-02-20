@@ -16,7 +16,7 @@ import { sql } from "drizzle-orm"
 import { GardenerOrchestrator } from "@/gardener/orchestrator"
 import { SlashCommandRouter } from "@/gardener/router"
 import { sanitizeRepoName } from '@/ai/mcp/tools/sandbox-sdk'
-import type { GitHubWebhookPayload } from "@/types/github-webhooks"
+import type { GitHubWebhookPayload } from "@/types/github/webhooks"
 import { matchAutomations } from "@/automations/registry"
 import {
   runBugHunterWorkflow,
@@ -25,9 +25,11 @@ import {
   shouldRunLeakPlumber,
 } from "@services/proactive-intelligence"
 import { ensureRepositoryFromWebhook } from "@services/repository-sync"
-import { getGitHubPrivateKey, getGitHubAppId } from "@utils/secrets"
+import { getGitHubPrivateKey, getGitHubAppId, getGitHubWebhookSecret } from "@utils/secrets"
 import { JULES_STANDARDS } from "@/config/jules-standards"
 import { JulesService } from "@/services/jules"
+import { StandardizationService } from "@/services/standardization"
+import { generateUuid } from "@/utils/common"
 
 export async function webhookHandler(c: Context<{ Bindings: Env }>): Promise<Response> {
   const deliveryId = c.req.header('x-github-delivery')
@@ -56,7 +58,7 @@ export async function webhookHandler(c: Context<{ Bindings: Env }>): Promise<Res
   const appId = await getGitHubAppId(c.env);
   // WORKER_API_KEY is apparently not in the secrets store (based on instructions), or handled separately.
   // Assuming it remains available via env or secrets binding if compatible.
-  const webhookSecret = await c.env.WORKER_API_KEY.get();
+  const webhookSecret = await getGitHubWebhookSecret(c.env);
 
   if (!privateKey || !appId || !webhookSecret) {
     console.error('Missing GitHub App configuration')
@@ -104,6 +106,13 @@ export async function webhookHandler(c: Context<{ Bindings: Env }>): Promise<Res
         console.error('[RepositorySync] Failed to upsert repository from webhook:', error)
       })
     )
+
+    // Trigger Standardization Sync
+    c.executionCtx.waitUntil(
+        StandardizationService.enforce(c.env, payload.repository).catch((error) => {
+            console.error('[Standardization] Failed to enforce standards:', error);
+        })
+    );
   }
 
   if (repoFullName && c.env.REPO_AGENT) {
@@ -211,7 +220,7 @@ export async function webhookHandler(c: Context<{ Bindings: Env }>): Promise<Res
 
   try {
     await db.insert(webhookDeliveries).values({
-      id: crypto.randomUUID(),
+      id: generateUuid(),
       delivery_id: deliveryId,
       event: eventName,
       action: action || null,
@@ -377,7 +386,7 @@ export async function webhookHandler(c: Context<{ Bindings: Env }>): Promise<Res
           forkee_owner_login: payload.forkee?.owner?.login,
         })
         break;
-      case 'issue_comment':
+      case 'issue_comment': {
         // 1. Check for Gemini Code Assist feedback
         const isGemini = payload.comment?.user?.login?.toLowerCase().includes('gemini') || 
                          payload.comment?.user?.login === 'google-code-assist' || 
@@ -447,6 +456,7 @@ export async function webhookHandler(c: Context<{ Bindings: Env }>): Promise<Res
           body: payload.comment?.body,
         })
         break;
+      }
       case 'issues':
         if (shouldRunBugHunter(payload)) {
           c.executionCtx.waitUntil(

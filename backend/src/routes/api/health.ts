@@ -2,11 +2,8 @@
 import { Hono } from 'hono';
 import { Bindings } from "@utils/hono";
 import { HealthCoordinator } from "@/health/coordinator";
-import { DeepReasoningAgent } from "@/ai/agents/DeepReasoning";
-import { z } from 'zod';
-import { getAgentByName } from 'agents';
-import { resolveDefaultAiProvider } from "@/ai/providers/config";
 import { getDb } from "@/db";
+import { z } from 'zod';
 import { healthTestDefinitions } from "@/db/schemas/logs/health";
 import { v4 as uuidv4 } from 'uuid';
 import { eq } from 'drizzle-orm';
@@ -49,39 +46,22 @@ healthApi.post('/analyze', async (c) => {
 
     if (!failureDetails) return c.json({ error: 'Missing failureDetails' }, 400);
 
-    // Call DeepReasoningAgent
-    const getByName = getAgentByName as any;
-    const stub = await getByName(c.env.DEEP_REASONING_AGENT, 'health-analyzer');
-
-    const prompt = `
-    Analyze this system health failure and provide actionable fixes.
+    // Call HealthDiagnostician
+    if (!c.env.HEALTH_DIAGNOSTICIAN) {
+        return c.json({ error: 'HEALTH_DIAGNOSTICIAN binding not found' }, 500);
+    }
     
-    Context: ${context || 'General System Health Check'}
-    Failure: ${JSON.stringify(failureDetails, null, 2)}
-    
-    Provide a concise technical explanation and 1-3 step-by-step fixes.
-    `;
+    const agentId = c.env.HEALTH_DIAGNOSTICIAN.idFromName('singleton');
+    const agentStub = c.env.HEALTH_DIAGNOSTICIAN.get(agentId);
 
-    const schema = {
-        type: "object",
-        properties: {
-            analysis: { type: "string" },
-            severity: { type: "string", enum: ["low", "medium", "critical"] },
-            fixes: {
-                type: "array",
-                items: { type: "string" }
-            }
-        },
-        required: ["analysis", "fixes"]
-    };
-
-    const response = await stub.fetch("http://agent/reason", {
+    const response = await agentStub.fetch("http://do/diagnose", {
         method: "POST",
         body: JSON.stringify({
-            prompt,
-            schema,
-            provider: resolveDefaultAiProvider(c.env),
-            reasoningParams: { effort: "medium", summary: "concise" }
+            errorName: failureDetails.name || 'Unknown Error',
+            errorMessage: failureDetails.message || 'No message provided',
+            errorDetails: failureDetails.details || {},
+            category: failureDetails.category || 'unknown',
+            target: failureDetails.name || 'unknown'
         })
     });
 
@@ -89,7 +69,14 @@ healthApi.post('/analyze', async (c) => {
         return c.json({ error: await response.text() }, 500);
     }
 
-    return c.json(await response.json());
+    const rawAnalysis = await response.json<{ severity: string; rootCause: string; suggestedFix: string; prUrl: string | null }>();
+    
+    // Transform back to the UI expected format
+    return c.json({
+        analysis: `[${rawAnalysis.severity}] ${rawAnalysis.rootCause}`,
+        fixes: [rawAnalysis.suggestedFix, rawAnalysis.prUrl ? `Applied Fix PR/Jules: ${rawAnalysis.prUrl}` : ""].filter(Boolean),
+        severity: rawAnalysis.severity
+    });
 });
 
 // ─── Dynamic Test Definitions CRUD ──────────────────────────────────────

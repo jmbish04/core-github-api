@@ -28,7 +28,7 @@ concurrency:
 jobs:
   summarize-comments:
     if: >
-      github.event.comment.user.login != 'jmbish04' &&
+      github.event.comment.user.login != github.repository_owner &&
       github.event.issue.pull_request != null
     runs-on: ubuntu-latest
 
@@ -55,7 +55,7 @@ jobs:
             "/repos/$REPO/issues/$PR_NUMBER/comments" --paginate |
           jq -r '
             .[]
-            | select(.user.login != "jmbish04")
+            | select(.user.login != "\${{ github.repository_owner }}")
             | .body
           ' > all_comments_raw.txt
 
@@ -64,7 +64,7 @@ jobs:
             "/repos/$REPO/pulls/$PR_NUMBER/comments" --paginate |
           jq -r '
             .[]
-            | select(.user.login != "jmbish04")
+            | select(.user.login != "\${{ github.repository_owner }}")
             | "### File: \\(.path)\\nLine: \\(.line // "N/A")\\n\\n" + (.body // "")
           ' >> all_comments_raw.txt
 

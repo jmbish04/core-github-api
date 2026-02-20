@@ -1,23 +1,31 @@
 /**
  * @file src/tools/github.ts
- * @description Tools for GitHub repository management (creation, workflow retrofitting). Full unit testing should be running in health cron checks on the worker making operational api calls in jmbish04/testing-oktokit-commands`.
+ * @description Tools for GitHub repository management (creation, workflow retrofitting). Full unit testing should be running in health cron checks on the worker making operational api calls in `${env.GITHUB_OWNER}/${env.HEALTH_TEST_REPO_NAME}`.
  * @owner AI-Builder
  */
 
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
-import { getOctokit } from '../../../../services/octokit/core'
+import { getOctokit } from '@services/octokit/core'
 
-import { DEFAULT_WORKFLOWS, shouldIncludeCloudflareWorkflow } from '../../../../flows/workflowTemplates'
-import { encode } from '../../../../utils/base64'
-import { getDb, schema } from '../../../../db'
+import { DEFAULT_WORKFLOWS, shouldIncludeCloudflareWorkflow } from '@/flows/workflowTemplates'
+import { encode } from '@utils/base64'
+import { getDb, schema } from '@db'
+import { projects } from '@db/schemas/projects/roadmap'
+import {
+  repositories,
+  type GitHubRepository,
+  type NewGitHubRepository
+} from '@db/schemas/github/repos';
+
+import { DEFAULT_GITHUB_OWNER } from "@github-utils";
+import { Logger } from "@logging";
 
 // --- Schemas ---
 
 import { INFRA_TYPES, fetchTemplateFiles } from './templates';
-import { repositories } from '../../../../db/schemas/github/repos';
 
 const CreateRepoSchema = z.object({
-    owner: z.string().default('jmbish04').describe('Organization or user owner'),
+    owner: z.string().default(DEFAULT_GITHUB_OWNER).describe('Organization or user owner'),
     name: z.string().describe('Repository name'),
     description: z.string().optional().describe('Repository description'),
     infrastructure: z.enum(INFRA_TYPES).describe('Infrastructure type (e.g., python_script, cloudflare_workers)'),
@@ -26,7 +34,7 @@ const CreateRepoSchema = z.object({
 })
 
 const RetrofitSchema = z.object({
-    owner: z.string().default('jmbish04'),
+    owner: z.string().default(DEFAULT_GITHUB_OWNER),
     repos: z.array(z.string()).optional(),
     force: z.boolean().optional().default(false),
 })
@@ -57,6 +65,9 @@ async function upsertWorkflowFile(octokit: any, owner: string, repo: string, pat
 }
 
 export async function createGitHubIssue(env: Env, owner: string, repo: string, title: string, body?: string, assignees?: string[]) {
+    const logger = new Logger(env, "GitHubTool:createGitHubIssue");
+    logger.info(`Creating issue in ${owner}/${repo}`, { title, assignees });
+    
     const octokit = await getOctokit(env);
     try {
         const { data } = await octokit.rest.issues.create({
@@ -66,14 +77,18 @@ export async function createGitHubIssue(env: Env, owner: string, repo: string, t
             body,
             assignees
         });
+        logger.info(`Issue created successfully`, { issueNumber: data.number, html_url: data.html_url });
         return data;
-    } catch (e) {
-        console.error("Error creating GitHub issue:", e);
-        return null;
+    } catch (e: any) {
+        logger.error("Error creating GitHub issue", { error: e.message });
+        throw e;
     }
 }
 
 export async function createGitHubComment(env: Env, owner: string, repo: string, issueNumber: number, body: string) {
+    const logger = new Logger(env, "GitHubTool:createGitHubComment");
+    logger.info(`Creating comment on ${owner}/${repo}#${issueNumber}`);
+
     const octokit = await getOctokit(env);
     try {
         const { data } = await octokit.rest.issues.createComment({
@@ -82,14 +97,18 @@ export async function createGitHubComment(env: Env, owner: string, repo: string,
             issue_number: issueNumber,
             body
         });
+        logger.info(`Comment created successfully`, { commentId: data.id, html_url: data.html_url });
         return data;
-    } catch (e) {
-        console.error("Error creating GitHub comment:", e);
-        return null;
+    } catch (e: any) {
+        logger.error("Error creating GitHub comment", { error: e.message });
+        throw e;
     }
 }
 
 export async function updateGitHubIssue(env: Env, owner: string, repo: string, issueNumber: number, updates: { state?: 'open' | 'closed', title?: string, body?: string, assignees?: string[] }) {
+    const logger = new Logger(env, "GitHubTool:updateGitHubIssue");
+    logger.info(`Updating issue ${owner}/${repo}#${issueNumber}`, { updates });
+
     const octokit = await getOctokit(env);
     try {
         const { data } = await octokit.rest.issues.update({
@@ -98,10 +117,11 @@ export async function updateGitHubIssue(env: Env, owner: string, repo: string, i
             issue_number: issueNumber,
             ...updates
         });
+        logger.info(`Issue updated successfully`, { html_url: data.html_url });
         return data;
-    } catch (e) {
-        console.error("Error updating GitHub issue:", e);
-        return null;
+    } catch (e: any) {
+        logger.error("Error updating GitHub issue", { error: e.message });
+        throw e;
     }
 }
 
@@ -159,6 +179,9 @@ const app = new OpenAPIHono<{ Bindings: Env }>()
 
 app.openapi(createRepoRoute, async (c) => {
     const { owner, name, description, infrastructure, private: isPrivate, auto_init } = c.req.valid('json')
+    const logger = new Logger(c.env, "GitHubTool:CreateRepo");
+    logger.info(`Creating repository ${owner}/${name}`, { infrastructure, isPrivate });
+
     const octokit = await getOctokit(c.env)
     const db = getDb(c.env.DB);
 
@@ -170,23 +193,27 @@ app.openapi(createRepoRoute, async (c) => {
         private: isPrivate,
         auto_init // If true, creates initial commit
     })
+    logger.info(`Repository created: ${repo.html_url}`);
 
     // Wait for propagation
     await new Promise(r => setTimeout(r, 2000))
 
     // 2. Generate Boilerplate Files (Dynamic Fetch)
     // Note: This is now async and fetches from github
+    logger.info(`Fetching template files for ${infrastructure}`);
     const files = await fetchTemplateFiles(c.env, infrastructure, name);
 
     // 3. Commit Files
     for (const [path, content] of Object.entries(files)) {
         await upsertWorkflowFile(octokit, owner, name, path, content, false);
     }
+    logger.info(`Committed ${Object.keys(files).length} boilerplate files`);
 
     // 4. Add Default Workflows
     for (const wf of DEFAULT_WORKFLOWS) {
         await upsertWorkflowFile(octokit, owner, name, wf.path, wf.content, false)
     }
+    logger.info(`Added default workflows`);
 
     // 5. Register in D1 (repos table)
     await db.insert(repositories).values({
@@ -205,12 +232,16 @@ app.openapi(createRepoRoute, async (c) => {
         target: repositories.id,
         set: { infrastructure, updatedAt: new Date().toISOString() }
     });
+    logger.info(`Registered in D1: github:${owner}/${name}`);
 
     return c.json({ html_url: repo.html_url })
 })
 
 app.openapi(retrofitRoute, async (c) => {
     const { owner, repos, force } = c.req.valid('json')
+    const logger = new Logger(c.env, "GitHubTool:Retrofit");
+    logger.info(`Starting Retrofit for ${owner}`, { repos, force });
+
     const octokit = await getOctokit(c.env)
 
     let targetRepos = []
@@ -219,13 +250,17 @@ app.openapi(retrofitRoute, async (c) => {
             try {
                 const { data } = await octokit.repos.get({ owner, repo: r })
                 targetRepos.push(data)
-            } catch { }
+            } catch {
+                // empty
+            }
         }
     } else {
         // Limit to 100 for tool safety if no specific list
         const { data } = await octokit.repos.listForOrg({ org: owner, type: 'all', per_page: 100 })
         targetRepos = data
     }
+    
+    logger.info(`Targeting ${targetRepos.length} repositories`);
 
     let success = 0, failed = 0
 
@@ -238,10 +273,13 @@ app.openapi(retrofitRoute, async (c) => {
                 await upsertWorkflowFile(octokit, owner, repo.name, wf.path, wf.content, force)
             }
             success++
-        } catch {
+        } catch(e: any) {
+            logger.warn(`Failed to retrofit ${repo.name}`, { error: e.message });
             failed++
         }
     }
+    
+    logger.info(`Retrofit complete. Success: ${success}, Failed: ${failed}`);
 
     return c.json({ summary: { total: targetRepos.length, success, failed } })
 })
@@ -270,8 +308,9 @@ export async function verifyGitHubToken(env: Env): Promise<{
   scopes?: string[];
   error?: string;
 }> {
+  const logger = new Logger(env, "GitHubTool:VerifyToken");
   try {
-    const token = getToken(env);
+    const token = await getToken(env); // await if needed, though getToken is async
     const response = await fetch("https://api.github.com/user", {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -280,6 +319,7 @@ export async function verifyGitHubToken(env: Env): Promise<{
     });
 
     if (!response.ok) {
+        logger.warn(`Token verification failed: ${response.status}`);
       if (response.status === 401) {
         return { valid: false, error: "Invalid or expired token (401)" };
       }
@@ -289,13 +329,16 @@ export async function verifyGitHubToken(env: Env): Promise<{
     const data = await response.json() as any;
     const scopesHeader = response.headers.get("x-oauth-scopes");
     const scopes = scopesHeader ? scopesHeader.split(",").map(s => s.trim()) : [];
+    
+    logger.info(`Token verified for user: ${data.login}`, { scopes });
 
     return {
       valid: true,
       user: data.login,
       scopes
     };
-  } catch (error) {
+  } catch (error: any) {
+    logger.error("Token verification error", { error: error.message });
     return {
       valid: false,
       error: error instanceof Error ? error.message : "Unknown error"
@@ -311,7 +354,10 @@ export async function getDefaultBranch(
   owner: string,
   repo: string
 ): Promise<string> {
-  const token = getToken(env);
+  const logger = new Logger(env, "GitHubTool:GetDefaultBranch");
+  // logger.debug(`Getting default branch for ${owner}/${repo}`); 
+
+  const token = await getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}`;
 
   const response = await fetch(url, {
@@ -323,6 +369,7 @@ export async function getDefaultBranch(
   });
 
   if (!response.ok) {
+    logger.error(`Failed to fetch repo info: ${response.status}`);
     throw new Error(`Failed to fetch repo info: ${response.status}`);
   }
 
@@ -340,7 +387,10 @@ export async function fetchGitHubFile(
   path: string,
   ref?: string
 ): Promise<string> {
-  const token = getToken(env);
+  const logger = new Logger(env, "GitHubTool:FetchFile");
+  // logger.debug(`Fetching file ${owner}/${repo}/${path} ref=${ref}`);
+
+  const token = await getToken(env);
   // Use provided ref or fetch default branch
   const branch = ref || await getDefaultBranch(env, owner, repo);
   const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
@@ -354,6 +404,7 @@ export async function fetchGitHubFile(
   });
 
   if (!response.ok) {
+    logger.warn(`Failed to fetch file: ${path} (${response.status})`);
     throw new Error(
       `GitHub API error (${response.status}): ${await response.text()}`
     );
@@ -385,7 +436,10 @@ export async function fetchGitHubFiles(
     snippet?: string;
   }>
 > {
-  const token = getToken(env);
+  const logger = new Logger(env, "GitHubTool:FetchFiles");
+  logger.info(`Fetching ${files.length} files from ${owner}/${repo}`);
+
+  const token = await getToken(env);
   // Resolve branch once for all files if not provided
   const branch = ref || await getDefaultBranch(env, owner, repo);
 
@@ -409,7 +463,8 @@ export async function fetchGitHubFiles(
           snippet: snippet || content,
         };
       } catch (error) {
-        console.error(`Error fetching ${file.path}:`, error);
+        logger.error(`Error fetching ${file.path}`, { error: error }); 
+        // console.error(`Error fetching ${file.path}:`, error);
         return {
           path: file.path,
           content: "",
@@ -432,6 +487,7 @@ export async function getRepoStructure(
   path: string = "",
   ref?: string
 ): Promise<any> {
+  const logger = new Logger(env, "GitHubTool:RepoStructure");
   const token = getToken(env);
   const branch = ref || await getDefaultBranch(env, owner, repo);
   const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
@@ -462,6 +518,8 @@ export async function searchRepoCode(
   repo: string,
   query: string
 ): Promise<any> {
+  const logger = new Logger(env, "GitHubTool:SearchCode");
+  logger.info(`Searching code in ${owner}/${repo} query="${query}"`);
   const token = getToken(env);
   const url = `https://api.github.com/search/code?q=${encodeURIComponent(
     query
@@ -505,6 +563,8 @@ export async function extractCodeSnippets(
     relation: string;
   }>
 > {
+  const logger = new Logger(env, "GitHubTool:ExtractSnippets");
+  logger.info(`Extracting snippets for snippets`);
   const token = getToken(env);
   const branch = ref || await getDefaultBranch(env, owner, repo);
 
@@ -547,7 +607,7 @@ export async function extractCodeSnippets(
  * Parse PR URL to extract owner, repo, and PR number
  */
 export function parsePRUrl(prUrl: string): { owner: string; repo: string; prNumber: number } | null {
-  const regex = /github\.com\/([^\/]+)\/([^\/]+)\/pull\/(\d+)/;
+  const regex = new RegExp("github\\.com/([^/]+)/([^/]+)/pull/(\\d+)");
   const match = prUrl.match(regex);
 
   if (!match) {
@@ -576,6 +636,8 @@ export async function getPRComments(
   line?: number;
   comment_type: 'review' | 'issue';
 }>> {
+  const logger = new Logger(env, "GitHubTool:PRComments");
+  logger.info(`Fetching comments for PR ${owner}/${repo}#${prNumber}`);
   const token = getToken(env);
   // Get review comments (inline code comments)
   const reviewCommentsUrl = `https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}/comments`;
@@ -660,7 +722,10 @@ export async function getRef(
   repo: string,
   ref: string // e.g. "heads/main" or "heads/feature-branch"
 ): Promise<string> {
-  const token = getToken(env);
+  const logger = new Logger(env, "GitHubTool:GetRef");
+  // logger.debug(`Getting ref ${ref} for ${owner}/${repo}`);
+
+  const token = await getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}/git/ref/${ref}`;
   const response = await fetch(url, {
     headers: {
@@ -671,6 +736,7 @@ export async function getRef(
   });
 
   if (!response.ok) {
+    logger.warn(`Failed to get ref ${ref}: ${response.status}`);
     throw new Error(`Failed to get ref ${ref}: ${response.status} ${await response.text()}`);
   }
 
@@ -688,6 +754,9 @@ export async function createBranch(
   newBranchName: string,
   baseSha: string
 ): Promise<void> {
+  const logger = new Logger(env, "GitHubTool:CreateBranch");
+  logger.info(`Creating branch ${newBranchName} in ${owner}/${repo} from ${baseSha}`);
+
   const token = getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}/git/refs`;
   const response = await fetch(url, {
@@ -723,6 +792,9 @@ export async function createOrUpdateFile(
   branch: string,
   sha?: string
 ): Promise<void> {
+  const logger = new Logger(env, "GitHubTool:CreateOrUpdateFile");
+  logger.info(`Writing file ${path} to ${owner}/${repo} branch=${branch}`);
+
   const token = getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
 
@@ -767,6 +839,8 @@ export async function createPullRequest(
   head: string, // The feature branch (e.g. "my-feature")
   base: string // The target branch (e.g. "main")
 ): Promise<{ number: number; html_url: string }> {
+  const logger = new Logger(env, "GitHubTool:CreatePR");
+  logger.info(`Creating PR: ${title}`);
   const token = getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}/pulls`;
   const response = await fetch(url, {

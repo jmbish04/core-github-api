@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { Tool } from '../../ai/agent-sdk';
+import { Tool } from '@/ai/agent-sdk';
 import OpenAI from 'openai';
 import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters';
 import { v4 as uuidv4 } from 'uuid';

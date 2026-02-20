@@ -2,8 +2,24 @@ import { App } from "octokit";
 import { z } from "zod";
 import { Agent as OpenAIAgent } from "@openai/agents";
 import { createRunner, resolveDefaultAiModel, resolveDefaultAiProvider } from "@/ai/agent-ai";
-import { getGitHubPrivateKey, getGitHubAppId } from "@/utils/secrets";
+import { 
+  getGitHubPrivateKey, 
+  getGitHubAppId,
+  getWorkerApiKey,
+  getGithubToken,
+  getGeminiApiKey,
+  getOpenaiApiKey,
+  getAnthropicApiKey,
+  getCloudflareApiToken,
+  getCloudflareAccountId
+} from "@/utils/secrets";
 import { SandboxClient } from "@/ai/mcp/tools/sandbox-sdk";
+import { drizzle } from "drizzle-orm/d1";
+import { alerts } from "@/db/schema";
+import { getSecretsStoreClient } from "@/utils/cloudflare/secret-store";
+import { generateUuid } from "@/utils/common";
+import { WranglerInspectorService } from "@/services/github/wrangler-inspector";
+import { getSandboxOptions } from "@/ai/utils/sandbox";
 
 const LEAK_CHECK_TIMEOUT_MS = 10 * 60 * 1000;
 const BUG_CHECK_TIMEOUT_MS = 5 * 60 * 1000;
@@ -24,6 +40,7 @@ const GeneratedTestSchema = z.object({
 
 import type { SandboxExecResult } from "@/ai/mcp/tools/sandbox-sdk";
 import { shellEscape, sanitizeForPath, truncateOutput } from "@/ai/mcp/tools/sandbox-sdk";
+
 
 function toShortLog(output: string, max = 4000): string {
   return truncateOutput(output, max);
@@ -55,8 +72,8 @@ export function shouldRunLeakPlumber(payload: any): boolean {
  * Build a SandboxClient from the env's SANDBOX binding.
  * Uses a single shared sandbox ID for proactive intelligence workflows.
  */
-function getSandboxClientForEnv(env: Env): SandboxClient {
-  return SandboxClient.create((env as any).SANDBOX, "proactive-intelligence");
+async function getSandboxClientForEnv(env: Env): Promise<SandboxClient> {
+  return SandboxClient.create(env, "proactive-intelligence");
 }
 
 async function execInSandbox(
@@ -65,7 +82,8 @@ async function execInSandbox(
   timeoutMs: number,
   sessionId?: string,
 ): Promise<SandboxExecResult> {
-  return getSandboxClientForEnv(env).exec({ command, timeoutMs, sessionId });
+  const client = await getSandboxClientForEnv(env);
+  return client.exec({ command, timeoutMs, sessionId });
 }
 
 async function writeSandboxFile(
@@ -74,7 +92,8 @@ async function writeSandboxFile(
   content: string,
   _sessionId?: string,
 ): Promise<void> {
-  const result = await getSandboxClientForEnv(env).writeFile({ path: filePath, content });
+  const client = await getSandboxClientForEnv(env);
+  const result = await client.writeFile({ path: filePath, content });
   if (!result.success) {
     throw new Error(`Failed to write ${filePath} in sandbox`);
   }
@@ -144,18 +163,18 @@ async function generateFailingVitest(env: Env, parsedIssue: z.infer<typeof Parse
 }
 
 async function getCompromisedBindings(env: Env, scanOutput: string): Promise<string[]> {
-  const githubToken = await env.GITHUB_TOKEN?.get();
-  const cfToken = await env.CLOUDFLARE_API_TOKEN?.get();
+  const githubToken = await getGithubToken(env);
+  const cfToken = await getCloudflareApiToken(env);
 
   const candidates: Array<[string, string | undefined]> = [
-    ["WORKER_API_KEY", await env.WORKER_API_KEY.get()],
+    ["WORKER_API_KEY", await getWorkerApiKey(env)],
     ["GITHUB_TOKEN", githubToken],
-    ["GEMINI_API_KEY", await env.GEMINI_API_KEY.get()],
-    ["GOOGLE_API_KEY", await env.GEMINI_API_KEY.get()],
-    ["AI_GATEWAY_TOKEN", await env.AI_GATEWAY_TOKEN.get()],
+    ["GEMINI_API_KEY", await getGeminiApiKey(env)],
+    ["GOOGLE_API_KEY", await getGeminiApiKey(env)],
+    ["AI_GATEWAY_TOKEN", await env.AI_GATEWAY_TOKEN?.get()],
     ["CLOUDFLARE_API_TOKEN", cfToken],
-    ["OPENAI_API_KEY", await env.OPENAI_API_KEY.get()],
-    ["ANTHROPIC_API_KEY", await env.ANTHROPIC_API_KEY.get()],
+    ["OPENAI_API_KEY", await getOpenaiApiKey(env)],
+    ["ANTHROPIC_API_KEY", await getAnthropicApiKey(env)],
   ];
 
   const leaked = new Set<string>();
@@ -168,58 +187,100 @@ async function getCompromisedBindings(env: Env, scanOutput: string): Promise<str
   }
 
   // Heuristic fallback if values are redacted in scan output.
-  if (scanOutput.toLowerCase().includes("cloudflare")) leaked.add(cfToken);
-  if (scanOutput.toLowerCase().includes("github")) leaked.add(githubToken);
+  if (cfToken && scanOutput.toLowerCase().includes("cloudflare")) leaked.add(cfToken);
+  if (githubToken && scanOutput.toLowerCase().includes("github")) leaked.add(githubToken);
 
   return Array.from(leaked);
 }
 
+/**
+ * Rotates a secret in a worker script.
+ * @param env - The environment bindings.
+ * @param secretName - The name of the secret to rotate.
+ * @param scriptName - The name of the worker script (not this worker core-github-api, but a target worker that core-github-api is attempting to manage).
+ * @returns A promise that resolves to an object with a success boolean and a detail string.
+ */
 async function rotateWorkerSecret(
   env: Env,
   secretName: string,
+  origins: { process: string; repo: string; worker: string }
 ): Promise<{ success: boolean; detail: string }> {
-  const accountId =
-    await env.CLOUDFLARE_ACCOUNT_ID.get()
-  const apiToken = await env.CLOUDFLARE_API_TOKEN.get();
-  const scriptName = env.CLOUDFLARE_WORKER_NAME || "core-github-api";
-  const errors = [];
-  if (!accountId) {
-    console.error("Missing CLOUDFLARE_ACCOUNT_ID.");
-    errors.push(`Missing CLOUDFLARE_ACCOUNT_ID`);
-  }
-    if (!apiToken) {
-    console.error("Missing CLOUDFLARE_API_TOKEN.");
-    errors.push(`Missing CLOUDFLARE_API_TOKEN`);
-  }
+  try {
+    const db = drizzle(env.DB);
+    const client = await getSecretsStoreClient(env);
+    
+    // 1. Resolve Store (Assuming default/single store for now)
+    const store = await client.getDefaultStore();
+    
+    // 2. Find Secret
+    const secret = await client.getSecretByName(store.id, secretName);
+    
+    // 3. Prepare Alert Data
+    const alertId = generateUuid();
+    const timestamp = new Date();
+    
+    if (!secret) {
+      // Secret not found in store - likely a direct binding or env var
+      await db.insert(alerts).values({
+        id: alertId,
+        timestamp,
+        title: `Leaked Secret Detected: ${secretName}`,
+        description: `A leaked secret (${secretName}) was detected but could not be found in the global Secret Store. It may be a direct environment variable.`,
+        processOrigin: origins.process,
+        repoOrigin: origins.repo,
+        workerOrigin: origins.worker,
+        isActionNeeded: true,
+        actionRequired: "Manually rotate this secret in the Cloudflare Dashboard immediately.",
+        isResolved: false,
+      });
+      
+      return { success: false, detail: "Secret not found in store" };
+    }
 
-  if(errors.length > 0) {
-    return {
-      success: false,
-      detail: errors.join(", "),
-    };
+    // 4. Rotate (Nuke) the Secret
+    const replacement = `${secretName}_ROTATED_${generateUuid().replace(/-/g, "")}`;
+    await client.patchSecret(store.id, secret.id, { text: replacement });
+
+    // 5. Create Alert
+    await db.insert(alerts).values({
+      id: alertId,
+      timestamp,
+      title: `Secret Rotated: ${secretName}`,
+      description: `A leaked secret (${secretName}) was detected and automatically rotated to a placeholder value in the Secret Store to prevent abuse.`,
+      processOrigin: origins.process,
+      repoOrigin: origins.repo,
+      workerOrigin: origins.worker,
+      isActionNeeded: true,
+      actionRequired: "Generate a new valid token/key and update it in the Cloudflare Secret Store.",
+      isResolved: false,
+    });
+
+    return { success: true, detail: "Rotated in Secret Store" };
+
+  } catch (error: any) {
+    console.error(`[rotateWorkerSecret] Failed to rotate ${secretName}:`, error);
+    
+    // Log failure alert
+    try {
+        const db = drizzle(env.DB);
+        await db.insert(alerts).values({
+            id: generateUuid(),
+            timestamp: new Date(),
+            title: `Rotation Failed: ${secretName}`,
+            description: `Attempted to rotate leaked secret ${secretName} but failed. Error: ${error.message}`,
+            processOrigin: origins.process,
+            repoOrigin: origins.repo,
+            workerOrigin: origins.worker,
+            isActionNeeded: true,
+            actionRequired: "Investigate logs and manually rotate the secret.",
+            isResolved: false,
+        });
+    } catch (e) {
+        console.error("Failed to log failure alert to D1", e);
+    }
+    
+    return { success: false, detail: error.message };
   }
-
-  const replacement = `${secretName}_ROTATED_${crypto.randomUUID().replace(/-/g, "")}`;
-  const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/workers/scripts/${scriptName}/secrets`;
-  const res = await fetch(url, {
-    method: "PUT",
-    headers: {
-      authorization: `Bearer ${apiToken}`,
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({
-      name: secretName,
-      text: replacement,
-      type: "secret_text",
-    }),
-  });
-
-  if (!res.ok) {
-    const error = await res.text();
-    return { success: false, detail: error };
-  }
-
-  return { success: true, detail: "rotated" };
 }
 
 export async function runBugHunterWorkflow(params: {
@@ -375,11 +436,36 @@ export async function runLeakPlumberWorkflow(params: {
     repo,
     private: true,
   });
+  // Determine origin for alerts
+  let scriptName: string = 'worker unknown';
+  
+  try {
+      const inspector = new WranglerInspectorService(octokit);
+      // Attempt to find wrangler config in root, then backend/
+      // we try root first
+      try {
+        const config = await inspector.getWranglerConfig(owner, repo);
+        if (config.name) scriptName = config.name;
+      } catch (e) {
+         // try backend/
+         const config = await inspector.getWranglerConfig(owner, repo, "backend");
+         if (config.name) scriptName = config.name;
+      }
+  } catch (e) {
+      console.warn(`[LeakPlumber] Failed to inspect wrangler config for ${owner}/${repo}:`, e);
+      // Fallback to default scriptName
+  }
+
+  const origins = {
+    process: "LeakPlumber",
+    repo: `${owner}/${repo}`,
+    worker: scriptName
+  };
 
   const compromisedBindings = await getCompromisedBindings(env, scanOutput);
   const rotationResults: Array<{ name: string; success: boolean; detail: string }> = [];
   for (const bindingName of compromisedBindings) {
-    const result = await rotateWorkerSecret(env, bindingName);
+    const result = await rotateWorkerSecret(env, bindingName, origins);
     rotationResults.push({ name: bindingName, ...result });
   }
 

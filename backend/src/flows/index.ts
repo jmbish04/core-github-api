@@ -6,15 +6,17 @@
 
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
 import { getOctokit } from '@/services/octokit/core'
+import { generateUuid } from '@/utils/common'
 
 import { DEFAULT_WORKFLOWS, shouldIncludeCloudflareWorkflow } from '@/flows/workflowTemplates'
 import { encode } from '@/utils/base64'
 import { getDb, schema } from '@/db'
+import { DEFAULT_GITHUB_OWNER } from '@github-utils'
 
 // --- 1. Zod Schema Definitions ---
 
 const CreateNewRepoRequestSchema = z.object({
-  owner: z.string().default('jmbish04').openapi({
+  owner: z.string().default(DEFAULT_GITHUB_OWNER).openapi({
     example: 'octocat',
     description: 'Repository owner (organization or user)'
   }),
@@ -58,7 +60,7 @@ const CreateNewRepoResponseSchema = z.object({
 })
 
 const RetrofitWorkflowsRequestSchema = z.object({
-  owner: z.string().default('jmbish04').openapi({
+  owner: z.string().default(DEFAULT_GITHUB_OWNER).openapi({
     example: 'octocat',
     description: 'Repository owner to filter by'
   }),
@@ -185,7 +187,7 @@ async function logRetrofitOperation(
       status: httpStatus,
       latencyMs: 0,
       payloadSizeBytes: 0,
-      correlationId: crypto.randomUUID(),
+      correlationId: generateUuid(),
       metadata: JSON.stringify({
         repoName,
         action,

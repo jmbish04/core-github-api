@@ -1,4 +1,6 @@
 
+import Cloudflare from 'cloudflare';
+
 /**
  * Cloudflare API Token Verification Utilities
  *
@@ -35,82 +37,61 @@ export interface CloudflareTokenTestResult {
         account?: CloudflareTokenVerifyResult;
     };
 }
-2
-
 
 /**
- * Verify a USER API token
+ * Verify a USER API token using the official SDK
  */
 export async function verifyUserToken(
     token: string
 ): Promise<CloudflareTokenVerifyResult> {
-    const res = await fetch(
-        "https://api.cloudflare.com/client/v4/user/tokens/verify",
-        {
-            method: "GET",
-            headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json"
-            }
-        }
-    );
+    const client = new Cloudflare({ apiToken: token });
 
-    const json = await res.json() as any;
-
-    if (!res.ok || json.success !== true) {
+    try {
+        const response = await client.user.tokens.verify();
+        
+        return {
+            success: true,
+            status: response.status as any,
+            token_id: response.id,
+            raw: { success: true, result: response }
+        };
+    } catch (error: any) {
+        // Cloudflare SDK throws on non-200 responses
+        const errors = error.errors || [{ code: error.status || 500, message: error.message || "User token verification failed" }];
         return {
             success: false,
-            errors: json.errors ?? [
-                { code: res.status, message: "User token verification failed" }
-            ],
-            raw: json
+            errors,
+            raw: error
         };
     }
-
-    return {
-        success: true,
-        status: json.result?.status,
-        token_id: json.result?.id,
-        raw: json
-    };
 }
 
 /**
- * Verify an ACCOUNT-scoped API token
+ * Verify an ACCOUNT-scoped API token using the official SDK
  */
 export async function verifyAccountToken(
     token: string,
     accountId: string
 ): Promise<CloudflareTokenVerifyResult> {
-    const res = await fetch(
-        `https://api.cloudflare.com/client/v4/accounts/${accountId}/tokens/verify`,
-        {
-            method: "GET",
-            headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json"
-            }
-        }
-    );
+    const client = new Cloudflare({ apiToken: token });
 
-    const json = await res.json() as any;
-
-    if (!res.ok || json.success !== true) {
+    try {
+        const response = await client.accounts.tokens.verify({ account_id: accountId });
+        
+        return {
+            success: true,
+            status: response.status as any,
+            token_id: response.id,
+            raw: { success: true, result: response }
+        };
+    } catch (error: any) {
+        const errors = error.errors || [{ code: error.status || 500, message: error.message || "Account token verification failed" }];
         return {
             success: false,
-            errors: json.errors ?? [
-                { code: res.status, message: "Account token verification failed" }
-            ],
-            raw: json
+            errors,
+            raw: error
         };
     }
-
-    return {
-        success: true,
-        status: json.result?.status,
-        token_id: json.result?.id,
-        raw: json
-    };
 }
 
 /**
@@ -121,35 +102,34 @@ export async function detectTokenType(
     accountId: string
 ): Promise<{
     detectedType: CloudflareTokenType;
-    userResult: CloudflareTokenVerifyResult;
-    accountResult: CloudflareTokenVerifyResult;
+    userResult?: CloudflareTokenVerifyResult;
+    accountResult?: CloudflareTokenVerifyResult;
 }> {
-    const [userResult, accountResult] = await Promise.all([
-        verifyUserToken(token),
-        verifyAccountToken(token, accountId)
-    ]);
+    // Priority: Check ACCOUNT token first
+    const accountResult = await verifyAccountToken(token, accountId);
+    
+    if (accountResult.success) {
+        return {
+            detectedType: "account",
+            accountResult
+        };
+    }
 
-    let detectedType: CloudflareTokenType = "unknown";
-
-    if (userResult.success && !accountResult.success) {
-        detectedType = "user";
-    } else if (!userResult.success && accountResult.success) {
-        detectedType = "account";
-    } else if (!userResult.success && !accountResult.success) {
-        detectedType = "unknown";
-    } else if (userResult.success && accountResult.success) {
-        // If both succeed (rare/weird?), prioritize account if explicitly checking account context, but here maybe just 'account' or 'user'?
-        // The logic provided by user was strict: if user success & !account success -> user.
-        // Let's stick to the user's logic provided in the prompt but fix the implicit case where both might match.
-        // In Cloudflare, a token usually has specific permissions.
-        // If it works for both, it's a very powerful token. Let's call it 'user' as it likely stems from user having access to account.
-        detectedType = "user";
+    // Fallback: Check USER token if Account level fails
+    const userResult = await verifyUserToken(token);
+    
+    if (userResult.success) {
+        return {
+            detectedType: "user",
+            accountResult,
+            userResult
+        };
     }
 
     return {
-        detectedType,
-        userResult,
-        accountResult
+        detectedType: "unknown",
+        accountResult,
+        userResult
     };
 }
 
@@ -157,12 +137,6 @@ export async function detectTokenType(
  * SINGLE ENTRY POINT
  *
  * Test a token against an expected type.
- *
- * Rules:
- * - If token is empty/null → FAIL (TOKEN_MISSING)
- * - If token is valid but wrong type → FAIL
- * - If token is valid and matches expected type → PASS
- * - If token is invalid → FAIL
  */
 export async function testToken(
     token: string | null | undefined,
@@ -255,3 +229,8 @@ export async function testAnyValidToken(
         }
     };
 }
+
+/**
+ * Global alias for token testing using the Cloudflare SDK.
+ */
+export const verifyCloudflareTokens = testAnyValidToken;

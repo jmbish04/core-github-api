@@ -22,7 +22,7 @@ declare -a SECRETS=(
 # Fetch the list of secrets from the store
 # We use a temporary file to store the list output for checking
 echo "Fetching secret list from Cloudflare..."
-wrangler secrets-store secret list 8c42fa70938644e0a8a109744467375f --remote > .secret_list_check.txt 2>&1
+wrangler secrets-store secret list 8c42fa70938644e0a8a109744467375f --remote --per-page 100 > .secret_list_check.txt 2>&1
 
 if [ $? -ne 0 ]; then
     echo "❌ Failed to list secrets. Please check your permissions."

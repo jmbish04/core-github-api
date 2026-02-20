@@ -1,5 +1,6 @@
 import { drizzle } from 'drizzle-orm/d1';
-import { systemLogs } from '../db/schema';
+import { systemLogs } from '@db/schema';
+import { generateUuid } from "@/utils/common";
 
 type LogLevel = 'info' | 'warn' | 'error' | 'debug';
 
@@ -45,7 +46,7 @@ export class Logger {
 
     // Buffer for D1
     this.logs.push({
-      id: crypto.randomUUID(),
+      id: generateUuid(),
       level,
       message,
       meta: meta ? JSON.stringify(meta) : null,

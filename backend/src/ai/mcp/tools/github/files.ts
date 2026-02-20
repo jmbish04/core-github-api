@@ -5,14 +5,15 @@
  */
 
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
-import { getOctokit } from '../../../../services/octokit/core'
-import { encode } from '../../../../utils/base64'
+import { getOctokit } from '@services/octokit/core'
+import { encode } from '@utils/base64'
+import { DEFAULT_TEMPLATE_REPO, DEFAULT_GITHUB_OWNER } from "@github-utils";
 
 
 // --- 1. Zod Schema Definitions ---
 
 const UpsertFileRequestSchema = z.object({
-  owner: z.string().default('jmbish04').openapi({ example: 'octocat' }),
+  owner: z.string().default(DEFAULT_GITHUB_OWNER).openapi({ example: 'octocat' }),
   repo: z.string().openapi({ example: 'Hello-World' }),
   path: z.string().openapi({ example: 'test.txt' }),
   content: z.string().openapi({ example: 'Hello, world!' }),
@@ -41,7 +42,7 @@ const UpsertFileResponseSchema = z.object({
 })
 
 const ListRepoTreeRequestSchema = z.object({
-  owner: z.string().default('jmbish04').openapi({ example: 'octocat' }),
+  owner: z.string().default(DEFAULT_GITHUB_OWNER).openapi({ example: 'octocat' }),
   repo: z.string().openapi({ example: 'Hello-World' }),
   ref: z
     .string()

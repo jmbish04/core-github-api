@@ -1,9 +1,10 @@
 // src/routes/api/timeline.ts
 import { Hono } from 'hono';
-import { Bindings } from '../../utils/hono';
-import { getDb } from '../../db';
-import { agentActivities } from '../../db/schema';
+import { Bindings } from '@utils/hono';
+import { getDb } from '@db';
+import { agentActivities } from '@db/schema';
 import { eq } from 'drizzle-orm';
+import { generateUuid } from "@/utils/common";
 
 const timelineApi = new Hono<{ Bindings: Env }>();
 
@@ -23,7 +24,7 @@ timelineApi.post('/ops/:operationId/timeline', async (c) => {
     const db = getDb(c.env.DB);
 
     await db.insert(agentActivities).values({
-        id: crypto.randomUUID(),
+        id: generateUuid(),
         operationId,
         stepName: step,
         status,

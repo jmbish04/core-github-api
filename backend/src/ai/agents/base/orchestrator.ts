@@ -1,6 +1,7 @@
-import { BaseAgent, Agent } from "../../agent-sdk";
+import { BaseAgent, Agent } from "@/ai/agent-sdk";
 import { getAgentModel } from "@/ai/providers/config";
-import { Logger } from "../../../lib/logger";
+import { ResearchLogger } from "@research-logger";
+import { Logger } from "@/lib/logger";
 
 export interface AgentConfig {
   instructions?: string;
@@ -9,16 +10,16 @@ export interface AgentConfig {
 
 export abstract class BaseOrchestrator extends BaseAgent<Env> {
   protected agent!: Agent; // Initialized lazily
-  protected logger!: Logger;
+
 
   constructor(state: DurableObjectState, env: Env) {
       super(state, env);
-      this.logger = new Logger(env, `orchestrator/base`); // Default logger
+    (this as any).logger = new Logger(env, `orchestrator/base`); // Default logger
   }
 
   protected initAgent(config: AgentConfig = {}) {
      const model = getAgentModel(config.moduleName || 'default', this.env);
-     this.logger = new Logger(this.env, `orchestrator/${config.moduleName || 'base'}`);
+     (this as any).logger = new Logger(this.env, `orchestrator/${config.moduleName || 'base'}`);
      
     this.agent = new Agent({
       name: config.moduleName || "Orchestrator",

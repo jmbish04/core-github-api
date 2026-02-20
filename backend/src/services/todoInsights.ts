@@ -3,13 +3,15 @@
  * @description Generates AI insights for Todos based on their content and crawled links.
  */
 
-import { todoAiInsights, todoLinks, todos } from "../db/schema";
-import { getDb } from "../db";
-import { eq } from "drizzle-orm";
+import { todoAiInsights, todoLinks, todos } from "@db/schema";
+import { getDb } from "@db";
+import { generateUuid } from "@/utils/common";
+import { eq, and, desc, isNull } from "drizzle-orm";
 import { BrowserService } from "./browser_render";
 import { Agent as OpenAIAgent } from "@openai/agents";
 import { z } from "zod";
-import { createRunner, resolveDefaultAiModel, resolveDefaultAiProvider } from "../ai/agent-ai";
+
+import { createRunner, resolveDefaultAiModel, resolveDefaultAiProvider } from "@/ai/agent-ai";
 
 const TodoInsightItemSchema = z.object({
     type: z.enum(["offer_to_help", "enrich_todo", "research"]).default("enrich_todo"),
@@ -74,7 +76,7 @@ export class TodoInsightService {
 
                 // Save to DB
                 await db.insert(todoLinks).values({
-                    id: crypto.randomUUID(),
+                    id: generateUuid(),
                     todoId: todo.id,
                     href: url,
                     url: url,
@@ -137,7 +139,7 @@ export class TodoInsightService {
             if (Array.isArray(insights)) {
                 for (const item of insights) {
                     await db.insert(todoAiInsights).values({
-                        id: crypto.randomUUID(),
+                        id: generateUuid(),
                         todoId: todo.id,
                         insight: item.insight,
                         type: item.type || 'enrich_todo',

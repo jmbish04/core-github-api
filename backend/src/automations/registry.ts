@@ -5,6 +5,7 @@
  */
 
 // ── Types ──────────────────────────────────────────────────────────
+import { generateUuid } from "@/utils/common";
 
 export type AutomationRule = {
   id: string;
@@ -121,7 +122,7 @@ export function matchAutomations(
 
     // Rule matched — create an AutomationRun
     matched.push({
-      id: crypto.randomUUID(),
+      id: generateUuid(),
       ruleId: rule.id,
       ruleName: rule.name,
       workflow: rule.workflow,

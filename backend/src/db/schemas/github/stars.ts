@@ -14,7 +14,7 @@ import { repositories } from "./repos";
 export const starredRepos = sqliteTable(
     "starred_repos",
     {
-        userId: text("user_id").notNull(), // GitHub login (e.g. "jmbish04")
+        userId: text("user_id").notNull(), // GitHub login (e.g. "env.GITHUB_OWNER")
         repoId: text("repo_id")
             .notNull()
             .references(() => repositories.id, { onDelete: "cascade" }), // "github:owner/name"

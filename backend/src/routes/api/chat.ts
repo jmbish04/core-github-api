@@ -15,10 +15,12 @@ import { getAgentByName } from 'agents'
 const chatApi = new OpenAPIHono<{ Bindings: Env }>()
 
 // Schemas
+// Schemas
 const ThreadSchema = z.object({
     id: z.string(),
     subject: z.string().nullable(),
     repoId: z.string().nullable(),
+    agentId: z.string().nullable().optional(), // Added agentId
     timestampStarted: z.string()
 })
 
@@ -32,11 +34,16 @@ const MessageSchema = z.object({
 
 const CreateThreadSchema = z.object({
     repoId: z.string().optional(),
+    agentId: z.string().optional(), // Added agentId
     subject: z.string().optional()
 })
 
 const CreateMessageSchema = z.object({
-    content: z.string()
+    content: z.string(),
+    repoContext: z.object({
+        owner: z.string(),
+        repo: z.string()
+    }).optional() // Optional context for the message
 })
 
 // --- 1. GET /threads ---
@@ -67,7 +74,7 @@ chatApi.openapi(createRoute({
         200: { description: 'Created thread', content: { 'application/json': { schema: ThreadSchema } } }
     }
 }), async (c) => {
-    const { repoId, subject } = c.req.valid('json')
+    const { repoId, subject, agentId } = c.req.valid('json')
     const db = getDb(c.env.DB)
     const id = uuidv4()
     const timestampStarted = new Date().toISOString()
@@ -75,6 +82,7 @@ chatApi.openapi(createRoute({
     const newThread = {
         id,
         repoId: repoId || null,
+        agentId: agentId || null,
         subject: subject || "New Conversation",
         timestampStarted
     }
@@ -124,7 +132,7 @@ chatApi.openapi(createRoute({
     }
 }), async (c) => {
     const { threadId } = c.req.valid('param')
-    const { content } = c.req.valid('json')
+    const { content, repoContext } = c.req.valid('json')
     const db = getDb(c.env.DB)
     const timestamp = new Date().toISOString()
 
@@ -146,15 +154,44 @@ chatApi.openapi(createRoute({
         content: h.message
     }))
 
-    // 3. Call Agent (Durable Object)
-    // We use the threadId as the sessionId for the DO to keep ephemeral state in sync if needed
+    // 3. Determine Routing
+    // Fetch thread to check agentId
+    const [thread] = await db.select().from(chatThreads).where(eq(chatThreads.id, threadId)).limit(1);
+    const targetAgentId = thread?.agentId || 'default'; // default to GeminiAgent
+
+    // 4. Call Agent (Durable Object)
     const getByName = getAgentByName as any
-    const stub = await getByName(c.env.GEMINI_AGENT, threadId)
+    let stub;
+    let result: { response: string, history?: any[] };
 
-    // @ts-ignore - DO method access
-    const result = await stub.chat(content, history) as { response: string, history: any[] }
+    if (targetAgentId === 'cloudflare-docs') {
+         stub = await getByName(c.env.CLOUDFLARE_DOCS_AGENT, threadId);
+         // Pass repoContext if available from the request or thread
+         // For now, we pass it from request if provided (e.g. fresh from UI context)
+         // But optimally we should store repoId in thread and look it up.
+         
+         let context = repoContext;
+         if (!context && thread?.repoId) {
+             // If thread has repoId, we might want to look up repo details? 
+             // Or we just pass null and let the agent rely on what it has or tool usage.
+             // For now, we rely on the specific `repoContext` passed in the body for rich context,
+             // or simplified usage.
+             
+             // If we have a repoId "owner/name", we can split it.
+             if (thread.repoId.includes('/')) {
+                 const [owner, repo] = thread.repoId.split('/');
+                 context = { owner, repo };
+             }
+         }
+         
+         result = await stub.chat(content, history, context);
+    } else {
+         // Default: GeminiAgent
+         stub = await getByName(c.env.GEMINI_AGENT, threadId);
+         result = await stub.chat(content, history);
+    }
 
-    // 4. Save Agent Response
+    // 5. Save Agent Response
     await db.insert(chatMessages).values({
         threadId,
         author: 'agent',
@@ -162,14 +199,10 @@ chatApi.openapi(createRoute({
         timestamp: new Date().toISOString()
     })
 
-    // Return the new messages (User + Agent)
-    // Actually, let's just return the Agent message or the updated list? 
-    // Usually easier to return the new ones.
-    // For simplicity, let's return the simplified Message objects for the two new messages.
-
+    // Return the new messages
     const newMessages: Array<z.infer<typeof MessageSchema>> = [
         {
-            id: -1, // placeholder, we don't need real ID for immediate UI update usually, or we query DB again
+            id: -1, 
             threadId,
             role: 'user',
             content,

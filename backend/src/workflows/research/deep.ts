@@ -7,6 +7,7 @@
 import { WorkflowEntrypoint, WorkflowStep, WorkflowEvent } from "cloudflare:workers";
 import { parseGitHubUrl, fetchGitHubTree, fetchCriticalFiles } from "@/ai/mcp/tools/github/research";
 import { getWebhooksDb, researchFiles} from "@/db";
+import { generateUuid } from "@/utils/common";
 
 interface DeepResearchWorkflowParams {
   repoUrl: string;
@@ -72,7 +73,7 @@ export class DeepResearchWorkflow extends WorkflowEntrypoint<Env, DeepResearchWo
       for (const filePath of codeFiles) {
         try {
           // 1. Generate UUID for this file
-          const fileUuid = crypto.randomUUID();
+          const fileUuid = generateUuid();
           
           // 2. Fetch file content via GitHub raw URL
           const rawUrl = `https://raw.githubusercontent.com/${repoOwner}/${repoName}/main/${filePath}`;

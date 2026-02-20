@@ -1,5 +1,5 @@
 import { getSandbox } from "@cloudflare/sandbox";
-
+import { getSandboxOptions } from "@/ai/utils/sandbox";
 
 export interface GitOperation {
     repoUrl: string;
@@ -28,7 +28,11 @@ export async function runGitOperation(env: Env, op: GitOperation) {
 
     // 1. Init Sandbox
     // "engineer-session" shares the sandbox instance/state if needed, or unique ID for isolation
-    const sandbox = await getSandbox(env.SANDBOX as any, "engineer-session");
+    const sandbox = await getSandbox(
+        env.SANDBOX as any,
+        "engineer-session",
+        await getSandboxOptions(env)
+    );
 
     try {
         // 2. Clone

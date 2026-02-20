@@ -4,10 +4,10 @@
  * @owner AI-Builder
  */
 
-import { CommandResult } from '../router'
+import { CommandResult } from '@/gardener/router'
 
-import type { GardenerContext } from '../types'
-import { SandboxToolRegistry } from '../ops/sandbox-registry'
+import type { GardenerContext } from '@/gardener/types'
+import { SandboxToolRegistry } from '@/gardener/ops/sandbox-registry'
 
 export class Implementer {
 
@@ -148,7 +148,7 @@ export function feature${issueNumber}() {
                         const opId = (ctx as any).operationId; 
                         if (!opId) throw new Error("No active operation ID found for tool execution.");
                         
-                        const registry = new SandboxToolRegistry((ctx.env as any).SANDBOX, opId);
+                        const registry = await SandboxToolRegistry.create((ctx.env as any), opId);
 
                         if (call.name === 'exec_cmd') {
                             const res = await registry.executeSmart(call.arguments.command);

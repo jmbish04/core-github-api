@@ -8,11 +8,11 @@ import type { Context } from 'hono'
 import { CodeAuditor } from './auditor'
 import { WorkerTypeFixer } from './fixers/worker-type-fixer'
 import type { GardenerContext, AuditResult } from './types'
-import { getDb } from '../db'
-import { repositories } from '../db/schemas/github/repos'
+import { getDb } from '@db'
+import { repositories } from '@db/schemas/github/repos'
 import { eq } from 'drizzle-orm'
-import { fetchTemplateFiles } from '../ai/mcp/tools/github/templates'
-import { encode } from '../utils/base64'
+import { fetchTemplateFiles } from '@/ai/mcp/tools/github/templates'
+import { encode } from '@utils/base64'
 
 // Registry of available fixers
 const FIXERS = [
@@ -158,7 +158,7 @@ export class GardenerOrchestrator {
     private static async enrichWorkerDocs(ctx: GardenerContext, db: any) {
         const reposApi = getReposApi(ctx.octokit);
         // Dynamic import to avoid circular dependencies if any, though likely safe to import at top
-        const { CLOUDFLARE_BINDING_MAP } = await import('../services/landingGenerator/cloudflareBindings');
+        const { CLOUDFLARE_BINDING_MAP } = await import('@services/landing-generator/cloudflareBindings');
 
         // 1. Always ensure standard LLM docs
         const standardDocs = {

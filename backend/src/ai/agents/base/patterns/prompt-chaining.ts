@@ -2,7 +2,7 @@ import { Tool, Agent, createGatewayAgent } from '@/ai/agent-sdk';
 import { getAgentModel } from "@/ai/providers/config";
 import { getMessageContent } from '@/ai/agent-utils';
 
-export interface PromptChainingStep {}
+export type PromptChainingStep = Record<string, never>;
 
 /**
  * Abstract Base Class for Prompt Chaining Pattern.

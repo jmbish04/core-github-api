@@ -1,55 +1,159 @@
 import OpenAI from "openai";
-import { env } from "process";
+import { getAiGatewayUrl, resolveDefaultAiModel } from "./config";
+import { getOpenaiApiKey } from "@utils/secrets";
+import { AIOptions, TextWithToolsResponse, StructuredWithToolsResponse } from "./index";
 
-import { getAIGatewayUrl } from "@/ai/utils/ai-gateway";
-
-export const DEFAULT_OPENAI_MODEL = env.OPENAI_MODEL || "gpt-4o";
-
-/**
- * Initialize OpenAI Client using Cloudflare AI Gateway
- */
 export async function createOpenAIClient(env: Env) {
-    const apiKey = env.OPENAI_API_KEY;
+  const apiKey = await getOpenaiApiKey(env);
+  // @ts-ignore
+  const aigToken = typeof env.AI_GATEWAY_TOKEN === 'object' && env.AI_GATEWAY_TOKEN?.get ? await env.AI_GATEWAY_TOKEN.get() : env.AI_GATEWAY_TOKEN as string;
 
-    return new OpenAI({
-        apiKey: await env.AI_GATEWAY_TOKEN.get(),
-        baseURL: getAIGatewayUrl(env, { provider: "openai" }),
-        // defaultHeaders: {
-        //     'cf-aig-authorization': `Bearer ${await env.AI_GATEWAY_TOKEN.get()}`,
-        // },
-    }) as any;
+  if (!apiKey) {
+    throw new Error("Missing OPENAI_API_KEY in environment variables");
+  }
+
+  return new OpenAI({
+    apiKey: apiKey,
+    baseURL: await getAiGatewayUrl(env, "openai", "openai_sdk"),
+    defaultHeaders: aigToken ? { 'cf-aig-authorization': `Bearer ${aigToken}` } : undefined,
+  });
 }
 
-export function getOpenAIModel(env: Env): string {
-    return env.OPENAI_MODEL || DEFAULT_OPENAI_MODEL;
-}
-
-/**
- * Standard query to OpenAI
- */
-export async function queryOpenAI(
-    env: Env,
-    prompt: string,
-    systemPrompt?: string
-): Promise<string> {
+export async function verifyApiKey(env: Env): Promise<boolean> {
+  try {
     const client = await createOpenAIClient(env);
-    const model = getOpenAIModel(env);
+    await client.models.list();
+    return true;
+  } catch (error) {
+    console.error("OpenAI Verification Error:", error);
+    return false;
+  }
+}
 
-    try {
-        const messages: any[] = [];
-        if (systemPrompt) {
-            messages.push({ role: "system", content: systemPrompt });
-        }
-        messages.push({ role: "user", content: prompt });
+export async function generateText(
+  env: Env,
+  prompt: string,
+  systemPrompt?: string,
+  options?: AIOptions
+): Promise<string> {
+  const client = await createOpenAIClient(env);
+  const model = options?.model || resolveDefaultAiModel(env, "openai");
 
-        const completion = await client.chat.completions.create({
-            model: model,
-            messages: messages,
-        });
+  const messages: any[] = [];
+  if (systemPrompt) messages.push({ role: "system", content: systemPrompt });
+  messages.push({ role: "user", content: prompt });
 
-        return completion.choices[0].message.content || "";
-    } catch (error) {
-        console.error("OpenAI Query Error:", error);
-        throw error;
+  const response = await client.chat.completions.create({
+    model,
+    messages,
+    temperature: options?.temperature,
+    max_tokens: options?.maxTokens,
+  });
+
+  return response.choices[0]?.message?.content || "";
+}
+
+export async function generateStructuredResponse<T = any>(
+  env: Env,
+  prompt: string,
+  schema: object,
+  systemPrompt?: string,
+  options?: AIOptions
+): Promise<T> {
+  const client = await createOpenAIClient(env);
+  const model = options?.model || resolveDefaultAiModel(env, "openai");
+
+  const messages: any[] = [];
+  if (systemPrompt) messages.push({ role: "system", content: systemPrompt });
+  messages.push({ role: "user", content: prompt });
+
+  const response = await client.chat.completions.create({
+    model,
+    messages,
+    temperature: options?.temperature,
+    max_tokens: options?.maxTokens,
+    response_format: {
+      type: "json_schema",
+      json_schema: {
+        name: "structured_output",
+        schema: schema as any,
+        strict: true
+      }
     }
+  });
+
+  return JSON.parse(response.choices[0]?.message?.content || "{}") as T;
+}
+
+export async function generateTextWithTools(
+  env: Env,
+  prompt: string,
+  tools: any[],
+  systemPrompt?: string,
+  options?: AIOptions
+): Promise<TextWithToolsResponse> {
+  const client = await createOpenAIClient(env);
+  const model = options?.model || resolveDefaultAiModel(env, "openai");
+
+  const messages: any[] = [];
+  if (systemPrompt) messages.push({ role: "system", content: systemPrompt });
+  messages.push({ role: "user", content: prompt });
+
+  const response = await client.chat.completions.create({
+    model,
+    messages,
+    tools,
+    temperature: options?.temperature,
+    max_tokens: options?.maxTokens,
+  });
+
+  const msg = response.choices[0]?.message;
+  return {
+    text: msg?.content || "",
+    toolCalls: msg?.tool_calls?.map((tc: any) => ({
+      id: tc.id,
+      function: { name: tc.function?.name, arguments: tc.function?.arguments }
+    })) || []
+  };
+}
+
+export async function generateStructuredWithTools<T = any>(
+  env: Env,
+  prompt: string,
+  schema: object,
+  tools: any[],
+  systemPrompt?: string,
+  options?: AIOptions
+): Promise<StructuredWithToolsResponse<T>> {
+  const client = await createOpenAIClient(env);
+  const model = options?.model || resolveDefaultAiModel(env, "openai");
+
+  const messages: any[] = [];
+  if (systemPrompt) messages.push({ role: "system", content: systemPrompt });
+  messages.push({ role: "user", content: prompt });
+
+  const response = await client.chat.completions.create({
+    model,
+    messages,
+    tools,
+    temperature: options?.temperature,
+    max_tokens: options?.maxTokens,
+    response_format: {
+      type: "json_schema",
+      json_schema: {
+        name: "structured_output",
+        schema: schema as any,
+        strict: true
+      }
+    }
+  });
+
+  const msg = response.choices[0]?.message;
+  return {
+    data: JSON.parse(msg?.content || "{}") as T,
+    toolCalls: msg?.tool_calls?.map((tc: any) => ({
+      id: tc.id,
+      function: { name: tc.function?.name, arguments: tc.function?.arguments }
+    })) || []
+  };
 }

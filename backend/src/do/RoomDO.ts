@@ -6,6 +6,7 @@
 
 import { DurableObject } from "cloudflare:workers";
 import { z } from "zod";
+import { generateUuid } from "@/utils/common";
 
 // WebSocket message schemas with discriminated union
 const PingMessageSchema = z.object({
@@ -118,7 +119,7 @@ export class RoomDO extends DurableObject {
 
     // Store metadata for this connection
     const meta: WebSocketMeta = {
-      id: crypto.randomUUID(),
+      id: generateUuid(),
       connectedAt: new Date().toISOString(),
       projectId,
       clientInfo: this.parseClientInfo(clientInfo),
@@ -272,7 +273,7 @@ export class RoomDO extends DurableObject {
           this.broadcast(ws, enrichedMessage);
           break;
 
-        case "list_clients":
+        case "list_clients": {
           // Send list of connected clients
           const clients = this.ctx.getWebSockets()
             .map(sock => this.socketMeta.get(sock))
@@ -286,6 +287,7 @@ export class RoomDO extends DurableObject {
             },
           }));
           break;
+        }
 
         default:
           // Unknown message type, send an error back to the client

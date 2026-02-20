@@ -8,6 +8,7 @@
 import { getAgentByName, routeAgentRequest, callable } from "agents";
 import { BaseAgent, BaseAgentState } from "@agent-sdk";
 import { Logger } from "@logging";
+import { generateUuid } from "@/utils/common";
 import {
   Agent as OpenAIAgent,
   type AgentOutputType,
@@ -20,7 +21,7 @@ import {
   resolveDefaultAiModel,
   createGatewayClient,
   type SupportedProvider,
-} from "../../agent-sdk";
+} from "@/ai/agent-sdk";
 import { verifySignature } from "@/utils/crypto";
 import { getAgentDb, agentSchema, type AgentDb } from "@/db/schemas/agents/stateful";
 
@@ -96,7 +97,7 @@ type GenerateWithToolsInput = RepoAgentAiOptions & {
  */
 export class RepoAgent extends BaseAgent<Env, RepoState> {
   private _db: AgentDb | null = null;
-  protected logger: Logger;
+  // logger inherited from BaseAgent
 
   /**
    * @constructor
@@ -105,7 +106,6 @@ export class RepoAgent extends BaseAgent<Env, RepoState> {
    */
   constructor(state: DurableObjectState, env: Env) {
     super(state, env);
-    this.logger = new Logger(env, "RepoAgent");
   }
 
   /**
@@ -144,7 +144,7 @@ export class RepoAgent extends BaseAgent<Env, RepoState> {
    * since Drizzle migrations are not natively exposed in the DO runtime yet.
    */
   async onStart(): Promise<void> {
-    this.sql`
+    void this.sql`
       CREATE TABLE IF NOT EXISTS events (
         id TEXT PRIMARY KEY,
         type TEXT NOT NULL,
@@ -158,7 +158,7 @@ export class RepoAgent extends BaseAgent<Env, RepoState> {
         timestamp TEXT NOT NULL
       )
     `;
-    this.sql`
+    void this.sql`
       CREATE INDEX IF NOT EXISTS idx_events_timestamp ON events(timestamp DESC)
     `;
   }
@@ -182,7 +182,9 @@ export class RepoAgent extends BaseAgent<Env, RepoState> {
 
     const signature = request.headers.get("X-Hub-Signature-256");
     const body = await request.text();
-    const apiKey = await this.env.WORKER_API_KEY.get();
+    const apiKey = typeof this.env.WORKER_API_KEY === 'string' 
+      ? this.env.WORKER_API_KEY 
+      : await (this.env.WORKER_API_KEY as any).get();
 
     if (apiKey) {
       const isValid = await verifySignature(
@@ -405,7 +407,7 @@ export class RepoAgent extends BaseAgent<Env, RepoState> {
     eventType: GitHubEventType,
     payload: GitHubWebhookPayload,
   ): StoredEvent | null {
-    const id = crypto.randomUUID();
+    const id = generateUuid();
     const timestamp = new Date().toISOString();
 
     switch (eventType) {

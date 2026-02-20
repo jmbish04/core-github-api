@@ -9,6 +9,7 @@
 import { callable } from "agents";
 import { BaseAgent, BaseAgentState } from "@agent-sdk";
 import { Logger } from "@logging";
+import { generateUuid } from "@/utils/common";
 import { desc, eq } from "drizzle-orm";
 import { getAgentDb, agentSchema, type AgentDb } from "@/db/schemas/agents/stateful";
 import type {
@@ -27,6 +28,7 @@ import type {
   GitHubWebhookPayload,
   StoredEvent,
 } from "@/ai/agents/github-types";
+
 
 /**
  * @interface OwnerState
@@ -53,7 +55,7 @@ export type OwnerState = BaseAgentState & {
  */
 export class OwnerAgent extends BaseAgent<Env, OwnerState> {
   private _db: AgentDb | null = null;
-  protected logger: Logger;
+  // logger inherited from BaseAgent
 
   /**
    * @constructor
@@ -62,7 +64,6 @@ export class OwnerAgent extends BaseAgent<Env, OwnerState> {
    */
   constructor(state: DurableObjectState, env: Env) {
     super(state, env);
-    this.logger = new Logger(env, "OwnerAgent");
   }
 
   /**
@@ -103,7 +104,7 @@ export class OwnerAgent extends BaseAgent<Env, OwnerState> {
    */
   async onStart(): Promise<void> {
     // Idempotent table creation (Drizzle doesn't auto-migrate inside DOs natively yet).
-    this.sql`
+    void this.sql`
       CREATE TABLE IF NOT EXISTS events (
         id TEXT PRIMARY KEY,
         type TEXT NOT NULL,
@@ -117,10 +118,10 @@ export class OwnerAgent extends BaseAgent<Env, OwnerState> {
         repo_name TEXT
       )
     `;
-    this.sql`
+    void this.sql`
       CREATE INDEX IF NOT EXISTS idx_events_timestamp ON events(timestamp DESC)
     `;
-    this.sql`
+    void this.sql`
       CREATE TABLE IF NOT EXISTS automation_runs (
         id TEXT PRIMARY KEY,
         rule_id TEXT NOT NULL,
@@ -133,7 +134,7 @@ export class OwnerAgent extends BaseAgent<Env, OwnerState> {
         FOREIGN KEY (event_id) REFERENCES events(id)
       )
     `;
-    this.sql`
+    void this.sql`
       CREATE INDEX IF NOT EXISTS idx_automation_runs_event ON automation_runs(event_id)
     `;
   }
@@ -279,7 +280,7 @@ export class OwnerAgent extends BaseAgent<Env, OwnerState> {
     eventType: GitHubEventType,
     payload: GitHubWebhookPayload
   ): StoredEvent | null {
-    const id = crypto.randomUUID();
+    const id = generateUuid();
     const timestamp = new Date().toISOString();
     
     const getRepoPrefix = () => {

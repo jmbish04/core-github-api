@@ -5,15 +5,15 @@
  */
 
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
-import { getOctokit } from '../../../../services/octokit/core'
-
-import { encode } from '../../../../utils/base64'
+import { getOctokit } from '@services/octokit/core'
+import { DEFAULT_GITHUB_OWNER } from "@github-utils";
+import { encode } from '@utils/base64'
 
 // --- Schemas ---
 
 const HealthCheckRequestSchema = z.object({
-    owner: z.string().default('jmbish04'),
-    repo: z.string().default('testing-oktokit-commands'),
+    owner: z.string().default(DEFAULT_GITHUB_OWNER),
+    repo: z.string().default('testing-oktokit-commands'), // env.HEALTH_TEST_REPO_NAME
 })
 
 const StepResultSchema = z.object({
