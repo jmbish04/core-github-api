@@ -1,9 +1,9 @@
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi';
 import { getDb, schema } from '@db';
-import { eq, inArray } from 'drizzle-orm';
-import { analyzeApplication } from '@/services/appstore-ai';
+import { eq, inArray, isNull } from 'drizzle-orm';
 import { generateUuid } from '@/utils/common';
 import { getCloudflareApiToken, getCloudflareAccountId } from '@/utils/secrets';
+import { analyzeApplicationWithWorkerAI, type AppSummaryResult } from '@/services/appstore-worker-ai';
 
 const app = new OpenAPIHono<{ Bindings: Env }>();
 
@@ -26,6 +26,67 @@ const ApplicationSchema = z.object({
   })),
 });
 
+// ─── Shared Helper: Process AI result and persist tags + summary ───
+export async function persistAiResult(
+  env: Env,
+  appId: string,
+  aiResult: AppSummaryResult,
+  currentTagsByName: Map<string, typeof schema.tags.$inferSelect>
+) {
+  const db = getDb(env.DB);
+
+  // 1. Save the summary
+  await db.update(schema.applications)
+    .set({ summary: aiResult.summary, updatedAt: new Date() })
+    .where(eq(schema.applications.id, appId));
+
+  // 2. Create any new tags
+  for (const newTag of aiResult.new_tags_to_create) {
+    if (!currentTagsByName.has(newTag.name.toLowerCase())) {
+      const tagId = generateUuid();
+      await db.insert(schema.tags).values({
+        id: tagId,
+        name: newTag.name,
+        description: newTag.description,
+        hexColor: newTag.hex_color || '#3b82f6',
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }).onConflictDoNothing();
+
+      // Update local map so subsequent iterations see it
+      const latestTags = await db.select().from(schema.tags);
+      for (const t of latestTags) {
+        currentTagsByName.set(t.name.toLowerCase(), t);
+      }
+    }
+  }
+
+  // 3. Map assigned tags
+  for (const tagName of aiResult.assigned_tag_names) {
+    const tag = currentTagsByName.get(tagName.toLowerCase());
+    if (tag) {
+      await db.insert(schema.tagApplicationMapping).values({
+        appId: appId,
+        tagId: tag.id,
+      }).onConflictDoNothing();
+    }
+  }
+
+  // 4. Map newly created tags
+  for (const newTag of aiResult.new_tags_to_create) {
+    const tag = currentTagsByName.get(newTag.name.toLowerCase());
+    if (tag) {
+      await db.insert(schema.tagApplicationMapping).values({
+        appId: appId,
+        tagId: tag.id,
+      }).onConflictDoNothing();
+    }
+  }
+}
+
+// ─── GET / — List all applications (+ on-demand AI for unsummarized) ───
+
 const getAppsRoute = createRoute({
   method: 'get',
   path: '/',
@@ -38,6 +99,7 @@ const getAppsRoute = createRoute({
           schema: z.object({
             success: z.boolean(),
             applications: z.array(ApplicationSchema),
+            pendingSummaries: z.number().optional(),
           }),
         },
       },
@@ -68,6 +130,38 @@ app.openapi(getAppsRoute, async (c) => {
     }
   }
 
+  // ─── On-demand: detect unsummarized apps and process via waitUntil ───
+  const unsummarized = apps.filter(a => !a.summary);
+  let pendingSummaries = unsummarized.length;
+
+  if (unsummarized.length > 0) {
+    // Process up to 3 on page load (background, non-blocking)
+    const batch = unsummarized.slice(0, 3);
+    const currentTagsByName = new Map(allTags.map(t => [t.name.toLowerCase(), t]));
+    const tagsForAi = allTags.map(t => ({ name: t.name, description: t.description }));
+
+    c.executionCtx.waitUntil(
+      (async () => {
+        for (const app of batch) {
+          try {
+            console.log(`[AppStore:OnDemand] Analyzing ${app.name} with Worker AI...`);
+            const aiResult = await analyzeApplicationWithWorkerAI(
+              c.env,
+              app.name,
+              app.type,
+              app.description,
+              tagsForAi
+            );
+            await persistAiResult(c.env, app.id, aiResult, currentTagsByName);
+            console.log(`[AppStore:OnDemand] ✅ Summary saved for ${app.name}`);
+          } catch (err) {
+            console.error(`[AppStore:OnDemand] ❌ Failed to analyze ${app.name}:`, err);
+          }
+        }
+      })()
+    );
+  }
+
   const resultApps = apps.map(app => ({
     ...app,
     lastDeployedDate: app.lastDeployedDate?.toISOString() || null,
@@ -80,13 +174,15 @@ app.openapi(getAppsRoute, async (c) => {
     })),
   }));
 
-  return c.json({ success: true, applications: resultApps }, 200);
+  return c.json({ success: true, applications: resultApps, pendingSummaries }, 200);
 });
+
+// ─── POST /sync — Pure metadata sync (no AI) ───
 
 const syncRoute = createRoute({
   method: 'post',
   path: '/sync',
-  summary: 'Sync applications and tags from Cloudflare API',
+  summary: 'Sync applications from Cloudflare API (metadata only, AI runs via cron/page-load)',
   responses: {
     200: {
       description: 'Sync status',
@@ -139,45 +235,28 @@ app.openapi(syncRoute, async (c) => {
     const db = getDb(c.env.DB);
     let syncedCount = 0;
 
-    // Existing apps to check if they are new or not (for skipping AI if already summarized)
+    // Existing apps for preserving summaries
     const existingApps = await db.select().from(schema.applications);
-    const existingAppIds = new Set(existingApps.map(a => a.id));
-
-    // Existing tags for AI
-    const tagsList = await db.select().from(schema.tags);
-    let currentTagsByName = new Map(tagsList.map(t => [t.name.toLowerCase(), t]));
+    const existingById = new Map(existingApps.map(a => [a.id, a]));
 
     const processApp = async (appId: string, appName: string, appType: 'worker' | 'pages', appDetails: any) => {
-      let description = appType === 'pages' ? appDetails.source?.config?.production_branch : 'Worker script';
-      let url = appType === 'pages' ? (appDetails.domains ? appDetails.domains[0] : null) : `${appName}.${accountId}.workers.dev`;
-      let githubRepo = appType === 'pages' ? appDetails.source?.config?.repo_name : null;
-      let lastDeployed = appType === 'pages' ? appDetails.latest_deployment?.created_on : appDetails.modified_on;
+      const description = appType === 'pages' ? appDetails.source?.config?.production_branch : 'Worker script';
+      const url = appType === 'pages' ? (appDetails.domains ? appDetails.domains[0] : null) : `${appName}.${accountId}.workers.dev`;
+      const githubRepo = appType === 'pages' ? appDetails.source?.config?.repo_name : null;
+      const lastDeployed = appType === 'pages' ? appDetails.latest_deployment?.created_on : appDetails.modified_on;
       
-      let summary = null;
-      let aiResult = null;
-
-      // Only run AI if it's a newer app (to save budget and time), or we can force it
-      // TODO: Offload AI analysis to a Cloudflare Workflow to avoid exceeding Worker's 30s execution limit.
-      // Currently safe with the "skip if existing" guard, but would fail if many new apps appear at once.
-      if (!existingAppIds.has(appId)) {
-        try {
-          const tagsForAi = Array.from(currentTagsByName.values()).map(t => ({ name: t.name, description: t.description }));
-          aiResult = await analyzeApplication(c.env, appName, appType, description, tagsForAi);
-          summary = aiResult.summary;
-        } catch (err) {
-          console.error(`Failed to run AI analysis for ${appName}:`, err);
-        }
-      }
+      // Preserve existing summary — AI will fill it in via cron or page load
+      const existingSummary = existingById.get(appId)?.summary || null;
 
       await db.insert(schema.applications)
         .values({
           id: appId,
           name: appName,
           type: appType,
-          url: url,
-          githubRepo: githubRepo,
-          description: description,
-          summary: summary || existingApps.find(a => a.id === appId)?.summary || null,
+          url,
+          githubRepo,
+          description,
+          summary: existingSummary,
           lastDeployedDate: lastDeployed ? new Date(lastDeployed) : null,
           createdAt: new Date(),
           updatedAt: new Date(),
@@ -186,76 +265,30 @@ app.openapi(syncRoute, async (c) => {
           target: schema.applications.id,
           set: {
             name: appName,
-            url: url,
-            githubRepo: githubRepo,
+            url,
+            githubRepo,
             lastDeployedDate: lastDeployed ? new Date(lastDeployed) : null,
             updatedAt: new Date(),
-            // Don't overwrite summary if we didn't generate a new one
-            summary: summary || existingApps.find(a => a.id === appId)?.summary || null,
+            // Never overwrite an existing summary — that's managed by AI cron/page-load
           },
         });
-
-      if (aiResult) {
-        // Handle new tags
-        for (const newTag of aiResult.new_tags_to_create) {
-          if (!currentTagsByName.has(newTag.name.toLowerCase())) {
-            const tagId = generateUuid();
-            await db.insert(schema.tags).values({
-              id: tagId,
-              name: newTag.name,
-              description: newTag.description,
-              hexColor: newTag.hex_color || '#3b82f6',
-              isActive: true,
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            }).onConflictDoNothing();
-            
-            // Re-fetch tags to maintain sync
-            const latestTags = await db.select().from(schema.tags);
-            currentTagsByName = new Map(latestTags.map(t => [t.name.toLowerCase(), t]));
-          }
-        }
-        
-        // Map assigned tags
-        for (const tagName of aiResult.assigned_tag_names) {
-          const tag = currentTagsByName.get(tagName.toLowerCase());
-          if (tag) {
-             await db.insert(schema.tagApplicationMapping).values({
-               appId: appId,
-               tagId: tag.id,
-             }).onConflictDoNothing();
-          }
-        }
-        
-        // Map any newly created tags that matched
-        for (const newTag of aiResult.new_tags_to_create) {
-           const tag = currentTagsByName.get(newTag.name.toLowerCase());
-           if (tag) {
-             await db.insert(schema.tagApplicationMapping).values({
-               appId: appId,
-               tagId: tag.id,
-             }).onConflictDoNothing();
-           }
-        }
-      }
 
       syncedCount++;
     };
 
     if (workersData.success && workersData.result) {
       for (const worker of workersData.result) {
-        await processApp(worker.id, worker.id, 'worker', worker); // using worker.id as name/id, some endpoints don't expose unique name vs id separately well
+        await processApp(worker.id, worker.id, 'worker', worker);
       }
     }
 
     if (pagesData.success && pagesData.result) {
       for (const project of pagesData.result) {
-        // pages API uses project name
         await processApp(project.name, project.name, 'pages', project);
       }
     }
 
-    return c.json({ success: true, message: 'Sync complete', syncedCount }, 200);
+    return c.json({ success: true, message: 'Sync complete (AI summaries generated via cron/page-load)', syncedCount }, 200);
 
   } catch (error: any) {
     console.error('Failed to sync app store:', error);

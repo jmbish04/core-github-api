@@ -6,7 +6,19 @@
 		"nodejs_compat"
 	],
 	"observability": {
-		"enabled": true
+		"enabled": true,
+		"head_sampling_rate": 1,
+		"logs": {
+			"enabled": true,
+			"head_sampling_rate": 1,
+			"persist": true,
+			"invocation_logs": true
+		},
+		"traces": {
+			"enabled": false,
+			"persist": true,
+			"head_sampling_rate": 1
+		}
 	},
 	"vars": {
 		"LOG_LEVEL": "debug",
@@ -403,7 +415,10 @@
 			// Every 3 hours - Jules Overseer Check
 			"0 */3 * * *",
 			// Weekly Health Suite at 3:00 AM UTC on Sundays
-			"0 3 * * 7"
+			"0 3 * * 7",
+			// Every 6 hours - App Store AI Summary Backfill
+			// Processes unsummarized apps with Worker AI and saves to D1
+			"0 */6 * * *"
 		]
 	}
 }
