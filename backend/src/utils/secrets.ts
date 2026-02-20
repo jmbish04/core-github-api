@@ -86,42 +86,74 @@ export async function getWorkerApiKey(env: Env): Promise<string | undefined> {
 }
 
 export async function getGithubToken(env: Env): Promise<string | undefined> {
-    if (env.GITHUB_TOKEN) return env.GITHUB_TOKEN.get();
+    if (env.GITHUB_TOKEN) {
+        return typeof env.GITHUB_TOKEN === 'string'
+            ? env.GITHUB_TOKEN
+            : await (env.GITHUB_TOKEN as any).get();
+    }
     return getSecret(env, "GITHUB_TOKEN");
 }
 
 export async function getOpenaiApiKey(env: Env): Promise<string | undefined> {
-    if (env.OPENAI_API_KEY) return env.OPENAI_API_KEY.get();
+    if (env.OPENAI_API_KEY) {
+        return typeof env.OPENAI_API_KEY === 'string'
+            ? env.OPENAI_API_KEY
+            : await (env.OPENAI_API_KEY as any).get();
+    }
     return getSecret(env, "OPENAI_API_KEY");
 }
 
 export async function getAnthropicApiKey(env: Env): Promise<string | undefined> {
-    if (env.ANTHROPIC_API_KEY) return env.ANTHROPIC_API_KEY.get();
+    if (env.ANTHROPIC_API_KEY) {
+        return typeof env.ANTHROPIC_API_KEY === 'string'
+            ? env.ANTHROPIC_API_KEY
+            : await (env.ANTHROPIC_API_KEY as any).get();
+    }
     return getSecret(env, "ANTHROPIC_API_KEY");
 }
 
 export async function getGeminiApiKey(env: Env): Promise<string | undefined> {
-    if (env.GEMINI_API_KEY) return env.GEMINI_API_KEY.get();
+    if (env.GEMINI_API_KEY) {
+        return typeof env.GEMINI_API_KEY === 'string'
+            ? env.GEMINI_API_KEY
+            : await (env.GEMINI_API_KEY as any).get();
+    }
     return getSecret(env, "GEMINI_API_KEY");
 }
 
 export async function getCloudflareApiToken(env: Env): Promise<string | undefined> {
-    if (env.CLOUDFLARE_API_TOKEN) return env.CLOUDFLARE_API_TOKEN.get();
+    if (env.CLOUDFLARE_API_TOKEN) {
+        return typeof env.CLOUDFLARE_API_TOKEN === 'string'
+            ? env.CLOUDFLARE_API_TOKEN
+            : await (env.CLOUDFLARE_API_TOKEN as any).get();
+    }
     return getSecret(env, "CLOUDFLARE_API_TOKEN");
 }
 
 export async function getCloudflareAccountId(env: Env): Promise<string | undefined> {
-    if (env.CLOUDFLARE_ACCOUNT_ID) return env.CLOUDFLARE_ACCOUNT_ID.get();
+    if (env.CLOUDFLARE_ACCOUNT_ID) {
+        return typeof env.CLOUDFLARE_ACCOUNT_ID === 'string'
+            ? env.CLOUDFLARE_ACCOUNT_ID
+            : await (env.CLOUDFLARE_ACCOUNT_ID as any).get();
+    }
     return getSecret(env, "CLOUDFLARE_ACCOUNT_ID");
 }
 
 export async function getGithubClientId(env: Env): Promise<string | undefined> {
-    if (env.GITHUB_CLIENT_ID) return env.GITHUB_CLIENT_ID.get();
+    if (env.GITHUB_CLIENT_ID) {
+        return typeof env.GITHUB_CLIENT_ID === 'string'
+            ? env.GITHUB_CLIENT_ID
+            : await (env.GITHUB_CLIENT_ID as any).get();
+    }
     return getSecret(env, "GITHUB_CLIENT_ID");
 }
 
 export async function getGithubClientSecret(env: Env): Promise<string | undefined> {
-    if (env.GITHUB_CLIENT_SECRET) return env.GITHUB_CLIENT_SECRET.get();
+    if (env.GITHUB_CLIENT_SECRET) {
+        return typeof env.GITHUB_CLIENT_SECRET === 'string'
+            ? env.GITHUB_CLIENT_SECRET
+            : await (env.GITHUB_CLIENT_SECRET as any).get();
+    }
     return getSecret(env, "GITHUB_CLIENT_SECRET");
 }
 
@@ -162,7 +194,11 @@ export async function getGitHubPrivateKey(env: Env): Promise<string> {
  * @param env The worker environment bindings
  */
 export async function getGitHubAppId(env: Env): Promise<string> {
-    if (env.GITHUB_APP_ID) return env.GITHUB_APP_ID.get();
+    if (env.GITHUB_APP_ID) {
+        return typeof env.GITHUB_APP_ID === 'string'
+            ? env.GITHUB_APP_ID
+            : await (env.GITHUB_APP_ID as any).get();
+    }
     
     const appId = await getSecret(env, "GITHUB_APP_ID");
     if (!appId) {

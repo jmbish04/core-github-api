@@ -32,7 +32,9 @@ export async function getAIGatewayUrl(
     let gatewayName: string = '';
     // Check if CLOUDFLARE_ACCOUNT_ID is available
     try{
-      accountId = await env.CLOUDFLARE_ACCOUNT_ID.get();
+      accountId = typeof env.CLOUDFLARE_ACCOUNT_ID === 'object' && 'get' in env.CLOUDFLARE_ACCOUNT_ID
+          ? await env.CLOUDFLARE_ACCOUNT_ID.get()
+          : String(env.CLOUDFLARE_ACCOUNT_ID);
     }catch(e){
       throw new Error(`Missing CLOUDFLARE_ACCOUNT_ID in environment variables; ${JSON.stringify(e)}`);
     }
@@ -44,7 +46,7 @@ export async function getAIGatewayUrl(
       throw new Error(`Missing AI_GATEWAY_NAME in environment variables; ${JSON.stringify(e)}`);
     }
 
-    const baseUrl = `https://gateway.ai.cloudflare.com/v1/${accountId}/${gatewayName}/${options.provider}`;
+    const baseUrl = await env.AI.gateway(gatewayName).getUrl(options.provider);
 
     // If no specific model/endpoint is requested, return the base SDK url
     if (!options.modelName) {
@@ -85,16 +87,32 @@ export function normalizeAiGatewayProvider(provider: string): string {
   return GATEWAY_PROVIDER_ALIASES[normalized] || normalized;
 }
 
-export async function getAiGatewayUrl(env: Env, provider: string): Promise<string> {
+export async function getAiGatewayUrl(env: Env, provider: string, options?: { openaiCompat?: boolean }): Promise<string> {
   try {
     const normalizedProvider = normalizeAiGatewayProvider(provider);
     const gateway = env.AI.gateway(env.AI_GATEWAY_NAME);
     const baseUrl = await gateway.getUrl(normalizedProvider);
+
+    // Workers AI requires /compat suffix for OpenAI-format requests (chat completions).
+    // When openaiCompat is true and provider is workers-ai, append /compat.
+    if (options?.openaiCompat && normalizedProvider === 'workers-ai') {
+      const cleanBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
+      return `${cleanBase}compat`;
+    }
+
     return baseUrl;
   } catch (error: any) {
     console.error(`Failed to resolve AI Gateway URL for provider: ${provider}`, error);
     throw new Error(`Could not fetch gateway URL: ${error.message}`);
   }
+}
+
+/**
+ * Returns the AI Gateway URL with /compat appended for Workers AI.
+ * Use this when sending OpenAI-format requests (e.g. via OpenAI Agents SDK).
+ */
+export async function getAiGatewayUrlForOpenAI(env: Env, provider: string): Promise<string> {
+  return getAiGatewayUrl(env, provider, { openaiCompat: true });
 }
 
 // Backward-compatible alias used by existing callsites.

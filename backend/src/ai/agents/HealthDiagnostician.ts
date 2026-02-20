@@ -1,3 +1,4 @@
+// backend/src/ai/agents/HealthDiagnostician.ts
 import { Buffer } from "node:buffer";
 import { z } from "zod";
 import { Octokit } from "@octokit/rest";
@@ -8,7 +9,7 @@ import { getDb } from "@db";
 import { healthResults } from "@db/schemas/logs/health";
 import { julesJobs } from "@/db/schemas/agents/jules";
 import { JulesService } from "@/services/jules";
-import { Agent } from "@openai/agents";
+import type { Agent as OpenAIAgentType } from "@openai/agents";
 
 // Define the exact schema we expect the Agent to return
 const HealthDiagnosticianOutputSchema = z.object({
@@ -28,11 +29,24 @@ const finalAnalysisSchema = z.object({
 type HealthDiagnosticianOutput = z.infer<typeof HealthDiagnosticianOutputSchema>;
 
 export class HealthDiagnostician extends BaseAgent {
-    async onRequest(request: Request) {
-        if (request.method !== "POST") {
-            return new Response("Method not allowed", { status: 405 });
+    
+    // Override the core DO fetch to bypass PartyServer room enforcement for direct DO invocations
+    async fetch(request: Request) {
+        const url = new URL(request.url);
+
+        // Intercept direct HTTP calls to the DO bypassing standard agent routing
+        if (url.pathname === "/diagnose") {
+            if (request.method !== "POST") {
+                return new Response("Method not allowed", { status: 405 });
+            }
+            return this.handleDiagnose(request);
         }
 
+        // Fallback to BaseAgent/PartyServer's native fetch for websockets or standard room requests
+        return super.fetch(request);
+    }
+
+    private async handleDiagnose(request: Request) {
         const payload = await request.json<{
             errorName: string;
             errorMessage: string;
@@ -50,6 +64,10 @@ export class HealthDiagnostician extends BaseAgent {
         const octokit = new Octokit({ auth: ghToken });
         const repoOwner = this.env.GITHUB_OWNER || "jmbish04";
         const repoName = this.env.CLOUDFLARE_WORKER_NAME || "core-github-api";
+
+        // Determine the default branch dynamically
+        const { data: repoData } = await octokit.repos.get({ owner: repoOwner, repo: repoName });
+        const defaultBranch = repoData.default_branch;
 
         // 2. Define the Agent's Instructions
         const instructions = `You are a Codex Senior Engineer and an autonomous Site Reliability Agent operating on the Cloudflare ecosystem.
@@ -159,7 +177,7 @@ Return a JSON response containing the \`severity\`, \`rootCause\`, \`suggestedFi
                             const args = JSON.parse(input);
                             const { branchName, filePath, newContent, commitMessage, prTitle, prBody } = args;
                             
-                            const { data: refData } = await octokit.git.getRef({ owner: repoOwner, repo: repoName, ref: "heads/main" });
+                            const { data: refData } = await octokit.git.getRef({ owner: repoOwner, repo: repoName, ref: `heads/${defaultBranch}` });
                             await octokit.git.createRef({ owner: repoOwner, repo: repoName, ref: `refs/heads/${branchName}`, sha: refData.object.sha });
     
                             let fileSha;
@@ -176,7 +194,7 @@ Return a JSON response containing the \`severity\`, \`rootCause\`, \`suggestedFi
     
                             const { data: prData } = await octokit.pulls.create({
                                 owner: repoOwner, repo: repoName, title: prTitle, body: prBody,
-                                head: branchName, base: "main"
+                                head: branchName, base: defaultBranch
                             });
     
                             return `Successfully created PR: ${prData.html_url}`;
@@ -209,7 +227,7 @@ Return a JSON response containing the \`severity\`, \`rootCause\`, \`suggestedFi
                             const session = await julesService.startSession({
                                 prompt: args.prompt,
                                 autoPr: args.autoPr || false,
-                                repo: { owner: repoOwner, repo: repoName, branch: "main" }
+                                repo: { owner: repoOwner, repo: repoName, branch: defaultBranch }
                             });
                             
                             const db = getDb(this.env.DB);
@@ -236,6 +254,7 @@ Return a JSON response containing the \`severity\`, \`rootCause\`, \`suggestedFi
              
              const runner = await import("@/ai/agent-sdk").then(m => m.createRunner(this.env, agentConfig.provider, agentConfig.model));
              
+             const { Agent } = await import("@openai/agents");
              const agent = new Agent({
                  name: agentConfig.name,
                  instructions: agentConfig.instructions,

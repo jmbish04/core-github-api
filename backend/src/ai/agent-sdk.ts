@@ -99,7 +99,8 @@ export async function createGatewayClient(
         }
         init = { ...init, body: JSON.stringify(bodyObj) };
       } catch(error) {
-        console.log(`[AI-CONFIG] Error parsing request body: ${JSON.stringify(error)}`);
+        const errMsg = error instanceof Error ? error.message : String(error);
+        console.log(`[AI-CONFIG] Error parsing request body: ${errMsg}`);
         const logger = new Logger(env, "AI-AGENT-SDK-CONFIG");
         logger.error(`Error parsing request body`, { error });
         await logger.flush();

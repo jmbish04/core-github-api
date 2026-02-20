@@ -155,6 +155,10 @@ app.post("/", zValidator("json", PostConfigSchema), async (c) => {
       };
     }
 
+    // Fetch previous value for auditing BEFORE overwrite
+    const previousRaw = await manager.get(input.key);
+    const previousValue = previousRaw != null ? sanitizeForAudit(input.key, String(previousRaw)) : "N/A (new key)";
+
     // Phase 2: KV Persistence
     // IMPORTANT: If isSecretStoreManaged, result.value is the ID, NOT the secret text.
     // The plaintext secret is NEVER stored in KV.
@@ -169,7 +173,7 @@ app.post("/", zValidator("json", PostConfigSchema), async (c) => {
     // Phase 3: Auditing
     await db.insert(configAuditLogs).values({
       key: input.key,
-      oldValue: "N/A", 
+      oldValue: previousValue, 
       newValue: sanitizeForAudit(input.key, input.isSecretStoreManaged ? "SECRET_ID_REF" : input.value), 
       category: input.category,
       changedBy: "admin_ui", 

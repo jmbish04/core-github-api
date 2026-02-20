@@ -157,6 +157,8 @@ app.openapi(syncRoute, async (c) => {
       let aiResult = null;
 
       // Only run AI if it's a newer app (to save budget and time), or we can force it
+      // TODO: Offload AI analysis to a Cloudflare Workflow to avoid exceeding Worker's 30s execution limit.
+      // Currently safe with the "skip if existing" guard, but would fail if many new apps appear at once.
       if (!existingAppIds.has(appId)) {
         try {
           const tagsForAi = Array.from(currentTagsByName.values()).map(t => ({ name: t.name, description: t.description }));

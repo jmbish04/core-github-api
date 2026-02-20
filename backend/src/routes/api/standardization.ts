@@ -9,6 +9,11 @@ import { getOctokit } from '@/services/octokit/core';
 
 const standardizationApi = new OpenAPIHono<{ Bindings: Env }>();
 
+/** Safe JSON.parse for DB text columns that stores arrays as JSON strings */
+function safeJsonParse(value: string, fallback: any[] = []): any {
+    try { return JSON.parse(value); } catch { return fallback; }
+}
+
 // Schema for Rule Metadata
 const RuleSchema = z.object({
     id: z.string(),
@@ -52,8 +57,8 @@ standardizationApi.openapi(createRoute({
     
     return c.json(rules.map(r => ({
         ...r,
-        relevantInfra: JSON.parse(r.relevantInfra),
-        irrelevantInfra: JSON.parse(r.irrelevantInfra),
+        relevantInfra: safeJsonParse(r.relevantInfra),
+        irrelevantInfra: safeJsonParse(r.irrelevantInfra),
         shouldOverwrite: Boolean(r.shouldOverwrite)
     })));
 });
@@ -104,8 +109,8 @@ standardizationApi.openapi(createRoute({
 
     return c.json({
         ...newRule,
-        relevantInfra: JSON.parse(newRule.relevantInfra),
-        irrelevantInfra: JSON.parse(newRule.irrelevantInfra),
+        relevantInfra: safeJsonParse(newRule.relevantInfra),
+        irrelevantInfra: safeJsonParse(newRule.irrelevantInfra),
         shouldOverwrite: Boolean(newRule.shouldOverwrite)
     }, 201);
 });
@@ -162,8 +167,8 @@ standardizationApi.openapi(createRoute({
 
     return c.json({
         ...updated,
-        relevantInfra: JSON.parse(updated.relevantInfra),
-        irrelevantInfra: JSON.parse(updated.irrelevantInfra),
+        relevantInfra: safeJsonParse(updated.relevantInfra),
+        irrelevantInfra: safeJsonParse(updated.irrelevantInfra),
         shouldOverwrite: Boolean(updated.shouldOverwrite)
     });
 });

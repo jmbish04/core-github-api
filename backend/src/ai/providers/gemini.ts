@@ -1,6 +1,7 @@
-import { GoogleGenAI } from "@google/genai";
+// Dynamically imported
 import { getAiGatewayUrl, resolveDefaultAiModel } from "./config";
 import { getGeminiApiKey } from "@utils/secrets";
+import { cleanJsonOutput } from "@/ai/utils/sanitizer";
 import { AIOptions, TextWithToolsResponse, StructuredWithToolsResponse } from "./index";
 
 export async function createGeminiClient(env: Env) {
@@ -12,6 +13,7 @@ export async function createGeminiClient(env: Env) {
   // @ts-ignore
   const aigToken = typeof env.AI_GATEWAY_TOKEN === 'object' && env.AI_GATEWAY_TOKEN?.get ? await env.AI_GATEWAY_TOKEN.get() : env.AI_GATEWAY_TOKEN as string;
 
+  const { GoogleGenAI } = await import("@google/genai");
   return new GoogleGenAI({
     apiKey: apiKey,
     httpOptions: {
@@ -76,7 +78,7 @@ export async function generateStructuredResponse<T = any>(
     contents: [{ role: "user", parts: [{ text: prompt }] }]
   });
 
-  return JSON.parse(response.text || "{}") as T;
+  return JSON.parse(cleanJsonOutput(response.text || "{}")) as T;
 }
 
 export async function generateTextWithTools(
@@ -151,7 +153,7 @@ export async function generateStructuredWithTools<T = any>(
   })) || [];
 
   return {
-    data: JSON.parse(response.text || "{}") as T,
+    data: JSON.parse(cleanJsonOutput(response.text || "{}")) as T,
     toolCalls,
   };
 }

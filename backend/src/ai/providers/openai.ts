@@ -1,6 +1,7 @@
-import OpenAI from "openai";
+// Dynamically imported
 import { getAiGatewayUrl, resolveDefaultAiModel } from "./config";
 import { getOpenaiApiKey } from "@utils/secrets";
+import { cleanJsonOutput } from "@/ai/utils/sanitizer";
 import { AIOptions, TextWithToolsResponse, StructuredWithToolsResponse } from "./index";
 
 export async function createOpenAIClient(env: Env) {
@@ -12,7 +13,9 @@ export async function createOpenAIClient(env: Env) {
     throw new Error("Missing OPENAI_API_KEY in environment variables");
   }
 
-  return new OpenAI({
+  const OpenAIModule = await import("openai");
+  const OpenAIClass = OpenAIModule.default || Object.values(OpenAIModule).find((m: any) => m && m.name === 'OpenAI') || OpenAIModule;
+  return new (OpenAIClass as any)({
     apiKey: apiKey,
     baseURL: await getAiGatewayUrl(env, "openai", "openai_sdk"),
     defaultHeaders: aigToken ? { 'cf-aig-authorization': `Bearer ${aigToken}` } : undefined,
@@ -82,7 +85,7 @@ export async function generateStructuredResponse<T = any>(
     }
   });
 
-  return JSON.parse(response.choices[0]?.message?.content || "{}") as T;
+  return JSON.parse(cleanJsonOutput(response.choices[0]?.message?.content || "{}")) as T;
 }
 
 export async function generateTextWithTools(
@@ -150,7 +153,7 @@ export async function generateStructuredWithTools<T = any>(
 
   const msg = response.choices[0]?.message;
   return {
-    data: JSON.parse(msg?.content || "{}") as T,
+    data: JSON.parse(cleanJsonOutput(msg?.content || "{}")) as T,
     toolCalls: msg?.tool_calls?.map((tc: any) => ({
       id: tc.id,
       function: { name: tc.function?.name, arguments: tc.function?.arguments }
