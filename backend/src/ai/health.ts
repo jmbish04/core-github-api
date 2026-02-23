@@ -182,7 +182,7 @@ export async function checkHealth(env: Env): Promise<HealthStepResult> {
         subChecks.gemini = { status: "SKIPPED", reason: "Missing GEMINI_API_KEY and AI_GATEWAY_TOKEN" };
     } else {
         await runCheck("gemini", async () => {
-            const response = await generateText(env, "Reply with: Pong", "You are a ping bot.", undefined, "gemini");
+            const response = await generateText(env, "Reply with: Pong", "You are a ping bot.", { model: "gemini-2.5-flash" }, "gemini");
             if (!response.toLowerCase().includes("pong")) {
                 throw new Error(`Unexpected response: ${response.substring(0, 100)}`);
             }
@@ -195,7 +195,7 @@ export async function checkHealth(env: Env): Promise<HealthStepResult> {
         subChecks.geminiRaw = { status: "SKIPPED", reason: "Missing Env Vars" };
     } else {
         await runCheck("geminiRaw", async () => {
-            const model = env.GEMINI_MODEL || "gemini-2.5-flash";
+            const model = "gemini-2.5-flash";
             const url = await getAIGatewayUrl(env, { provider: "google-ai-studio", modelName: model, apiVersion: "v1beta" });
 
             const payload = {
@@ -245,7 +245,7 @@ export async function checkHealth(env: Env): Promise<HealthStepResult> {
         subChecks.openai = { status: "SKIPPED", reason: "Missing OPENAI_API_KEY and AI_GATEWAY_TOKEN" };
     } else {
         await runCheck("openai", async () => {
-            const response = await generateText(env, "Reply with: Pong", "You are a ping bot.", undefined, "openai");
+            const response = await generateText(env, "Reply with: Pong", "You are a ping bot.", { model: "gpt-4o-mini" }, "openai");
             if (!response.toLowerCase().includes("pong")) {
                 throw new Error(`Unexpected response: ${response.substring(0, 100)}`);
             }
@@ -258,7 +258,7 @@ export async function checkHealth(env: Env): Promise<HealthStepResult> {
         subChecks.openaiRaw = { status: "SKIPPED", reason: "Missing Env Vars" };
     } else {
         await runCheck("openaiRaw", async () => {
-            const model = env.OPENAI_MODEL || "gpt-4o";
+            const model = "gpt-4o-mini";
             const url = await getAIGatewayUrl(env, { provider: "openai", modelName: model });
 
             const payload = {

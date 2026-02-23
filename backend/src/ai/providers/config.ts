@@ -76,13 +76,23 @@ export function resolveDefaultAiModel(env: Partial<Env>, provider?: SupportedPro
     return DEFAULT_WORKERS_AI_MODEL;
   }
   if (effectiveProvider === 'openai') {
-    return (env as Partial<Env> & { OPENAI_MODEL?: string }).OPENAI_MODEL || 'gpt-4o-mini';
+    const defaultOpenAI = (env as Partial<Env> & { OPENAI_MODEL?: string }).OPENAI_MODEL || 'gpt-4o-mini';
+    const openaiStr = String(defaultOpenAI);
+    if (openaiStr === 'gpt-5' || openaiStr === 'gpt-5.1' || openaiStr.startsWith('gpt-5')) {
+       return 'gpt-4o-mini';
+    }
+    return defaultOpenAI;
   }
   if (effectiveProvider === 'gemini' || effectiveProvider === 'google-ai-studio') {
-    return (env as Partial<Env> & { GEMINI_MODEL?: string }).GEMINI_MODEL || 'gemini-2.0-flash';
+    const defaultGemini = (env as Partial<Env> & { GEMINI_MODEL?: string }).GEMINI_MODEL || 'gemini-2.5-flash';
+    const geminiStr = String(defaultGemini);
+    if (geminiStr.includes('gemini-3')) {
+       return 'gemini-2.5-flash';
+    }
+    return defaultGemini;
   }
   if (effectiveProvider === 'anthropic') {
-    return (env as Partial<Env> & { ANTHROPIC_MODEL?: string }).ANTHROPIC_MODEL || 'claude-3-5-sonnet-latest';
+    return (env as Partial<Env> & { ANTHROPIC_MODEL?: string }).ANTHROPIC_MODEL || 'claude-4-5-sonnet-latest';
   }
 
   return DEFAULT_WORKERS_AI_MODEL;
