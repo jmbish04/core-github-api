@@ -13,10 +13,10 @@
 # Multi-variant sandbox image with JS/TS, Python, and OpenCode capabilities
 # All three cloudflare/sandbox base images are layered into a single image.
 
-FROM docker.io/cloudflare/sandbox:0.7.4-python AS python-stage
-FROM docker.io/cloudflare/sandbox:0.7.4-opencode AS opencode-stage
+FROM docker.io/cloudflare/sandbox:0.7.5-python AS python-stage
+FROM docker.io/cloudflare/sandbox:0.7.5-opencode AS opencode-stage
 
-FROM docker.io/cloudflare/sandbox:0.7.4
+FROM docker.io/cloudflare/sandbox:0.7.5
 
 # --- Merge Python variant assets ---
 # Python 3.11 + pip + venv + pre-installed data-science packages

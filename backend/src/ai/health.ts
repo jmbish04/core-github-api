@@ -26,11 +26,24 @@ export async function checkHealth(env: Env): Promise<HealthStepResult> {
         try {
             const result = await fn();
             subChecks[name] = { status: "OK", latency: Date.now() - checkStart, ...result };
-        } catch (e) {
+        } catch (e: any) {
+            let errorDetails = e instanceof Error ? e.message : String(e);
+            
+            // Try to extract nested JSON if the error string is JSON
+            try {
+                if (errorDetails.startsWith('{') && errorDetails.includes('"error"')) {
+                    const parsed = JSON.parse(errorDetails);
+                    errorDetails = JSON.stringify(parsed, null, 2);
+                }
+            } catch (_) {}
+
             subChecks[name] = {
                 status: "FAILURE",
                 latency: Date.now() - checkStart,
-                error: e instanceof Error ? e.message : String(e)
+                error: errorDetails,
+                errorName: e?.name || "Error",
+                stack: e?.stack,
+                details: e?.details || e?.cause || undefined
             };
         }
     };
@@ -145,7 +158,7 @@ export async function checkHealth(env: Env): Promise<HealthStepResult> {
             if (!token) throw new Error(`AI_GATEWAY_TOKEN is empty. Gateway Config: { name: "${gatewayName}", tokenName: "AI_GATEWAY_TOKEN" }`);
             
             // Re-use our Cloudflare Token Verification Utility (Prioritizes Account, then User)
-            const verifyResult = await verifyCloudflareTokens(token, accountId);
+            const verifyResult = await verifyCloudflareTokens(token, accountId, "AI_GATEWAY_TOKEN");
             
             if (!verifyResult.passed) {
                 const sdkErrors = verifyResult.details?.user?.errors || verifyResult.details?.account?.errors || [];
@@ -163,8 +176,10 @@ export async function checkHealth(env: Env): Promise<HealthStepResult> {
     }
 
     // --- 5c. Test Gemini (SDK) ---
-    if (!(await getGeminiApiKey(env))) {
-        subChecks.gemini = { status: "SKIPPED", reason: "Missing GEMINI_API_KEY" };
+    const geminiKey = await getGeminiApiKey(env);
+    const hasGeminiAccess = !!(geminiKey || env.AI_GATEWAY_TOKEN);
+    if (!hasGeminiAccess) {
+        subChecks.gemini = { status: "SKIPPED", reason: "Missing GEMINI_API_KEY and AI_GATEWAY_TOKEN" };
     } else {
         await runCheck("gemini", async () => {
             const response = await generateText(env, "Reply with: Pong", "You are a ping bot.", undefined, "gemini");
@@ -176,13 +191,11 @@ export async function checkHealth(env: Env): Promise<HealthStepResult> {
     }
 
     // --- 5d. Test Gemini (Raw Fetch via v1beta) ---
-    // Mirrors Python script: test_endpoint manual check
-    if (!(await getGeminiApiKey(env)) || !env.CLOUDFLARE_ACCOUNT_ID) {
+    if (!hasGeminiAccess || !env.CLOUDFLARE_ACCOUNT_ID) {
         subChecks.geminiRaw = { status: "SKIPPED", reason: "Missing Env Vars" };
     } else {
         await runCheck("geminiRaw", async () => {
-            const model = env.GEMINI_MODEL || "gemini-2.5-flash"; // Default if not set, though python script used gemini-3-pro-preview
-            // Note: Python script used v1beta for manual, which fixed the issue.
+            const model = env.GEMINI_MODEL || "gemini-2.5-flash";
             const url = await getAIGatewayUrl(env, { provider: "google-ai-studio", modelName: model, apiVersion: "v1beta" });
 
             const payload = {
@@ -196,24 +209,24 @@ export async function checkHealth(env: Env): Promise<HealthStepResult> {
 
             const gatewayToken = typeof env.AI_GATEWAY_TOKEN === 'object' && env.AI_GATEWAY_TOKEN !== null && 'get' in env.AI_GATEWAY_TOKEN ? await env.AI_GATEWAY_TOKEN.get() : env.AI_GATEWAY_TOKEN as string;
             const gatewayName = env.AI_GATEWAY_NAME || "core-github-api";
-            const apiKey = await getGeminiApiKey(env);
 
-            if (!gatewayToken) throw new Error(`AI_GATEWAY_TOKEN is empty. Gateway Config: { name: "${gatewayName}", tokenName: "AI_GATEWAY_TOKEN" }`);
-            if (!apiKey) throw new Error("GEMINI_API_KEY is empty");
+            if (!gatewayToken) throw new Error(`AI_GATEWAY_TOKEN is empty. Gateway Config: { name: "${gatewayName}" }`);
+
+            // When AI Gateway has provider keys configured, only cf-aig-authorization is needed
+            const headers: Record<string, string> = {
+                "Content-Type": "application/json",
+                "cf-aig-authorization": `Bearer ${gatewayToken}`,
+            };
 
             const response = await fetch(url, {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "cf-aig-authorization": `Bearer ${gatewayToken}`,
-                    "x-goog-api-key": apiKey
-                },
+                headers,
                 body: JSON.stringify(payload)
             });
 
             if (!response.ok) {
                 const text = await response.text();
-                throw new Error(`HTTP ${response.status}: ${text}. Gateway Config: { name: "${gatewayName}", tokenName: "AI_GATEWAY_TOKEN" }`);
+                throw new Error(`HTTP ${response.status}: ${text}. Gateway Config: { name: "${gatewayName}" }`);
             }
 
             const data = await response.json() as any;
@@ -226,8 +239,10 @@ export async function checkHealth(env: Env): Promise<HealthStepResult> {
     }
 
     // --- 5e. Test OpenAI (SDK) ---
-    if (!(await getOpenaiApiKey(env))) {
-        subChecks.openai = { status: "SKIPPED", reason: "Missing OPENAI_API_KEY" };
+    const openaiKey = await getOpenaiApiKey(env);
+    const hasOpenAIAccess = !!(openaiKey || env.AI_GATEWAY_TOKEN);
+    if (!hasOpenAIAccess) {
+        subChecks.openai = { status: "SKIPPED", reason: "Missing OPENAI_API_KEY and AI_GATEWAY_TOKEN" };
     } else {
         await runCheck("openai", async () => {
             const response = await generateText(env, "Reply with: Pong", "You are a ping bot.", undefined, "openai");
@@ -239,7 +254,7 @@ export async function checkHealth(env: Env): Promise<HealthStepResult> {
     }
 
     // --- 5f. Test OpenAI (Raw Fetch) ---
-    if (!(await getOpenaiApiKey(env)) || !env.CLOUDFLARE_ACCOUNT_ID) {
+    if (!hasOpenAIAccess || !env.CLOUDFLARE_ACCOUNT_ID) {
         subChecks.openaiRaw = { status: "SKIPPED", reason: "Missing Env Vars" };
     } else {
         await runCheck("openaiRaw", async () => {
@@ -253,24 +268,22 @@ export async function checkHealth(env: Env): Promise<HealthStepResult> {
 
             const gatewayToken = typeof env.AI_GATEWAY_TOKEN === 'object' && env.AI_GATEWAY_TOKEN !== null && 'get' in env.AI_GATEWAY_TOKEN ? await env.AI_GATEWAY_TOKEN.get() : env.AI_GATEWAY_TOKEN as string;
             const gatewayName = env.AI_GATEWAY_NAME || "core-github-api";
-            const apiKey = await getOpenaiApiKey(env);
 
-            if (!gatewayToken) throw new Error(`AI_GATEWAY_TOKEN is empty. Gateway Config: { name: "${gatewayName}", tokenName: "AI_GATEWAY_TOKEN" }`);
-            if (!apiKey) throw new Error("OPENAI_API_KEY is empty");
+            if (!gatewayToken) throw new Error(`AI_GATEWAY_TOKEN is empty. Gateway Config: { name: "${gatewayName}" }`);
 
+            // When AI Gateway has provider keys configured, only cf-aig-authorization is needed
             const response = await fetch(url, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                     "cf-aig-authorization": `Bearer ${gatewayToken}`,
-                    "Authorization": `Bearer ${apiKey}`
                 },
                 body: JSON.stringify(payload)
             });
 
             if (!response.ok) {
                 const text = await response.text();
-                throw new Error(`HTTP ${response.status}: ${text}. Gateway Config: { name: "${gatewayName}", tokenName: "AI_GATEWAY_TOKEN" }`);
+                throw new Error(`HTTP ${response.status}: ${text}. Gateway Config: { name: "${gatewayName}" }`);
             }
 
             const data = await response.json() as any;
