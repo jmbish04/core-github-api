@@ -8,9 +8,10 @@ export async function createOpenAIClient(env: Env) {
   // @ts-ignore
   const aigToken = typeof env.AI_GATEWAY_TOKEN === 'object' && env.AI_GATEWAY_TOKEN?.get ? await env.AI_GATEWAY_TOKEN.get() : env.AI_GATEWAY_TOKEN as string;
 
-  // Always use the real API key for the SDK — the AI Gateway cf-aig-authorization header
-  // handles gateway auth separately, but the SDK still needs a valid key for the upstream provider.
-  const apiKey = await getOpenaiApiKey(env);
+  // When AI Gateway is configured, provider keys are stored IN the gateway.
+  // The SDK sends the gateway token as apiKey — the gateway intercepts and
+  // replaces it with the real provider key before forwarding upstream.
+  const apiKey = aigToken || await getOpenaiApiKey(env);
 
   if (!apiKey) {
     throw new Error("Missing OPENAI_API_KEY and AI_GATEWAY_TOKEN — at least one is required");

@@ -8,9 +8,10 @@ export async function createGeminiClient(env: Env) {
   // @ts-ignore
   const aigToken = typeof env.AI_GATEWAY_TOKEN === 'object' && env.AI_GATEWAY_TOKEN?.get ? await env.AI_GATEWAY_TOKEN.get() : env.AI_GATEWAY_TOKEN as string;
 
-  // Always use the real API key for the SDK — the AI Gateway cf-aig-authorization header
-  // handles gateway auth separately, but the SDK still needs a valid key for the upstream provider.
-  const apiKey = await getGeminiApiKey(env);
+  // When AI Gateway is configured, provider keys are stored IN the gateway.
+  // The SDK sends the gateway token as apiKey — the gateway intercepts and
+  // replaces it with the real provider key before forwarding upstream.
+  const apiKey = aigToken || await getGeminiApiKey(env);
 
   if (!apiKey || !env.CLOUDFLARE_ACCOUNT_ID) {
     throw new Error("Missing (GEMINI_API_KEY or AI_GATEWAY_TOKEN) and CLOUDFLARE_ACCOUNT_ID");
