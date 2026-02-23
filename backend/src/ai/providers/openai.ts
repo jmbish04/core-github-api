@@ -24,6 +24,9 @@ export async function createOpenAIClient(env: Env) {
   return new (OpenAIClass as any)({
     apiKey: apiKey,
     baseURL,
+    // Authenticated Gateway + BYOK: same token in apiKey and cf-aig-authorization.
+    // Gateway uses the header for auth, then injects stored provider key.
+    defaultHeaders: aigToken ? { 'cf-aig-authorization': `Bearer ${aigToken}` } : undefined,
   });
 }
 

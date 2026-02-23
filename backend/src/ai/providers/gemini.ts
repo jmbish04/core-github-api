@@ -24,6 +24,9 @@ export async function createGeminiClient(env: Env) {
     apiKey: apiKey,
     httpOptions: {
       baseUrl,
+      // Authenticated Gateway + BYOK: same token in apiKey and cf-aig-authorization.
+      // Gateway uses the header for auth, then injects stored provider key.
+      headers: aigToken ? { 'cf-aig-authorization': `Bearer ${aigToken}` } : undefined,
     },
   });
 }
