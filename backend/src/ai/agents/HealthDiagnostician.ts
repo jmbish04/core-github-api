@@ -260,22 +260,29 @@ Return a JSON response containing the \`severity\`, \`rootCause\`, \`suggestedFi
                  instructions: agentConfig.instructions,
                  model: agentConfig.model,
                  tools: agentConfig.tools,
-                 outputType: HealthDiagnosticianOutputSchema as any,
-                 mcpServers: {
-                    "cloudflare": {
-                        transport: {
-                            type: "stdio",
-                            command: "npx",
-                            args: ["@cloudflare/mcp-server-cloudflare", "--mcp-endpoint", (this.env as any).MCP_API_URL || "https://docs.mcp.cloudflare.com/mcp"]
-                        }
-                    }
-                  } as any
              });
 
              const result = await runner.run(agent, prompt);
              
-             // The SDK guarantees this matches the Zod schema
-             const finalData = result.finalOutput as HealthDiagnosticianOutput;
+             // The SDK will return a text string (markdown JSON). We clean and parse it.
+             let outputText = String(result.finalOutput || "{}");
+             if (outputText.includes("```json")) {
+                 outputText = outputText.split("```json")[1].split("```")[0].trim();
+             } else if (outputText.includes("```")) {
+                 outputText = outputText.split("```")[1].split("```")[0].trim();
+             }
+             
+             let finalData: HealthDiagnosticianOutput;
+             try {
+                 finalData = JSON.parse(outputText);
+             } catch (e) {
+                 finalData = {
+                     severity: "high",
+                     rootCause: "Failed to parse Agent output as JSON",
+                     suggestedFix: "Review raw logs.",
+                     prUrl: null
+                 };
+             }
 
              return new Response(JSON.stringify(finalData), {
                 headers: { "Content-Type": "application/json" }
