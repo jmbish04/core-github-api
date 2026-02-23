@@ -190,13 +190,14 @@ export async function checkHealth(env: Env): Promise<HealthStepResult> {
         });
     }
 
-    // --- 5d. Test Gemini (Raw Fetch via v1beta) ---
+    // --- 5d. Test Gemini (Raw Fetch via Custom Router) ---
     if (!hasGeminiAccess || !env.CLOUDFLARE_ACCOUNT_ID) {
         subChecks.geminiRaw = { status: "SKIPPED", reason: "Missing Env Vars" };
     } else {
         await runCheck("geminiRaw", async () => {
             const model = "gemini-1.5-flash";
-            const url = await getAIGatewayUrl(env, { provider: "google-ai-studio", modelName: model, apiVersion: "v1beta" });
+            // Do not pass apiVersion, let getAIGatewayUrl infer it from 'model' length
+            const url = await getAIGatewayUrl(env, { provider: "google-ai-studio", modelName: model });
 
             const payload = {
                 contents: [

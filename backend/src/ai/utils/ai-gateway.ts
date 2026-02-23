@@ -59,8 +59,16 @@ export async function getAIGatewayUrl(
             return `${baseUrl}/chat/completions`;
 
         case "google-ai-studio": {
-            // Defaults to 'v1beta' if not provided
-            const version = options.apiVersion || "v1beta";
+            // Gemini 1.5 models require the v1 endpoint. Default to v1beta for older/preview models.
+            let version = options.apiVersion;
+            if (!version) {
+                if (options.modelName?.includes("gemini-1.5")) {
+                    version = "v1";
+                } else {
+                    version = "v1beta";
+                }
+            }
+            
             // Google REST API format: .../{version}/models/{model}:generateContent
             return `${baseUrl}/${version}/models/${options.modelName}:generateContent`;
         }

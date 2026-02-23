@@ -5,33 +5,31 @@ import { getGeminiApiKey } from "@utils/secrets";
 import { cleanJsonOutput } from "@/ai/utils/sanitizer";
 import { AIOptions, TextWithToolsResponse, StructuredWithToolsResponse } from "./index";
 
-export async function createGeminiClient(env: Env) {
+export async function createGeminiClient(env: Env, model: string) {
   // @ts-ignore
   const aigToken = typeof env.AI_GATEWAY_TOKEN === 'object' && env.AI_GATEWAY_TOKEN?.get ? await env.AI_GATEWAY_TOKEN.get() : env.AI_GATEWAY_TOKEN as string;
 
-  // When AI Gateway is configured, provider keys are stored IN the gateway.
-  // The SDK sends the gateway token as apiKey — the gateway intercepts and
-  // replaces it with the real provider key before forwarding upstream.
-  const apiKey = aigToken || await getGeminiApiKey(env);
+  // "Key in Request + Authenticated Gateway" pattern:
+  // - apiKey: REAL Gemini key (SDK sends this as ?key= to Google)
+  // - cf-aig-authorization: gateway token (for gateway auth/logging)
+  // The gateway forwards the real key to upstream; BYOK is NOT used here.
+  const apiKey = await getGeminiApiKey(env);
 
   if (!apiKey || !env.CLOUDFLARE_ACCOUNT_ID) {
-    throw new Error("Missing (GEMINI_API_KEY or AI_GATEWAY_TOKEN) and CLOUDFLARE_ACCOUNT_ID");
+    throw new Error("Missing GEMINI_API_KEY and CLOUDFLARE_ACCOUNT_ID");
   }
 
   const { GoogleGenAI } = await import("@google/genai");
-
-  // Build URL manually — the binding's getUrl() is pre-authenticated but
-  // we need to ensure the URL format matches what the raw checks use.
-  // Use the utils/ai-gateway.ts URL builder (proven to work in geminiRaw health check)
-  // but WITHOUT the model path suffix — the SDK appends that itself.
   const baseUrl = await getRawGatewayUrl(env, { provider: "google-ai-studio" });
+  
+  // Enforce v1 for Gemini 1.5 Series, otherwise fallback to v1beta for new/preview models
+  const apiVersion = model.includes("gemini-1.5") ? "v1" : "v1beta";
 
-  console.log(`[GeminiClient] apiKey prefix: ${apiKey?.substring(0, 8)}..., baseUrl: ${baseUrl}, aigToken resolved: ${!!aigToken}`);
   return new GoogleGenAI({
     apiKey: apiKey,
     httpOptions: {
       baseUrl,
-      // Authenticated Gateway + BYOK: gateway token for auth, stored key injected.
+      apiVersion,
       headers: aigToken ? { 'cf-aig-authorization': `Bearer ${aigToken}` } : undefined,
     },
   });
@@ -39,8 +37,9 @@ export async function createGeminiClient(env: Env) {
 
 export async function verifyApiKey(env: Env): Promise<boolean> {
   try {
-    const client = await createGeminiClient(env);
-    await client.models.get({ model: "gemini-2.5-pro" });
+    const testModel = "gemini-1.5-flash";
+    const client = await createGeminiClient(env, testModel);
+    await client.models.get({ model: testModel });
     return true;
   } catch (error) {
     console.error("Gemini Verification Error:", error);
@@ -54,8 +53,8 @@ export async function generateText(
   systemPrompt?: string,
   options?: AIOptions
 ): Promise<string> {
-  const client = await createGeminiClient(env);
   const model = options?.model || resolveDefaultAiModel(env, "gemini");
+  const client = await createGeminiClient(env, model);
 
   const response = await client.models.generateContent({
     model,
@@ -77,8 +76,8 @@ export async function generateStructuredResponse<T = any>(
   systemPrompt?: string,
   options?: AIOptions
 ): Promise<T> {
-  const client = await createGeminiClient(env);
   const model = options?.model || resolveDefaultAiModel(env, "gemini");
+  const client = await createGeminiClient(env, model);
 
   const response = await client.models.generateContent({
     model,
@@ -102,8 +101,8 @@ export async function generateTextWithTools(
   systemPrompt?: string,
   options?: AIOptions
 ): Promise<TextWithToolsResponse> {
-  const client = await createGeminiClient(env);
   const model = options?.model || resolveDefaultAiModel(env, "gemini");
+  const client = await createGeminiClient(env, model);
 
   const functionDeclarations = tools.map((t) => t.function);
 
@@ -140,8 +139,8 @@ export async function generateStructuredWithTools<T = any>(
   systemPrompt?: string,
   options?: AIOptions
 ): Promise<StructuredWithToolsResponse<T>> {
-  const client = await createGeminiClient(env);
   const model = options?.model || resolveDefaultAiModel(env, "gemini");
+  const client = await createGeminiClient(env, model);
 
   const functionDeclarations = tools.map((t) => t.function);
 
