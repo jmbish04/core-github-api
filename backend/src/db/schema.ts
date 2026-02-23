@@ -1,6 +1,7 @@
 // src/db/schema.ts
 // Export all schema definitions
 export * from './schemas/logs/system';
+export * from './schemas/logs/audit';
 export * from './schemas/agents/budget';
 export * from './schemas/github/repos';
 export * from './schemas/github/reviews';

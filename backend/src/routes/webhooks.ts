@@ -12,7 +12,9 @@ import { withCompatOctokit } from "@/services/octokit/compat"
 import { getWebhooksDb, schema } from "@db"
 import { webhookDeliveries } from "@/db/schemas/github/webhooks"
 import * as eventTables from "@/db/schemas/github/webhooks"
+import { auditLogs } from "@/db/schemas/logs/audit"
 import { sql } from "drizzle-orm"
+import { appendSignature } from "@/utils/github/signature"
 import { GardenerOrchestrator } from "@/gardener/orchestrator"
 import { SlashCommandRouter } from "@/gardener/router"
 import { sanitizeRepoName } from '@/ai/mcp/tools/sandbox-sdk'
@@ -263,6 +265,25 @@ export async function webhookHandler(c: Context<{ Bindings: Env }>): Promise<Res
       })
     }
 
+    // Audit logger — records every agent-initiated mutation for observability
+    const logAudit = async (analysis: string, actionResult: string, status: string, reason: string) => {
+      try {
+        await db.insert(auditLogs).values({
+          id: generateUuid(),
+          deliveryId,
+          repoFullName: repoFullName || 'unknown',
+          triggerEvent: `${eventName}.${action || 'triggered'}`,
+          analysisDetail: analysis,
+          actionTaken: actionResult,
+          verificationStatus: status,
+          verificationReason: reason,
+          createdAt: new Date().toISOString(),
+        });
+      } catch (auditErr) {
+        console.error('[Audit] Failed to write audit log:', auditErr);
+      }
+    };
+
     // Mapping logic
     // We could make this dynamic but type safety is better if explicit, albeit verbose.
     // Or we rely on the implementation prompt's exact list.
@@ -335,6 +356,7 @@ export async function webhookHandler(c: Context<{ Bindings: Env }>): Promise<Res
 
                 if (!agentInfo) {
                   console.log(`[BuildAnalyzer] No agent detected for PR #${prNumber}, skipping.`);
+                  await logAudit(`Check run failed for PR #${prNumber}`, 'Ignored — no AI agent', 'SUCCESS', 'No associated AI agent found');
                   return;
                 }
 
@@ -344,6 +366,7 @@ export async function webhookHandler(c: Context<{ Bindings: Env }>): Promise<Res
 
                 if (!logs) {
                   console.warn(`[BuildAnalyzer] Could not fetch build logs for ${workerName}`);
+                  await logAudit(`Check run failed for PR #${prNumber}`, 'Failed to fetch logs', 'FAILURE', `Worker ${workerName} logs unavailable`);
                   return;
                 }
 
@@ -355,10 +378,10 @@ export async function webhookHandler(c: Context<{ Bindings: Env }>): Promise<Res
                   repoFullName: payload.repository.full_name || `${payload.repository.owner?.login}/${payload.repository.name}`,
                 });
 
-                // Post comment
-                const commentBody = formatBuildFailureComment(agentInfo.tag, prNumber, analysis);
+                // Post comment with signature
+                const commentBody = appendSignature(formatBuildFailureComment(agentInfo.tag, prNumber, analysis));
 
-                await octokit.rest.issues.createComment({
+                const buildCommentRes = await octokit.rest.issues.createComment({
                   owner: payload.repository.owner?.login,
                   repo: payload.repository.name,
                   issue_number: prNumber,
@@ -366,8 +389,15 @@ export async function webhookHandler(c: Context<{ Bindings: Env }>): Promise<Res
                 });
 
                 console.log(`[BuildAnalyzer] Posted ${agentInfo.tag} build failure analysis on PR #${prNumber}`);
-              } catch (error) {
+                await logAudit(
+                  `Analyzed build failure for ${agentInfo.tag} on PR #${prNumber}`,
+                  'Posted build failure analysis comment',
+                  'SUCCESS',
+                  `Comment ID: ${buildCommentRes.data.id}`
+                );
+              } catch (error: any) {
                 console.error('[BuildAnalyzer] Failed to analyze build failure:', error);
+                await logAudit('Build Analyzer Exception', 'Failed execution', 'FAILURE', error.message || String(error));
               }
             })()
           );
@@ -513,8 +543,10 @@ export async function webhookHandler(c: Context<{ Bindings: Env }>): Promise<Res
                           autoPr: true 
                       });
                       console.log(`[Jules] Triggered auto-fix session for PR #${payload.issue?.number}`);
-                  } catch (err) {
+                      await logAudit('Gemini Feedback Detected', 'Started Jules auto-fix session', 'SUCCESS', `Triggered for PR #${payload.issue?.number}`);
+                  } catch (err: any) {
                       console.error(`[Jules] Failed to trigger auto-fix:`, err);
+                      await logAudit('Gemini Feedback Detected', 'Failed to start Jules session', 'FAILURE', err.message || String(err));
                   }
              }
         }
@@ -528,6 +560,7 @@ export async function webhookHandler(c: Context<{ Bindings: Env }>): Promise<Res
               const octokit = withCompatOctokit(
                 await app.getInstallationOctokit(payload.installation.id)
               );
+              await logAudit('Slash Command Received', 'Routed to SlashCommandRouter', 'SUCCESS', 'Command: /colby');
               await SlashCommandRouter.handleAndReply(
                 commentBody,
                 {
@@ -641,15 +674,17 @@ export async function webhookHandler(c: Context<{ Bindings: Env }>): Promise<Res
                 const app = new App({ appId: appId, privateKey: privateKey });
                 const octokit = withCompatOctokit(await app.getInstallationOctokit(payload.installation.id));
                 
-                await octokit.rest.issues.createComment({
+                const geminiRes = await octokit.rest.issues.createComment({
                     owner: payload.repository?.owner?.login,
                     repo: payload.repository?.name,
                     issue_number: payload.pull_request?.number,
-                    body: "/gemini review"
+                    body: appendSignature("/gemini review")
                 });
                 console.log(`[Jules] Requested Gemini review for PR #${payload.pull_request?.number}`);
-            } catch (err) {
+                await logAudit('PR Opened', 'Requested Gemini Review', 'SUCCESS', `Comment ID: ${geminiRes.data.id}`);
+            } catch (err: any) {
                 console.error(`[Jules] Failed to request review:`, err);
+                await logAudit('PR Opened', 'Failed to request Gemini review', 'FAILURE', err.message || String(err));
             }
         }
 
@@ -716,9 +751,9 @@ export async function webhookHandler(c: Context<{ Bindings: Env }>): Promise<Res
                     return;
                   }
 
-                  const commentBody = formatAgentFixComment(agentInfo.tag, prData.number, botComments);
+                  const commentBody = appendSignature(formatAgentFixComment(agentInfo.tag, prData.number, botComments));
 
-                  await octokit.rest.issues.createComment({
+                  const taggerRes = await octokit.rest.issues.createComment({
                     owner: payload.repository.owner?.login,
                     repo: payload.repository.name,
                     issue_number: prData.number,
@@ -726,8 +761,15 @@ export async function webhookHandler(c: Context<{ Bindings: Env }>): Promise<Res
                   });
 
                   console.log(`[AgentTagger] Posted ${agentInfo.tag} fix comment on PR #${prData.number} with ${botComments.length} comments`);
-                } catch (error) {
+                  await logAudit(
+                    `Bot review submitted on ${agentInfo.tag} PR #${prData.number}`,
+                    'Aggregated feedback and notified PR Agent',
+                    'SUCCESS',
+                    `Comment ID: ${taggerRes.data.id}`
+                  );
+                } catch (error: any) {
                   console.error('[AgentTagger] Failed to process review:', error);
+                  await logAudit('Agent Tagger Exception', 'Failed execution', 'FAILURE', error.message || String(error));
                 }
               })()
             );
@@ -780,8 +822,10 @@ export async function webhookHandler(c: Context<{ Bindings: Env }>): Promise<Res
                   }
               });
               console.log(`[Jules] Started standards analysis session for ${payload.repository?.full_name}`);
-          } catch (err) {
+              await logAudit('Main branch push', 'Launched Jules standards enforcement', 'SUCCESS', 'Session started');
+          } catch (err: any) {
               console.error('[Jules] Failed to start analysis:', err);
+              await logAudit('Main branch push', 'Failed to launch Jules', 'FAILURE', err.message || String(err));
           }
 
           try {
@@ -839,11 +883,13 @@ jobs:
                     repo: payload.repository?.name,
                     path: '.github/workflows/jules-maintainer.yml',
                     message: "ci: add jules-maintainer workflow",
-                    content: btoa(workflowContent)
+                    content: btoa(appendSignature(workflowContent, '.github/workflows/jules-maintainer.yml'))
                 });
                 console.log(`[Jules] Injected maintainer workflow into ${payload.repository?.full_name}`);
-             } catch (err) {
+                await logAudit('Repository Created', 'Injected CI workflow', 'SUCCESS', `Repo: ${payload.repository?.full_name}`);
+             } catch (err: any) {
                  console.error(`[Jules] Failed to inject workflow:`, err);
+                 await logAudit('Repository Created', 'Failed workflow injection', 'FAILURE', err.message || String(err));
              }
         }
 
