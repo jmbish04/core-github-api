@@ -5,12 +5,15 @@ import { cleanJsonOutput } from "@/ai/utils/sanitizer";
 import { AIOptions, TextWithToolsResponse, StructuredWithToolsResponse } from "./index";
 
 export async function createOpenAIClient(env: Env) {
-  const apiKey = await getOpenaiApiKey(env);
   // @ts-ignore
   const aigToken = typeof env.AI_GATEWAY_TOKEN === 'object' && env.AI_GATEWAY_TOKEN?.get ? await env.AI_GATEWAY_TOKEN.get() : env.AI_GATEWAY_TOKEN as string;
 
+  // Always use the real API key for the SDK — the AI Gateway cf-aig-authorization header
+  // handles gateway auth separately, but the SDK still needs a valid key for the upstream provider.
+  const apiKey = await getOpenaiApiKey(env);
+
   if (!apiKey) {
-    throw new Error("Missing OPENAI_API_KEY in environment variables");
+    throw new Error("Missing OPENAI_API_KEY and AI_GATEWAY_TOKEN — at least one is required");
   }
 
   const OpenAIModule = await import("openai");
