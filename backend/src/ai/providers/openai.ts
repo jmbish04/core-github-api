@@ -1,5 +1,6 @@
 // Dynamically imported
 import { getAiGatewayUrl, resolveDefaultAiModel } from "./config";
+import { getAIGatewayUrl as getRawGatewayUrl } from "../utils/ai-gateway";
 import { getOpenaiApiKey } from "@utils/secrets";
 import { cleanJsonOutput } from "@/ai/utils/sanitizer";
 import { AIOptions, TextWithToolsResponse, StructuredWithToolsResponse } from "./index";
@@ -19,13 +20,15 @@ export async function createOpenAIClient(env: Env) {
 
   const OpenAIModule = await import("openai");
   const OpenAIClass = OpenAIModule.default || Object.values(OpenAIModule).find((m: any) => m && m.name === 'OpenAI') || OpenAIModule;
-  const baseURL = await getAiGatewayUrl(env, "openai", "openai_sdk");
+
+  // Build URL manually — proven to work in openaiRaw health check.
+  const baseURL = await getRawGatewayUrl(env, { provider: "openai" });
+
   console.log(`[OpenAIClient] apiKey prefix: ${apiKey?.substring(0, 8)}..., baseURL: ${baseURL}, aigToken resolved: ${!!aigToken}`);
   return new (OpenAIClass as any)({
     apiKey: apiKey,
     baseURL,
-    // Authenticated Gateway + BYOK: same token in apiKey and cf-aig-authorization.
-    // Gateway uses the header for auth, then injects stored provider key.
+    // Authenticated Gateway + BYOK: gateway token for auth, stored key injected.
     defaultHeaders: aigToken ? { 'cf-aig-authorization': `Bearer ${aigToken}` } : undefined,
   });
 }

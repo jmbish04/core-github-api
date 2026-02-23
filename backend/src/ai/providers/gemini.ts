@@ -1,5 +1,6 @@
 // Dynamically imported
 import { getAiGatewayUrl, resolveDefaultAiModel } from "./config";
+import { getAIGatewayUrl as getRawGatewayUrl } from "../utils/ai-gateway";
 import { getGeminiApiKey } from "@utils/secrets";
 import { cleanJsonOutput } from "@/ai/utils/sanitizer";
 import { AIOptions, TextWithToolsResponse, StructuredWithToolsResponse } from "./index";
@@ -18,14 +19,19 @@ export async function createGeminiClient(env: Env) {
   }
 
   const { GoogleGenAI } = await import("@google/genai");
-  const baseUrl = await getAiGatewayUrl(env, "google-ai-studio", "google_sdk");
+
+  // Build URL manually — the binding's getUrl() is pre-authenticated but
+  // we need to ensure the URL format matches what the raw checks use.
+  // Use the utils/ai-gateway.ts URL builder (proven to work in geminiRaw health check)
+  // but WITHOUT the model path suffix — the SDK appends that itself.
+  const baseUrl = await getRawGatewayUrl(env, { provider: "google-ai-studio" });
+
   console.log(`[GeminiClient] apiKey prefix: ${apiKey?.substring(0, 8)}..., baseUrl: ${baseUrl}, aigToken resolved: ${!!aigToken}`);
   return new GoogleGenAI({
     apiKey: apiKey,
     httpOptions: {
       baseUrl,
-      // Authenticated Gateway + BYOK: same token in apiKey and cf-aig-authorization.
-      // Gateway uses the header for auth, then injects stored provider key.
+      // Authenticated Gateway + BYOK: gateway token for auth, stored key injected.
       headers: aigToken ? { 'cf-aig-authorization': `Bearer ${aigToken}` } : undefined,
     },
   });
