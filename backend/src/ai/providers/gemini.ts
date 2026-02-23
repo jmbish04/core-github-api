@@ -18,10 +18,12 @@ export async function createGeminiClient(env: Env) {
   }
 
   const { GoogleGenAI } = await import("@google/genai");
+  const baseUrl = await getAiGatewayUrl(env, "google-ai-studio", "google_sdk");
+  console.log(`[GeminiClient] apiKey prefix: ${apiKey?.substring(0, 8)}..., baseUrl: ${baseUrl}, aigToken resolved: ${!!aigToken}`);
   return new GoogleGenAI({
     apiKey: apiKey,
     httpOptions: {
-      baseUrl: await getAiGatewayUrl(env, "google-ai-studio", "google_sdk"),
+      baseUrl,
     },
   });
 }

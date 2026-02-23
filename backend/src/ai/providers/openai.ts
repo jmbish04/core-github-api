@@ -19,9 +19,11 @@ export async function createOpenAIClient(env: Env) {
 
   const OpenAIModule = await import("openai");
   const OpenAIClass = OpenAIModule.default || Object.values(OpenAIModule).find((m: any) => m && m.name === 'OpenAI') || OpenAIModule;
+  const baseURL = await getAiGatewayUrl(env, "openai", "openai_sdk");
+  console.log(`[OpenAIClient] apiKey prefix: ${apiKey?.substring(0, 8)}..., baseURL: ${baseURL}, aigToken resolved: ${!!aigToken}`);
   return new (OpenAIClass as any)({
     apiKey: apiKey,
-    baseURL: await getAiGatewayUrl(env, "openai", "openai_sdk"),
+    baseURL,
   });
 }
 
