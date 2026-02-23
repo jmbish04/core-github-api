@@ -22,7 +22,6 @@ export async function createOpenAIClient(env: Env) {
   return new (OpenAIClass as any)({
     apiKey: apiKey,
     baseURL: await getAiGatewayUrl(env, "openai", "openai_sdk"),
-    defaultHeaders: aigToken ? { 'cf-aig-authorization': `Bearer ${aigToken}` } : undefined,
   });
 }
 

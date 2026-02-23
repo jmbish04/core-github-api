@@ -22,7 +22,6 @@ export async function createGeminiClient(env: Env) {
     apiKey: apiKey,
     httpOptions: {
       baseUrl: await getAiGatewayUrl(env, "google-ai-studio", "google_sdk"),
-      headers: aigToken ? { 'cf-aig-authorization': `Bearer ${aigToken}` } : undefined
     },
   });
 }
