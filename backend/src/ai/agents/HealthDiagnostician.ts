@@ -69,7 +69,28 @@ export class HealthDiagnostician extends BaseAgent {
         const { data: repoData } = await octokit.repos.get({ owner: repoOwner, repo: repoName });
         const defaultBranch = repoData.default_branch;
 
-        // 2. Define the Agent's Instructions
+        // 2. Query Cloudflare documentation via MCP
+        const { rewriteQuestionForMCP } = await import("@/ai/providers/index");
+        const { queryMCP } = await import("@/ai/mcp/mcp-client");
+        
+        const mcpQueryStr = `How to fix Cloudflare worker error: ${payload.errorName} - ${payload.errorMessage}`;
+        let rewritten = mcpQueryStr;
+        try {
+            const rewrittenResult = await rewriteQuestionForMCP(this.env, mcpQueryStr);
+            if (rewrittenResult) rewritten = rewrittenResult;
+        } catch (e) {
+            this.logger.warn("rewriteQuestionForMCP fallback", e);
+        }
+        
+        let mcpContext = "No Cloudflare Docs context available.";
+        try {
+            const mcpResult = await queryMCP(rewritten, "HealthDiagnostician");
+            mcpContext = typeof mcpResult === 'string' ? mcpResult : JSON.stringify(mcpResult);
+        } catch (e) {
+            this.logger.warn("queryMCP failed", e);
+        }
+
+        // 3. Define the Agent's Instructions
         const instructions = `You are a Codex Senior Engineer and an autonomous Site Reliability Agent operating on the Cloudflare ecosystem.
 Your primary directive is to investigate, diagnose, and remediate system health failures within the repository \`${repoOwner}/${repoName}\`.
 
@@ -84,9 +105,9 @@ TRIAGE AND REMEDIATION:
 
 Return a JSON response containing the \`severity\`, \`rootCause\`, \`suggestedFix\` (or delegation note), and \`prUrl\` (or Jules Session ID).`;
 
-        const prompt = `Health Check Failed in category: ${payload.category}\nTarget: ${payload.target}\nError: ${payload.errorName} - ${payload.errorMessage}\nDetails: ${JSON.stringify(payload.errorDetails, null, 2)}`;
+        const prompt = `Health Check Failed in category: ${payload.category}\nTarget: ${payload.target}\nError: ${payload.errorName} - ${payload.errorMessage}\nDetails: ${JSON.stringify(payload.errorDetails, null, 2)}\n\nRelevant Cloudflare Docs Context:\nQuery: ${rewritten}\nDocs Result: ${mcpContext}`;
 
-        // 3. Define Tools inline for the BaseAgent to register
+        // 4. Define Tools inline for the BaseAgent to register
         const agentConfig = {
             name: "HealthDiagnostician",
             instructions,
@@ -242,6 +263,35 @@ Return a JSON response containing the \`severity\`, \`rootCause\`, \`suggestedFi
                             return `Delegation failed: ${e.message}`;
                         }
                     }
+                },
+                {
+                    type: 'function' as const,
+                    name: "search_cloudflare_documentation",
+                    description: "Search the Cloudflare documentation for specific products, features, or error codes. Returns semantic chunks.",
+                    parameters: {
+                        type: "object" as const,
+                        properties: {
+                            query: {
+                                type: "string" as const,
+                                description: "The search query (e.g., 'how to configure D1 bindings', 'workers size limit', 'error 1001')."
+                            }
+                        },
+                        required: ["query"],
+                        additionalProperties: false
+                    },
+                    strict: true,
+                    isEnabled: async () => true,
+                    needsApproval: async () => false,
+                    invoke: async (_context: any, input: string) => {
+                        try {
+                            const { queryMCP } = await import("@/ai/mcp/mcp-client");
+                            const args = JSON.parse(input);
+                            const result = await queryMCP(args.query, "HealthDiagnostician");
+                            return typeof result === 'string' ? result : JSON.stringify(result);
+                        } catch (error: any) {
+                            return JSON.stringify({ error: `MCP Query failed: ${error.message}` });
+                        }
+                    }
                 }
             ]
         };
@@ -260,29 +310,13 @@ Return a JSON response containing the \`severity\`, \`rootCause\`, \`suggestedFi
                  instructions: agentConfig.instructions,
                  model: agentConfig.model,
                  tools: agentConfig.tools,
+                 outputType: HealthDiagnosticianOutputSchema as any,
              });
 
              const result = await runner.run(agent, prompt);
              
-             // The SDK will return a text string (markdown JSON). We clean and parse it.
-             let outputText = String(result.finalOutput || "{}");
-             if (outputText.includes("```json")) {
-                 outputText = outputText.split("```json")[1].split("```")[0].trim();
-             } else if (outputText.includes("```")) {
-                 outputText = outputText.split("```")[1].split("```")[0].trim();
-             }
-             
-             let finalData: HealthDiagnosticianOutput;
-             try {
-                 finalData = JSON.parse(outputText);
-             } catch (e) {
-                 finalData = {
-                     severity: "high",
-                     rootCause: "Failed to parse Agent output as JSON",
-                     suggestedFix: "Review raw logs.",
-                     prUrl: null
-                 };
-             }
+             // The SDK guarantees this matches the Zod schema when outputType is provided
+             const finalData = result.finalOutput as HealthDiagnosticianOutput;
 
              return new Response(JSON.stringify(finalData), {
                 headers: { "Content-Type": "application/json" }
