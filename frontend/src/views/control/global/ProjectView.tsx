@@ -343,15 +343,15 @@ export default function ProjectView() {
   return (
     <div className="space-y-6 pb-24">
       <div className="flex items-start justify-between gap-4">
-        <div className="space-y-2">
+        <div className="min-w-0 space-y-2">
           <Button variant="ghost" className="-ml-3" onClick={() => navigate("/control-center/projects")}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Projects
           </Button>
-          <div className="flex items-center gap-2">
-            <FolderGit2 className="h-5 w-5 text-blue-400" />
-            <h1 className="text-3xl font-bold tracking-tight">{data.project.name}</h1>
-            <Badge variant="outline">{data.project.status}</Badge>
+          <div className="flex min-w-0 items-center gap-2">
+            <FolderGit2 className="h-5 w-5 shrink-0 text-blue-400" />
+            <h1 className="truncate text-3xl font-bold tracking-tight">{data.project.name}</h1>
+            <Badge variant="outline" className="shrink-0">{data.project.status}</Badge>
           </div>
           <p className="max-w-4xl text-muted-foreground">
             {data.project.description || "No summary saved yet. Generate one from repository analysis."}

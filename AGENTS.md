@@ -98,18 +98,33 @@ console.log(result.text); // Getter, returns string
 - `generationConfig` (Use `config` property instead)
 - `result.response.text()` (Method call)
 
-## Structured Outputs
+## Structured Outputs (MANDATE)
 
-Always use `zod` and `zod-to-json-schema` to define your `responseSchema`.
+**CRYSTAL CLEAR RULE**: You MUST use `AiProvider.generateStructuredResponse` (or `generateStructuredWithTools` exported from `@/ai/providers`) _anytime_ the AI model is being instructed to respond with a structured JSON response.
+
+**FORBIDDEN**: Do NOT rely on Agent SDK schema enforcements (e.g., passing `outputType: MySchema as any` to `@openai/agents`), as they are prone to brittle string extraction failures or 400 errors via the Cloudflare AI Gateway.
+
+**Correct Pattern (Agent with Tools):**
+
+1. Let the Agent execute its internal tool loop freely (returning markdown text).
+2. Take the Agent's `result.finalOutput` and pass it into `generateStructuredResponse` along with your schema.
 
 ```typescript
-import { z } from "zod";
+import { generateStructuredResponse } from "@/ai/providers";
 import { zodToJsonSchema } from "zod-to-json-schema";
+import { z } from "zod";
 
 const MySchema = z.object({ ... });
 
-// ... inside generateContent config:
-responseSchema: zodToJsonSchema(MySchema) as any
+// 1. Let agent run
+const result = await runner.run(agent, prompt);
+
+// 2. Extract strictly
+const finalData = await generateStructuredResponse<z.infer<typeof MySchema>>(
+  env,
+  `Extract the exact data from the Agent's response:\n\n${result.finalOutput}`,
+  zodToJsonSchema(MySchema as any, "structured_output")
+);
 ```
 
 ## AI Provider Routing & Resolution

@@ -91,7 +91,7 @@ export class HealthDiagnostician extends BaseAgent {
         }
 
         // 3. Define the Agent's Instructions
-        const instructions = `You are a Codex Senior Engineer and an autonomous Site Reliability Agent operating on the Cloudflare ecosystem.
+        const instructions = `You are a Senior Engineer and an autonomous Site Reliability Agent operating on the Cloudflare ecosystem.
 Your primary directive is to investigate, diagnose, and remediate system health failures within the repository \`${repoOwner}/${repoName}\`.
 
 CRITICAL PRE-FLIGHT CHECK:
@@ -103,9 +103,48 @@ TRIAGE AND REMEDIATION:
    - IF the fix is SMALL (e.g., typos, simple config adjustments, single-file logic errors under 20 lines): Formulate the fix and use \`create_pull_request\` to submit it immediately.
    - IF the fix is COMPLEX (e.g., multi-file refactoring, architectural changes, deep logic bugs, package upgrades): Do NOT try to fix it yourself. Instead, use the \`delegate_to_jules\` tool to dispatch a deep-reasoning session to Google Jules. Provide Jules with a highly detailed prompt of what needs to be refactored.
 
-Return a JSON response containing the \`severity\`, \`rootCause\`, \`suggestedFix\` (or delegation note), and \`prUrl\` (or Jules Session ID).`;
+Conclude your investigation with a detailed summary containing the severity, rootCause, suggestedFix (or delegation note), and prUrl (or Jules Session ID).`;
 
-        const prompt = `Health Check Failed in category: ${payload.category}\nTarget: ${payload.target}\nError: ${payload.errorName} - ${payload.errorMessage}\nDetails: ${JSON.stringify(payload.errorDetails, null, 2)}\n\nRelevant Cloudflare Docs Context:\nQuery: ${rewritten}\nDocs Result: ${mcpContext}`;
+        const MAX_LOG_LENGTH = 15000;
+        let stringifiedDetails = JSON.stringify(payload.errorDetails, null, 2) || "{}";
+        
+        // Use RAG to fetch relevant chunks if the error details are a large array
+        if (Array.isArray(payload.errorDetails) && stringifiedDetails.length > MAX_LOG_LENGTH) {
+            try {
+                this.logger.info(`Extracting relevant logs via Vectorize RAG...`);
+                const { vectorizeAndStoreLogs } = await import("@/ai/utils/log-vectorizer");
+                const { generateEmbeddings } = await import("@/ai/providers/index");
+                
+                const runId = `diag-${Date.now()}`;
+                await vectorizeAndStoreLogs(this.env, runId, payload.errorDetails);
+                
+                const diagnosticQuery = "Find fatal errors, agent execution failures, timeouts, 400 status codes, crash stack traces, and high severity warnings.";
+                const queryEmbeddings = await generateEmbeddings(this.env, [diagnosticQuery]);
+                const searchVector = queryEmbeddings[0];
+                
+                const vectorMatches = await this.env.VECTORIZE_LOGS.query(searchVector, {
+                    topK: 10,
+                    filter: { runId: runId },
+                    returnValues: false,
+                    returnMetadata: true
+                });
+                
+                const relevantLogs = vectorMatches.matches
+                    .map(match => match.metadata?.content)
+                    .filter(Boolean)
+                    .join("\n\n---\n\n");
+                    
+                stringifiedDetails = `[RAG FETCHED RELEVANT LOG CHUNKS]\n${relevantLogs}`;
+                this.logger.info(`Successfully retrieved ${vectorMatches.matches.length} relevant chunks`);
+            } catch (e: any) {
+                this.logger.error("RAG Log Vectorization failed, falling back to truncation", e);
+                stringifiedDetails = stringifiedDetails.substring(0, MAX_LOG_LENGTH) + "\n...[RAG ERROR, TRUNCATED FOR LENGTH]";
+            }
+        } else if (stringifiedDetails.length > MAX_LOG_LENGTH) {
+            stringifiedDetails = stringifiedDetails.substring(0, MAX_LOG_LENGTH) + "\n...[TRUNCATED FOR LENGTH to prevent 400 payload rejection]";
+        }
+
+        const prompt = `Health Check Failed in category: ${payload.category}\nTarget: ${payload.target}\nError: ${payload.errorName} - ${payload.errorMessage}\nDetails: ${stringifiedDetails}\n\nRelevant Cloudflare Docs Context:\nQuery: ${rewritten}\nDocs Result: ${mcpContext}`;
 
         // 4. Define Tools inline for the BaseAgent to register
         const agentConfig = {
@@ -310,13 +349,25 @@ Return a JSON response containing the \`severity\`, \`rootCause\`, \`suggestedFi
                  instructions: agentConfig.instructions,
                  model: agentConfig.model,
                  tools: agentConfig.tools,
-                 outputType: HealthDiagnosticianOutputSchema as any,
+                 // Removed outputType here to comply with AI standard mandate: let agent run freely, extract structure internally below
              });
+
+             // Diagnostic tracking: monitor actual byte size of the outbound LLM payload
+             const payloadBytes = new TextEncoder().encode(prompt).length;
+             this.logger.info(`[HealthDiagnostician] Outbound Prompt Payload Size: ${payloadBytes} bytes`);
 
              const result = await runner.run(agent, prompt);
              
-             // The SDK guarantees this matches the Zod schema when outputType is provided
-             const finalData = result.finalOutput as HealthDiagnosticianOutput;
+             // Enforce strict JSON output using the globally mandated AiProvider.generateStructuredResponse
+             const { generateStructuredResponse } = await import("@/ai/providers/index");
+             const { zodToJsonSchema } = await import("zod-to-json-schema");
+             
+             const extractPrompt = `Extract the exact diagnosis details from the Agent's final response below. Respond ONLY with valid JSON.\n\nAgent Response:\n${result.finalOutput}`;
+             const finalData = await generateStructuredResponse<HealthDiagnosticianOutput>(
+                this.env, 
+                extractPrompt, 
+                zodToJsonSchema(HealthDiagnosticianOutputSchema as any, "structured_output")
+             );
 
              return new Response(JSON.stringify(finalData), {
                 headers: { "Content-Type": "application/json" }

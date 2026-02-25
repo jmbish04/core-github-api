@@ -6,6 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { GitPullRequest, Loader2, MessageSquare, Sparkles, ExternalLink, FileCode, ArrowLeft } from 'lucide-react';
 import { PrCommentExtractor } from '@/components/tools/PrCommentExtractor';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface PR {
     number: number;
@@ -66,11 +68,24 @@ const STATUS_LABELS: Record<string, { label: string; variant: 'default' | 'secon
 };
 
 export function PRCommandCenter({ repoOwner, repoName, initialPrs }: PRCommandCenterProps) {
-    const [selectedPrNumber, setSelectedPrNumber] = useState<number | null>(null);
+    const [selectedPrNumber, setSelectedPrNumber] = useState<number | null>(() => {
+        const match = window.location.pathname.match(/\/pr-command\/(\d+)/);
+        return match ? parseInt(match[1], 10) : null;
+    });
     const [activeTab, setActiveTab] = useState('overview');
     const [reviewStatuses, setReviewStatuses] = useState<Record<number, PRReviewStatus>>({});
     const [overview, setOverview] = useState<PROverview | null>(null);
     const [loadingOverview, setLoadingOverview] = useState(false);
+
+    // Sync URL when selected PR changes
+    useEffect(() => {
+        const basePath = `/project/${repoOwner}/${repoName}/pr-command`;
+        if (selectedPrNumber) {
+            window.history.pushState({}, '', `${basePath}/${selectedPrNumber}`);
+        } else {
+            window.history.pushState({}, '', basePath);
+        }
+    }, [selectedPrNumber, repoOwner, repoName]);
 
     // Fetch review statuses for all PRs on mount
     useEffect(() => {
@@ -293,8 +308,10 @@ export function PRCommandCenter({ repoOwner, repoName, initialPrs }: PRCommandCe
                                         </CardTitle>
                                     </CardHeader>
                                     <CardContent>
-                                        <div className="prose prose-sm dark:prose-invert max-w-none">
-                                            <p className="whitespace-pre-wrap text-sm">{overview.pr.description}</p>
+                                        <div className="prose prose-sm dark:prose-invert max-w-none break-words">
+                                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                                {overview.pr.description}
+                                            </ReactMarkdown>
                                         </div>
                                     </CardContent>
                                 </Card>
@@ -331,7 +348,11 @@ export function PRCommandCenter({ repoOwner, repoName, initialPrs }: PRCommandCe
                                                                 <ExternalLink className="w-3 h-3" />
                                                             </a>
                                                         </div>
-                                                        <p className="text-sm text-muted-foreground whitespace-pre-wrap">{comment.body}</p>
+                                                        <div className="text-sm text-muted-foreground prose prose-sm dark:prose-invert break-words">
+                                                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                                                {comment.body}
+                                                            </ReactMarkdown>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             ))}
@@ -351,6 +372,7 @@ export function PRCommandCenter({ repoOwner, repoName, initialPrs }: PRCommandCe
                     <PrCommentExtractor
                         defaultOwner={repoOwner}
                         defaultRepo={repoName}
+                        defaultPrNumber={selectedPrNumber}
                     />
                 </TabsContent>
             </Tabs>

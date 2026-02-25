@@ -46,7 +46,10 @@ export async function getAIGatewayUrl(
       throw new Error(`Missing AI_GATEWAY_NAME in environment variables; ${JSON.stringify(e)}`);
     }
 
-    const baseUrl = await env.AI.gateway(gatewayName).getUrl(options.provider);
+    let baseUrl = await env.AI.gateway(gatewayName).getUrl(options.provider);
+    
+    // Strip trailing slashes to prevent double-slashes when SDKs append paths
+    baseUrl = baseUrl.replace(/\/+$/, "");
 
     // If no specific model/endpoint is requested, return the base SDK url
     if (!options.modelName) {
@@ -92,13 +95,14 @@ export async function getAiGatewayUrl(env: Env, provider: string, options?: { op
   try {
     const normalizedProvider = normalizeAiGatewayProvider(provider);
     const gateway = env.AI.gateway(env.AI_GATEWAY_NAME);
-    const baseUrl = await gateway.getUrl(normalizedProvider);
+    let baseUrl = await gateway.getUrl(normalizedProvider);
+    
+    baseUrl = baseUrl.replace(/\/+$/, "");
 
     // Workers AI requires /compat suffix for OpenAI-format requests (chat completions).
     // When openaiCompat is true and provider is workers-ai, append /compat.
     if (options?.openaiCompat && normalizedProvider === 'workers-ai') {
-      const cleanBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
-      return `${cleanBase}compat`;
+      return `${baseUrl}/compat`;
     }
 
     return baseUrl;

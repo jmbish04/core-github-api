@@ -128,7 +128,8 @@ chatApi.openapi(createRoute({
         body: { content: { 'application/json': { schema: CreateMessageSchema } } }
     },
     responses: {
-        200: { description: 'Message sent and reply received', content: { 'application/json': { schema: z.array(MessageSchema) } } }
+        200: { description: 'Message sent and reply received', content: { 'application/json': { schema: z.array(MessageSchema) } } },
+        500: { description: 'Server Error', content: { 'application/json': { schema: z.object({ error: z.string(), details: z.string().optional() }) } } }
     }
 }), async (c) => {
     const { threadId } = c.req.valid('param')
@@ -162,33 +163,59 @@ chatApi.openapi(createRoute({
     // 4. Call Agent (Durable Object)
     const getByName = getAgentByName as any
     let stub;
-    let result: { response: string, history?: any[] };
+    let result: { response: string, history?: any[] } | undefined;
 
-    if (targetAgentId === 'cloudflare-docs') {
-         stub = await getByName(c.env.CLOUDFLARE_DOCS_AGENT, threadId);
-         // Pass repoContext if available from the request or thread
-         // For now, we pass it from request if provided (e.g. fresh from UI context)
-         // But optimally we should store repoId in thread and look it up.
-         
-         let context = repoContext;
-         if (!context && thread?.repoId) {
-             // If thread has repoId, we might want to look up repo details? 
-             // Or we just pass null and let the agent rely on what it has or tool usage.
-             // For now, we rely on the specific `repoContext` passed in the body for rich context,
-             // or simplified usage.
+    try {
+        const payloadString = JSON.stringify({ content, history });
+        const payloadSizeBytes = new TextEncoder().encode(payloadString).length;
+        const payloadSizeMB = payloadSizeBytes / (1024 * 1024);
+        
+        if (payloadSizeMB > 2) {
+            console.warn(`[WARNING] Large chat payload detected: ${payloadSizeMB.toFixed(2)} MB`);
+        }
+
+        if (targetAgentId === 'cloudflare-docs') {
+             stub = await getByName(c.env.CLOUDFLARE_DOCS_AGENT, threadId);
+             // Pass repoContext if available from the request or thread
+             // For now, we pass it from request if provided (e.g. fresh from UI context)
+             // But optimally we should store repoId in thread and look it up.
              
-             // If we have a repoId "owner/name", we can split it.
-             if (thread.repoId.includes('/')) {
-                 const [owner, repo] = thread.repoId.split('/');
-                 context = { owner, repo };
+             let context = repoContext;
+             if (!context && thread?.repoId) {
+                 // If thread has repoId, we might want to look up repo details? 
+                 // Or we just pass null and let the agent rely on what it has or tool usage.
+                 // For now, we rely on the specific `repoContext` passed in the body for rich context,
+                 // or simplified usage.
+                 
+                 // If we have a repoId "owner/name", we can split it.
+                 if (thread.repoId.includes('/')) {
+                     const [owner, repo] = thread.repoId.split('/');
+                     context = { owner, repo };
+                 }
              }
-         }
-         
-         result = await stub.chat(content, history, context);
-    } else {
-         // Default: GeminiAgent
-         stub = await getByName(c.env.GEMINI_AGENT, threadId);
-         result = await stub.chat(content, history);
+             
+             result = await stub.chat(content, history, context);
+        } else {
+             // Default: GeminiAgent
+             stub = await getByName(c.env.GEMINI_AGENT, threadId);
+             result = await stub.chat(content, history);
+        }
+    } catch (error: any) {
+        console.error("[Chat API Error] Failed to process request:", {
+            message: error.message,
+            status: error.status,
+            name: error.name,
+            providerData: error.data || "No additional provider data", 
+        });
+
+        return c.json({ 
+            error: "Agent execution failed.", 
+            details: error.message 
+        }, 500);
+    }
+    
+    if (!result) {
+        return c.json({ error: "Agent execution failed (no result)." }, 500);
     }
 
     // 5. Save Agent Response
@@ -217,7 +244,7 @@ chatApi.openapi(createRoute({
         }
     ]
 
-    return c.json(newMessages)
+    return c.json(newMessages, 200)
 })
 
 export default chatApi

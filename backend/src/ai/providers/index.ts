@@ -2,7 +2,7 @@ import { resolveDefaultAiProvider, SupportedProvider } from "./config";
 import * as openai from "./openai";
 import * as gemini from "./gemini";
 import * as anthropic from "./anthropic";
-import * as workersAi from "./workers-ai";
+import * as workerAi from "./worker-ai";
 
 export interface AIOptions {
   model?: string;
@@ -40,7 +40,7 @@ export async function verifyApiKey(env: Env, providerOverride?: SupportedProvide
     case 'openai': return openai.verifyApiKey(env);
     case 'gemini': return gemini.verifyApiKey(env);
     case 'anthropic': return anthropic.verifyApiKey(env);
-    default: return workersAi.verifyApiKey(env);
+    default: return workerAi.verifyApiKey(env);
   }
 }
 
@@ -56,7 +56,7 @@ export async function generateText(
     case 'openai': return openai.generateText(env, prompt, systemPrompt, options);
     case 'gemini': return gemini.generateText(env, prompt, systemPrompt, options);
     case 'anthropic': return anthropic.generateText(env, prompt, systemPrompt, options);
-    default: return workersAi.generateText(env, prompt, systemPrompt, options);
+    default: return workerAi.generateText(env, prompt, systemPrompt, options);
   }
 }
 
@@ -73,7 +73,7 @@ export async function generateStructuredResponse<T = any>(
     case 'openai': return openai.generateStructuredResponse<T>(env, prompt, schema, systemPrompt, options);
     case 'gemini': return gemini.generateStructuredResponse<T>(env, prompt, schema, systemPrompt, options);
     case 'anthropic': return anthropic.generateStructuredResponse<T>(env, prompt, schema, systemPrompt, options);
-    default: return workersAi.generateStructuredResponse<T>(env, prompt, schema, systemPrompt, options);
+    default: return workerAi.generateStructuredResponse<T>(env, prompt, schema, systemPrompt, options);
   }
 }
 
@@ -90,7 +90,7 @@ export async function generateTextWithTools(
     case 'openai': return openai.generateTextWithTools(env, prompt, tools, systemPrompt, options);
     case 'gemini': return gemini.generateTextWithTools(env, prompt, tools, systemPrompt, options);
     case 'anthropic': return anthropic.generateTextWithTools(env, prompt, tools, systemPrompt, options);
-    default: return workersAi.generateTextWithTools(env, prompt, tools, systemPrompt, options);
+    default: return workerAi.generateTextWithTools(env, prompt, tools, systemPrompt, options);
   }
 }
 
@@ -108,7 +108,7 @@ export async function generateStructuredWithTools<T = any>(
     case 'openai': return openai.generateStructuredWithTools<T>(env, prompt, schema, tools, systemPrompt, options);
     case 'gemini': return gemini.generateStructuredWithTools<T>(env, prompt, schema, tools, systemPrompt, options);
     case 'anthropic': return anthropic.generateStructuredWithTools<T>(env, prompt, schema, tools, systemPrompt, options);
-    default: return workersAi.generateStructuredWithTools<T>(env, prompt, schema, tools, systemPrompt, options);
+    default: return workerAi.generateStructuredWithTools<T>(env, prompt, schema, tools, systemPrompt, options);
   }
 }
 
@@ -116,7 +116,14 @@ export async function generateEmbedding(
   env: Env,
   text: string
 ): Promise<number[]> {
-  return workersAi.generateEmbedding(env, text);
+  return workerAi.generateEmbedding(env, text);
+}
+
+export async function generateEmbeddings(
+  env: Env,
+  text: string | string[]
+): Promise<number[][]> {
+  return workerAi.generateEmbeddings(env, text);
 }
 
 /**

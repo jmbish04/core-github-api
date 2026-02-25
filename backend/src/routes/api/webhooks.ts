@@ -66,6 +66,17 @@ webhooksApi.post('/', async (c) => {
         );
     }
 
+    // Process PR Ingestion
+    if (event === 'pull_request') {
+        c.executionCtx.waitUntil(
+            import('@services/github/pr-ingestion').then(m => m.processPullRequestEvent(c.env, body).catch(e => console.error('[api/webhooks] PR ingest error:', e)))
+        );
+    } else if (event === 'pull_request_review_comment') {
+        c.executionCtx.waitUntil(
+            import('@services/github/pr-ingestion').then(m => m.processCodeReviewComment(c.env, body).catch(e => console.error('[api/webhooks] PR review ingest error:', e)))
+        );
+    }
+
     // 2. Handle Task/Kanban Sync Logic
     if (event === 'issues') {
         const issuesPayload = body as GitHubIssuesPayload & Record<string, any>;
@@ -192,6 +203,13 @@ webhooksApi.post('/', async (c) => {
         const issue = payload.issue;
         const repository = payload.repository;
         const db = getDb(c.env.DB);
+
+        // Process standard PR Comment Ingestion
+        if (issue?.pull_request) {
+            c.executionCtx.waitUntil(
+                import('@services/github/pr-ingestion').then(m => m.processStandardPrComment(c.env, body).catch(e => console.error('[api/webhooks] PR comment ingest error:', e)))
+            );
+        }
 
         // Only process created comments
         if (action === 'created') {

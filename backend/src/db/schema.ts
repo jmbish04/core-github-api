@@ -23,6 +23,8 @@ export * from "./schemas/agents/jules";
 export * from "./schemas/github/research";
 export * from "./schemas/agents/events";
 export * from "./schemas/app/sessions";
+export * from "./schemas/github/pr_overviews";
+export * from "./schemas/github/prs";
 
 
 export * from "./schemas/projects/hierarchy";

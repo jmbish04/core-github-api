@@ -8,7 +8,9 @@ import { getOctokit } from "@/services/octokit/core";
 import { generateText } from "@/ai/providers/index";
 import { getWebhooksDb } from "@db";
 import * as eventTables from "@/db/schemas/github/webhooks";
-import { sql } from "drizzle-orm";
+import { prOverviews } from "@/db/schemas/github/pr_overviews";
+import { getDb } from "@db";
+import { sql, eq, and } from "drizzle-orm";
 
 const prOverviewApi = new Hono<{ Bindings: Env }>();
 
@@ -47,8 +49,26 @@ prOverviewApi.get("/pr/:owner/:repo/:number/overview", async (c) => {
       htmlUrl: c.html_url,
     }));
 
-    // Generate AI summary
+    // Check if an AI summary already exists in the database
+    const db = getDb(c.env.DB);
+    const existingOverview = await db
+      .select()
+      .from(prOverviews)
+      .where(
+        and(
+          eq(prOverviews.repoOwner, owner),
+          eq(prOverviews.repoName, repo),
+          eq(prOverviews.prNumber, prNumber)
+        )
+      )
+      .get();
+
     let aiSummary = "";
+    if (existingOverview && existingOverview.aiSummary) {
+      // Use cached summary
+      aiSummary = existingOverview.aiSummary;
+    } else {
+      // Generate AI summary
     try {
       const summaryPrompt = `Summarize the following GitHub Pull Request for a developer dashboard overview.
 
@@ -72,10 +92,24 @@ Provide a concise 3-5 sentence summary covering: what the PR does, key discussio
       aiSummary = await generateText(c.env, summaryPrompt, undefined, {
         maxTokens: 500,
       });
+
+      try {
+        await db.insert(prOverviews).values({
+          repoOwner: owner,
+          repoName: repo,
+          prNumber,
+          aiSummary,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        });
+      } catch (insertErr) {
+        console.error("[pr-overview] Failed to persist AI summary:", insertErr);
+      }
     } catch (e) {
       console.error("[pr-overview] AI summary failed:", e);
       aiSummary = "AI summary unavailable.";
     }
+  }
 
     return c.json({
       success: true,

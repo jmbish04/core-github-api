@@ -28,9 +28,10 @@ interface ExtractedComment {
 interface PrCommentExtractorProps {
     defaultOwner?: string;
     defaultRepo?: string;
+    defaultPrNumber?: number | null;
 }
 
-export function PrCommentExtractor({ defaultOwner, defaultRepo }: PrCommentExtractorProps) {
+export function PrCommentExtractor({ defaultOwner, defaultRepo, defaultPrNumber }: PrCommentExtractorProps) {
     const [url, setUrl] = useState("");
     const [prs, setPrs] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
@@ -41,7 +42,21 @@ export function PrCommentExtractor({ defaultOwner, defaultRepo }: PrCommentExtra
 
     useEffect(() => {
         if (defaultOwner && defaultRepo) {
-            setUrl(`https://github.com/${defaultOwner}/${defaultRepo}`);
+            const baseUrl = `https://github.com/${defaultOwner}/${defaultRepo}`;
+            
+            if (defaultPrNumber) {
+                const fullUrl = `${baseUrl}/pull/${defaultPrNumber}`;
+                setUrl(fullUrl);
+                // We must inline the extraction here because handleExtract relies on the 'url' state 
+                // which won't be updated yet on this render cycle.
+                const params = parsePrUrl(fullUrl);
+                if (params) {
+                    performExtraction(params);
+                }
+            } else {
+                setUrl(baseUrl);
+            }
+
             fetch(`https://api.github.com/repos/${defaultOwner}/${defaultRepo}/pulls?state=open&sort=created&direction=desc`)
               .then(res => res.json())
               .then(data => {
@@ -51,7 +66,7 @@ export function PrCommentExtractor({ defaultOwner, defaultRepo }: PrCommentExtra
               })
               .catch(console.error);
         }
-    }, [defaultOwner, defaultRepo]);
+    }, [defaultOwner, defaultRepo, defaultPrNumber]);
 
     const handlePrSelect = (prNumber: string) => {
         if (defaultOwner && defaultRepo) {
@@ -77,7 +92,6 @@ export function PrCommentExtractor({ defaultOwner, defaultRepo }: PrCommentExtra
     };
 
     const handleExtract = async () => {
-        setStatus(null);
         const params = parsePrUrl(url);
         if (!params) {
             setStatus({
@@ -87,7 +101,11 @@ export function PrCommentExtractor({ defaultOwner, defaultRepo }: PrCommentExtra
             });
             return;
         }
+        await performExtraction(params);
+    };
 
+    const performExtraction = async (params: { owner: string; repo: string; pull_number: number }) => {
+        setStatus(null);
         setLoading(true);
         setComments([]);
         setExtractionId(null);
