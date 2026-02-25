@@ -7,7 +7,7 @@ import { HealthResult, HealthCategory, HealthStepResult } from './types';
 import { analyzeFailure } from '@/ai/utils/diagnostician';
 
 // ─── Import ALL distributed modular checks ──────────────────────────────
-import { checkGitHubAPIHealth, checkWebhooksHealth } from '@/workflows/health';
+import { checkGitHubAPIHealth, checkWebhooksHealth, checkGitHubAppAuthHealth } from '@/workflows/health';
 import { checkHealth as checkAIHealth } from '@/ai/health';
 import { checkHealth as checkAgentsHealth } from '@/ai/agents/health';
 import { checkHealth as checkMCPHealth } from '@/ai/mcp/health';
@@ -29,6 +29,7 @@ const CODE_CHECKS: RegisteredCheck[] = [
     { id: 'agents',   category: 'agents',   fn: checkAgentsHealth },
     { id: 'mcp',      category: 'mcp',      fn: checkMCPHealth },
     { id: 'browser',  category: 'browser',  fn: checkBrowserHealth },
+    { id: 'github_app',category: 'github',  fn: checkGitHubAppAuthHealth },
     { id: 'github',   category: 'github',   fn: checkGitHubAPIHealth },
     { id: 'webhooks', category: 'webhooks', fn: checkWebhooksHealth },
     { id: 'git',      category: 'git',      fn: checkGitHealth },
@@ -346,7 +347,7 @@ export class HealthCoordinator {
         const { limit = 20, onlyFailures = false, since } = options;
 
         try {
-            const conditions = [];
+            const conditions: any[] = [];
             if (onlyFailures) {
                 conditions.push(eq(healthRuns.status, 'unhealthy'));
             }
