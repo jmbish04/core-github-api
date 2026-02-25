@@ -1,5 +1,5 @@
 import { Agent, OpenAIProvider, Runner, type ModelProvider } from "@openai/agents";
-import { getAiGatewayUrl as resolveAiGatewayUrl } from "./utils/ai-gateway";
+import { getAiGatewayUrlForOpenAI } from "@/ai/utils/ai-gateway";
 
 export type SupportedProvider =
   | "worker-ai"
@@ -80,14 +80,14 @@ export async function getAiGatewayUrl(
   provider: SupportedProvider,
 ): Promise<string> {
   const gatewayProvider = PROVIDER_TO_GATEWAY[provider];
-  return resolveAiGatewayUrl(env, gatewayProvider);
+  return getAiGatewayUrlForOpenAI(env, gatewayProvider);
 }
 
 export async function getAiBaseUrl(
   env: Env,
   provider: SupportedProvider,
 ): Promise<string> {
-  return getAiGatewayUrl(env, provider);
+  return getAiGatewayUrlForOpenAI(env, provider);
 }
 
 export async function createRunner(

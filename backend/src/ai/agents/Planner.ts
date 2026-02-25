@@ -1,5 +1,5 @@
 import { callable } from "agents";
-import { Agent as OpenAIAgent } from "@openai/agents";
+import type { Agent } from "@openai/agents";
 import { z } from "zod";
 import { resolveDefaultAiModel, resolveDefaultAiProvider, createGatewayClient } from "@/ai/agent-sdk";
 import { BaseAgent, BaseAgentState } from "@/ai/agent-sdk";
@@ -58,6 +58,7 @@ export class PlannerAgent extends BaseAgent<Env, BaseAgentState> {
       this.logger.info("Generating plan", { goalLength: goal.length, provider, model });
 
       const client = await createGatewayClient(this.env, model);
+      const { Agent: OpenAIAgent } = await import("@openai/agents");
       const planner = new OpenAIAgent({
         name: "PlannerAgent",
         model,

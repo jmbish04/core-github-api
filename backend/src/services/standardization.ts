@@ -5,7 +5,7 @@ import { DEFAULT_TEMPLATE_REPO, DEFAULT_GITHUB_OWNER } from "@github-utils";
 import { getDb } from "@db";
 import { standardizationRules } from "@db/schemas/app/standardization";
 import { eq } from "drizzle-orm";
-import { Agent as OpenAIAgent } from "@openai/agents";
+import type { Agent } from "@openai/agents";
 import { createRunner, resolveDefaultAiModel, resolveDefaultAiProvider } from "@/ai/agent-ai";
 
 export class StandardizationService {
@@ -113,6 +113,7 @@ export class StandardizationService {
                 const model = resolveDefaultAiModel(env, provider);
                 
                 const runner = await createRunner(env, provider, model);
+                const { Agent: OpenAIAgent } = await import("@openai/agents");
                 const agent = new OpenAIAgent({
                     name: "StandardizationCustomizer",
                     model,

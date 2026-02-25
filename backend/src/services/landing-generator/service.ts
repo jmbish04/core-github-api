@@ -63,7 +63,7 @@ export class LandingGeneratorService {
 
         // 5. Generate Content
         const blueprint = BlueprintGenerator.generate(finalAnalysis);
-        const html = TemplateGenerator.generate(blueprint, finalAnalysis.name, finalAnalysis.branding, finalAnalysis.links?.footer);
+        const html = await TemplateGenerator.generate(blueprint, finalAnalysis.name, finalAnalysis.branding, finalAnalysis.links?.footer);
 
         // 6. Commit and PR
         return await this.createPullRequest(octokit, options, html);
@@ -211,6 +211,6 @@ ${userPrompt || "Make it sound enterprise-ready."}
 
         // 3. Generate Content
         const blueprint = BlueprintGenerator.generate(finalAnalysis);
-        return TemplateGenerator.generate(blueprint, finalAnalysis.name, finalAnalysis.branding, finalAnalysis.links?.footer);
+        return await TemplateGenerator.generate(blueprint, finalAnalysis.name, finalAnalysis.branding, finalAnalysis.links?.footer);
     }
 }

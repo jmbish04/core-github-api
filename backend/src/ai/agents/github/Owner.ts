@@ -130,10 +130,37 @@ export class OwnerAgent extends BaseAgent<Env, OwnerState> {
         event_id TEXT NOT NULL,
         status TEXT NOT NULL DEFAULT 'pending',
         started_at TEXT NOT NULL,
-        completed_at TEXT,
-        FOREIGN KEY (event_id) REFERENCES events(id)
+        completed_at TEXT
       )
     `;
+    // Migration: Remove broken FOREIGN KEY constraint from existing DOs.
+    // SQLite doesn't support ALTER TABLE DROP CONSTRAINT, so we must rebuild.
+    // Check if the table has the FK by inspecting sql definition.
+    try {
+      const tableInfo = this.sql`SELECT sql FROM sqlite_master WHERE type='table' AND name='automation_runs'`;
+      const rows = [...tableInfo] as any[];
+      if (rows.length > 0 && rows[0].sql && rows[0].sql.includes('FOREIGN KEY')) {
+        // Rebuild without FK
+        void this.sql`ALTER TABLE automation_runs RENAME TO automation_runs_old`;
+        void this.sql`
+          CREATE TABLE automation_runs (
+            id TEXT PRIMARY KEY,
+            rule_id TEXT NOT NULL,
+            rule_name TEXT NOT NULL,
+            workflow TEXT NOT NULL,
+            event_id TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending',
+            started_at TEXT NOT NULL,
+            completed_at TEXT
+          )
+        `;
+        void this.sql`INSERT INTO automation_runs SELECT * FROM automation_runs_old`;
+        void this.sql`DROP TABLE automation_runs_old`;
+        console.log('[OwnerAgent] Migrated automation_runs: removed broken FK constraint');
+      }
+    } catch (migrationErr) {
+      console.warn('[OwnerAgent] FK migration check skipped:', migrationErr);
+    }
     void this.sql`
       CREATE INDEX IF NOT EXISTS idx_automation_runs_event ON automation_runs(event_id)
     `;

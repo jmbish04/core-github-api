@@ -145,7 +145,7 @@ app.openapi(
       `;
 
       await sendEmail(c.env, {
-        to: "colby@hacolby.com", // TODO: Make configurable
+        to: (c.env as any).NOTIFICATION_EMAIL || "ai@126colby.com",
         subject: `Daily Trends: ${body.date}`,
         contentHtml: htmlContent
       });

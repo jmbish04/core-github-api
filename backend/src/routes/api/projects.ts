@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { Agent as OpenAIAgent } from "@openai/agents";
+import type { Agent } from "@openai/agents";
 import { getAgentByName } from "agents";
 import TOML from "@iarna/toml";
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
@@ -959,7 +959,7 @@ projectsApi.get("/", async (c) => {
   };
 
   try {
-    const result = await db
+    const rawResult = await db
       .select({
         id: projects.id,
         name: projects.name,
@@ -977,7 +977,94 @@ projectsApi.get("/", async (c) => {
       .leftJoin(repositories, eq(projects.repoId, repositories.id))
       .orderBy(desc(repositories.updatedAt), desc(projects.updatedAt));
 
-    return c.json({ success: true, projects: result, sync });
+    // Deduplicate: keep only the first (newest) project per repoId
+    const seen = new Map<string, (typeof rawResult)[0]>();
+    for (const row of rawResult) {
+      const key = row.repoId || row.id; // Use repoId for dedup, fallback to id
+      if (!seen.has(key)) {
+        seen.set(key, row);
+      }
+    }
+    const result = Array.from(seen.values());
+
+    // Augment with Cloudflare Workers and Pages that aren't already covered
+    const cfApps: typeof result = [];
+    try {
+      const { getCloudflareApiToken, getCloudflareAccountId } = await import("@utils/secrets");
+      const accountId = await getCloudflareAccountId(c.env);
+      const apiToken = await getCloudflareApiToken(c.env);
+
+      if (accountId && apiToken) {
+        const headers = {
+          Authorization: `Bearer ${apiToken}`,
+          "Content-Type": "application/json",
+        };
+
+        // Collect names already listed from D1
+        const existingNames = new Set(
+          result.map((r) => (r.repoName || r.name || "").toLowerCase()),
+        );
+
+        // Fetch Workers
+        const workersRes = await fetch(
+          `https://api.cloudflare.com/client/v4/accounts/${accountId}/workers/scripts`,
+          { headers },
+        );
+        const workersData = (await workersRes.json()) as any;
+        if (workersData?.success && Array.isArray(workersData.result)) {
+          for (const w of workersData.result) {
+            const workerName = String(w.id || "");
+            if (!workerName || existingNames.has(workerName.toLowerCase())) continue;
+            existingNames.add(workerName.toLowerCase());
+            cfApps.push({
+              id: `cf-worker-${workerName}`,
+              name: workerName,
+              description: "Cloudflare Worker",
+              status: "active",
+              repoId: null as any,
+              owner: owner || null,
+              createdAt: w.created_on || null,
+              updatedAt: w.modified_on || null,
+              lastDeployedAt: w.modified_on || null,
+              repoOwner: null,
+              repoName: workerName,
+            });
+          }
+        }
+
+        // Fetch Pages
+        const pagesRes = await fetch(
+          `https://api.cloudflare.com/client/v4/accounts/${accountId}/pages/projects`,
+          { headers },
+        );
+        const pagesData = (await pagesRes.json()) as any;
+        if (pagesData?.success && Array.isArray(pagesData.result)) {
+          for (const p of pagesData.result) {
+            const pageName = String(p.name || "");
+            if (!pageName || existingNames.has(pageName.toLowerCase())) continue;
+            existingNames.add(pageName.toLowerCase());
+            const domain = p.domains?.[0] || null;
+            cfApps.push({
+              id: `cf-pages-${pageName}`,
+              name: pageName,
+              description: domain ? `Pages: ${domain}` : "Cloudflare Pages",
+              status: "active",
+              repoId: null as any,
+              owner: owner || null,
+              createdAt: p.created_on || null,
+              updatedAt: p.latest_deployment?.created_on || null,
+              lastDeployedAt: p.latest_deployment?.created_on || null,
+              repoOwner: p.source?.config?.owner || null,
+              repoName: p.source?.config?.repo_name || pageName,
+            });
+          }
+        }
+      }
+    } catch (cfError) {
+      console.error("[projects] Cloudflare API enrichment failed:", cfError);
+    }
+
+    return c.json({ success: true, projects: [...result, ...cfApps], sync });
   } catch (error) {
     console.error("[projects] Falling back to repository-backed listing:", error);
     let fallbackProjects: Awaited<ReturnType<typeof getRepositoryBackedProjects>> = [];
@@ -1416,6 +1503,7 @@ projectsApi.post("/:id/assistant", async (c) => {
     const provider = (settings.preferredProvider || resolveDefaultAiProvider(c.env)) as any;
     const model = settings.preferredModel || resolveDefaultAiModel(c.env, provider);
     const runner = await createRunner(c.env, provider, model);
+    const { Agent: OpenAIAgent } = await import("@openai/agents");
     const agent = new OpenAIAgent({
       name: "ProjectAssistantAgent",
       model,

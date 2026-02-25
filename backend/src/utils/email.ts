@@ -1,6 +1,4 @@
-import { EmailMessage } from "cloudflare:email";
-import { createMimeMessage } from "mimetext";
-
+// Imports lazy-loaded in sendEmail
 export interface SendEmailParams {
   to: string;
   subject: string;
@@ -66,6 +64,9 @@ function buildOptimizedTemplate(subject: string, contentHtml: string): string {
  * Sends an email using Cloudflare's official Email Routing binding.
  */
 export async function sendEmail(env: Env, params: SendEmailParams): Promise<void> {
+  const { EmailMessage } = await import("cloudflare:email");
+  const { createMimeMessage } = await import("mimetext");
+
   // MUST match the verified sender configured in your Cloudflare Email Routing dashboard
   const SENDER_EMAIL = "github-notifications@hacolby.app"; 
   const SENDER_NAME = "GitHub Notifications";

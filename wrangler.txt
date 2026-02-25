@@ -1,0 +1,177 @@
+
+ ⛅️ wrangler 4.67.0 (update available 4.68.1)
+─────────────────────────────────────────────
+Successfully created tail, expires at 2026-02-25T07:03:55Z
+Connected to core-github-api, waiting for logs...
+OrchestratorAgent.healthProbe - Ok @ 2/24/2026, 5:04:02 PM
+GET http://dummy-example.cloudflare.com/cdn-cgi/partyserver/set-name/ - Ok @ 2/24/2026, 5:04:01 PM
+Sandbox. - Ok @ 2/24/2026, 5:04:02 PM
+Sandbox. - Ok @ 2/24/2026, 5:04:01 PM
+Sandbox. - Ok @ 2/24/2026, 5:04:02 PM
+Sandbox. - Ok @ 2/24/2026, 5:04:02 PM
+GET https://core-github-api.hacolby.workers.dev/healthz - Ok @ 2/24/2026, 5:04:03 PM
+  (log) {"level":"info","message":"[route] GET /healthz","method":"GET","path":"/healthz","status":200,"latency":"0ms","payloadSizeBytes":0,"correlationId":"3537b90c-000e-4a56-b04a-e714810c08c4","timestamp":"2026-02-25T01:04:03.269Z","payloadSize":"0 bytes"}
+GET http://dummy-example.cloudflare.com/cdn-cgi/partyserver/set-name/ - Ok @ 2/24/2026, 5:04:02 PM
+GeminiAgent.healthProbe - Ok @ 2/24/2026, 5:04:03 PM
+GET http://dummy-example.cloudflare.com/cdn-cgi/partyserver/set-name/ - Ok @ 2/24/2026, 5:04:03 PM
+POST http://owner-agent/webhook - Ok @ 2/24/2026, 5:04:03 PM
+  (log) {
+  displayMessage: 'State updated',
+  id: 'A17JdwVXrkamoWBuGA8ii',
+  payload: {},
+  timestamp: 1771981443616,
+  type: 'state:update'
+}
+Sandbox.exec - Ok @ 2/24/2026, 5:04:02 PM
+  (debug) Error checking 3000: The container is not listening in the TCP address 10.0.0.1:3000
+Sandbox.writeFile - Ok @ 2/24/2026, 5:04:04 PM
+  (log) {"level":"info","msg":"File written","component":"sandbox-do","sandboxId":"64e74442dd7dc1adb37f248e934c2abd6c4ca0426d70548414f8465fc235f7bf","traceId":"tr_d7b6beb40117438c","details":"/tmp/health-check.tmp (9 chars)","timestamp":"2026-02-25T01:04:04.630Z"}
+Sandbox.readFile - Ok @ 2/24/2026, 5:04:04 PM
+  (log) {"level":"info","msg":"File read","component":"sandbox-do","sandboxId":"64e74442dd7dc1adb37f248e934c2abd6c4ca0426d70548414f8465fc235f7bf","traceId":"tr_d7b6beb40117438c","details":"/tmp/health-check.tmp (9 chars)","timestamp":"2026-02-25T01:04:04.925Z"}
+Sandbox.exec - Ok @ 2/24/2026, 5:04:04 PM
+  (log) {"level":"info","msg":"Command executed","component":"sandbox-do","sandboxId":"64e74442dd7dc1adb37f248e934c2abd6c4ca0426d70548414f8465fc235f7bf","traceId":"tr_d7b6beb40117438c","details":"rm /tmp/health-check.tmp, Success: true","timestamp":"2026-02-25T01:04:05.023Z"}
+GET http://dummy-example.cloudflare.com/cdn-cgi/partyserver/set-name/ - Ok @ 2/24/2026, 5:04:03 PM
+PlannerAgent.healthProbe - Ok @ 2/24/2026, 5:04:05 PM
+POST https://core-github-api.hacolby.workers.dev/webhooks - Ok @ 2/24/2026, 5:04:03 PM
+  (log) [Standardization] Enforcing standards on jmbish04/testing-oktokit-commands
+  (log) [Standardization] Inferred tags for testing-oktokit-commands: [ 'Repository' ]
+  (log) {"level":"info","message":"[route] POST /webhooks","method":"POST","path":"/webhooks","status":200,"latency":"292ms","payloadSizeBytes":9097,"correlationId":"13528e5b-2fd8-49bd-a27e-855563b15a4d","timestamp":"2026-02-25T01:04:03.706Z","payloadSize":"9097 bytes"}
+  (log) [Standardization] Completed enforcement for jmbish04/testing-oktokit-commands
+GET http://dummy-example.cloudflare.com/cdn-cgi/partyserver/set-name/ - Ok @ 2/24/2026, 5:04:03 PM
+POST http://repo-agent/webhook - Ok @ 2/24/2026, 5:04:04 PM
+  (log) {
+  displayMessage: 'State updated',
+  id: 'dZrwl9vxhwIB5Zyfi41KI',
+  payload: {},
+  timestamp: 1771981444628,
+  type: 'state:update'
+}
+Sandbox.exec - Ok @ 2/24/2026, 5:04:05 PM
+  (log) {"level":"info","msg":"Command executed","component":"sandbox-do","sandboxId":"64e74442dd7dc1adb37f248e934c2abd6c4ca0426d70548414f8465fc235f7bf","traceId":"tr_d7b6beb40117438c","details":"git clone --depth=1 https://github.com/octocat/Hello-World.git /tmp/health-git, Success: true","timestamp":"2026-02-25T01:04:05.985Z"}
+GET http://dummy-example.cloudflare.com/cdn-cgi/partyserver/set-name/ - Ok @ 2/24/2026, 5:04:05 PM
+Supervisor.healthProbe - Ok @ 2/24/2026, 5:04:06 PM
+GET http://dummy-example.cloudflare.com/cdn-cgi/partyserver/set-name/ - Ok @ 2/24/2026, 5:04:04 PM
+GET http://dummy-example.cloudflare.com/cdn-cgi/partyserver/set-name/ - Ok @ 2/24/2026, 5:04:05 PM
+POST http://owner-agent/webhook - Ok @ 2/24/2026, 5:04:07 PM
+  (log) {
+  displayMessage: 'State updated',
+  id: '_4zUqWOx0JJEGXo3-McNA',
+  payload: {},
+  timestamp: 1771981447046,
+  type: 'state:update'
+}
+POST http://repo-agent/webhook - Ok @ 2/24/2026, 5:04:07 PM
+  (log) {
+  displayMessage: 'State updated',
+  id: 'Yd6lQuCvGbxhuAWltokgN',
+  payload: {},
+  timestamp: 1771981447047,
+  type: 'state:update'
+}
+DeepReasoningAgent.healthProbe - Ok @ 2/24/2026, 5:04:07 PM
+GET http://dummy-example.cloudflare.com/cdn-cgi/partyserver/set-name/ - Ok @ 2/24/2026, 5:04:06 PM
+GET http://dummy-example.cloudflare.com/cdn-cgi/partyserver/set-name/ - Ok @ 2/24/2026, 5:04:07 PM
+GET http://dummy-example.cloudflare.com/cdn-cgi/partyserver/set-name/ - Ok @ 2/24/2026, 5:04:07 PM
+POST http://owner-agent/webhook - Ok @ 2/24/2026, 5:04:07 PM
+  (log) {
+  displayMessage: 'State updated',
+  id: '7ay4sCmqi_m9lMjUgmJN6',
+  payload: {},
+  timestamp: 1771981447959,
+  type: 'state:update'
+}
+POST http://repo-agent/webhook - Ok @ 2/24/2026, 5:04:07 PM
+  (log) {
+  displayMessage: 'State updated',
+  id: 'dxx6_qcrGwHHW_-q2ZUA6',
+  payload: {},
+  timestamp: 1771981447952,
+  type: 'state:update'
+}
+POST https://core-github-api.hacolby.workers.dev/webhooks - Ok @ 2/24/2026, 5:04:06 PM
+  (log) [Standardization] Enforcing standards on jmbish04/testing-oktokit-commands
+  (log) [Standardization] Inferred tags for testing-oktokit-commands: [ 'Repository' ]
+  (log) [Standardization] Completed enforcement for jmbish04/testing-oktokit-commands
+  (log) {"level":"info","message":"[route] POST /webhooks","method":"POST","path":"/webhooks","status":200,"latency":"291ms","payloadSizeBytes":9124,"correlationId":"175505c0-cd3d-4c26-95a2-f94088eb24d5","timestamp":"2026-02-25T01:04:07.272Z","payloadSize":"9124 bytes"}
+POST https://core-github-api.hacolby.workers.dev/webhooks - Ok @ 2/24/2026, 5:04:06 PM
+  (log) [Standardization] Enforcing standards on jmbish04/testing-oktokit-commands
+  (log) [Standardization] Inferred tags for testing-oktokit-commands: [ 'Repository' ]
+  (log) {"level":"info","message":"[route] POST /webhooks","method":"POST","path":"/webhooks","status":200,"latency":"225ms","payloadSizeBytes":10807,"correlationId":"702c0afd-25f4-4bb4-9435-b74e537ebe90","timestamp":"2026-02-25T01:04:07.980Z","payloadSize":"10807 bytes"}
+  (log) [Standardization] Completed enforcement for jmbish04/testing-oktokit-commands
+POST http://do/diagnose - Ok @ 2/24/2026, 5:04:11 PM
+  (log) {"level":"error","message":"HealthDiagnostician Execution Failed","meta":{"error":{"status":400,"headers":{},"requestID":null}},"source":"HealthDiagnostician:85349","timestamp":"2026-02-25T01:04:16.098Z"}
+POST https://core-github-api.hacolby.workers.dev/api/health/run - Ok @ 2/24/2026, 5:04:00 PM
+  (log) [Secrets Diagnostic] {
+  WORKER_API_KEY: '41565823...2389',
+  GITHUB_TOKEN: 'ghp_f1AI...CxnJ',
+  AI_GATEWAY_TOKEN: 'LNotScoX...lrpG'
+}
+  (log) {"level":"info","message":"Creating issue in jmbish04/testing-oktokit-commands","meta":{"title":"Health Check 2026-02-25T01:04:01.005Z"},"source":"GitHubTool:createGitHubIssue:85349","timestamp":"2026-02-25T01:04:01.005Z"}
+  (log) {"level":"info","message":"Issue created successfully","meta":{"issueNumber":59,"html_url":"https://github.com/jmbish04/testing-oktokit-commands/issues/59"},"source":"GitHubTool:createGitHubIssue:85349","timestamp":"2026-02-25T01:04:01.592Z"}
+  (log) {"level":"info","message":"Creating comment on jmbish04/testing-oktokit-commands#59","source":"GitHubTool:createGitHubComment:85349","timestamp":"2026-02-25T01:04:01.592Z"}
+  (log) {"level":"info","message":"Comment created successfully","meta":{"commentId":3955746992,"html_url":"https://github.com/jmbish04/testing-oktokit-commands/issues/59#issuecomment-3955746992"},"source":"GitHubTool:createGitHubComment:85349","timestamp":"2026-02-25T01:04:05.257Z"}
+  (log) {"level":"info","message":"Updating issue jmbish04/testing-oktokit-commands#59","meta":{"updates":{"state":"closed"}},"source":"GitHubTool:updateGitHubIssue:85349","timestamp":"2026-02-25T01:04:05.257Z"}
+  (log) {"level":"info","message":"Issue updated successfully","meta":{"html_url":"https://github.com/jmbish04/testing-oktokit-commands/issues/59"},"source":"GitHubTool:updateGitHubIssue:85349","timestamp":"2026-02-25T01:04:05.928Z"}
+  (log) [HealthCoordinator] Run 3238952d-d527-4165-9635-75e5de9fb698: 9 checks, 1 failures → degraded
+  (log) {"level":"info","message":"[route] POST /api/health/run","method":"POST","path":"/api/health/run","status":200,"latency":"15208ms","payloadSizeBytes":17,"correlationId":"bcba8a99-c576-458b-a19d-c6c94add1c83","timestamp":"2026-02-25T01:04:16.190Z","payloadSize":"17 bytes"}
+GET https://core-github-api.hacolby.workers.dev/ - Ok @ 2/24/2026, 5:04:27 PM
+Alarm @ 2/24/2026, 5:04:03 PM - Ok
+  (log) Port 3000 is ready
+  (log) {"level":"info","msg":"Version retrieved","component":"sandbox-do","sandboxId":"64e74442dd7dc1adb37f248e934c2abd6c4ca0426d70548414f8465fc235f7bf","traceId":"tr_d7b6beb40117438c","details":"0.7.5","timestamp":"2026-02-25T01:04:04.422Z"}
+  (log) {"level":"info","msg":"Session created","component":"sandbox-do","sandboxId":"64e74442dd7dc1adb37f248e934c2abd6c4ca0426d70548414f8465fc235f7bf","traceId":"tr_d7b6beb40117438c","details":"ID: sandbox-sandbox-health-probe","timestamp":"2026-02-25T01:04:04.429Z"}
+  (log) {"level":"info","msg":"Command executed","component":"sandbox-do","sandboxId":"64e74442dd7dc1adb37f248e934c2abd6c4ca0426d70548414f8465fc235f7bf","traceId":"tr_d7b6beb40117438c","details":"echo ping, Success: true","timestamp":"2026-02-25T01:04:04.536Z"}
+Sandbox.exec - Ok @ 2/24/2026, 5:04:05 PM
+  (log) {"level":"info","msg":"Command executed","component":"sandbox-do","sandboxId":"64e74442dd7dc1adb37f248e934c2abd6c4ca0426d70548414f8465fc235f7bf","traceId":"tr_d7b6beb40117438c","details":"echo health-ok, Success: true","timestamp":"2026-02-25T01:04:06.124Z"}
+GET https://core-github-api.hacolby.workers.dev/healthz - Ok @ 2/24/2026, 5:04:33 PM
+  (log) {"level":"info","message":"[route] GET /healthz","method":"GET","path":"/healthz","status":200,"latency":"0ms","payloadSizeBytes":0,"correlationId":"833937c5-68a5-4341-b50e-c714ffc8e541","timestamp":"2026-02-25T01:04:33.267Z","payloadSize":"0 bytes"}
+GET https://core-github-api.hacolby.workers.dev/ - Ok @ 2/24/2026, 5:04:34 PM
+Alarm @ 2/24/2026, 5:04:32 PM - Ok
+Alarm @ 2/24/2026, 5:04:32 PM - Ok
+GET https://core-github-api.hacolby.workers.dev/healthz - Ok @ 2/24/2026, 5:05:03 PM
+  (log) {"level":"info","message":"[route] GET /healthz","method":"GET","path":"/healthz","status":200,"latency":"0ms","payloadSizeBytes":0,"correlationId":"e7709324-d775-48fb-8419-07de4358b2bf","timestamp":"2026-02-25T01:05:03.431Z","payloadSize":"0 bytes"}
+Alarm @ 2/24/2026, 5:04:36 PM - Ok
+Alarm @ 2/24/2026, 5:04:35 PM - Ok
+GET https://core-github-api.hacolby.workers.dev/healthz - Ok @ 2/24/2026, 5:05:33 PM
+  (log) {"level":"info","message":"[route] GET /healthz","method":"GET","path":"/healthz","status":200,"latency":"0ms","payloadSizeBytes":0,"correlationId":"54123f40-ac5a-464c-838c-715d12d10a91","timestamp":"2026-02-25T01:05:33.425Z","payloadSize":"0 bytes"}
+Alarm @ 2/24/2026, 5:05:06 PM - Ok
+Alarm @ 2/24/2026, 5:05:06 PM - Ok
+GET https://core-github-api.hacolby.workers.dev/healthz - Ok @ 2/24/2026, 5:06:03 PM
+  (log) {"level":"info","message":"[route] GET /healthz","method":"GET","path":"/healthz","status":200,"latency":"0ms","payloadSizeBytes":0,"correlationId":"a550bd8d-4199-442b-852c-15c9d51027cf","timestamp":"2026-02-25T01:06:03.489Z","payloadSize":"0 bytes"}
+Alarm @ 2/24/2026, 5:05:36 PM - Ok
+Alarm @ 2/24/2026, 5:05:36 PM - Ok
+GET https://core-github-api.hacolby.workers.dev/healthz - Ok @ 2/24/2026, 5:06:33 PM
+  (log) {"level":"info","message":"[route] GET /healthz","method":"GET","path":"/healthz","status":200,"latency":"0ms","payloadSizeBytes":0,"correlationId":"01b722e6-c5fc-4ecc-863e-bde447f0f8f0","timestamp":"2026-02-25T01:06:33.417Z","payloadSize":"0 bytes"}
+Alarm @ 2/24/2026, 5:06:06 PM - Ok
+Alarm @ 2/24/2026, 5:06:06 PM - Ok
+GET https://core-github-api.hacolby.workers.dev/healthz - Ok @ 2/24/2026, 5:07:03 PM
+  (log) {"level":"info","message":"[route] GET /healthz","method":"GET","path":"/healthz","status":200,"latency":"0ms","payloadSizeBytes":0,"correlationId":"3c6fc813-aaf6-40fb-bb77-b1894ea8444f","timestamp":"2026-02-25T01:07:04.230Z","payloadSize":"0 bytes"}
+Alarm @ 2/24/2026, 5:06:36 PM - Ok
+Alarm @ 2/24/2026, 5:06:36 PM - Ok
+GET https://core-github-api.hacolby.workers.dev/healthz - Ok @ 2/24/2026, 5:07:33 PM
+  (log) {"level":"info","message":"[route] GET /healthz","method":"GET","path":"/healthz","status":200,"latency":"0ms","payloadSizeBytes":0,"correlationId":"344c8402-025f-446f-9f7c-c661e8c87c15","timestamp":"2026-02-25T01:07:33.271Z","payloadSize":"0 bytes"}
+Alarm @ 2/24/2026, 5:07:06 PM - Ok
+Alarm @ 2/24/2026, 5:07:06 PM - Ok
+GET https://core-github-api.hacolby.workers.dev/healthz - Ok @ 2/24/2026, 5:08:03 PM
+  (log) {"level":"info","message":"[route] GET /healthz","method":"GET","path":"/healthz","status":200,"latency":"0ms","payloadSizeBytes":0,"correlationId":"99c2d778-60f0-494e-90a6-8013645914c3","timestamp":"2026-02-25T01:08:04.573Z","payloadSize":"0 bytes"}
+Alarm @ 2/24/2026, 5:07:36 PM - Ok
+Alarm @ 2/24/2026, 5:07:36 PM - Ok
+GET https://core-github-api.hacolby.workers.dev/healthz - Ok @ 2/24/2026, 5:08:33 PM
+  (log) {"level":"info","message":"[route] GET /healthz","method":"GET","path":"/healthz","status":200,"latency":"0ms","payloadSizeBytes":0,"correlationId":"994bb421-7480-4000-ad7a-909dde7d5bff","timestamp":"2026-02-25T01:08:33.275Z","payloadSize":"0 bytes"}
+Alarm @ 2/24/2026, 5:08:06 PM - Ok
+Alarm @ 2/24/2026, 5:08:06 PM - Ok
+GET https://core-github-api.hacolby.workers.dev/healthz - Ok @ 2/24/2026, 5:09:03 PM
+  (log) {"level":"info","message":"[route] GET /healthz","method":"GET","path":"/healthz","status":200,"latency":"0ms","payloadSizeBytes":0,"correlationId":"68b7fd62-beb0-4c3b-9268-2a46a3d9ee71","timestamp":"2026-02-25T01:09:03.443Z","payloadSize":"0 bytes"}
+Alarm @ 2/24/2026, 5:08:36 PM - Ok
+Alarm @ 2/24/2026, 5:08:36 PM - Ok
+GET https://core-github-api.hacolby.workers.dev/healthz - Ok @ 2/24/2026, 5:09:33 PM
+  (log) {"level":"info","message":"[route] GET /healthz","method":"GET","path":"/healthz","status":200,"latency":"0ms","payloadSizeBytes":0,"correlationId":"b3461a43-e687-454f-9ece-2f0252a289bf","timestamp":"2026-02-25T01:09:34.449Z","payloadSize":"0 bytes"}
+Alarm @ 2/24/2026, 5:09:06 PM - Ok
+Alarm @ 2/24/2026, 5:09:06 PM - Ok
+GET https://core-github-api.hacolby.workers.dev/healthz - Ok @ 2/24/2026, 5:10:03 PM
+  (log) {"level":"info","message":"[route] GET /healthz","method":"GET","path":"/healthz","status":200,"latency":"0ms","payloadSizeBytes":0,"correlationId":"85cda62c-f406-4039-a786-1981762aef64","timestamp":"2026-02-25T01:10:03.265Z","payloadSize":"0 bytes"}
+Alarm @ 2/24/2026, 5:09:36 PM - Ok
+Alarm @ 2/24/2026, 5:09:36 PM - Ok
+GET https://core-github-api.hacolby.workers.dev/healthz - Ok @ 2/24/2026, 5:10:33 PM
+  (log) {"level":"info","message":"[route] GET /healthz","method":"GET","path":"/healthz","status":200,"latency":"0ms","payloadSizeBytes":0,"correlationId":"259279a6-a884-4ebd-be00-b418e2c203d4","timestamp":"2026-02-25T01:10:33.404Z","payloadSize":"0 bytes"}
+Alarm @ 2/24/2026, 5:10:06 PM - Ok
+Alarm @ 2/24/2026, 5:10:06 PM - Ok

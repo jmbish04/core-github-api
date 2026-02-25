@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+// Dynamically imported
 import { getAiGatewayUrl, resolveDefaultAiModel } from "./config";
 import { getAnthropicApiKey } from "@utils/secrets";
 import { AIOptions, TextWithToolsResponse, StructuredWithToolsResponse } from "./index";
@@ -12,6 +12,7 @@ export async function createAnthropicClient(env: Env) {
     throw new Error("Missing ANTHROPIC_API_KEY in environment variables");
   }
 
+  const { default: Anthropic } = await import("@anthropic-ai/sdk");
   return new Anthropic({
     apiKey: apiKey,
     baseURL: await getAiGatewayUrl(env, "anthropic", "anthropic_sdk"),

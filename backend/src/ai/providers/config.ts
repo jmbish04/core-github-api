@@ -84,10 +84,10 @@ export function resolveDefaultAiModel(env: Partial<Env>, provider?: SupportedPro
     return defaultOpenAI;
   }
   if (effectiveProvider === 'gemini' || effectiveProvider === 'google-ai-studio') {
-    const defaultGemini = (env as Partial<Env> & { GEMINI_MODEL?: string }).GEMINI_MODEL || 'gemini-1.5-flash';
+    const defaultGemini = (env as Partial<Env> & { GEMINI_MODEL?: string }).GEMINI_MODEL || 'gemini-2.5-flash';
     const geminiStr = String(defaultGemini);
-    if (geminiStr.includes('gemini-3') || geminiStr.includes('gemini-2.5')) {
-       return 'gemini-1.5-flash';
+    if (geminiStr.includes('gemini-1.5') || geminiStr.includes('gemini-2.0')) {
+       return 'gemini-2.5-flash';
     }
     return defaultGemini;
   }

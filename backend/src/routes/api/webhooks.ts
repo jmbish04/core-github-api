@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
-import { eq, desc, like, sql, and, inArray } from 'drizzle-orm';
+import { eq, desc, like, sql, and, inArray, gte, lte, or } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/d1';
 
 // Internal schema & database imports
@@ -9,6 +9,7 @@ import { getDb } from '@db';
 import { tasks, repos } from '@db/schema';
 import { webhookDeliveries } from '@/db/schemas/github/webhooks';
 import { generateUuid } from "@/utils/common";
+import { summarizeWebhookPayload } from "@/utils/webhook-summary";
 
 // Types & Services
 import type { GitHubWebhookPayload, GitHubIssuesPayload } from '@/types/github/webhooks';
@@ -40,18 +41,20 @@ webhooksApi.post('/', async (c) => {
     // 1. Log the webhook delivery securely to the Webhooks D1 DB
     try {
         const webhooksDb = drizzle(c.env.DB_WEBHOOKS);
+        const repoFullName = body.repository?.full_name || null;
         await webhooksDb.insert(webhookDeliveries).values({
             id: generateUuid(),
             delivery_id: deliveryId,
             event,
+            action: body.action || null,
+            repo_full_name: repoFullName,
             payload: JSON.stringify(body),
+            summary_payload: summarizeWebhookPayload(body),
             signature_sha256: signature || '',
             created_at: new Date().toISOString()
         });
     } catch (error) {
         console.error('[api/webhooks] Failed to log webhook delivery:', error);
-        // Continue processing to avoid failing the webhook acknowledgement entirely if just DB log fails?
-        // But if DB log fails, maybe we should warn.
     }
 
     // Trigger Stats Update on Push
@@ -207,8 +210,6 @@ webhooksApi.post('/', async (c) => {
                 });
 
                 // Parse command
-                // For now, simpler logic to demonstrate flow
-                // Real implementation would delegate to an Agent/Workflow
                 const isSuccess = true; // Placeholder for actual execution result
 
                 if (isSuccess) {
@@ -234,35 +235,65 @@ webhooksApi.post('/', async (c) => {
 });
 
 // ==========================================
-// GET / : List Webhooks with Zod Validation
+// GET / : List Webhooks with Advanced Filters
 // ==========================================
 const QuerySchema = z.object({
     page: z.string().optional().default('1'),
-    limit: z.string().optional().default('10'),
+    limit: z.string().optional().default('20'),
     type: z.string().optional(),
+    action: z.string().optional(),
+    repo: z.string().optional(),
+    from: z.string().optional(),
+    to: z.string().optional(),
     search: z.string().optional(),
 });
 
 webhooksApi.get('/', zValidator('query', QuerySchema), async (c) => {
     const db = drizzle(c.env.DB_WEBHOOKS);
-    const { page, limit, search, type } = c.req.valid('query');
+    const { page, limit, search, type, action, repo, from, to } = c.req.valid('query');
     
     const pageNum = parseInt(page);
     const limitNum = parseInt(limit);
     const offset = (pageNum - 1) * limitNum;
 
     const conditions = [];
+
+    // Keyword search on payload + summary_payload
     if (search) {
-        conditions.push(like(webhookDeliveries.payload, `%${search}%`));
+        conditions.push(
+            or(
+                like(webhookDeliveries.payload, `%${search}%`),
+                like(webhookDeliveries.summary_payload, `%${search}%`)
+            )
+        );
     }
+
+    // Event type filter (supports comma-separated)
     if (type && type !== 'all') {
-        // Handle comma-separated lists to match legacy flexibility
         const events = type.split(',').map(e => e.trim());
         if (events.length > 1) {
             conditions.push(inArray(webhookDeliveries.event, events));
         } else {
             conditions.push(eq(webhookDeliveries.event, events[0]));
         }
+    }
+
+    // Action filter
+    if (action && action !== 'all') {
+        conditions.push(eq(webhookDeliveries.action, action));
+    }
+
+    // Repo filter (supports partial match)
+    if (repo) {
+        conditions.push(like(webhookDeliveries.repo_full_name, `%${repo}%`));
+    }
+
+    // Date range filters
+    if (from) {
+        conditions.push(gte(webhookDeliveries.created_at, from));
+    }
+    if (to) {
+        conditions.push(lte(webhookDeliveries.created_at, to));
     }
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
@@ -287,8 +318,28 @@ webhooksApi.get('/', zValidator('query', QuerySchema), async (c) => {
             .all();
     }
 
+    // 3. Get distinct repos for filter dropdown
+    const distinctRepos = await db.selectDistinct({ repo_full_name: webhookDeliveries.repo_full_name })
+        .from(webhookDeliveries)
+        .where(sql`${webhookDeliveries.repo_full_name} IS NOT NULL`)
+        .orderBy(webhookDeliveries.repo_full_name)
+        .limit(50)
+        .all();
+
+    // 4. Get distinct actions for filter dropdown
+    const distinctActions = await db.selectDistinct({ action: webhookDeliveries.action })
+        .from(webhookDeliveries)
+        .where(sql`${webhookDeliveries.action} IS NOT NULL`)
+        .orderBy(webhookDeliveries.action)
+        .limit(50)
+        .all();
+
     return c.json({
         data: results,
+        filters: {
+            repos: distinctRepos.map(r => r.repo_full_name).filter(Boolean),
+            actions: distinctActions.map(a => a.action).filter(Boolean),
+        },
         pagination: {
             page: pageNum,
             limit: limitNum,
@@ -319,7 +370,7 @@ webhooksApi.get('/stats', async (c) => {
     .from(webhookDeliveries)
     .groupBy(webhookDeliveries.event)
     .orderBy(desc(sql`count(*)`))
-    .limit(5)
+    .limit(10)
     .all();
 
     return c.json({

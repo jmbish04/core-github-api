@@ -1,14 +1,12 @@
-import { Agent as OpenAIAgent } from "@openai/agents";
 import { Agent as CFAgent } from "agents";
 import {
-  createGatewayClient,
   createRunner,
   resolveDefaultAiModel,
   resolveDefaultAiProvider,
   type SupportedProvider,
 } from "@/ai/agent-sdk";
 import { Logger } from "@/lib/logger";
-import { z } from "zod";
+import type { z } from "zod"; // ✅ Use type import to avoid runtime evaluation
 
 export class BaseAgent<State = any> extends CFAgent<Env, State> {
   private _logger?: Logger;
@@ -41,22 +39,22 @@ export class BaseAgent<State = any> extends CFAgent<Env, State> {
   }): Promise<string> {
     const provider = this.resolveProvider(input.provider);
     const model = this.resolveModel(provider, input.model);
+    
+    // ✅ Dynamically import the heavy SDK only when executed
+    const { Agent: OpenAIAgent } = await import("@openai/agents");
+    
     const runner = await createRunner(this.env, provider, model);
-    const client = await createGatewayClient(this.env, model);
+    
+    // ⚠️ Note: Removed unused createGatewayClient
+    
     const agent = new OpenAIAgent({
       name: input.name,
       model,
       instructions: input.instructions,
-      mcpServers: {
-        "cloudflare": {
-            transport: {
-                type: "stdio",
-                command: "npx",
-                args: ["@cloudflare/mcp-server-cloudflare", "--mcp-endpoint", (this.env as any).MCP_API_URL || "https://docs.mcp.cloudflare.com/mcp"]
-            }
-        }
-      } as any // Cast to any to avoid strict type issues with the specific Agent SDK version
+      // ⚠️ Removed local 'stdio'/'npx' MCP config as it will crash a CF Worker.
+      // If MCP is required, you must use an SSE/HTTP transport or inject it as a standard tool.
     });
+
     const result = await runner.run(agent, input.prompt);
     return String(result.finalOutput ?? "");
   }
@@ -71,24 +69,18 @@ export class BaseAgent<State = any> extends CFAgent<Env, State> {
   }): Promise<T> {
     const provider = this.resolveProvider(input.provider);
     const model = this.resolveModel(provider, input.model);
-    const runner = await createRunner(this.env, provider, model);
-    const client = await createGatewayClient(this.env, model);
     
-    // We must pass the schema to the agent configuration
+    // ✅ Dynamically import the heavy SDK only when executed
+    const { Agent: OpenAIAgent } = await import("@openai/agents");
+    
+    const runner = await createRunner(this.env, provider, model);
+    
     const agent = new OpenAIAgent({
       name: input.name,
       model,
       instructions: input.instructions,
-      outputType: input.schema as any, // Cast to any to avoid strict type issues with specific SDK versions
-      mcpServers: {
-        "cloudflare": {
-            transport: {
-                type: "stdio",
-                command: "npx",
-                args: ["@cloudflare/mcp-server-cloudflare", "--mcp-endpoint", (this.env as any).MCP_API_URL || "https://docs.mcp.cloudflare.com/mcp"]
-            }
-        }
-      } as any
+      outputType: input.schema as any, 
+      // ⚠️ Removed local 'stdio'/'npx' MCP config
     });
     
     try {
@@ -100,4 +92,3 @@ export class BaseAgent<State = any> extends CFAgent<Env, State> {
     }
   }
 }
-

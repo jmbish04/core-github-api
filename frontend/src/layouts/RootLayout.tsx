@@ -14,7 +14,7 @@ export default function RootLayout() {
         { label: "Webhooks", href: "/control-center/webhooks" },
         { label: "Docs", href: "/docs" },
         { label: "Spark Core", href: "/spark" },
-        { label: "Settings", href: "/settings" },
+        { label: "Settings", href: "/control-center/settings" },
         { label: "Control Center", href: "/control-center/dashboard" },
     ];
 

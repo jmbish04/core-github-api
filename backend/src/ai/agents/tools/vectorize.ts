@@ -1,7 +1,5 @@
 import { z } from 'zod';
 import { Tool } from '@/ai/agent-sdk';
-import OpenAI from 'openai';
-import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters';
 import { v4 as uuidv4 } from 'uuid';
 
 // Helper to get OpenAI client for embeddings via Gateway
@@ -11,7 +9,10 @@ async function getEmbeddingClient(env: Env) {
   const gateway = env.AI.gateway(gatewayId);
   const baseUrl = await gateway.getUrl("openai"); // Specific OpenAI endpoint for real ada-002
   
-  return new OpenAI({
+  const OpenAIModule = await import('openai');
+  const OpenAIClass = OpenAIModule.default || (OpenAIModule as any).OpenAI || OpenAIModule;
+  
+  return new (OpenAIClass as any)({
     apiKey: await env.AI_GATEWAY_TOKEN.get(),
     baseURL: baseUrl,
   });
@@ -75,6 +76,7 @@ export const VectorizeUpsertTool = (env: Env): Tool => ({
   execute: async ({ documentId, text, metadata = {}, isTest = false }: { documentId: string; text: string; metadata?: Record<string, any>; isTest?: boolean }) => {
     try {
       // 1. Chunking
+      const { RecursiveCharacterTextSplitter } = await import('@langchain/textsplitters');
       const splitter = new RecursiveCharacterTextSplitter({
         chunkSize: 1000,
         chunkOverlap: 200,
@@ -94,7 +96,7 @@ export const VectorizeUpsertTool = (env: Env): Tool => ({
       });
 
       // 3. Prepare Vectorize records
-      const vectors = embeddingResponse.data.map((item, index) => ({
+      const vectors = embeddingResponse.data.map((item: any, index: number) => ({
         id: `${documentId}_chunk_${index}`, // Unique ID for chunk
         values: normalizeVector(item.embedding),
         metadata: {

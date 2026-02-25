@@ -29,8 +29,54 @@ export class AgentGenerator {
 
         if (hasAgent) {
             console.log(`[AgentGen] Agent already exists for ${owner}/${repo}. Optimizing instructions...`);
-            // TODO: Implement optimization logic (read existing, run LLM to improve)
-            // For now, we respect existing agents and do nothing, or maybe just log.
+            try {
+                const { data: files } = await octokit.rest.repos.getContent({
+                    owner,
+                    repo,
+                    path: ".github/agents",
+                });
+                
+                const agentFile = (Array.isArray(files) ? files : [files]).find((f: any) => f.name.endsWith(".agent.md"));
+                
+                if (agentFile && agentFile.sha) {
+                    const { data: fileData } = await octokit.rest.repos.getContent({
+                        owner, repo, path: agentFile.path
+                    });
+                    
+                    if (!Array.isArray(fileData) && (fileData as any).content) {
+                        const contentBytes = atob((fileData as any).content);
+                        
+                        if ((env as any).AI) {
+                            const response = await (env as any).AI.run('@cf/meta/llama-3.1-8b-instruct', {
+                                messages: [
+                                    { role: 'system', content: 'You are an expert AI agent architect. Review the provided .agent.md configuration and improve its core instructions for clarity, precision, and tool utilization while strictly preserving the existing YAML frontmatter. Return ONLY the final markdown file content without conversational padding.' },
+                                    { role: 'user', content: `Here is the current agent configuration:\n\n${contentBytes}` }
+                                ]
+                            });
+                            
+                            const optimizedContent = (response as any).response;
+                            
+                            if (optimizedContent && optimizedContent.includes('---')) {
+                                await octokit.rest.repos.createOrUpdateFileContents({
+                                    owner,
+                                    repo,
+                                    path: agentFile.path,
+                                    message: "chore(agent): optimize agent instructions via Workers AI",
+                                    content: btoa(optimizedContent),
+                                    sha: agentFile.sha,
+                                });
+                                console.log(`[AgentGen] Successfully optimized ${agentFile.name}`);
+                            } else {
+                                console.log(`[AgentGen] Optimization discarded (invalid output format)`);
+                            }
+                        } else {
+                             console.warn("[AgentGen] AI binding not found, skipping optimization.");
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error("[AgentGen] Optimization process failed:", error);
+            }
             return; 
         }
 

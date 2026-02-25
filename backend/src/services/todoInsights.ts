@@ -8,7 +8,7 @@ import { getDb } from "@db";
 import { generateUuid } from "@/utils/common";
 import { eq, and, desc, isNull } from "drizzle-orm";
 import { BrowserService } from "./browser_render";
-import { Agent as OpenAIAgent } from "@openai/agents";
+import type { Agent } from "@openai/agents";
 import { z } from "zod";
 
 import { createRunner, resolveDefaultAiModel, resolveDefaultAiProvider } from "@/ai/agent-ai";
@@ -126,6 +126,7 @@ export class TodoInsightService {
             const provider = resolveDefaultAiProvider(env as Env);
             const model = resolveDefaultAiModel(env as Env, provider);
             const runner = await createRunner(env as Env, provider, model);
+            const { Agent: OpenAIAgent } = await import("@openai/agents");
             const agent = new OpenAIAgent({
                 name: "TodoInsightAgent",
                 model,

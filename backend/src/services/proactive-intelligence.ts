@@ -1,6 +1,6 @@
 import { App } from "octokit";
 import { z } from "zod";
-import { Agent as OpenAIAgent } from "@openai/agents";
+import type { Agent } from "@openai/agents";
 import { createRunner, resolveDefaultAiModel, resolveDefaultAiProvider } from "@/ai/agent-ai";
 import { 
   getGitHubPrivateKey, 
@@ -117,6 +117,7 @@ async function parseIssueWithGemini(env: Env, issueTitle: string, issueBody: str
   const provider = resolveDefaultAiProvider(env);
   const model = (env as any).BUG_HUNTER_MODEL || resolveDefaultAiModel(env, provider);
   const runner = await createRunner(env, provider, model);
+  const { Agent: OpenAIAgent } = await import("@openai/agents");
   const parser = new OpenAIAgent({
     name: "BugHunterIssueParser",
     model,
@@ -139,6 +140,7 @@ async function generateFailingVitest(env: Env, parsedIssue: z.infer<typeof Parse
   const provider = resolveDefaultAiProvider(env);
   const model = (env as any).BUG_HUNTER_MODEL || resolveDefaultAiModel(env, provider);
   const runner = await createRunner(env, provider, model);
+  const { Agent: OpenAIAgent } = await import("@openai/agents");
   const generator = new OpenAIAgent({
     name: "BugHunterTestGenerator",
     model,

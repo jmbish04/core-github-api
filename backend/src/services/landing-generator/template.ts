@@ -2,52 +2,61 @@
  * HTML Template Generator - Creates cinematic landing page with Tailwind
  */
 
-import Handlebars from 'handlebars';
+// Handlebars imported dynamically in initialize method
 import type { ContentBlueprint } from './types';
 
 // Import templates directly
-import landingTemplate from './templates/landing.hbs';
-import navPartial from './templates/partials/nav.hbs';
-import heroPartial from './templates/partials/hero.hbs';
-import problemPartial from './templates/partials/problem.hbs';
-import solutionPartial from './templates/partials/solution.hbs';
-import featuresPartial from './templates/partials/features.hbs';
-import metricsPartial from './templates/partials/metrics.hbs';
-import useCasesPartial from './templates/partials/use_cases.hbs';
-import roadmapPartial from './templates/partials/roadmap.hbs';
-import ctaPartial from './templates/partials/cta.hbs';
-import footerPartial from './templates/partials/footer.hbs';
+import landingTemplate from '@/services/landing-generator/templates/landing.hbs';
+import navPartial from '@/services/landing-generator/templates/partials/nav.hbs';
+import heroPartial from '@/services/landing-generator/templates/partials/hero.hbs';
+import problemPartial from '@/services/landing-generator/templates/partials/problem.hbs';
+import solutionPartial from '@/services/landing-generator/templates/partials/solution.hbs';
+import featuresPartial from '@/services/landing-generator/templates/partials/features.hbs';
+import metricsPartial from '@/services/landing-generator/templates/partials/metrics.hbs';
+import useCasesPartial from '@/services/landing-generator/templates/partials/use_cases.hbs';
+import roadmapPartial from '@/services/landing-generator/templates/partials/roadmap.hbs';
+import ctaPartial from '@/services/landing-generator/templates/partials/cta.hbs';
+import footerPartial from '@/services/landing-generator/templates/partials/footer.hbs';
 
-// Register Partials
-Handlebars.registerPartial('nav', navPartial);
-Handlebars.registerPartial('hero', heroPartial);
-Handlebars.registerPartial('problem', problemPartial);
-Handlebars.registerPartial('solution', solutionPartial);
-Handlebars.registerPartial('features', featuresPartial);
-Handlebars.registerPartial('metrics', metricsPartial);
-Handlebars.registerPartial('use_cases', useCasesPartial);
-Handlebars.registerPartial('roadmap', roadmapPartial);
-Handlebars.registerPartial('cta', ctaPartial);
-Handlebars.registerPartial('footer', footerPartial);
+let mainTemplate: any = null;
 
-// Register Helpers
-Handlebars.registerHelper('eq', function (a, b) {
-    return a === b;
-});
+async function initHandlebars() {
+    if (mainTemplate) return;
 
-// Compile Main Template
-const mainTemplate = Handlebars.compile(landingTemplate);
+    const { default: Handlebars } = await import('handlebars');
+
+    // Register Partials
+    Handlebars.registerPartial('nav', navPartial);
+    Handlebars.registerPartial('hero', heroPartial);
+    Handlebars.registerPartial('problem', problemPartial);
+    Handlebars.registerPartial('solution', solutionPartial);
+    Handlebars.registerPartial('features', featuresPartial);
+    Handlebars.registerPartial('metrics', metricsPartial);
+    Handlebars.registerPartial('use_cases', useCasesPartial);
+    Handlebars.registerPartial('roadmap', roadmapPartial);
+    Handlebars.registerPartial('cta', ctaPartial);
+    Handlebars.registerPartial('footer', footerPartial);
+
+    // Register Helpers
+    Handlebars.registerHelper('eq', function (a, b) {
+        return a === b;
+    });
+
+    // Compile Main Template
+    mainTemplate = Handlebars.compile(landingTemplate);
+}
 
 export class TemplateGenerator {
     /**
      * Generate complete HTML page from content blueprint
      */
-    static generate(
+    static async generate(
         blueprint: ContentBlueprint,
         workerName: string,
         branding?: { icon: string; displayName: string },
         footerLinks?: Array<{ text: string; href: string }>
-    ): string {
+    ): Promise<string> {
+        await initHandlebars();
         const brandIcon = branding?.icon || '⚡';
         const brandName = branding?.displayName || workerName;
 

@@ -1,4 +1,4 @@
-import { Agent, run } from "@openai/agents";
+// Dynamic imports used instead of static
 import { Agent as CFAgent, callable } from "agents";
 import { z } from "zod";
 
@@ -9,22 +9,24 @@ const RouteSchema = z.object({
 
 export class RouterAgent extends CFAgent<Env> {
   
-  // The Router / Classifier
-  router = new Agent({
-    name: "Router",
-    instructions: "Classify the user input to route it to the correct department.",
-    outputType: RouteSchema
-  });
-
-  // Specialized Agents
-  billingAgent = new Agent({ name: "Billing", instructions: "Handle invoices and payments." });
-  techAgent = new Agent({ name: "TechSupport", instructions: "Debug technical issues." });
-  generalAgent = new Agent({ name: "General", instructions: "Helpful general assistant." });
-
   @callable()
   async handleRequest(query: string) {
+    const { Agent, run } = await import("@openai/agents");
+    
+    // The Router / Classifier
+    const router = new Agent({
+      name: "Router",
+      instructions: "Classify the user input to route it to the correct department.",
+      outputType: RouteSchema
+    });
+
+    // Specialized Agents
+    const billingAgent = new Agent({ name: "Billing", instructions: "Handle invoices and payments." });
+    const techAgent = new Agent({ name: "TechSupport", instructions: "Debug technical issues." });
+    const generalAgent = new Agent({ name: "General", instructions: "Helpful general assistant." });
+
     // 1. Classify
-    const routeResult = await run(this.router, query);
+    const routeResult = await run(router, query);
     const route = routeResult.finalOutput;
 
     if (!route) return "Routing failed";
@@ -34,9 +36,9 @@ export class RouterAgent extends CFAgent<Env> {
     // 2. Execute selected agent
     let targetAgent;
     switch (route.category) {
-      case "billing": targetAgent = this.billingAgent; break;
-      case "technical": targetAgent = this.techAgent; break;
-      default: targetAgent = this.generalAgent; break;
+      case "billing": targetAgent = billingAgent; break;
+      case "technical": targetAgent = techAgent; break;
+      default: targetAgent = generalAgent; break;
     }
 
     const result = await run(targetAgent, query);

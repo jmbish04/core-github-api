@@ -1,4 +1,4 @@
-import { Agent as OpenAIAgent } from "@openai/agents";
+import type { Agent } from "@openai/agents";
 import { z } from "zod";
 import {
   createRunner,
@@ -36,6 +36,7 @@ export class CodeGeneratorAgent {
       resolveDefaultAiModel(this.env, provider);
     const runner = await createRunner(this.env, provider, model);
 
+    const { Agent: OpenAIAgent } = await import("@openai/agents");
     const agent = new OpenAIAgent({
       name: "CodeGeneratorAgent",
       model,

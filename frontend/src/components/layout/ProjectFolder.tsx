@@ -16,7 +16,11 @@ import {
   Settings, 
   CheckSquare, 
   Star,
-  X
+  X,
+  BarChart3,
+  Sparkles,
+  Palette,
+  ListChecks,
 } from 'lucide-react';
 import { useProjectStore, type Repository } from '@/stores/useProjectStore';
 import { cn } from '@/lib/utils';
@@ -27,13 +31,26 @@ interface ProjectFolderProps {
 
 export function ProjectFolder({ repo }: ProjectFolderProps) {
   const [isOpen, setIsOpen] = useState(true);
+  const [isDashboardOpen, setIsDashboardOpen] = useState(true);
   const { toggleFavorite, isFavorite, closeProject } = useProjectStore();
   const location = useLocation();
   const isFav = isFavorite(repo.full_name);
 
-  // Helper to check active route
-  const isActive = (path: string) => location.pathname.includes(path);
   const basePath = `/project/${repo.owner}/${repo.name}`;
+
+  // Dashboard sub-tabs
+  const dashboardTabs = [
+    { slug: "dashboard", label: "Stats", icon: BarChart3 },
+    { slug: "vibesdk", label: "VibeSDK", icon: Sparkles },
+    { slug: "ux-workshop", label: "UX Workshop", icon: Palette },
+    { slug: "plan", label: "Plan", icon: ListChecks },
+    { slug: "pr-command", label: "PR Command Center", icon: GitPullRequest },
+  ];
+
+  // Check if any dashboard tab is active
+  const isDashboardActive = dashboardTabs.some(
+    (tab) => location.pathname === `${basePath}/${tab.slug}`
+  ) || location.pathname === `${basePath}/dashboard`;
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen} className="space-y-1">
@@ -71,11 +88,33 @@ export function ProjectFolder({ repo }: ProjectFolderProps) {
       {/* Folder Contents */}
       <CollapsibleContent className="space-y-1 pl-4 border-l ml-4 border-border/40">
         
-        <NavItem 
-          href={`${basePath}/dashboard`} 
-          icon={LayoutDashboard} 
-          label="Dashboard" 
-        />
+        {/* Dashboard with sub-tabs */}
+        <Collapsible open={isDashboardOpen} onOpenChange={setIsDashboardOpen} className="space-y-0.5">
+          <CollapsibleTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className={cn(
+                "w-full justify-start gap-3 h-9 px-2 font-normal text-muted-foreground hover:text-foreground",
+                isDashboardActive && "text-foreground font-medium bg-secondary/50"
+              )}
+            >
+              <ChevronRight className={cn("w-3.5 h-3.5 transition-transform text-muted-foreground", isDashboardOpen && "rotate-90")} />
+              <LayoutDashboard className="w-4 h-4" />
+              Dashboard
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="space-y-0.5 pl-5 border-l ml-3 border-border/30">
+            {dashboardTabs.map((tab) => (
+              <NavItem
+                key={tab.slug}
+                href={`${basePath}/${tab.slug}`}
+                icon={tab.icon}
+                label={tab.label}
+              />
+            ))}
+          </CollapsibleContent>
+        </Collapsible>
         
         <NavItem 
           href={`${basePath}/kanban`} 
@@ -94,12 +133,6 @@ export function ProjectFolder({ repo }: ProjectFolderProps) {
           href={`${basePath}/roadmap`} 
           icon={Map} 
           label="Roadmap" 
-        />
-
-        <NavItem 
-          href={`${basePath}/pr-center`} 
-          icon={GitPullRequest} 
-          label="PR Command Center" 
         />
 
         <NavItem 

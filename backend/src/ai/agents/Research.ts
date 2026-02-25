@@ -7,7 +7,7 @@
 import { callable } from "agents";
 import { BaseAgent, BaseAgentState } from "@/ai/agent-sdk";
 import { Logger } from "@logging";
-import { Agent } from "@openai/agents";
+import type { Agent } from "@openai/agents";
 import { getAgentModelName } from "@/ai/utils/model-config";
 import { getOctokit } from "@services/octokit/core";
 import { z } from "zod";
@@ -117,8 +117,9 @@ export class ResearchAgent extends BaseAgent<Env, ResearchState> {
       }
     };
     
+    const { Agent: OpenAIAgent } = await import("@openai/agents");
     // Initialize agent WITH tools
-    this.agent = new Agent({
+    this.agent = new OpenAIAgent({
       name: "ResearchAgent",
       model: getAgentModelName('ResearchAgent'), // Cost-optimized: gpt-4o
       instructions: `You are a senior research analyst specializing in GitHub repository analysis.

@@ -25,6 +25,7 @@ export interface CloudflareTokenVerifyResult {
 }
 
 export interface CloudflareTokenTestResult {
+    token_name: string;
     passed: boolean;
     reason:
     | "TOKEN_VALID_AND_TYPE_MATCHES"
@@ -42,7 +43,8 @@ export interface CloudflareTokenTestResult {
  * Verify a USER API token using the official SDK
  */
 export async function verifyUserToken(
-    token: string
+    token: string,
+    token_name: string
 ): Promise<CloudflareTokenVerifyResult> {
     const client = new Cloudflare({ apiToken: token });
 
@@ -71,7 +73,8 @@ export async function verifyUserToken(
  */
 export async function verifyAccountToken(
     token: string,
-    accountId: string
+    accountId: string,
+    token_name: string
 ): Promise<CloudflareTokenVerifyResult> {
     const client = new Cloudflare({ apiToken: token });
 
@@ -99,14 +102,15 @@ export async function verifyAccountToken(
  */
 export async function detectTokenType(
     token: string,
-    accountId: string
+    accountId: string,
+    token_name: string
 ): Promise<{
     detectedType: CloudflareTokenType;
     userResult?: CloudflareTokenVerifyResult;
     accountResult?: CloudflareTokenVerifyResult;
 }> {
     // Priority: Check ACCOUNT token first
-    const accountResult = await verifyAccountToken(token, accountId);
+    const accountResult = await verifyAccountToken(token, accountId, token_name);
     
     if (accountResult.success) {
         return {
@@ -116,7 +120,7 @@ export async function detectTokenType(
     }
 
     // Fallback: Check USER token if Account level fails
-    const userResult = await verifyUserToken(token);
+    const userResult = await verifyUserToken(token, token_name);
     
     if (userResult.success) {
         return {
@@ -141,10 +145,12 @@ export async function detectTokenType(
 export async function testToken(
     token: string | null | undefined,
     expectedType: Exclude<CloudflareTokenType, "unknown" | "none">,
-    accountId: string
+    accountId: string,
+    token_name: string
 ): Promise<CloudflareTokenTestResult> {
     if (!token || token.trim() === "") {
         return {
+            token_name,
             passed: false,
             reason: "TOKEN_MISSING",
             detectedType: "none"
@@ -152,10 +158,11 @@ export async function testToken(
     }
 
     const { detectedType, userResult, accountResult } =
-        await detectTokenType(token, accountId);
+        await detectTokenType(token, accountId, token_name);
 
     if (detectedType === "unknown") {
         return {
+            token_name,
             passed: false,
             reason: "TOKEN_INVALID",
             detectedType,
@@ -168,6 +175,7 @@ export async function testToken(
 
     if (detectedType !== expectedType) {
         return {
+            token_name,
             passed: false,
             reason: "TOKEN_VALID_BUT_WRONG_TYPE",
             detectedType,
@@ -179,6 +187,7 @@ export async function testToken(
     }
 
     return {
+        token_name,
         passed: true,
         reason: "TOKEN_VALID_AND_TYPE_MATCHES",
         detectedType,
@@ -194,10 +203,12 @@ export async function testToken(
  */
 export async function testAnyValidToken(
     token: string | null | undefined,
-    accountId: string
+    accountId: string,
+    token_name: string
 ): Promise<CloudflareTokenTestResult> {
     if (!token || token.trim() === "") {
         return {
+            token_name,
             passed: false,
             reason: "TOKEN_MISSING",
             detectedType: "none"
@@ -205,10 +216,11 @@ export async function testAnyValidToken(
     }
 
     const { detectedType, userResult, accountResult } =
-        await detectTokenType(token, accountId);
+        await detectTokenType(token, accountId, token_name);
 
     if (detectedType === "unknown") {
         return {
+            token_name,
             passed: false,
             reason: "TOKEN_INVALID",
             detectedType,
@@ -220,6 +232,7 @@ export async function testAnyValidToken(
     }
 
     return {
+        token_name,
         passed: true,
         reason: "TOKEN_VALID_AND_TYPE_MATCHES",
         detectedType,

@@ -7,6 +7,7 @@
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
 import { getOctokit } from '@/services/octokit/core'
 import { generateUuid } from '@/utils/common'
+import _sodium from "libsodium-wrappers"
 
 import { DEFAULT_WORKFLOWS, shouldIncludeCloudflareWorkflow } from '@/flows/workflowTemplates'
 import { encode } from '@/utils/base64'
@@ -310,9 +311,7 @@ async function upsertWorkflowFile(
 
 /**
  * Helper function to set repository secret
- * Note: This is a placeholder implementation. In production, secrets should be
- * set using GitHub CLI or API with proper NaCl encryption.
- * The GitHub API requires secrets to be encrypted with the repo's public key
+ * Encrypts secrets using the repository's public key
  * using libsodium sealed boxes before submission.
  */
 async function setRepoSecret(
@@ -323,20 +322,41 @@ async function setRepoSecret(
   secretValue: string
 ): Promise<{ status: string; message?: string }> {
   try {
-    // For now, we'll skip the actual secret creation since we don't have
-    // the libsodium encryption library available in the Cloudflare Worker.
-    // This would need to be implemented with tweetnacl or libsodium-wrappers
-    // in a future version.
-    console.log(`[setRepoSecret] Would set secret ${secretName} for ${owner}/${repo}`)
-    return {
-      status: 'skipped',
-      message: 'Secret encryption not implemented - use GitHub CLI or manual setup'
-    }
+    // 1. Get the repository public key
+    const { data: publicKeyInfo } = await octokit.actions.getRepoPublicKey({
+      owner,
+      repo,
+    });
+
+    // 2. Initialize libsodium
+    await _sodium.ready;
+    const sodium = _sodium;
+
+    // 3. Convert strings to required types
+    const binkey = sodium.from_base64(publicKeyInfo.key, sodium.base64_variants.ORIGINAL);
+    const binsec = sodium.from_string(secretValue);
+
+    // 4. Encrypt the secret using libsodium sealed box
+    const encryptedBytes = sodium.crypto_box_seal(binsec, binkey);
+    const encryptedValue = sodium.to_base64(encryptedBytes, sodium.base64_variants.ORIGINAL);
+
+    // 5. Create or update the secret
+    await octokit.actions.createOrUpdateRepoSecret({
+      owner,
+      repo,
+      secret_name: secretName,
+      encrypted_value: encryptedValue,
+      key_id: publicKeyInfo.key_id,
+    });
+
+    console.log(`[setRepoSecret] Successfully set secret ${secretName} for ${owner}/${repo}`);
+    return { status: 'success', message: 'Secret set via GitHub API' };
   } catch (error: any) {
+    console.error(`[setRepoSecret] Failed to set secret ${secretName}:`, error);
     return {
       status: 'failure',
       message: error.message || 'Failed to set secret'
-    }
+    };
   }
 }
 

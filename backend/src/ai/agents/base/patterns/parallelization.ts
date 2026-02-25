@@ -1,32 +1,34 @@
-import { Agent, run } from "@openai/agents";
+// Dynamic imports used instead of static
 import { Agent as CFAgent, callable } from "agents";
 
 export class ParallelAgent extends CFAgent<Env> {
   
-  // Independent workers
-  proArguer = new Agent({
-    name: "Pro",
-    instructions: "Give arguments IN FAVOR of the topic."
-  });
-
-  conArguer = new Agent({
-    name: "Con",
-    instructions: "Give arguments AGAINST the topic."
-  });
-
-  synthesizer = new Agent({
-    name: "Synthesizer",
-    instructions: "Synthesize the provided arguments into a balanced conclusion."
-  });
-
   @callable()
   async debate(topic: string) {
+    const { Agent, run } = await import("@openai/agents");
+    
+    // Independent workers
+    const proArguer = new Agent({
+      name: "Pro",
+      instructions: "Give arguments IN FAVOR of the topic."
+    });
+
+    const conArguer = new Agent({
+      name: "Con",
+      instructions: "Give arguments AGAINST the topic."
+    });
+
+    const synthesizer = new Agent({
+      name: "Synthesizer",
+      instructions: "Synthesize the provided arguments into a balanced conclusion."
+    });
+
     // 1. Run in parallel
     console.log(`[Parallel] Starting debate on: ${topic}`);
     
     const [proResult, conResult] = await Promise.all([
-      run(this.proArguer, topic),
-      run(this.conArguer, topic)
+      run(proArguer, topic),
+      run(conArguer, topic)
     ]);
 
     const proArgs = proResult.finalOutput;
@@ -41,7 +43,7 @@ export class ParallelAgent extends CFAgent<Env> {
       Provide a final verdict.
     `;
 
-    const summaryResult = await run(this.synthesizer, finalInput);
+    const summaryResult = await run(synthesizer, finalInput);
     
     return {
       pro: proArgs,

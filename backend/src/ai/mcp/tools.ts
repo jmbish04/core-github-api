@@ -5,7 +5,6 @@
  */
 
 import { z } from "zod";
-import { zodToJsonSchema } from "zod-to-json-schema";
 import * as S from "@/schemas/apiSchemas";
 import { DEFAULT_GITHUB_OWNER } from "@github-utils";
 
@@ -193,14 +192,15 @@ export const MCP_TOOLS: MCPTool[] = [
 /**
  * Serialize MCP tools for JSON output (converting Zod schemas to JSON Schema)
  */
-export function serializeTools(): Array<{
+export async function serializeTools(): Promise<Array<{
   name: string;
   description: string;
   inputSchema: any;
   examples?: Array<{ input: Record<string, any>; output: Record<string, any> }>;
   category: string;
   tags?: string[];
-}> {
+}>> {
+  const { zodToJsonSchema } = await import("zod-to-json-schema");
   return MCP_TOOLS.map(tool => ({
     ...tool,
     inputSchema: zodToJsonSchema(tool.inputSchema as any, {

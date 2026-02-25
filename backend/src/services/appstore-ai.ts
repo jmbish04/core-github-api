@@ -1,6 +1,5 @@
-import { GoogleGenAI } from '@google/genai';
+import type { GoogleGenAI as IGoogleGenAI } from '@google/genai';
 import { z } from 'zod';
-import { zodToJsonSchema } from 'zod-to-json-schema';
 import { generateUuid } from '@/utils/common';
 
 export const AgentResponseSchema = z.object({
@@ -27,6 +26,8 @@ export async function analyzeApplication(
     throw new Error('GEMINI_API_KEY is not configured in the Secrets Store.');
   }
 
+  const { GoogleGenAI } = await import('@google/genai');
+  const { zodToJsonSchema } = await import('zod-to-json-schema');
   const ai = new GoogleGenAI({ apiKey: geminiApiKey });
 
   const prompt = `

@@ -31,13 +31,45 @@ standardizationWebhook.use("*", async (c, next) => {
   if (!signature) {
       return c.json({ error: "Missing signature" }, 401);
   }
-  
-  // TODO: Implement actual verification logic.
-  // due to complexity of importing crypto/subtle in strict Workers, 
-  // often we use octokit's verify, but we want to be "Standard API".
-  // For now I will proceed to the handler logic assuming middleware passes if I don't block it.
-  // Ideally: use `octokit.webhooks.verify` 
-  
+
+  try {
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+      "raw",
+      encoder.encode(secret as string),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"],
+    );
+
+    const mac = await crypto.subtle.sign(
+      "HMAC",
+      key,
+      encoder.encode(body),
+    );
+
+    const expectedSig = `sha256=${Array.from(new Uint8Array(mac))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("")}`;
+
+    const expectedBytes = encoder.encode(expectedSig);
+    const signatureBytes = encoder.encode(signature);
+
+    const lengthsMatch = expectedBytes.byteLength === signatureBytes.byteLength;
+    const isValid = lengthsMatch
+      ? (crypto.subtle as any).timingSafeEqual(expectedBytes, signatureBytes)
+      // Prevent timing leak on length mismatch
+      : !(crypto.subtle as any).timingSafeEqual(expectedBytes, expectedBytes);
+
+    if (!isValid || !lengthsMatch) {
+      console.warn("[Standardization] Webhook signature verification failed.");
+      return c.json({ error: "Invalid signature" }, 401);
+    }
+  } catch (err) {
+    console.error("[Standardization] Error validating webhook signature:", err);
+    return c.json({ error: "Signature validation failed" }, 500);
+  }
+
   await next();
 });
 

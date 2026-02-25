@@ -9,11 +9,7 @@ import { getAgentByName, routeAgentRequest, callable } from "agents";
 import { BaseAgent, BaseAgentState } from "@agent-sdk";
 import { Logger } from "@logging";
 import { generateUuid } from "@/utils/common";
-import {
-  Agent as OpenAIAgent,
-  type AgentOutputType,
-  type Tool,
-} from "@openai/agents";
+import type { AgentOutputType, Tool } from "@openai/agents";
 import { desc } from "drizzle-orm";
 
 import {
@@ -247,6 +243,7 @@ export class RepoAgent extends BaseAgent<Env, RepoState> {
     });
 
     const client = await createGatewayClient(this.env, model);
+    const { Agent: OpenAIAgent } = (await import("@openai/agents")) as any;
     const agent = new OpenAIAgent({
       name: input.name || "RepoAgentText",
       model,
@@ -273,6 +270,7 @@ export class RepoAgent extends BaseAgent<Env, RepoState> {
     this.logger.info("Generating structured response", { provider, model });
 
     const client = await createGatewayClient(this.env, model);
+    const { Agent: OpenAIAgent } = (await import("@openai/agents")) as any;
     const agent = new OpenAIAgent({
       name: input.name || "RepoAgentStructured",
       model,
@@ -300,6 +298,7 @@ export class RepoAgent extends BaseAgent<Env, RepoState> {
     this.logger.info("Generating with tools", { provider, model, toolCount: input.tools.length });
 
     const client = await createGatewayClient(this.env, model);
+    const { Agent: OpenAIAgent } = (await import("@openai/agents")) as any;
     const agent = new OpenAIAgent({
       name: input.name || "RepoAgentTools",
       model,

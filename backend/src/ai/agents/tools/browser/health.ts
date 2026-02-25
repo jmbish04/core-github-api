@@ -41,7 +41,7 @@ export async function checkHealth(env: Env): Promise<HealthStepResult> {
     }
 
     // Verify Token
-    const authResult = await testAnyValidToken(token, accountId);
+    const authResult = await testAnyValidToken(token, accountId, "CF_BROWSER_RENDER_TOKEN");
 
     if (!authResult.passed) {
         return {

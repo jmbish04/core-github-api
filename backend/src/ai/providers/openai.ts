@@ -9,26 +9,22 @@ export async function createOpenAIClient(env: Env) {
   // @ts-ignore
   const aigToken = typeof env.AI_GATEWAY_TOKEN === 'object' && env.AI_GATEWAY_TOKEN?.get ? await env.AI_GATEWAY_TOKEN.get() : env.AI_GATEWAY_TOKEN as string;
 
-  // When AI Gateway is configured, provider keys are stored IN the gateway.
-  // The SDK sends the gateway token as apiKey — the gateway intercepts and
-  // replaces it with the real provider key before forwarding upstream.
-  const apiKey = aigToken || await getOpenaiApiKey(env);
+  // "Key in Request + Authenticated Gateway" pattern:
+  // - apiKey: REAL OpenAI key (SDK sends as Authorization: Bearer)
+  // - cf-aig-authorization: gateway token (for gateway auth/logging)
+  const apiKey = await getOpenaiApiKey(env);
 
   if (!apiKey) {
-    throw new Error("Missing OPENAI_API_KEY and AI_GATEWAY_TOKEN — at least one is required");
+    throw new Error("Missing OPENAI_API_KEY — required for SDK auth");
   }
 
   const OpenAIModule = await import("openai");
   const OpenAIClass = OpenAIModule.default || Object.values(OpenAIModule).find((m: any) => m && m.name === 'OpenAI') || OpenAIModule;
-
-  // Build URL manually — proven to work in openaiRaw health check.
   const baseURL = await getRawGatewayUrl(env, { provider: "openai" });
 
-  console.log(`[OpenAIClient] apiKey prefix: ${apiKey?.substring(0, 8)}..., baseURL: ${baseURL}, aigToken resolved: ${!!aigToken}`);
   return new (OpenAIClass as any)({
     apiKey: apiKey,
     baseURL,
-    // Authenticated Gateway + BYOK: gateway token for auth, stored key injected.
     defaultHeaders: aigToken ? { 'cf-aig-authorization': `Bearer ${aigToken}` } : undefined,
   });
 }

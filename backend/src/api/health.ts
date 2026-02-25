@@ -22,6 +22,7 @@ export async function checkAPIHealth(env: Env): Promise<HealthStepResult> {
 
         // --- 2. Cloudflare API Token Verification ---
         const cfTokenStart = Date.now();
+        const tokenName = "CLOUDFLARE_API_TOKEN";
         try {
             const cfToken = await getCloudflareApiToken(env);
             const accountId = await getCloudflareAccountId(env);
@@ -29,13 +30,15 @@ export async function checkAPIHealth(env: Env): Promise<HealthStepResult> {
             if (!cfToken) {
                 subChecks.cloudflareToken = { status: "SKIPPED", reason: "Missing CLOUDFLARE_API_TOKEN" };
             } else {
-                const checkResult = await verifyCloudflareTokens(cfToken, accountId || "");
+                const checkResult = await verifyCloudflareTokens(cfToken, accountId || "", tokenName);
 
                 if (checkResult.passed) {
                     subChecks.cloudflareToken = { 
+                        token_name: checkResult.token_name || tokenName,
                         status: "OK", 
                         latency: Date.now() - cfTokenStart, 
-                        message: checkResult.detectedType === "account" ? "Account Token Active" : "User Token Active"
+                        message: checkResult.detectedType === "account" ? "Account Token Active" : "User Token Active",
+                        checkResult
                     };
                 } else {
                     let errors: any[] = [];
@@ -53,7 +56,12 @@ export async function checkAPIHealth(env: Env): Promise<HealthStepResult> {
                 }
             }
         } catch (cfErr: any) {
-             subChecks.cloudflareToken = { status: "FAIL", error: cfErr.message, latency: Date.now() - cfTokenStart };
+             subChecks.cloudflareToken = { 
+                token_name: tokenName,
+                status: "FAIL", 
+                error: cfErr.message, 
+                latency: Date.now() - cfTokenStart 
+            };
         }
 
         const isOverallSuccess = Object.values(subChecks).every(s => s.status !== "FAIL");

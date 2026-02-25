@@ -22,8 +22,8 @@ export async function createGeminiClient(env: Env, model: string) {
   const { GoogleGenAI } = await import("@google/genai");
   const baseUrl = await getRawGatewayUrl(env, { provider: "google-ai-studio" });
   
-  // Enforce v1 for Gemini 1.5 Series, otherwise fallback to v1beta for new/preview models
-  const apiVersion = model.includes("gemini-1.5") ? "v1" : "v1beta";
+  // Default to v1beta for Gemini 2.5 Flash and newer models
+  const apiVersion = "v1beta";
 
   return new GoogleGenAI({
     apiKey: apiKey,
@@ -37,7 +37,7 @@ export async function createGeminiClient(env: Env, model: string) {
 
 export async function verifyApiKey(env: Env): Promise<boolean> {
   try {
-    const testModel = "gemini-1.5-flash";
+    const testModel = "gemini-2.5-flash";
     const client = await createGeminiClient(env, testModel);
     await client.models.get({ model: testModel });
     return true;

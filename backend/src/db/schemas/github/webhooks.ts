@@ -14,10 +14,12 @@ export const webhookDeliveries = sqliteTable('webhook_deliveries', {
     delivery_id: text('delivery_id').notNull().unique(),
     event: text('event').notNull(),
     action: text('action'),
+    repo_full_name: text('repo_full_name'), // e.g. "jmbish04/core-github-api"
     signature_sha256: text('signature_sha256').notNull(),
     user_agent: text('user_agent'),
     content_type: text('content_type'),
     payload: text('payload', { mode: 'json' }).notNull(), // Full JSON payload for transparency
+    summary_payload: text('summary_payload', { mode: 'json' }), // Zod-parsed summary (stripped spam URLs)
     hook_id: integer('hook_id'),
     installation_id: integer('installation_id'),
     installation_type: text('installation_type'),
@@ -26,6 +28,7 @@ export const webhookDeliveries = sqliteTable('webhook_deliveries', {
     deliveryIdx: index('delivery_idx').on(table.delivery_id),
     eventIdx: index('event_idx').on(table.event),
     createdAtIndex: index('created_at_idx').on(table.created_at),
+    repoIdx: index('repo_full_name_idx').on(table.repo_full_name),
 }));
 
 // --- Event Specific Tables ---

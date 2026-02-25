@@ -4,10 +4,11 @@
  * @owner AI-Builder
  */
 
-import { Octokit } from '@octokit/rest'
-import { graphql } from '@octokit/graphql'
-import { retry } from '@octokit/plugin-retry'
-import { throttling } from '@octokit/plugin-throttling'
+// Types are safe to import top-level as they are erased at runtime
+import type { Octokit } from '@octokit/rest'
+import type { graphql } from '@octokit/graphql'
+
+let MyOctokit: any;
 
 
 type ThrottleOptions = {
@@ -22,7 +23,7 @@ type ThrottleLogger = {
   };
 };
 
-const MyOctokit = (Octokit as any).plugin(retry as any, throttling as any)
+// MyOctokit will be initialized dynamically
 
 let octokit: Octokit
 let gql: typeof graphql
@@ -34,6 +35,12 @@ let gql: typeof graphql
 const initOctokit = async (bindings: Env) => {
   if (!octokit) {
     const { getGithubToken } = await import('@utils/secrets');
+    const { Octokit: RealOctokit } = await import('@octokit/rest');
+    const { retry } = await import('@octokit/plugin-retry');
+    const { throttling } = await import('@octokit/plugin-throttling');
+    
+    MyOctokit = (RealOctokit as any).plugin(retry as any, throttling as any);
+
     const token = await getGithubToken(bindings);
 
     if (!token) {
@@ -77,9 +84,10 @@ const initOctokit = async (bindings: Env) => {
   
   if (!gql) {
      const { getGithubToken } = await import('@utils/secrets');
+     const { graphql: realGraphql } = await import('@octokit/graphql');
      const token = await getGithubToken(bindings);
      
-    gql = graphql.defaults({
+    gql = realGraphql.defaults({
       headers: {
         authorization: `token ${token || ''}`,
       },

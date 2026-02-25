@@ -1,24 +1,47 @@
 /**
  * @file src/utils/paginate.ts
- * @description This file contains utilities for handling paginated responses from the GitHub API.
+ * @description Provides utilities for handling paginated responses securely from the GitHub Octokit API.
  * @owner AI-Builder
  */
 
+import { Octokit } from "@octokit/rest";
+
 /**
- * A placeholder function for handling pagination.
- * @param {any} response - The response object from an Octokit request.
- * @returns {Promise<any[]>} A promise that resolves to an array of all items from all pages.
+ * A generic async generator to iterate through all pages of an Octokit rest endpoint response.
+ * This is memory efficient for extremely large payloads.
+ * 
+ * @param octokit The authenticated Octokit instance.
+ * @param route The GitHub API route string.
+ * @param parameters Any parameters dictating the route.
  */
-export const paginate = async (response: any): Promise<any[]> => {
-  // This is a placeholder implementation.
-  // A real implementation would use Octokit's pagination methods
-  // to fetch all pages of a result.
-  console.warn('paginate() is not yet implemented.');
-  return response.data;
+export async function* paginateStream<T>(
+  octokit: Octokit,
+  route: string,
+  parameters?: Record<string, any>
+): AsyncGenerator<T, void, unknown> {
+  const iterator = octokit.paginate.iterator(route as any, parameters || {});
+  
+  for await (const response of iterator) {
+    if (Array.isArray(response.data)) {
+      for (const item of response.data) {
+        yield item as T;
+      }
+    }
+  }
+}
+
+/**
+ * Fetches all pages of GitHub results greedily and returns the aggregated array.
+ * Wraps Octokit's built-in pagination extension.
+ * 
+ * @param octokit The authenticated Octokit instance.
+ * @param route The GitHub API route string.
+ * @param parameters Any parameters dictating the route.
+ */
+export const paginate = async <T = any>(
+  octokit: Octokit, 
+  route: string, 
+  parameters?: Record<string, any>
+): Promise<T[]> => {
+  return await octokit.paginate(route as any, parameters) as T[];
 };
-
-
-/**
- * @extension_point
- * This is a good place to add a generic pagination helper function.
- */

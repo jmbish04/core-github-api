@@ -1,5 +1,5 @@
 
-import { jules, JulesError } from '@google/jules-sdk';
+import type { JulesError } from '@google/jules-sdk';
 import { getDb } from '@db';
 import { julesSessions } from '@/db/schemas/agents/jules';
 import { eq } from 'drizzle-orm';
@@ -19,6 +19,7 @@ export class JulesService {
   }
 
   private async getClient() {
+    const { jules } = await import('@google/jules-sdk');
     // In Cloudflare Workers, we must pass the API key explicitly
     // as process.env is not available
     const apiKey = await this.env.JULES_API_KEY.get();

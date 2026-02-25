@@ -31,10 +31,20 @@ app.post("/start", zValidator("json", startSessionSchema), async (c) => {
     
     const parts = cleanUrl.split("/");
     if (parts.length >= 2) {
+      let branch = undefined;
+      // Handle https://github.com/owner/repo/tree/branch-name/maybe/slashes
+      if (parts.length >= 4 && (parts[2] === "tree" || parts[2] === "blob")) {
+        // Collect everything after /tree/ or /blob/ as the branch
+        // In reality, this might include file paths if it's a blob URL,
+        // but for session context, the branch or path starting with branch is better than nothing.
+        // Usually users provide /tree/branch-name
+        branch = parts.slice(3).join("/");
+      }
+
       repo = {
         owner: parts[0],
         repo: parts[1],
-        // TODO: Support branch parsing if needed
+        ...(branch ? { branch } : {})
       };
     }
   }

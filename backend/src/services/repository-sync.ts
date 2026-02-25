@@ -710,7 +710,12 @@ export async function syncOwnerRepositories(
       }));
 
     if (projectsToCreate.length > 0) {
-      await db.insert(projects).values(projectsToCreate);
+      // D1 has a parameter limit (~100). Each project row has ~8 columns,
+      // so batches of 10 keep us safely under the limit (10 × 8 = 80 params).
+      const PROJECT_CHUNK_SIZE = 10;
+      for (const chunk of chunkArray(projectsToCreate, PROJECT_CHUNK_SIZE)) {
+        await db.insert(projects).values(chunk).onConflictDoNothing();
+      }
       projectsCreated = projectsToCreate.length;
     }
   }
