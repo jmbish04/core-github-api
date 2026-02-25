@@ -158,35 +158,16 @@ export async function getGithubClientSecret(env: Env): Promise<string | undefine
 }
 
 /**
- * Helper to fetch the full GitHub App Private Key from split Base64 secrets.
+ * Helper to fetch the full GitHub App Private Key.
  * @param env The worker environment bindings
- * @returns The reconstructed PEM private key string
+ * @returns The PEM private key string
  */
 export async function getGitHubPrivateKey(env: Env): Promise<string> {
-    // 1. Try Direct Bindings first (Preferred)
-    let pt1, pt2, pt3;
-    
-    if (env.GITHUB_APP_PRIVATE_KEY_PT1) pt1 = await env.GITHUB_APP_PRIVATE_KEY_PT1.get();
-    if (env.GITHUB_APP_PRIVATE_KEY_PT2) pt2 = await env.GITHUB_APP_PRIVATE_KEY_PT2.get();
-    if (env.GITHUB_APP_PRIVATE_KEY_PT3) pt3 = await env.GITHUB_APP_PRIVATE_KEY_PT3.get();
-
-    // 2. Fallback to getSecret (Managed/Pointer) if any part is missing
-    if (!pt1) pt1 = await getSecret(env, "GITHUB_APP_PRIVATE_KEY_PT1");
-    if (!pt2) pt2 = await getSecret(env, "GITHUB_APP_PRIVATE_KEY_PT2");
-    if (!pt3) pt3 = await getSecret(env, "GITHUB_APP_PRIVATE_KEY_PT3");
-
-    if (!pt1 || !pt2 || !pt3) {
-        throw new Error("Missing GitHub Private Key parts in Secrets Store");
+    if (env.GITHUB_APP_PRIVATE_KEY) {
+        return env.GITHUB_APP_PRIVATE_KEY;
     }
 
-    // 3. Concatenate the Base64 chunks and decode
-    const fullB64 = pt1 + pt2 + pt3;
-
-    try {
-        return atob(fullB64);
-    } catch (e) {
-        throw new Error("Failed to decode GitHub Private Key. Ensure it was stored as valid Base64.");
-    }
+    throw new Error("Missing GITHUB_APP_PRIVATE_KEY in Environment/Secrets Store");
 }
 
 /**
