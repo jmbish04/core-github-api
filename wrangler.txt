@@ -1,177 +1,473 @@
 
  ⛅️ wrangler 4.67.0 (update available 4.68.1)
 ─────────────────────────────────────────────
-Successfully created tail, expires at 2026-02-25T07:03:55Z
+Successfully created tail, expires at 2026-02-25T07:22:22Z
 Connected to core-github-api, waiting for logs...
-OrchestratorAgent.healthProbe - Ok @ 2/24/2026, 5:04:02 PM
-GET http://dummy-example.cloudflare.com/cdn-cgi/partyserver/set-name/ - Ok @ 2/24/2026, 5:04:01 PM
-Sandbox. - Ok @ 2/24/2026, 5:04:02 PM
-Sandbox. - Ok @ 2/24/2026, 5:04:01 PM
-Sandbox. - Ok @ 2/24/2026, 5:04:02 PM
-Sandbox. - Ok @ 2/24/2026, 5:04:02 PM
-GET https://core-github-api.hacolby.workers.dev/healthz - Ok @ 2/24/2026, 5:04:03 PM
-  (log) {"level":"info","message":"[route] GET /healthz","method":"GET","path":"/healthz","status":200,"latency":"0ms","payloadSizeBytes":0,"correlationId":"3537b90c-000e-4a56-b04a-e714810c08c4","timestamp":"2026-02-25T01:04:03.269Z","payloadSize":"0 bytes"}
-GET http://dummy-example.cloudflare.com/cdn-cgi/partyserver/set-name/ - Ok @ 2/24/2026, 5:04:02 PM
-GeminiAgent.healthProbe - Ok @ 2/24/2026, 5:04:03 PM
-GET http://dummy-example.cloudflare.com/cdn-cgi/partyserver/set-name/ - Ok @ 2/24/2026, 5:04:03 PM
-POST http://owner-agent/webhook - Ok @ 2/24/2026, 5:04:03 PM
-  (log) {
-  displayMessage: 'State updated',
-  id: 'A17JdwVXrkamoWBuGA8ii',
-  payload: {},
-  timestamp: 1771981443616,
-  type: 'state:update'
-}
-Sandbox.exec - Ok @ 2/24/2026, 5:04:02 PM
-  (debug) Error checking 3000: The container is not listening in the TCP address 10.0.0.1:3000
-Sandbox.writeFile - Ok @ 2/24/2026, 5:04:04 PM
-  (log) {"level":"info","msg":"File written","component":"sandbox-do","sandboxId":"64e74442dd7dc1adb37f248e934c2abd6c4ca0426d70548414f8465fc235f7bf","traceId":"tr_d7b6beb40117438c","details":"/tmp/health-check.tmp (9 chars)","timestamp":"2026-02-25T01:04:04.630Z"}
-Sandbox.readFile - Ok @ 2/24/2026, 5:04:04 PM
-  (log) {"level":"info","msg":"File read","component":"sandbox-do","sandboxId":"64e74442dd7dc1adb37f248e934c2abd6c4ca0426d70548414f8465fc235f7bf","traceId":"tr_d7b6beb40117438c","details":"/tmp/health-check.tmp (9 chars)","timestamp":"2026-02-25T01:04:04.925Z"}
-Sandbox.exec - Ok @ 2/24/2026, 5:04:04 PM
-  (log) {"level":"info","msg":"Command executed","component":"sandbox-do","sandboxId":"64e74442dd7dc1adb37f248e934c2abd6c4ca0426d70548414f8465fc235f7bf","traceId":"tr_d7b6beb40117438c","details":"rm /tmp/health-check.tmp, Success: true","timestamp":"2026-02-25T01:04:05.023Z"}
-GET http://dummy-example.cloudflare.com/cdn-cgi/partyserver/set-name/ - Ok @ 2/24/2026, 5:04:03 PM
-PlannerAgent.healthProbe - Ok @ 2/24/2026, 5:04:05 PM
-POST https://core-github-api.hacolby.workers.dev/webhooks - Ok @ 2/24/2026, 5:04:03 PM
-  (log) [Standardization] Enforcing standards on jmbish04/testing-oktokit-commands
-  (log) [Standardization] Inferred tags for testing-oktokit-commands: [ 'Repository' ]
-  (log) {"level":"info","message":"[route] POST /webhooks","method":"POST","path":"/webhooks","status":200,"latency":"292ms","payloadSizeBytes":9097,"correlationId":"13528e5b-2fd8-49bd-a27e-855563b15a4d","timestamp":"2026-02-25T01:04:03.706Z","payloadSize":"9097 bytes"}
-  (log) [Standardization] Completed enforcement for jmbish04/testing-oktokit-commands
-GET http://dummy-example.cloudflare.com/cdn-cgi/partyserver/set-name/ - Ok @ 2/24/2026, 5:04:03 PM
-POST http://repo-agent/webhook - Ok @ 2/24/2026, 5:04:04 PM
-  (log) {
-  displayMessage: 'State updated',
-  id: 'dZrwl9vxhwIB5Zyfi41KI',
-  payload: {},
-  timestamp: 1771981444628,
-  type: 'state:update'
-}
-Sandbox.exec - Ok @ 2/24/2026, 5:04:05 PM
-  (log) {"level":"info","msg":"Command executed","component":"sandbox-do","sandboxId":"64e74442dd7dc1adb37f248e934c2abd6c4ca0426d70548414f8465fc235f7bf","traceId":"tr_d7b6beb40117438c","details":"git clone --depth=1 https://github.com/octocat/Hello-World.git /tmp/health-git, Success: true","timestamp":"2026-02-25T01:04:05.985Z"}
-GET http://dummy-example.cloudflare.com/cdn-cgi/partyserver/set-name/ - Ok @ 2/24/2026, 5:04:05 PM
-Supervisor.healthProbe - Ok @ 2/24/2026, 5:04:06 PM
-GET http://dummy-example.cloudflare.com/cdn-cgi/partyserver/set-name/ - Ok @ 2/24/2026, 5:04:04 PM
-GET http://dummy-example.cloudflare.com/cdn-cgi/partyserver/set-name/ - Ok @ 2/24/2026, 5:04:05 PM
-POST http://owner-agent/webhook - Ok @ 2/24/2026, 5:04:07 PM
-  (log) {
-  displayMessage: 'State updated',
-  id: '_4zUqWOx0JJEGXo3-McNA',
-  payload: {},
-  timestamp: 1771981447046,
-  type: 'state:update'
-}
-POST http://repo-agent/webhook - Ok @ 2/24/2026, 5:04:07 PM
-  (log) {
-  displayMessage: 'State updated',
-  id: 'Yd6lQuCvGbxhuAWltokgN',
-  payload: {},
-  timestamp: 1771981447047,
-  type: 'state:update'
-}
-DeepReasoningAgent.healthProbe - Ok @ 2/24/2026, 5:04:07 PM
-GET http://dummy-example.cloudflare.com/cdn-cgi/partyserver/set-name/ - Ok @ 2/24/2026, 5:04:06 PM
-GET http://dummy-example.cloudflare.com/cdn-cgi/partyserver/set-name/ - Ok @ 2/24/2026, 5:04:07 PM
-GET http://dummy-example.cloudflare.com/cdn-cgi/partyserver/set-name/ - Ok @ 2/24/2026, 5:04:07 PM
-POST http://owner-agent/webhook - Ok @ 2/24/2026, 5:04:07 PM
-  (log) {
-  displayMessage: 'State updated',
-  id: '7ay4sCmqi_m9lMjUgmJN6',
-  payload: {},
-  timestamp: 1771981447959,
-  type: 'state:update'
-}
-POST http://repo-agent/webhook - Ok @ 2/24/2026, 5:04:07 PM
-  (log) {
-  displayMessage: 'State updated',
-  id: 'dxx6_qcrGwHHW_-q2ZUA6',
-  payload: {},
-  timestamp: 1771981447952,
-  type: 'state:update'
-}
-POST https://core-github-api.hacolby.workers.dev/webhooks - Ok @ 2/24/2026, 5:04:06 PM
-  (log) [Standardization] Enforcing standards on jmbish04/testing-oktokit-commands
-  (log) [Standardization] Inferred tags for testing-oktokit-commands: [ 'Repository' ]
-  (log) [Standardization] Completed enforcement for jmbish04/testing-oktokit-commands
-  (log) {"level":"info","message":"[route] POST /webhooks","method":"POST","path":"/webhooks","status":200,"latency":"291ms","payloadSizeBytes":9124,"correlationId":"175505c0-cd3d-4c26-95a2-f94088eb24d5","timestamp":"2026-02-25T01:04:07.272Z","payloadSize":"9124 bytes"}
-POST https://core-github-api.hacolby.workers.dev/webhooks - Ok @ 2/24/2026, 5:04:06 PM
-  (log) [Standardization] Enforcing standards on jmbish04/testing-oktokit-commands
-  (log) [Standardization] Inferred tags for testing-oktokit-commands: [ 'Repository' ]
-  (log) {"level":"info","message":"[route] POST /webhooks","method":"POST","path":"/webhooks","status":200,"latency":"225ms","payloadSizeBytes":10807,"correlationId":"702c0afd-25f4-4bb4-9435-b74e537ebe90","timestamp":"2026-02-25T01:04:07.980Z","payloadSize":"10807 bytes"}
-  (log) [Standardization] Completed enforcement for jmbish04/testing-oktokit-commands
-POST http://do/diagnose - Ok @ 2/24/2026, 5:04:11 PM
-  (log) {"level":"error","message":"HealthDiagnostician Execution Failed","meta":{"error":{"status":400,"headers":{},"requestID":null}},"source":"HealthDiagnostician:85349","timestamp":"2026-02-25T01:04:16.098Z"}
-POST https://core-github-api.hacolby.workers.dev/api/health/run - Ok @ 2/24/2026, 5:04:00 PM
+GET https://core-github-api.hacolby.workers.dev/healthz - Ok @ 2/24/2026, 5:22:33 PM
+  (log) {"level":"info","message":"[route] GET /healthz","method":"GET","path":"/healthz","status":200,"latency":"0ms","payloadSizeBytes":0,"correlationId":"66568f15-d88e-4801-9098-291ed4c8438c","timestamp":"2026-02-25T01:22:34.181Z","payloadSize":"0 bytes"}
+Alarm @ 2/24/2026, 5:21:37 PM - Exception Thrown
+GET https://core-github-api.hacolby.workers.dev/healthz - Ok @ 2/24/2026, 5:23:03 PM
+  (log) {"level":"info","message":"[route] GET /healthz","method":"GET","path":"/healthz","status":200,"latency":"0ms","payloadSizeBytes":0,"correlationId":"896a9389-73a2-4abc-950a-859a2b6a495d","timestamp":"2026-02-25T01:23:03.425Z","payloadSize":"0 bytes"}
+GET https://core-github-api.hacolby.workers.dev/health - Ok @ 2/24/2026, 5:23:11 PM
+GET https://core-github-api.hacolby.workers.dev/_astro/xterm.qxJ8_QYu.css - Ok @ 2/24/2026, 5:23:11 PM
+GET https://core-github-api.hacolby.workers.dev/_astro/client-app.BoOjCtb6.css - Ok @ 2/24/2026, 5:23:11 PM
+GET https://core-github-api.hacolby.workers.dev/_astro/client.CqGF9aJR.js - Ok @ 2/24/2026, 5:23:11 PM
+GET https://core-github-api.hacolby.workers.dev/_astro/client-app.BW8SkUB9.js - Ok @ 2/24/2026, 5:23:11 PM
+GET https://core-github-api.hacolby.workers.dev/_astro/index.BGPa3Vt3.js - Ok @ 2/24/2026, 5:23:11 PM
+GET https://core-github-api.hacolby.workers.dev/_astro/label.V5fVfBTI.js - Ok @ 2/24/2026, 5:23:12 PM
+GET https://core-github-api.hacolby.workers.dev/healthz - Ok @ 2/24/2026, 5:23:12 PM
+  (log) {"level":"info","message":"[route] GET /healthz","method":"GET","path":"/healthz","status":200,"latency":"0ms","payloadSizeBytes":0,"correlationId":"349e9ede-8820-4c71-a0e3-87f768d1e2ff","timestamp":"2026-02-25T01:23:12.121Z","payloadSize":"0 bytes"}
+GET https://core-github-api.hacolby.workers.dev/favicon.svg - Ok @ 2/24/2026, 5:23:12 PM
+GET https://core-github-api.hacolby.workers.dev/favicon.svg - Ok @ 2/24/2026, 5:23:12 PM
+GET https://core-github-api.hacolby.workers.dev/api/health/latest - Ok @ 2/24/2026, 5:23:12 PM
   (log) [Secrets Diagnostic] {
   WORKER_API_KEY: '41565823...2389',
   GITHUB_TOKEN: 'ghp_f1AI...CxnJ',
   AI_GATEWAY_TOKEN: 'LNotScoX...lrpG'
 }
-  (log) {"level":"info","message":"Creating issue in jmbish04/testing-oktokit-commands","meta":{"title":"Health Check 2026-02-25T01:04:01.005Z"},"source":"GitHubTool:createGitHubIssue:85349","timestamp":"2026-02-25T01:04:01.005Z"}
-  (log) {"level":"info","message":"Issue created successfully","meta":{"issueNumber":59,"html_url":"https://github.com/jmbish04/testing-oktokit-commands/issues/59"},"source":"GitHubTool:createGitHubIssue:85349","timestamp":"2026-02-25T01:04:01.592Z"}
-  (log) {"level":"info","message":"Creating comment on jmbish04/testing-oktokit-commands#59","source":"GitHubTool:createGitHubComment:85349","timestamp":"2026-02-25T01:04:01.592Z"}
-  (log) {"level":"info","message":"Comment created successfully","meta":{"commentId":3955746992,"html_url":"https://github.com/jmbish04/testing-oktokit-commands/issues/59#issuecomment-3955746992"},"source":"GitHubTool:createGitHubComment:85349","timestamp":"2026-02-25T01:04:05.257Z"}
-  (log) {"level":"info","message":"Updating issue jmbish04/testing-oktokit-commands#59","meta":{"updates":{"state":"closed"}},"source":"GitHubTool:updateGitHubIssue:85349","timestamp":"2026-02-25T01:04:05.257Z"}
-  (log) {"level":"info","message":"Issue updated successfully","meta":{"html_url":"https://github.com/jmbish04/testing-oktokit-commands/issues/59"},"source":"GitHubTool:updateGitHubIssue:85349","timestamp":"2026-02-25T01:04:05.928Z"}
-  (log) [HealthCoordinator] Run 3238952d-d527-4165-9635-75e5de9fb698: 9 checks, 1 failures → degraded
-  (log) {"level":"info","message":"[route] POST /api/health/run","method":"POST","path":"/api/health/run","status":200,"latency":"15208ms","payloadSizeBytes":17,"correlationId":"bcba8a99-c576-458b-a19d-c6c94add1c83","timestamp":"2026-02-25T01:04:16.190Z","payloadSize":"17 bytes"}
-GET https://core-github-api.hacolby.workers.dev/ - Ok @ 2/24/2026, 5:04:27 PM
-Alarm @ 2/24/2026, 5:04:03 PM - Ok
-  (log) Port 3000 is ready
-  (log) {"level":"info","msg":"Version retrieved","component":"sandbox-do","sandboxId":"64e74442dd7dc1adb37f248e934c2abd6c4ca0426d70548414f8465fc235f7bf","traceId":"tr_d7b6beb40117438c","details":"0.7.5","timestamp":"2026-02-25T01:04:04.422Z"}
-  (log) {"level":"info","msg":"Session created","component":"sandbox-do","sandboxId":"64e74442dd7dc1adb37f248e934c2abd6c4ca0426d70548414f8465fc235f7bf","traceId":"tr_d7b6beb40117438c","details":"ID: sandbox-sandbox-health-probe","timestamp":"2026-02-25T01:04:04.429Z"}
-  (log) {"level":"info","msg":"Command executed","component":"sandbox-do","sandboxId":"64e74442dd7dc1adb37f248e934c2abd6c4ca0426d70548414f8465fc235f7bf","traceId":"tr_d7b6beb40117438c","details":"echo ping, Success: true","timestamp":"2026-02-25T01:04:04.536Z"}
-Sandbox.exec - Ok @ 2/24/2026, 5:04:05 PM
-  (log) {"level":"info","msg":"Command executed","component":"sandbox-do","sandboxId":"64e74442dd7dc1adb37f248e934c2abd6c4ca0426d70548414f8465fc235f7bf","traceId":"tr_d7b6beb40117438c","details":"echo health-ok, Success: true","timestamp":"2026-02-25T01:04:06.124Z"}
-GET https://core-github-api.hacolby.workers.dev/healthz - Ok @ 2/24/2026, 5:04:33 PM
-  (log) {"level":"info","message":"[route] GET /healthz","method":"GET","path":"/healthz","status":200,"latency":"0ms","payloadSizeBytes":0,"correlationId":"833937c5-68a5-4341-b50e-c714ffc8e541","timestamp":"2026-02-25T01:04:33.267Z","payloadSize":"0 bytes"}
-GET https://core-github-api.hacolby.workers.dev/ - Ok @ 2/24/2026, 5:04:34 PM
-Alarm @ 2/24/2026, 5:04:32 PM - Ok
-Alarm @ 2/24/2026, 5:04:32 PM - Ok
-GET https://core-github-api.hacolby.workers.dev/healthz - Ok @ 2/24/2026, 5:05:03 PM
-  (log) {"level":"info","message":"[route] GET /healthz","method":"GET","path":"/healthz","status":200,"latency":"0ms","payloadSizeBytes":0,"correlationId":"e7709324-d775-48fb-8419-07de4358b2bf","timestamp":"2026-02-25T01:05:03.431Z","payloadSize":"0 bytes"}
-Alarm @ 2/24/2026, 5:04:36 PM - Ok
-Alarm @ 2/24/2026, 5:04:35 PM - Ok
-GET https://core-github-api.hacolby.workers.dev/healthz - Ok @ 2/24/2026, 5:05:33 PM
-  (log) {"level":"info","message":"[route] GET /healthz","method":"GET","path":"/healthz","status":200,"latency":"0ms","payloadSizeBytes":0,"correlationId":"54123f40-ac5a-464c-838c-715d12d10a91","timestamp":"2026-02-25T01:05:33.425Z","payloadSize":"0 bytes"}
-Alarm @ 2/24/2026, 5:05:06 PM - Ok
-Alarm @ 2/24/2026, 5:05:06 PM - Ok
-GET https://core-github-api.hacolby.workers.dev/healthz - Ok @ 2/24/2026, 5:06:03 PM
-  (log) {"level":"info","message":"[route] GET /healthz","method":"GET","path":"/healthz","status":200,"latency":"0ms","payloadSizeBytes":0,"correlationId":"a550bd8d-4199-442b-852c-15c9d51027cf","timestamp":"2026-02-25T01:06:03.489Z","payloadSize":"0 bytes"}
-Alarm @ 2/24/2026, 5:05:36 PM - Ok
-Alarm @ 2/24/2026, 5:05:36 PM - Ok
-GET https://core-github-api.hacolby.workers.dev/healthz - Ok @ 2/24/2026, 5:06:33 PM
-  (log) {"level":"info","message":"[route] GET /healthz","method":"GET","path":"/healthz","status":200,"latency":"0ms","payloadSizeBytes":0,"correlationId":"01b722e6-c5fc-4ecc-863e-bde447f0f8f0","timestamp":"2026-02-25T01:06:33.417Z","payloadSize":"0 bytes"}
-Alarm @ 2/24/2026, 5:06:06 PM - Ok
-Alarm @ 2/24/2026, 5:06:06 PM - Ok
-GET https://core-github-api.hacolby.workers.dev/healthz - Ok @ 2/24/2026, 5:07:03 PM
-  (log) {"level":"info","message":"[route] GET /healthz","method":"GET","path":"/healthz","status":200,"latency":"0ms","payloadSizeBytes":0,"correlationId":"3c6fc813-aaf6-40fb-bb77-b1894ea8444f","timestamp":"2026-02-25T01:07:04.230Z","payloadSize":"0 bytes"}
-Alarm @ 2/24/2026, 5:06:36 PM - Ok
-Alarm @ 2/24/2026, 5:06:36 PM - Ok
-GET https://core-github-api.hacolby.workers.dev/healthz - Ok @ 2/24/2026, 5:07:33 PM
-  (log) {"level":"info","message":"[route] GET /healthz","method":"GET","path":"/healthz","status":200,"latency":"0ms","payloadSizeBytes":0,"correlationId":"344c8402-025f-446f-9f7c-c661e8c87c15","timestamp":"2026-02-25T01:07:33.271Z","payloadSize":"0 bytes"}
-Alarm @ 2/24/2026, 5:07:06 PM - Ok
-Alarm @ 2/24/2026, 5:07:06 PM - Ok
-GET https://core-github-api.hacolby.workers.dev/healthz - Ok @ 2/24/2026, 5:08:03 PM
-  (log) {"level":"info","message":"[route] GET /healthz","method":"GET","path":"/healthz","status":200,"latency":"0ms","payloadSizeBytes":0,"correlationId":"99c2d778-60f0-494e-90a6-8013645914c3","timestamp":"2026-02-25T01:08:04.573Z","payloadSize":"0 bytes"}
-Alarm @ 2/24/2026, 5:07:36 PM - Ok
-Alarm @ 2/24/2026, 5:07:36 PM - Ok
-GET https://core-github-api.hacolby.workers.dev/healthz - Ok @ 2/24/2026, 5:08:33 PM
-  (log) {"level":"info","message":"[route] GET /healthz","method":"GET","path":"/healthz","status":200,"latency":"0ms","payloadSizeBytes":0,"correlationId":"994bb421-7480-4000-ad7a-909dde7d5bff","timestamp":"2026-02-25T01:08:33.275Z","payloadSize":"0 bytes"}
-Alarm @ 2/24/2026, 5:08:06 PM - Ok
-Alarm @ 2/24/2026, 5:08:06 PM - Ok
-GET https://core-github-api.hacolby.workers.dev/healthz - Ok @ 2/24/2026, 5:09:03 PM
-  (log) {"level":"info","message":"[route] GET /healthz","method":"GET","path":"/healthz","status":200,"latency":"0ms","payloadSizeBytes":0,"correlationId":"68b7fd62-beb0-4c3b-9268-2a46a3d9ee71","timestamp":"2026-02-25T01:09:03.443Z","payloadSize":"0 bytes"}
-Alarm @ 2/24/2026, 5:08:36 PM - Ok
-Alarm @ 2/24/2026, 5:08:36 PM - Ok
-GET https://core-github-api.hacolby.workers.dev/healthz - Ok @ 2/24/2026, 5:09:33 PM
-  (log) {"level":"info","message":"[route] GET /healthz","method":"GET","path":"/healthz","status":200,"latency":"0ms","payloadSizeBytes":0,"correlationId":"b3461a43-e687-454f-9ece-2f0252a289bf","timestamp":"2026-02-25T01:09:34.449Z","payloadSize":"0 bytes"}
-Alarm @ 2/24/2026, 5:09:06 PM - Ok
-Alarm @ 2/24/2026, 5:09:06 PM - Ok
-GET https://core-github-api.hacolby.workers.dev/healthz - Ok @ 2/24/2026, 5:10:03 PM
-  (log) {"level":"info","message":"[route] GET /healthz","method":"GET","path":"/healthz","status":200,"latency":"0ms","payloadSizeBytes":0,"correlationId":"85cda62c-f406-4039-a786-1981762aef64","timestamp":"2026-02-25T01:10:03.265Z","payloadSize":"0 bytes"}
-Alarm @ 2/24/2026, 5:09:36 PM - Ok
-Alarm @ 2/24/2026, 5:09:36 PM - Ok
-GET https://core-github-api.hacolby.workers.dev/healthz - Ok @ 2/24/2026, 5:10:33 PM
-  (log) {"level":"info","message":"[route] GET /healthz","method":"GET","path":"/healthz","status":200,"latency":"0ms","payloadSizeBytes":0,"correlationId":"259279a6-a884-4ebd-be00-b418e2c203d4","timestamp":"2026-02-25T01:10:33.404Z","payloadSize":"0 bytes"}
-Alarm @ 2/24/2026, 5:10:06 PM - Ok
-Alarm @ 2/24/2026, 5:10:06 PM - Ok
+  (log) {"level":"info","message":"[route] GET /api/health/latest","method":"GET","path":"/api/health/latest","status":200,"latency":"54ms","payloadSizeBytes":0,"correlationId":"9013fc14-aa5b-4894-839d-795e49439408","timestamp":"2026-02-25T01:23:12.947Z","payloadSize":"0 bytes"}
+Sandbox.setKeepAlive - Ok @ 2/24/2026, 5:23:13 PM
+Sandbox.setContainerTimeouts - Ok @ 2/24/2026, 5:23:13 PM
+Sandbox.setSleepAfter - Ok @ 2/24/2026, 5:23:13 PM
+Sandbox.setSandboxName - Ok @ 2/24/2026, 5:22:47 PM
+Sandbox.exec - Ok @ 2/24/2026, 5:23:13 PM
+  (log) {"level":"info","msg":"Command executed","component":"sandbox-do","sandboxId":"64e74442dd7dc1adb37f248e934c2abd6c4ca0426d70548414f8465fc235f7bf","traceId":"tr_957e5a842f6b4de4","details":"echo ping, Success: true","timestamp":"2026-02-25T01:23:14.012Z"}
+Sandbox.writeFile - Ok @ 2/24/2026, 5:23:14 PM
+  (log) {"level":"info","msg":"File written","component":"sandbox-do","sandboxId":"64e74442dd7dc1adb37f248e934c2abd6c4ca0426d70548414f8465fc235f7bf","traceId":"tr_957e5a842f6b4de4","details":"/tmp/health-check.tmp (9 chars)","timestamp":"2026-02-25T01:23:14.078Z"}
+Sandbox.readFile - Ok @ 2/24/2026, 5:23:14 PM
+  (log) {"level":"info","msg":"File read","component":"sandbox-do","sandboxId":"64e74442dd7dc1adb37f248e934c2abd6c4ca0426d70548414f8465fc235f7bf","traceId":"tr_957e5a842f6b4de4","details":"/tmp/health-check.tmp (9 chars)","timestamp":"2026-02-25T01:23:14.185Z"}
+Sandbox.exec - Ok @ 2/24/2026, 5:23:14 PM
+  (log) {"level":"info","msg":"Command executed","component":"sandbox-do","sandboxId":"64e74442dd7dc1adb37f248e934c2abd6c4ca0426d70548414f8465fc235f7bf","traceId":"tr_957e5a842f6b4de4","details":"rm /tmp/health-check.tmp, Success: true","timestamp":"2026-02-25T01:23:14.265Z"}
+Sandbox.exec - Ok @ 2/24/2026, 5:23:14 PM
+  (log) {"level":"info","msg":"Command executed","component":"sandbox-do","sandboxId":"64e74442dd7dc1adb37f248e934c2abd6c4ca0426d70548414f8465fc235f7bf","traceId":"tr_957e5a842f6b4de4","details":"git clone --depth=1 https://github.com/octocat/Hello-World.git /tmp/health-git, Success: false","timestamp":"2026-02-25T01:23:14.365Z"}
+GET http://dummy-example.cloudflare.com/cdn-cgi/partyserver/set-name/ - Ok @ 2/24/2026, 5:23:13 PM
+OrchestratorAgent.healthProbe - Ok @ 2/24/2026, 5:23:14 PM
+GeminiAgent.healthProbe - Ok @ 2/24/2026, 5:23:16 PM
+GET http://dummy-example.cloudflare.com/cdn-cgi/partyserver/set-name/ - Ok @ 2/24/2026, 5:23:15 PM
+GET http://dummy-example.cloudflare.com/cdn-cgi/partyserver/set-name/ - Ok @ 2/24/2026, 5:23:16 PM
+PlannerAgent.healthProbe - Ok @ 2/24/2026, 5:23:17 PM
+GET http://dummy-example.cloudflare.com/cdn-cgi/partyserver/set-name/ - Ok @ 2/24/2026, 5:23:17 PM
+Supervisor.healthProbe - Ok @ 2/24/2026, 5:23:18 PM
+GET http://dummy-example.cloudflare.com/cdn-cgi/partyserver/set-name/ - Ok @ 2/24/2026, 5:23:17 PM
+GET http://dummy-example.cloudflare.com/cdn-cgi/partyserver/set-name/ - Ok @ 2/24/2026, 5:23:17 PM
+POST http://owner-agent/webhook - Ok @ 2/24/2026, 5:23:18 PM
+  (log) {
+  displayMessage: 'State updated',
+  id: 'eLAUyMLpY-OkcGckm_Mcw',
+  payload: {},
+  timestamp: 1771982598883,
+  type: 'state:update'
+}
+POST http://repo-agent/webhook - Ok @ 2/24/2026, 5:23:18 PM
+  (log) {
+  displayMessage: 'State updated',
+  id: 'Dt4GpJopMzNaZR82cYhDK',
+  payload: {},
+  timestamp: 1771982598939,
+  type: 'state:update'
+}
+POST https://core-github-api.hacolby.workers.dev/webhooks - Ok @ 2/24/2026, 5:23:16 PM
+  (log) [Standardization] Enforcing standards on jmbish04/testing-oktokit-commands
+  (log) [Standardization] Inferred tags for testing-oktokit-commands: [ 'Repository' ]
+  (log) [Standardization] Completed enforcement for jmbish04/testing-oktokit-commands
+  (log) {"level":"info","message":"[route] POST /webhooks","method":"POST","path":"/webhooks","status":200,"latency":"351ms","payloadSizeBytes":9097,"correlationId":"7ed4757f-a52b-4901-b837-861f1e752a0a","timestamp":"2026-02-25T01:23:17.986Z","payloadSize":"9097 bytes"}
+GET http://dummy-example.cloudflare.com/cdn-cgi/partyserver/set-name/ - Ok @ 2/24/2026, 5:23:18 PM
+DeepReasoningAgent.healthProbe - Ok @ 2/24/2026, 5:23:19 PM
+GET http://dummy-example.cloudflare.com/cdn-cgi/partyserver/set-name/ - Ok @ 2/24/2026, 5:23:19 PM
+GET http://dummy-example.cloudflare.com/cdn-cgi/partyserver/set-name/ - Ok @ 2/24/2026, 5:23:19 PM
+POST http://owner-agent/webhook - Ok @ 2/24/2026, 5:23:19 PM
+  (log) {
+  displayMessage: 'State updated',
+  id: 'KsfuRn03qurzOQVX4Z65r',
+  payload: {},
+  timestamp: 1771982600004,
+  type: 'state:update'
+}
+POST http://repo-agent/webhook - Ok @ 2/24/2026, 5:23:20 PM
+  (log) {
+  displayMessage: 'State updated',
+  id: 'HRSHv0fOr-fLuePoocFX2',
+  payload: {},
+  timestamp: 1771982600027,
+  type: 'state:update'
+}
+GET http://dummy-example.cloudflare.com/cdn-cgi/partyserver/set-name/ - Ok @ 2/24/2026, 5:23:20 PM
+GET http://dummy-example.cloudflare.com/cdn-cgi/partyserver/set-name/ - Ok @ 2/24/2026, 5:23:20 PM
+POST http://repo-agent/webhook - Ok @ 2/24/2026, 5:23:20 PM
+  (log) {
+  displayMessage: 'State updated',
+  id: 'dLeMwd1wV7Zr7RaLiCG6R',
+  payload: {},
+  timestamp: 1771982600939,
+  type: 'state:update'
+}
+POST http://owner-agent/webhook - Ok @ 2/24/2026, 5:23:20 PM
+  (log) {
+  displayMessage: 'State updated',
+  id: 'KjBL8Tflzz8ff8KJtz9cQ',
+  payload: {},
+  timestamp: 1771982600932,
+  type: 'state:update'
+}
+POST https://core-github-api.hacolby.workers.dev/webhooks - Ok @ 2/24/2026, 5:23:18 PM
+  (log) [Standardization] Enforcing standards on jmbish04/testing-oktokit-commands
+  (log) [Standardization] Inferred tags for testing-oktokit-commands: [ 'Repository' ]
+  (log) [Standardization] Completed enforcement for jmbish04/testing-oktokit-commands
+  (log) {"level":"info","message":"[route] POST /webhooks","method":"POST","path":"/webhooks","status":200,"latency":"321ms","payloadSizeBytes":10807,"correlationId":"fe3f1ee7-7ccb-4b96-9a48-4251f3e048fa","timestamp":"2026-02-25T01:23:20.182Z","payloadSize":"10807 bytes"}
+POST https://core-github-api.hacolby.workers.dev/webhooks - Ok @ 2/24/2026, 5:23:19 PM
+  (log) [Standardization] Enforcing standards on jmbish04/testing-oktokit-commands
+  (log) [Standardization] Inferred tags for testing-oktokit-commands: [ 'Repository' ]
+  (log) {"level":"info","message":"[route] POST /webhooks","method":"POST","path":"/webhooks","status":200,"latency":"326ms","payloadSizeBytes":9124,"correlationId":"7db781f1-45f5-4421-afc7-5b764f699d32","timestamp":"2026-02-25T01:23:20.958Z","payloadSize":"9124 bytes"}
+  (log) [Standardization] Completed enforcement for jmbish04/testing-oktokit-commands
+POST http://do/diagnose - Ok @ 2/24/2026, 5:23:24 PM
+  (log) {"level":"error","message":"HealthDiagnostician Execution Failed","meta":{"error":{"status":400,"headers":{},"requestID":null}},"source":"HealthDiagnostician:85349","timestamp":"2026-02-25T01:23:29.157Z"}
+POST https://core-github-api.hacolby.workers.dev/api/health/run - Ok @ 2/24/2026, 5:23:13 PM
+  (log) [Secrets Diagnostic] {
+  WORKER_API_KEY: '41565823...2389',
+  GITHUB_TOKEN: 'ghp_f1AI...CxnJ',
+  AI_GATEWAY_TOKEN: 'LNotScoX...lrpG'
+}
+  (log) {"level":"info","message":"Creating issue in jmbish04/testing-oktokit-commands","meta":{"title":"Health Check 2026-02-25T01:23:13.880Z"},"source":"GitHubTool:createGitHubIssue:85349","timestamp":"2026-02-25T01:23:13.880Z"}
+  (log) {"level":"info","message":"Issue created successfully","meta":{"issueNumber":60,"html_url":"https://github.com/jmbish04/testing-oktokit-commands/issues/60"},"source":"GitHubTool:createGitHubIssue:85349","timestamp":"2026-02-25T01:23:14.316Z"}
+  (log) {"level":"info","message":"Creating comment on jmbish04/testing-oktokit-commands#60","source":"GitHubTool:createGitHubComment:85349","timestamp":"2026-02-25T01:23:14.316Z"}
+  (log) {"level":"info","message":"Comment created successfully","meta":{"commentId":3955909240,"html_url":"https://github.com/jmbish04/testing-oktokit-commands/issues/60#issuecomment-3955909240"},"source":"GitHubTool:createGitHubComment:85349","timestamp":"2026-02-25T01:23:17.482Z"}
+  (log) {"level":"info","message":"Updating issue jmbish04/testing-oktokit-commands#60","meta":{"updates":{"state":"closed"}},"source":"GitHubTool:updateGitHubIssue:85349","timestamp":"2026-02-25T01:23:17.482Z"}
+  (log) {"level":"info","message":"Issue updated successfully","meta":{"html_url":"https://github.com/jmbish04/testing-oktokit-commands/issues/60"},"source":"GitHubTool:updateGitHubIssue:85349","timestamp":"2026-02-25T01:23:18.007Z"}
+  (log) [HealthCoordinator] Run 3f0e9b20-8c6e-4d8a-80bd-97c2dc024b09: 9 checks, 1 failures → degraded
+  (log) {"level":"info","message":"[route] POST /api/health/run","method":"POST","path":"/api/health/run","status":200,"latency":"15454ms","payloadSizeBytes":17,"correlationId":"ee712903-0fc8-4873-80e6-218d8b3f5100","timestamp":"2026-02-25T01:23:29.304Z","payloadSize":"17 bytes"}
+Sandbox.exec - Ok @ 2/24/2026, 5:23:14 PM
+  (log) {"level":"info","msg":"Command executed","component":"sandbox-do","sandboxId":"64e74442dd7dc1adb37f248e934c2abd6c4ca0426d70548414f8465fc235f7bf","traceId":"tr_957e5a842f6b4de4","details":"echo health-ok, Success: true","timestamp":"2026-02-25T01:23:14.464Z"}
+Alarm @ 2/24/2026, 5:22:47 PM - Exception Thrown
+  (error) {"level":"error","msg":"Sandbox error","component":"sandbox-do","sandboxId":"64e74442dd7dc1adb37f248e934c2abd6c4ca0426d70548414f8465fc235f7bf","traceId":"tr_957e5a842f6b4de4","timestamp":"2026-02-25T01:23:31.994Z","error":{"message":"Network connection lost.","stack":"Error: Network connection lost.","name":"Error"}}
+Alarm @ 2/24/2026, 5:22:47 PM - Exception Thrown
+GET https://core-github-api.hacolby.workers.dev/healthz - Ok @ 2/24/2026, 5:23:42 PM
+  (log) {"level":"info","message":"[route] GET /healthz","method":"GET","path":"/healthz","status":200,"latency":"0ms","payloadSizeBytes":0,"correlationId":"79f3dd0e-8820-4dff-9da8-2cef46c7cb05","timestamp":"2026-02-25T01:23:42.121Z","payloadSize":"0 bytes"}
+GET https://core-github-api.hacolby.workers.dev/healthz - Ok @ 2/24/2026, 5:24:12 PM
+  (log) {"level":"info","message":"[route] GET /healthz","method":"GET","path":"/healthz","status":200,"latency":"0ms","payloadSizeBytes":0,"correlationId":"42a381a9-f9d1-48ec-90eb-3a448970af93","timestamp":"2026-02-25T01:24:13.387Z","payloadSize":"0 bytes"}
+GET https://core-github-api.hacolby.workers.dev/healthz - Ok @ 2/24/2026, 5:24:42 PM
+  (log) {"level":"info","message":"[route] GET /healthz","method":"GET","path":"/healthz","status":200,"latency":"0ms","payloadSizeBytes":0,"correlationId":"74693b7f-73c3-47c3-af6e-5f96b859e410","timestamp":"2026-02-25T01:24:42.122Z","payloadSize":"0 bytes"}
+GET https://core-github-api.hacolby.workers.dev/api/projects/by-repo/jmbish04/core-github-api - Ok @ 2/24/2026, 5:24:43 PM
+  (log) [Secrets Diagnostic] {
+  WORKER_API_KEY: '41565823...2389',
+  GITHUB_TOKEN: 'ghp_f1AI...CxnJ',
+  AI_GATEWAY_TOKEN: 'LNotScoX...lrpG'
+}
+  (log) {"level":"info","message":"[route] GET /api/projects/by-repo/jmbish04/core-github-api","method":"GET","path":"/api/projects/by-repo/jmbish04/core-github-api","status":200,"latency":"22ms","payloadSizeBytes":0,"correlationId":"e419a561-302a-4a20-8192-68e534c590b8","timestamp":"2026-02-25T01:24:43.412Z","payloadSize":"0 bytes"}
+GET https://core-github-api.hacolby.workers.dev/api/projects/favorites?userId=default-user - Ok @ 2/24/2026, 5:24:43 PM
+  (log) [Secrets Diagnostic] {
+  WORKER_API_KEY: '41565823...2389',
+  GITHUB_TOKEN: 'ghp_f1AI...CxnJ',
+  AI_GATEWAY_TOKEN: 'LNotScoX...lrpG'
+}
+  (log) {"level":"info","message":"[route] GET /api/projects/favorites","method":"GET","path":"/api/projects/favorites","status":200,"latency":"47ms","payloadSizeBytes":0,"correlationId":"a1ce3b58-a6a4-4df5-8961-db7e16729e7e","timestamp":"2026-02-25T01:24:43.439Z","payloadSize":"0 bytes"}
+GET https://core-github-api.hacolby.workers.dev/api/tasks/repos/jmbish04/core-github-api/tasks - Ok @ 2/24/2026, 5:24:43 PM
+  (log) [Secrets Diagnostic] {
+  WORKER_API_KEY: '41565823...2389',
+  GITHUB_TOKEN: 'ghp_f1AI...CxnJ',
+  AI_GATEWAY_TOKEN: 'LNotScoX...lrpG'
+}
+  (log) {"level":"info","message":"[route] GET /api/tasks/repos/jmbish04/core-github-api/tasks","method":"GET","path":"/api/tasks/repos/jmbish04/core-github-api/tasks","status":200,"latency":"42ms","payloadSizeBytes":0,"correlationId":"786d87be-fdab-4e30-ae32-286738088400","timestamp":"2026-02-25T01:24:43.435Z","payloadSize":"0 bytes"}
+GET https://core-github-api.hacolby.workers.dev/api/projects/REDACTED - Ok @ 2/24/2026, 5:24:43 PM
+  (log) [Secrets Diagnostic] {
+  WORKER_API_KEY: '41565823...2389',
+  GITHUB_TOKEN: 'ghp_f1AI...CxnJ',
+  AI_GATEWAY_TOKEN: 'LNotScoX...lrpG'
+}
+  (log) {"level":"info","message":"[route] GET /api/projects/1e790d53-540f-4adf-83c4-93d79e10be96","method":"GET","path":"/api/projects/1e790d53-540f-4adf-83c4-93d79e10be96","status":200,"latency":"174ms","payloadSizeBytes":0,"correlationId":"00bd2356-c6eb-42af-98d9-95f9805c275d","timestamp":"2026-02-25T01:24:43.613Z","payloadSize":"0 bytes"}
+GET https://core-github-api.hacolby.workers.dev/api/projects/REDACTED/overview - Ok @ 2/24/2026, 5:24:43 PM
+  (log) [Secrets Diagnostic] {
+  WORKER_API_KEY: '41565823...2389',
+  GITHUB_TOKEN: 'ghp_f1AI...CxnJ',
+  AI_GATEWAY_TOKEN: 'LNotScoX...lrpG'
+}
+  (error) [projects] Failed to parse wrangler.jsonc: SyntaxError: Expected ',' or ']' after array element in JSON at position 1284 (line 65 column 1)
+  (log) {"level":"info","message":"[route] GET /api/projects/1e790d53-540f-4adf-83c4-93d79e10be96/overview","method":"GET","path":"/api/projects/1e790d53-540f-4adf-83c4-93d79e10be96/overview","status":200,"latency":"1939ms","payloadSizeBytes":0,"correlationId":"107be2a4-c401-4010-ab94-79912717e26c","timestamp":"2026-02-25T01:24:45.379Z","payloadSize":"0 bytes"}
+GET https://core-github-api.hacolby.workers.dev/api/projects/REDACTED/codebase/file?path=package.json - Ok @ 2/24/2026, 5:24:45 PM
+  (log) [Secrets Diagnostic] {
+  WORKER_API_KEY: '41565823...2389',
+  GITHUB_TOKEN: 'ghp_f1AI...CxnJ',
+  AI_GATEWAY_TOKEN: 'LNotScoX...lrpG'
+}
+  (log) {"level":"info","message":"[route] GET /api/projects/1e790d53-540f-4adf-83c4-93d79e10be96/codebase/file","method":"GET","path":"/api/projects/1e790d53-540f-4adf-83c4-93d79e10be96/codebase/file","status":200,"latency":"156ms","payloadSizeBytes":0,"correlationId":"c184e5f2-5a03-48a4-afd1-fc3c610ebfa1","timestamp":"2026-02-25T01:24:46.449Z","payloadSize":"0 bytes"}
+POST https://core-github-api.hacolby.workers.dev/api/projects/REDACTED/generate-description - Ok @ 2/24/2026, 5:24:45 PM
+  (log) [Secrets Diagnostic] {
+  WORKER_API_KEY: '41565823...2389',
+  GITHUB_TOKEN: 'ghp_f1AI...CxnJ',
+  AI_GATEWAY_TOKEN: 'LNotScoX...lrpG'
+}
+  (error) [projects] Failed to generate description: Error: 400 status code (no body)
+  (log) {"level":"info","message":"[route] POST /api/projects/1e790d53-540f-4adf-83c4-93d79e10be96/generate-description","method":"POST","path":"/api/projects/1e790d53-540f-4adf-83c4-93d79e10be96/generate-description","status":500,"latency":"2659ms","payloadSizeBytes":0,"correlationId":"bcfff6bd-0d09-4593-b112-3f81f0e94d66","timestamp":"2026-02-25T01:24:48.162Z","payloadSize":"0 bytes"}
+POST https://core-github-api.hacolby.workers.dev/api/projects/REDACTED/vibe-coding/chat - Ok @ 2/24/2026, 5:25:00 PM
+  (log) [Secrets Diagnostic] {
+  WORKER_API_KEY: '41565823...2389',
+  GITHUB_TOKEN: 'ghp_f1AI...CxnJ',
+  AI_GATEWAY_TOKEN: 'LNotScoX...lrpG'
+}
+  (error) [projects] Vibe coding request failed: Error: 400 status code (no body)
+  (log) {"level":"info","message":"[route] POST /api/projects/1e790d53-540f-4adf-83c4-93d79e10be96/vibe-coding/chat","method":"POST","path":"/api/projects/1e790d53-540f-4adf-83c4-93d79e10be96/vibe-coding/chat","status":500,"latency":"440ms","payloadSizeBytes":18,"correlationId":"5b5f3f3b-8b53-4932-b413-192d01dba0e7","timestamp":"2026-02-25T01:25:01.403Z","payloadSize":"18 bytes"}
+GET https://core-github-api.hacolby.workers.dev/healthz - Ok @ 2/24/2026, 5:25:12 PM
+  (log) {"level":"info","message":"[route] GET /healthz","method":"GET","path":"/healthz","status":200,"latency":"0ms","payloadSizeBytes":0,"correlationId":"aac602c9-8877-4b46-862e-1cc7e417c17d","timestamp":"2026-02-25T01:25:12.121Z","payloadSize":"0 bytes"}
+POST https://core-github-api.hacolby.workers.dev/api/projects/REDACTED/generate-description - Ok @ 2/24/2026, 5:25:17 PM
+  (log) [Secrets Diagnostic] {
+  WORKER_API_KEY: '41565823...2389',
+  GITHUB_TOKEN: 'ghp_f1AI...CxnJ',
+  AI_GATEWAY_TOKEN: 'LNotScoX...lrpG'
+}
+  (error) [projects] Failed to generate description: Error: 400 status code (no body)
+  (log) {"level":"info","message":"[route] POST /api/projects/1e790d53-540f-4adf-83c4-93d79e10be96/generate-description","method":"POST","path":"/api/projects/1e790d53-540f-4adf-83c4-93d79e10be96/generate-description","status":500,"latency":"2089ms","payloadSizeBytes":0,"correlationId":"ef2abd5d-ee11-4b9f-9d50-7f37ec965d75","timestamp":"2026-02-25T01:25:19.532Z","payloadSize":"0 bytes"}
+GET https://core-github-api.hacolby.workers.dev/healthz - Ok @ 2/24/2026, 5:25:42 PM
+  (log) {"level":"info","message":"[route] GET /healthz","method":"GET","path":"/healthz","status":200,"latency":"0ms","payloadSizeBytes":0,"correlationId":"b240fb8d-9be0-4b57-9e70-6a2a3fbe29b8","timestamp":"2026-02-25T01:25:42.120Z","payloadSize":"0 bytes"}
+GET https://core-github-api.hacolby.workers.dev/healthz - Ok @ 2/24/2026, 5:26:12 PM
+  (log) {"level":"info","message":"[route] GET /healthz","method":"GET","path":"/healthz","status":200,"latency":"0ms","payloadSizeBytes":0,"correlationId":"acdd6e26-8d69-4a50-85a8-d29e81942de1","timestamp":"2026-02-25T01:26:13.106Z","payloadSize":"0 bytes"}
+GET https://core-github-api.hacolby.workers.dev/api/projects/by-repo/jmbish04/core-github-api - Ok @ 2/24/2026, 5:26:20 PM
+  (log) [Secrets Diagnostic] {
+  WORKER_API_KEY: '41565823...2389',
+  GITHUB_TOKEN: 'ghp_f1AI...CxnJ',
+  AI_GATEWAY_TOKEN: 'LNotScoX...lrpG'
+}
+  (log) {"level":"info","message":"[route] GET /api/projects/by-repo/jmbish04/core-github-api","method":"GET","path":"/api/projects/by-repo/jmbish04/core-github-api","status":200,"latency":"19ms","payloadSizeBytes":0,"correlationId":"02b4e24f-05cc-427d-ae71-79baffc12786","timestamp":"2026-02-25T01:26:20.437Z","payloadSize":"0 bytes"}
+GET https://core-github-api.hacolby.workers.dev/api/projects/REDACTED - Ok @ 2/24/2026, 5:26:20 PM
+  (log) [Secrets Diagnostic] {
+  WORKER_API_KEY: '41565823...2389',
+  GITHUB_TOKEN: 'ghp_f1AI...CxnJ',
+  AI_GATEWAY_TOKEN: 'LNotScoX...lrpG'
+}
+  (log) {"level":"info","message":"[route] GET /api/projects/1e790d53-540f-4adf-83c4-93d79e10be96","method":"GET","path":"/api/projects/1e790d53-540f-4adf-83c4-93d79e10be96","status":200,"latency":"27ms","payloadSizeBytes":0,"correlationId":"34821ed6-6a05-4dff-94b8-1ca00ac6b0d0","timestamp":"2026-02-25T01:26:20.443Z","payloadSize":"0 bytes"}
+GET https://core-github-api.hacolby.workers.dev/api/projects/REDACTED/overview - Exception Thrown @ 2/24/2026, 5:26:20 PM
+  (log) [Secrets Diagnostic] {
+  WORKER_API_KEY: '41565823...2389',
+  GITHUB_TOKEN: 'ghp_f1AI...CxnJ',
+  AI_GATEWAY_TOKEN: 'LNotScoX...lrpG'
+}
+GET https://core-github-api.hacolby.workers.dev/api/tasks/repos/jmbish04/core-github-api/tasks - Ok @ 2/24/2026, 5:26:20 PM
+  (log) [Secrets Diagnostic] {
+  WORKER_API_KEY: '41565823...2389',
+  GITHUB_TOKEN: 'ghp_f1AI...CxnJ',
+  AI_GATEWAY_TOKEN: 'LNotScoX...lrpG'
+}
+  (log) {"level":"info","message":"[route] GET /api/tasks/repos/jmbish04/core-github-api/tasks","method":"GET","path":"/api/tasks/repos/jmbish04/core-github-api/tasks","status":200,"latency":"139ms","payloadSizeBytes":0,"correlationId":"a51e88d0-2293-4170-a6a2-244d69d17ccf","timestamp":"2026-02-25T01:26:21.262Z","payloadSize":"0 bytes"}
+GET https://core-github-api.hacolby.workers.dev/api/projects/favorites?userId=default-user - Ok @ 2/24/2026, 5:26:20 PM
+  (log) [Secrets Diagnostic] {
+  WORKER_API_KEY: '41565823...2389',
+  GITHUB_TOKEN: 'ghp_f1AI...CxnJ',
+  AI_GATEWAY_TOKEN: 'LNotScoX...lrpG'
+}
+  (log) {"level":"info","message":"[route] GET /api/projects/favorites","method":"GET","path":"/api/projects/favorites","status":200,"latency":"163ms","payloadSizeBytes":0,"correlationId":"a4d8fabb-6246-4a73-940a-bb21e9f1bc6a","timestamp":"2026-02-25T01:26:21.286Z","payloadSize":"0 bytes"}
+GET https://core-github-api.hacolby.workers.dev/api/projects/REDACTED/codebase/file?path=package.json - Ok @ 2/24/2026, 5:26:20 PM
+  (log) [Secrets Diagnostic] {
+  WORKER_API_KEY: '41565823...2389',
+  GITHUB_TOKEN: 'ghp_f1AI...CxnJ',
+  AI_GATEWAY_TOKEN: 'LNotScoX...lrpG'
+}
+  (warn) Warning: A promise was resolved or rejected from a different request context than the one it was created in. However, the creating request has already been completed or canceled. Continuations for that request are unlikely to run safely and have been canceled. If this behavior breaks your worker, consider setting the `no_handle_cross_request_promise_resolution` compatibility flag for your worker.
+    at <anonymous>
+    at error48 (index.js:91107:26)
+    at Sync._tryToRun (index.js:91118:20)
+  (log) {"level":"info","message":"[route] GET /api/projects/1e790d53-540f-4adf-83c4-93d79e10be96/codebase/file","method":"GET","path":"/api/projects/1e790d53-540f-4adf-83c4-93d79e10be96/codebase/file","status":200,"latency":"321ms","payloadSizeBytes":0,"correlationId":"c6e2fa68-afc5-49d7-8786-b41a69319d1b","timestamp":"2026-02-25T01:26:21.404Z","payloadSize":"0 bytes"}
+GET https://core-github-api.hacolby.workers.dev/api/projects/REDACTED/overview - Ok @ 2/24/2026, 5:26:22 PM
+  (log) [Secrets Diagnostic] {
+  WORKER_API_KEY: '41565823...2389',
+  GITHUB_TOKEN: 'ghp_f1AI...CxnJ',
+  AI_GATEWAY_TOKEN: 'LNotScoX...lrpG'
+}
+  (error) [projects] Failed to parse wrangler.jsonc: SyntaxError: Expected ',' or ']' after array element in JSON at position 1284 (line 65 column 1)
+  (log) {"level":"info","message":"[route] GET /api/projects/1e790d53-540f-4adf-83c4-93d79e10be96/overview","method":"GET","path":"/api/projects/1e790d53-540f-4adf-83c4-93d79e10be96/overview","status":200,"latency":"1672ms","payloadSizeBytes":0,"correlationId":"15ed4941-63ee-4fbd-a25f-ffce8b43e5a9","timestamp":"2026-02-25T01:26:23.957Z","payloadSize":"0 bytes"}
+Alarm @ 2/24/2026, 5:23:34 PM - Ok
+GET https://core-github-api.hacolby.workers.dev/healthz - Ok @ 2/24/2026, 5:26:42 PM
+  (log) {"level":"info","message":"[route] GET /healthz","method":"GET","path":"/healthz","status":200,"latency":"0ms","payloadSizeBytes":0,"correlationId":"1f9a8631-6ab5-4b69-81aa-94e72e566be5","timestamp":"2026-02-25T01:26:42.120Z","payloadSize":"0 bytes"}
+GET https://core-github-api.hacolby.workers.dev/healthz - Ok @ 2/24/2026, 5:27:12 PM
+  (log) {"level":"info","message":"[route] GET /healthz","method":"GET","path":"/healthz","status":200,"latency":"0ms","payloadSizeBytes":0,"correlationId":"0bf298ba-cf03-4c13-af35-a689cfb3482c","timestamp":"2026-02-25T01:27:12.278Z","payloadSize":"0 bytes"}
+GET https://core-github-api.hacolby.workers.dev/api/projects/by-repo/jmbish04/core-github-api - Ok @ 2/24/2026, 5:27:38 PM
+  (log) [Secrets Diagnostic] {
+  WORKER_API_KEY: '41565823...2389',
+  GITHUB_TOKEN: 'ghp_f1AI...CxnJ',
+  AI_GATEWAY_TOKEN: 'LNotScoX...lrpG'
+}
+  (log) {"level":"info","message":"[route] GET /api/projects/by-repo/jmbish04/core-github-api","method":"GET","path":"/api/projects/by-repo/jmbish04/core-github-api","status":200,"latency":"33ms","payloadSizeBytes":0,"correlationId":"7ded7d75-94c8-4ae2-bdcb-4dc65c76a7bd","timestamp":"2026-02-25T01:27:38.691Z","payloadSize":"0 bytes"}
+GET https://core-github-api.hacolby.workers.dev/api/projects/REDACTED/overview - Exception Thrown @ 2/24/2026, 5:27:38 PM
+  (log) [Secrets Diagnostic] {
+  WORKER_API_KEY: '41565823...2389',
+  GITHUB_TOKEN: 'ghp_f1AI...CxnJ',
+  AI_GATEWAY_TOKEN: 'LNotScoX...lrpG'
+}
+GET https://core-github-api.hacolby.workers.dev/api/projects/REDACTED - Ok @ 2/24/2026, 5:27:38 PM
+  (log) [Secrets Diagnostic] {
+  WORKER_API_KEY: '41565823...2389',
+  GITHUB_TOKEN: 'ghp_f1AI...CxnJ',
+  AI_GATEWAY_TOKEN: 'LNotScoX...lrpG'
+}
+  (log) {"level":"info","message":"[route] GET /api/projects/1e790d53-540f-4adf-83c4-93d79e10be96","method":"GET","path":"/api/projects/1e790d53-540f-4adf-83c4-93d79e10be96","status":200,"latency":"154ms","payloadSizeBytes":0,"correlationId":"2f7450fe-ea7c-467f-ac84-f91283bb743e","timestamp":"2026-02-25T01:27:39.663Z","payloadSize":"0 bytes"}
+GET https://core-github-api.hacolby.workers.dev/api/tasks/repos/jmbish04/core-github-api/tasks - Ok @ 2/24/2026, 5:27:38 PM
+  (log) [Secrets Diagnostic] {
+  WORKER_API_KEY: '41565823...2389',
+  GITHUB_TOKEN: 'ghp_f1AI...CxnJ',
+  AI_GATEWAY_TOKEN: 'LNotScoX...lrpG'
+}
+  (log) {"level":"info","message":"[route] GET /api/tasks/repos/jmbish04/core-github-api/tasks","method":"GET","path":"/api/tasks/repos/jmbish04/core-github-api/tasks","status":200,"latency":"152ms","payloadSizeBytes":0,"correlationId":"044036f7-0651-414c-b845-96d61ec43aca","timestamp":"2026-02-25T01:27:39.661Z","payloadSize":"0 bytes"}
+GET https://core-github-api.hacolby.workers.dev/api/projects/favorites?userId=default-user - Ok @ 2/24/2026, 5:27:38 PM
+  (log) [Secrets Diagnostic] {
+  WORKER_API_KEY: '41565823...2389',
+  GITHUB_TOKEN: 'ghp_f1AI...CxnJ',
+  AI_GATEWAY_TOKEN: 'LNotScoX...lrpG'
+}
+  (log) {"level":"info","message":"[route] GET /api/projects/favorites","method":"GET","path":"/api/projects/favorites","status":200,"latency":"185ms","payloadSizeBytes":0,"correlationId":"7f910bb0-5d9c-4f46-acdc-a87b62b75b37","timestamp":"2026-02-25T01:27:39.646Z","payloadSize":"0 bytes"}
+GET https://core-github-api.hacolby.workers.dev/api/projects/REDACTED/codebase/file?path=package.json - Ok @ 2/24/2026, 5:27:38 PM
+  (log) [Secrets Diagnostic] {
+  WORKER_API_KEY: '41565823...2389',
+  GITHUB_TOKEN: 'ghp_f1AI...CxnJ',
+  AI_GATEWAY_TOKEN: 'LNotScoX...lrpG'
+}
+  (log) {"level":"info","message":"[route] GET /api/projects/1e790d53-540f-4adf-83c4-93d79e10be96/codebase/file","method":"GET","path":"/api/projects/1e790d53-540f-4adf-83c4-93d79e10be96/codebase/file","status":200,"latency":"335ms","payloadSizeBytes":0,"correlationId":"a11ba46b-90ad-4ce3-a2fb-ab7af32416d7","timestamp":"2026-02-25T01:27:39.845Z","payloadSize":"0 bytes"}
+  (warn) Warning: A promise was resolved or rejected from a different request context than the one it was created in. However, the creating request has already been completed or canceled. Continuations for that request are unlikely to run safely and have been canceled. If this behavior breaks your worker, consider setting the `no_handle_cross_request_promise_resolution` compatibility flag for your worker.
+    at Job._resolve (<anonymous>)
+    at Job.doExecute (index.js:90781:27)
+GET https://core-github-api.hacolby.workers.dev/api/health/latest - Ok @ 2/24/2026, 5:27:41 PM
+  (log) [Secrets Diagnostic] {
+  WORKER_API_KEY: '41565823...2389',
+  GITHUB_TOKEN: 'ghp_f1AI...CxnJ',
+  AI_GATEWAY_TOKEN: 'LNotScoX...lrpG'
+}
+  (log) {"level":"info","message":"[route] GET /api/health/latest","method":"GET","path":"/api/health/latest","status":200,"latency":"29ms","payloadSizeBytes":0,"correlationId":"2e14ee17-9ebc-41a1-bd98-b7f578738800","timestamp":"2026-02-25T01:27:41.186Z","payloadSize":"0 bytes"}
+GET https://core-github-api.hacolby.workers.dev/healthz - Ok @ 2/24/2026, 5:27:42 PM
+  (log) {"level":"info","message":"[route] GET /healthz","method":"GET","path":"/healthz","status":200,"latency":"0ms","payloadSizeBytes":0,"correlationId":"98788153-703b-47c3-b565-f4e40c2950be","timestamp":"2026-02-25T01:27:42.119Z","payloadSize":"0 bytes"}
+Sandbox.setSandboxName - Ok @ 2/24/2026, 5:26:34 PM
+GET https://core-github-api.hacolby.workers.dev/api/projects/REDACTED/overview - Ok @ 2/24/2026, 5:27:40 PM
+  (log) [Secrets Diagnostic] {
+  WORKER_API_KEY: '41565823...2389',
+  GITHUB_TOKEN: 'ghp_f1AI...CxnJ',
+  AI_GATEWAY_TOKEN: 'LNotScoX...lrpG'
+}
+  (error) [projects] Failed to parse wrangler.jsonc: SyntaxError: Expected ',' or ']' after array element in JSON at position 1284 (line 65 column 1)
+  (log) {"level":"info","message":"[route] GET /api/projects/1e790d53-540f-4adf-83c4-93d79e10be96/overview","method":"GET","path":"/api/projects/1e790d53-540f-4adf-83c4-93d79e10be96/overview","status":200,"latency":"1595ms","payloadSizeBytes":0,"correlationId":"1c8cec7e-3364-4f0c-bcc5-4b64ae1dff1b","timestamp":"2026-02-25T01:27:42.289Z","payloadSize":"0 bytes"}
+Sandbox.setSleepAfter - Ok @ 2/24/2026, 5:27:42 PM
+Sandbox.setContainerTimeouts - Ok @ 2/24/2026, 5:27:42 PM
+Sandbox.setKeepAlive - Ok @ 2/24/2026, 5:27:42 PM
+Sandbox.exec - Ok @ 2/24/2026, 5:27:42 PM
+  (log) {"level":"info","msg":"Command executed","component":"sandbox-do","sandboxId":"64e74442dd7dc1adb37f248e934c2abd6c4ca0426d70548414f8465fc235f7bf","traceId":"tr_8df633ef5e8f4675","details":"echo ping, Success: true","timestamp":"2026-02-25T01:27:42.367Z"}
+Sandbox.writeFile - Ok @ 2/24/2026, 5:27:42 PM
+  (log) {"level":"info","msg":"File written","component":"sandbox-do","sandboxId":"64e74442dd7dc1adb37f248e934c2abd6c4ca0426d70548414f8465fc235f7bf","traceId":"tr_8df633ef5e8f4675","details":"/tmp/health-check.tmp (9 chars)","timestamp":"2026-02-25T01:27:42.436Z"}
+Sandbox.readFile - Ok @ 2/24/2026, 5:27:42 PM
+  (log) {"level":"info","msg":"File read","component":"sandbox-do","sandboxId":"64e74442dd7dc1adb37f248e934c2abd6c4ca0426d70548414f8465fc235f7bf","traceId":"tr_8df633ef5e8f4675","details":"/tmp/health-check.tmp (9 chars)","timestamp":"2026-02-25T01:27:42.534Z"}
+GET http://dummy-example.cloudflare.com/cdn-cgi/partyserver/set-name/ - Ok @ 2/24/2026, 5:27:42 PM
+OrchestratorAgent.healthProbe - Ok @ 2/24/2026, 5:27:42 PM
+Sandbox.exec - Ok @ 2/24/2026, 5:27:42 PM
+  (log) {"level":"info","msg":"Command executed","component":"sandbox-do","sandboxId":"64e74442dd7dc1adb37f248e934c2abd6c4ca0426d70548414f8465fc235f7bf","traceId":"tr_8df633ef5e8f4675","details":"rm /tmp/health-check.tmp, Success: true","timestamp":"2026-02-25T01:27:42.610Z"}
+Sandbox.exec - Ok @ 2/24/2026, 5:27:42 PM
+  (log) {"level":"info","msg":"Command executed","component":"sandbox-do","sandboxId":"64e74442dd7dc1adb37f248e934c2abd6c4ca0426d70548414f8465fc235f7bf","traceId":"tr_8df633ef5e8f4675","details":"git clone --depth=1 https://github.com/octocat/Hello-World.git /tmp/health-git, Success: false","timestamp":"2026-02-25T01:27:42.672Z"}
+GET http://dummy-example.cloudflare.com/cdn-cgi/partyserver/set-name/ - Ok @ 2/24/2026, 5:27:42 PM
+GeminiAgent.healthProbe - Ok @ 2/24/2026, 5:27:42 PM
+GET http://dummy-example.cloudflare.com/cdn-cgi/partyserver/set-name/ - Ok @ 2/24/2026, 5:27:42 PM
+PlannerAgent.healthProbe - Ok @ 2/24/2026, 5:27:43 PM
+Supervisor.healthProbe - Ok @ 2/24/2026, 5:27:43 PM
+GET http://dummy-example.cloudflare.com/cdn-cgi/partyserver/set-name/ - Ok @ 2/24/2026, 5:27:43 PM
+DeepReasoningAgent.healthProbe - Ok @ 2/24/2026, 5:27:43 PM
+GET http://dummy-example.cloudflare.com/cdn-cgi/partyserver/set-name/ - Ok @ 2/24/2026, 5:27:43 PM
+GET http://dummy-example.cloudflare.com/cdn-cgi/partyserver/set-name/ - Ok @ 2/24/2026, 5:27:46 PM
+POST http://owner-agent/webhook - Ok @ 2/24/2026, 5:27:47 PM
+  (log) {
+  displayMessage: 'State updated',
+  id: '0cQKen4cu0GpkFFamE577',
+  payload: {},
+  timestamp: 1771982867391,
+  type: 'state:update'
+}
+GET http://dummy-example.cloudflare.com/cdn-cgi/partyserver/set-name/ - Ok @ 2/24/2026, 5:27:47 PM
+POST http://owner-agent/webhook - Ok @ 2/24/2026, 5:27:47 PM
+  (log) {
+  displayMessage: 'State updated',
+  id: 'F6UEivJk4v-YOLtLtCPxG',
+  payload: {},
+  timestamp: 1771982867716,
+  type: 'state:update'
+}
+POST https://core-github-api.hacolby.workers.dev/webhooks - Ok @ 2/24/2026, 5:27:45 PM
+  (log) [Standardization] Enforcing standards on jmbish04/testing-oktokit-commands
+  (log) [Standardization] Inferred tags for testing-oktokit-commands: [ 'Repository' ]
+  (log) [Standardization] Completed enforcement for jmbish04/testing-oktokit-commands
+  (log) {"level":"info","message":"[route] POST /webhooks","method":"POST","path":"/webhooks","status":200,"latency":"262ms","payloadSizeBytes":9097,"correlationId":"abaf2072-1f16-4a5f-aa47-eeee8e631f02","timestamp":"2026-02-25T01:27:46.397Z","payloadSize":"9097 bytes"}
+GET http://dummy-example.cloudflare.com/cdn-cgi/partyserver/set-name/ - Ok @ 2/24/2026, 5:27:46 PM
+GET http://dummy-example.cloudflare.com/cdn-cgi/partyserver/set-name/ - Ok @ 2/24/2026, 5:27:47 PM
+POST http://repo-agent/webhook - Ok @ 2/24/2026, 5:27:47 PM
+POST http://repo-agent/webhook - Ok @ 2/24/2026, 5:27:47 PM
+  (log) {
+  displayMessage: 'State updated',
+  id: 'QdPV2gxfpbfduzDP1Bwbr',
+  payload: {},
+  timestamp: 1771982867742,
+  type: 'state:update'
+}
+  (log) {
+  displayMessage: 'State updated',
+  id: 'SMBxcwovVJhmsawj0wiRD',
+  payload: {},
+  timestamp: 1771982867744,
+  type: 'state:update'
+}
+GET http://dummy-example.cloudflare.com/cdn-cgi/partyserver/set-name/ - Ok @ 2/24/2026, 5:27:47 PM
+GET http://dummy-example.cloudflare.com/cdn-cgi/partyserver/set-name/ - Ok @ 2/24/2026, 5:27:47 PM
+POST http://owner-agent/webhook - Ok @ 2/24/2026, 5:27:48 PM
+  (log) {
+  displayMessage: 'State updated',
+  id: 'MuISP32e5fmQfW6Xzy3HB',
+  payload: {},
+  timestamp: 1771982868225,
+  type: 'state:update'
+}
+POST http://repo-agent/webhook - Ok @ 2/24/2026, 5:27:48 PM
+  (log) {
+  displayMessage: 'State updated',
+  id: 'Jxj727oPSs1NdoUOT-yKX',
+  payload: {},
+  timestamp: 1771982868218,
+  type: 'state:update'
+}
+POST https://core-github-api.hacolby.workers.dev/webhooks - Ok @ 2/24/2026, 5:27:47 PM
+  (log) [Standardization] Enforcing standards on jmbish04/testing-oktokit-commands
+  (log) [Standardization] Inferred tags for testing-oktokit-commands: [ 'Repository' ]
+  (log) [Standardization] Completed enforcement for jmbish04/testing-oktokit-commands
+  (log) {"level":"info","message":"[route] POST /webhooks","method":"POST","path":"/webhooks","status":200,"latency":"292ms","payloadSizeBytes":10807,"correlationId":"b3461693-1b53-48bd-8012-3d0e6174de72","timestamp":"2026-02-25T01:27:48.101Z","payloadSize":"10807 bytes"}
+POST https://core-github-api.hacolby.workers.dev/webhooks - Ok @ 2/24/2026, 5:27:47 PM
+  (log) [Standardization] Enforcing standards on jmbish04/testing-oktokit-commands
+  (log) [Standardization] Inferred tags for testing-oktokit-commands: [ 'Repository' ]
+  (log) [Standardization] Completed enforcement for jmbish04/testing-oktokit-commands
+  (log) {"level":"info","message":"[route] POST /webhooks","method":"POST","path":"/webhooks","status":200,"latency":"272ms","payloadSizeBytes":9124,"correlationId":"083f8a5d-7d07-4903-9610-5a26a082dab2","timestamp":"2026-02-25T01:27:48.354Z","payloadSize":"9124 bytes"}
+POST http://do/diagnose - Ok @ 2/24/2026, 5:27:50 PM
+  (log) {"level":"error","message":"HealthDiagnostician Execution Failed","meta":{"error":{"status":400,"headers":{},"requestID":null}},"source":"HealthDiagnostician:85349","timestamp":"2026-02-25T01:27:53.853Z"}
+POST https://core-github-api.hacolby.workers.dev/api/health/run - Ok @ 2/24/2026, 5:27:42 PM
+  (log) [Secrets Diagnostic] {
+  WORKER_API_KEY: '41565823...2389',
+  GITHUB_TOKEN: 'ghp_f1AI...CxnJ',
+  AI_GATEWAY_TOKEN: 'LNotScoX...lrpG'
+}
+  (log) {"level":"info","message":"Creating issue in jmbish04/testing-oktokit-commands","meta":{"title":"Health Check 2026-02-25T01:27:42.258Z"},"source":"GitHubTool:createGitHubIssue:85349","timestamp":"2026-02-25T01:27:42.258Z"}
+  (log) {"level":"info","message":"Issue created successfully","meta":{"issueNumber":61,"html_url":"https://github.com/jmbish04/testing-oktokit-commands/issues/61"},"source":"GitHubTool:createGitHubIssue:85349","timestamp":"2026-02-25T01:27:42.550Z"}
+  (log) {"level":"info","message":"Creating comment on jmbish04/testing-oktokit-commands#61","source":"GitHubTool:createGitHubComment:85349","timestamp":"2026-02-25T01:27:42.550Z"}
+  (log) {"level":"info","message":"Comment created successfully","meta":{"commentId":3955959352,"html_url":"https://github.com/jmbish04/testing-oktokit-commands/issues/61#issuecomment-3955959352"},"source":"GitHubTool:createGitHubComment:85349","timestamp":"2026-02-25T01:27:45.671Z"}
+  (log) {"level":"info","message":"Updating issue jmbish04/testing-oktokit-commands#61","meta":{"updates":{"state":"closed"}},"source":"GitHubTool:updateGitHubIssue:85349","timestamp":"2026-02-25T01:27:45.671Z"}
+  (log) {"level":"info","message":"Issue updated successfully","meta":{"html_url":"https://github.com/jmbish04/testing-oktokit-commands/issues/61"},"source":"GitHubTool:updateGitHubIssue:85349","timestamp":"2026-02-25T01:27:46.122Z"}
+  (log) [HealthCoordinator] Run ebb4199b-2ffa-49dc-b5ab-7d4b0affbfde: 9 checks, 1 failures → degraded
+  (log) {"level":"info","message":"[route] POST /api/health/run","method":"POST","path":"/api/health/run","status":200,"latency":"11659ms","payloadSizeBytes":17,"correlationId":"d38ca0df-996b-4931-a907-e4515740c4cb","timestamp":"2026-02-25T01:27:53.900Z","payloadSize":"17 bytes"}
+GET https://core-github-api.hacolby.workers.dev/healthz - Ok @ 2/24/2026, 5:28:12 PM
+  (log) {"level":"info","message":"[route] GET /healthz","method":"GET","path":"/healthz","status":200,"latency":"0ms","payloadSizeBytes":0,"correlationId":"79e9aae5-204f-4bff-ab4c-54501f8ca2bf","timestamp":"2026-02-25T01:28:12.121Z","payloadSize":"0 bytes"}
+GET https://core-github-api.hacolby.workers.dev/healthz - Ok @ 2/24/2026, 5:28:42 PM
+  (log) {"level":"info","message":"[route] GET /healthz","method":"GET","path":"/healthz","status":200,"latency":"0ms","payloadSizeBytes":0,"correlationId":"df616931-1c41-4edc-87eb-df944f803452","timestamp":"2026-02-25T01:28:43.443Z","payloadSize":"0 bytes"}
+GET https://core-github-api.hacolby.workers.dev/healthz - Ok @ 2/24/2026, 5:29:12 PM
+  (log) {"level":"info","message":"[route] GET /healthz","method":"GET","path":"/healthz","status":200,"latency":"0ms","payloadSizeBytes":0,"correlationId":"4de7e8c8-10bf-45b9-bffc-4f9ca3d2b6a9","timestamp":"2026-02-25T01:29:12.123Z","payloadSize":"0 bytes"}
+Alarm @ 2/24/2026, 5:22:47 PM - Ok
+Alarm @ 2/24/2026, 5:26:34 PM - Ok
+Sandbox.exec - Ok @ 2/24/2026, 5:27:42 PM
+  (log) {"level":"info","msg":"Command executed","component":"sandbox-do","sandboxId":"64e74442dd7dc1adb37f248e934c2abd6c4ca0426d70548414f8465fc235f7bf","traceId":"tr_8df633ef5e8f4675","details":"echo health-ok, Success: true","timestamp":"2026-02-25T01:27:42.794Z"}
+GET https://core-github-api.hacolby.workers.dev/healthz - Ok @ 2/24/2026, 5:29:42 PM
+  (log) {"level":"info","message":"[route] GET /healthz","method":"GET","path":"/healthz","status":200,"latency":"0ms","payloadSizeBytes":0,"correlationId":"ba5d6702-8790-44bd-8d2a-26e46380c037","timestamp":"2026-02-25T01:29:42.300Z","payloadSize":"0 bytes"}
+Alarm @ 2/24/2026, 5:26:34 PM - Ok
+Alarm @ 2/24/2026, 5:29:34 PM - Ok
+GET https://core-github-api.hacolby.workers.dev/healthz - Ok @ 2/24/2026, 5:30:12 PM
+  (log) {"level":"info","message":"[route] GET /healthz","method":"GET","path":"/healthz","status":200,"latency":"0ms","payloadSizeBytes":0,"correlationId":"1baed18c-5fa1-472d-be13-065b6b9a97f3","timestamp":"2026-02-25T01:30:13.402Z","payloadSize":"0 bytes"}
+Alarm @ 2/24/2026, 5:30:04 PM - Ok
+Alarm @ 2/24/2026, 5:30:04 PM - Ok
+GET https://core-github-api.hacolby.workers.dev/healthz - Ok @ 2/24/2026, 5:30:42 PM
+  (log) {"level":"info","message":"[route] GET /healthz","method":"GET","path":"/healthz","status":200,"latency":"0ms","payloadSizeBytes":0,"correlationId":"07804dc4-3dca-4da8-92fc-5346828d6e4b","timestamp":"2026-02-25T01:30:42.121Z","payloadSize":"0 bytes"}
+Alarm @ 2/24/2026, 5:30:34 PM - Ok
+Alarm @ 2/24/2026, 5:30:34 PM - Ok
+GET https://core-github-api.hacolby.workers.dev/healthz - Ok @ 2/24/2026, 5:31:12 PM
+  (log) {"level":"info","message":"[route] GET /healthz","method":"GET","path":"/healthz","status":200,"latency":"0ms","payloadSizeBytes":0,"correlationId":"e267b051-a3a3-4da1-94a6-c858428ea3f7","timestamp":"2026-02-25T01:31:13.107Z","payloadSize":"0 bytes"}

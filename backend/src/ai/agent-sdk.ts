@@ -23,6 +23,7 @@ import {
   Agent as CFAgent, 
   callable 
 } from "agents";
+import { getOpenaiApiKey, getGeminiApiKey, getAnthropicApiKey } from "@utils/secrets";
 import { 
   getAgentModel, 
   getAiGatewayUrl as getAiGatewayBaseUrl, 
@@ -188,20 +189,65 @@ export async function createRunner(
   // Reuse createGatewayClient logic for token/url resolution
   // but we need standard OpenAIProvider for Runner
   
-  // Get Token
+  // Get AI Gateway Token
+  let aigToken = "";
+  try { aigToken = await env.AI_GATEWAY_TOKEN.get(); } catch (e) { /* ignore */ }
+
+  // Resolve Real API Key based on provider
   let apiKey = "";
-  try { apiKey = await env.AI_GATEWAY_TOKEN.get(); } catch (e) { // empty 
+  if (resolvedProvider === 'openai') {
+      apiKey = await getOpenaiApiKey(env) || "";
+  } else if (resolvedProvider === 'google-ai-studio' || resolvedProvider === 'gemini') {
+      apiKey = await getGeminiApiKey(env) || "";
+  } else if (resolvedProvider === 'anthropic') {
+      apiKey = await getAnthropicApiKey(env) || "";
   }
-  if (!apiKey) try { apiKey = await env.CLOUDFLARE_API_TOKEN.get(); } catch (e) { // empty 
+
+  // Fallback if no real key found
+  if (!apiKey) {
+      try { apiKey = await env.CLOUDFLARE_API_TOKEN.get(); } catch (e) { /* ignore */ }
   }
   if (!apiKey) apiKey = "dummy-key";
 
   // Get URL
   const baseURL = await getAiGatewayBaseUrl(env, resolvedProvider, 'openai_agents_sdk');
 
-  const modelProvider: ModelProvider = new OpenAIProvider({
+  // Custom fetch wrapper to inject gateway headers and defaults
+  const wrappedFetch: typeof globalThis.fetch = async (input, init) => {
+    let newInit = init ? { ...init } : {};
+    
+    // Inject Gateway Auth Header
+    if (aigToken) {
+        newInit.headers = {
+            ...(newInit.headers || {}),
+            'cf-aig-authorization': `Bearer ${aigToken}`
+        };
+    }
+
+    // OpenAI Agents SDK has no built-in max_tokens config for Runner, so we inject safely
+    if (newInit.body && typeof newInit.body === 'string') {
+        try {
+            const bodyObj = JSON.parse(newInit.body);
+            if (!bodyObj.max_tokens) bodyObj.max_tokens = 4096;
+            if (bodyObj.temperature === undefined) bodyObj.temperature = 0.1;
+            newInit.body = JSON.stringify(bodyObj);
+        } catch(e) {
+            /* ignore parsing errors */
+        }
+    }
+
+    return globalThis.fetch(input, newInit);
+  };
+
+  const client = new OpenAI({ 
+    baseURL, 
     apiKey,
-    baseURL,
+    dangerouslyAllowBrowser: true,
+    fetch: wrappedFetch,
+  });
+
+  const modelProvider: ModelProvider = new OpenAIProvider({
+    openAIClient: client,  // Use the pre-configured custom client instead of letting it build one
   });
 
   return new Runner({
