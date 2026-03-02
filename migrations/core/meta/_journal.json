@@ -204,6 +204,13 @@
       "when": 1771056550825,
       "tag": "0028_normal_wrecking_crew",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "6",
+      "when": 1772742000000,
+      "tag": "0029_add_pricing_change_log",
+      "breakpoints": true
     }
   ]
 }

@@ -5,8 +5,8 @@
  */
 
 import { v4 as uuidv4 } from 'uuid';
-import { eq, desc } from 'drizzle-orm';
-import { pricingSnapshots, type NewPricingSnapshot } from '@db';
+import { eq, desc, and } from 'drizzle-orm';
+import { pricingSnapshots, pricingChangeLog, type NewPricingSnapshot, type NewPricingChangeLog } from '@db';
 import { Logger } from '@logging';
 
 interface PricingData {
@@ -376,9 +376,9 @@ export async function scrapePricing(env: Env, ctx: ExecutionContext): Promise<vo
   const logger = new Logger(env, 'PricingScraper');
   const { getDb } = await import("@db");
   const db = getDb(env.DB);
-  
+
   logger.info('Starting pricing scrape');
-  
+
   try {
     // Scrape all providers
     const [openaiPricing, anthropicPricing, googlePricing] = await Promise.all([
@@ -386,14 +386,107 @@ export async function scrapePricing(env: Env, ctx: ExecutionContext): Promise<vo
       scrapeAnthropicPricing(env),
       scrapeGooglePricing(env),
     ]);
-    
+
     const allPricing = [
       ...openaiPricing.map(p => ({ ...p, provider: 'openai' as const, sourceUrl: 'https://developers.openai.com/api/docs/pricing' })),
       ...anthropicPricing.map(p => ({ ...p, provider: 'anthropic' as const, sourceUrl: 'https://platform.claude.com/docs/en/about-claude/pricing' })),
       ...googlePricing.map(p => ({ ...p, provider: 'google' as const, sourceUrl: 'https://ai.google.dev/gemini-api/docs/pricing' })),
     ];
-    
-    // Store in D1
+
+    // Detect price changes before storing new snapshots
+    const priceChanges: NewPricingChangeLog[] = [];
+    const now = new Date();
+
+    for (const pricing of allPricing) {
+      // Get the most recent pricing for this model
+      const previousPricing = await db
+        .select()
+        .from(pricingSnapshots)
+        .where(
+          and(
+            eq(pricingSnapshots.provider, pricing.provider),
+            eq(pricingSnapshots.modelId, pricing.modelId)
+          )
+        )
+        .orderBy(desc(pricingSnapshots.scrapedAt))
+        .limit(1);
+
+      let changeType: 'new_model' | 'price_increase' | 'price_decrease' | 'no_change' = 'no_change';
+      let oldPricing: typeof previousPricing[0] | null = null;
+
+      if (previousPricing.length === 0) {
+        // New model detected
+        changeType = 'new_model';
+        logger.info('New model detected', { provider: pricing.provider, modelId: pricing.modelId });
+      } else {
+        oldPricing = previousPricing[0];
+
+        // Check if pricing has changed
+        const inputChanged = oldPricing.inputCostPerM !== pricing.inputCostPerM;
+        const outputChanged = oldPricing.outputCostPerM !== pricing.outputCostPerM;
+        const inputLongChanged = (oldPricing.inputLongCostPerM ?? null) !== (pricing.inputLongCostPerM ?? null);
+        const outputLongChanged = (oldPricing.outputLongCostPerM ?? null) !== (pricing.outputLongCostPerM ?? null);
+        const cacheReadChanged = (oldPricing.cacheReadCostPerM ?? null) !== (pricing.cacheReadCostPerM ?? null);
+        const cacheWriteChanged = (oldPricing.cacheWriteCostPerM ?? null) !== (pricing.cacheWriteCostPerM ?? null);
+
+        if (inputChanged || outputChanged || inputLongChanged || outputLongChanged || cacheReadChanged || cacheWriteChanged) {
+          // Determine if it's an increase or decrease (based on primary input/output costs)
+          const totalOldCost = oldPricing.inputCostPerM + oldPricing.outputCostPerM;
+          const totalNewCost = pricing.inputCostPerM + pricing.outputCostPerM;
+
+          if (totalNewCost > totalOldCost) {
+            changeType = 'price_increase';
+            logger.warn('Price increase detected', {
+              provider: pricing.provider,
+              modelId: pricing.modelId,
+              oldCost: totalOldCost,
+              newCost: totalNewCost
+            });
+          } else if (totalNewCost < totalOldCost) {
+            changeType = 'price_decrease';
+            logger.info('Price decrease detected', {
+              provider: pricing.provider,
+              modelId: pricing.modelId,
+              oldCost: totalOldCost,
+              newCost: totalNewCost
+            });
+          }
+        }
+      }
+
+      // Log the change if it's not "no_change"
+      if (changeType !== 'no_change') {
+        priceChanges.push({
+          id: uuidv4(),
+          provider: pricing.provider,
+          modelId: pricing.modelId,
+          modelName: pricing.modelName,
+          changeType,
+          oldInputCostPerM: oldPricing?.inputCostPerM ?? null,
+          oldOutputCostPerM: oldPricing?.outputCostPerM ?? null,
+          oldInputLongCostPerM: oldPricing?.inputLongCostPerM ?? null,
+          oldOutputLongCostPerM: oldPricing?.outputLongCostPerM ?? null,
+          oldCacheReadCostPerM: oldPricing?.cacheReadCostPerM ?? null,
+          oldCacheWriteCostPerM: oldPricing?.cacheWriteCostPerM ?? null,
+          newInputCostPerM: pricing.inputCostPerM,
+          newOutputCostPerM: pricing.outputCostPerM,
+          newInputLongCostPerM: pricing.inputLongCostPerM ?? null,
+          newOutputLongCostPerM: pricing.outputLongCostPerM ?? null,
+          newCacheReadCostPerM: pricing.cacheReadCostPerM ?? null,
+          newCacheWriteCostPerM: pricing.cacheWriteCostPerM ?? null,
+          sourceUrl: pricing.sourceUrl,
+          detectedAt: now,
+        });
+      }
+    }
+
+    // Store price changes in the changelog
+    if (priceChanges.length > 0) {
+      await db.insert(pricingChangeLog).values(priceChanges);
+      logger.info('Logged price changes', { count: priceChanges.length });
+    }
+
+    // Store new pricing snapshots in D1
     const snapshots: NewPricingSnapshot[] = allPricing.map(pricing => ({
       id: uuidv4(),
       provider: pricing.provider,
@@ -407,19 +500,19 @@ export async function scrapePricing(env: Env, ctx: ExecutionContext): Promise<vo
       cacheWriteCostPerM: pricing.cacheWriteCostPerM ?? null,
       metadata: pricing.metadata ? JSON.stringify(pricing.metadata) : null,
       sourceUrl: pricing.sourceUrl,
-      scrapedAt: new Date(),
+      scrapedAt: now,
     }));
-    
+
     if (snapshots.length > 0) {
       await db.insert(pricingSnapshots).values(snapshots);
       logger.info('Stored pricing snapshots', { count: snapshots.length });
     } else {
       logger.warn('No pricing data scraped - check scraper implementations');
     }
-    
-    // Check for stale data and create GitHub issue if needed
-    await checkPricingStaleness(env);
-    
+
+    // Check for stale data and create GitHub issue if needed (pass price changes)
+    await checkPricingStaleness(env, priceChanges);
+
   } catch (error: any) {
     logger.error('Pricing scrape failed', { error: error.message, stack: error.stack });
   }
@@ -428,11 +521,11 @@ export async function scrapePricing(env: Env, ctx: ExecutionContext): Promise<vo
 /**
  * Checks if pricing data is stale (>3 weeks old) and creates GitHub issue if needed
  */
-export async function checkPricingStaleness(env: Env): Promise<void> {
+export async function checkPricingStaleness(env: Env, priceChanges?: NewPricingChangeLog[]): Promise<void> {
   const logger = new Logger(env, 'PricingScraper');
   const { getDb } = await import("@db");
   const db = getDb(env.DB);
-  
+
   try {
     // Get the most recent pricing snapshot
     const latestSnapshot = await db
@@ -440,52 +533,146 @@ export async function checkPricingStaleness(env: Env): Promise<void> {
       .from(pricingSnapshots)
       .orderBy(desc(pricingSnapshots.scrapedAt))
       .limit(1);
-    
+
     if (latestSnapshot.length === 0) {
       logger.warn('No pricing snapshots found in database');
-      await createStalePricingIssue(env, null);
+      await createStalePricingIssue(env, null, priceChanges);
       return;
     }
-    
+
     const latest = latestSnapshot[0];
     const now = Date.now();
     const threeWeeksMs = 21 * 24 * 60 * 60 * 1000; // 3 weeks in milliseconds
     const age = now - latest.scrapedAt.getTime();
-    
+
     if (age > threeWeeksMs) {
-      logger.warn('Pricing data is stale', { 
+      logger.warn('Pricing data is stale', {
         lastUpdate: latest.scrapedAt.toISOString(),
         ageInDays: Math.floor(age / (24 * 60 * 60 * 1000))
       });
-      await createStalePricingIssue(env, latest.scrapedAt);
+      await createStalePricingIssue(env, latest.scrapedAt, priceChanges);
     } else {
       logger.info('Pricing data is fresh', { lastUpdate: latest.scrapedAt.toISOString() });
+      // Only create issue if there are price changes
+      if (priceChanges && priceChanges.length > 0) {
+        await createStalePricingIssue(env, latest.scrapedAt, priceChanges);
+      }
     }
-    
+
   } catch (error: any) {
     logger.error('Failed to check pricing staleness', { error: error.message });
   }
 }
 
 /**
- * Creates a GitHub issue alerting about stale pricing data
+ * Creates a GitHub issue alerting about stale pricing data or pricing changes
  */
-async function createStalePricingIssue(env: Env, lastUpdate: Date | null): Promise<void> {
+async function createStalePricingIssue(env: Env, lastUpdate: Date | null, priceChanges?: NewPricingChangeLog[]): Promise<void> {
   const logger = new Logger(env, 'PricingScraper');
-  
+
   try {
     const { Octokit } = await import('@octokit/rest');
     const githubToken = await env.GITHUB_TOKEN.get();
-    
+
     if (!githubToken) {
       logger.error('GITHUB_TOKEN not found - cannot create issue');
       return;
     }
-    
+
     const octokit = new Octokit({ auth: githubToken });
-    
-    const title = '⚠️ Stale Pricing Data Alert - Risk of Overbilling';
-    const body = `## ⚠️ Stale Pricing Data Alert
+
+    // Determine if this is a stale data alert or price change alert
+    const isStaleAlert = !lastUpdate || (Date.now() - lastUpdate.getTime() > 21 * 24 * 60 * 60 * 1000);
+    const hasPriceChanges = priceChanges && priceChanges.length > 0;
+
+    let title: string;
+    let body: string;
+
+    if (hasPriceChanges) {
+      // Price change detected
+      title = '💰 AI Model Pricing Update Detected';
+
+      // Build pricing change table
+      let changesTable = '\n\n## 📊 Detected Pricing Changes\n\n';
+      changesTable += '| Provider | Model | Change Type | Old Input | New Input | Old Output | New Output | Source |\n';
+      changesTable += '|----------|-------|-------------|-----------|-----------|------------|------------|--------|\n';
+
+      for (const change of priceChanges) {
+        const oldInput = change.oldInputCostPerM !== null ? `$${change.oldInputCostPerM.toFixed(2)}` : '--';
+        const newInput = `$${change.newInputCostPerM.toFixed(2)}`;
+        const oldOutput = change.oldOutputCostPerM !== null ? `$${change.oldOutputCostPerM.toFixed(2)}` : '--';
+        const newOutput = `$${change.newOutputCostPerM.toFixed(2)}`;
+
+        let changeEmoji = '';
+        if (change.changeType === 'new_model') changeEmoji = '🆕';
+        else if (change.changeType === 'price_increase') changeEmoji = '⬆️';
+        else if (change.changeType === 'price_decrease') changeEmoji = '⬇️';
+
+        changesTable += `| **${change.provider}** | ${change.modelName} | ${changeEmoji} ${change.changeType.replace('_', ' ')} | ${oldInput} | ${newInput} | ${oldOutput} | ${newOutput} | [Link](${change.sourceUrl}) |\n`;
+      }
+
+      // Add detailed pricing breakdown
+      changesTable += '\n\n### 📝 Detailed Pricing Breakdown\n\n';
+      for (const change of priceChanges) {
+        changesTable += `#### ${change.modelName} (${change.provider})\n`;
+        changesTable += `- **Source URL**: ${change.sourceUrl}\n`;
+        changesTable += `- **Change Type**: ${change.changeType.replace('_', ' ')}\n`;
+        changesTable += `- **Standard Context Pricing**:\n`;
+        changesTable += `  - Input: ${change.oldInputCostPerM !== null ? `$${change.oldInputCostPerM.toFixed(2)}` : '--'} → $${change.newInputCostPerM.toFixed(2)} per 1M tokens\n`;
+        changesTable += `  - Output: ${change.oldOutputCostPerM !== null ? `$${change.oldOutputCostPerM.toFixed(2)}` : '--'} → $${change.newOutputCostPerM.toFixed(2)} per 1M tokens\n`;
+
+        if (change.newInputLongCostPerM || change.oldInputLongCostPerM) {
+          changesTable += `- **Long Context (>200k) Pricing**:\n`;
+          changesTable += `  - Input: ${change.oldInputLongCostPerM !== null ? `$${change.oldInputLongCostPerM.toFixed(2)}` : '--'} → ${change.newInputLongCostPerM !== null ? `$${change.newInputLongCostPerM.toFixed(2)}` : '--'} per 1M tokens\n`;
+          changesTable += `  - Output: ${change.oldOutputLongCostPerM !== null ? `$${change.oldOutputLongCostPerM.toFixed(2)}` : '--'} → ${change.newOutputLongCostPerM !== null ? `$${change.newOutputLongCostPerM.toFixed(2)}` : '--'} per 1M tokens\n`;
+        }
+
+        if (change.newCacheReadCostPerM || change.oldCacheReadCostPerM) {
+          changesTable += `- **Cache Pricing**:\n`;
+          changesTable += `  - Read: ${change.oldCacheReadCostPerM !== null ? `$${change.oldCacheReadCostPerM.toFixed(2)}` : '--'} → ${change.newCacheReadCostPerM !== null ? `$${change.newCacheReadCostPerM.toFixed(2)}` : '--'} per 1M tokens\n`;
+          if (change.newCacheWriteCostPerM || change.oldCacheWriteCostPerM) {
+            changesTable += `  - Write: ${change.oldCacheWriteCostPerM !== null ? `$${change.oldCacheWriteCostPerM.toFixed(2)}` : '--'} → ${change.newCacheWriteCostPerM !== null ? `$${change.newCacheWriteCostPerM.toFixed(2)}` : '--'} per 1M tokens\n`;
+          }
+        }
+
+        changesTable += '\n';
+      }
+
+      body = `## 💰 AI Model Pricing Update
+
+**Status**: ${priceChanges.length} pricing change(s) detected from browser rendering scrape.
+
+${lastUpdate ? `**Last Update**: ${lastUpdate.toISOString()}` : '**Last Update**: Never'}
+**Checked At**: ${new Date().toISOString()}
+
+${changesTable}
+
+---
+
+## 🔧 Action Required
+
+Update the pricing registry to reflect these changes:
+
+\`\`\`bash
+@claude[agent] Please update the pricing data in backend/src/ai/utils/pricing-registry.ts to match the detected pricing changes shown above. Ensure all new models are added and existing model prices are updated to reflect the new costs. After updating, verify that the pricing-scraper.ts fallback data matches the registry.
+\`\`\`
+
+**Files to Update**:
+1. \`backend/src/ai/utils/pricing-registry.ts\` - Update PRICING_CATALOG with new prices
+2. \`backend/src/services/pricing-scraper.ts\` - Update fallback data in scraper functions
+
+**Testing**:
+\`\`\`bash
+npm run check  # Verify TypeScript compilation
+\`\`\`
+
+---
+*This issue was automatically created by the pricing monitoring system.*
+`;
+    } else {
+      // Stale data alert (no price changes detected)
+      title = '⚠️ Stale Pricing Data Alert - Risk of Overbilling';
+      body = `## ⚠️ Stale Pricing Data Alert
 
 **Status**: Pricing data is ${lastUpdate ? '>3 weeks old' : 'missing'} and may be outdated.
 
@@ -494,35 +681,46 @@ ${lastUpdate ? `**Last Update**: ${lastUpdate.toISOString()}` : '**Last Update**
 
 **Risk**: Using potentially incorrect pricing data could lead to:
 - ❌ Unexpected cost overruns
-- ❌ Incorrect budget tracking  
+- ❌ Incorrect budget tracking
 - ❌ Using expensive models unknowingly
 - ❌ Overbilling without realizing
 
-**Action Required**: 
+**Action Required**:
 1. Check browser rendering service status
 2. Verify weekly cron job is executing
 3. Review \`services/pricing-scraper.ts\` for errors
 4. Update pricing manually if needed
 
 **Affected Providers**:
-- OpenAI
-- Anthropic (Claude)
-- Google (Gemini)
+- OpenAI - [Pricing Page](https://developers.openai.com/api/docs/pricing)
+- Anthropic (Claude) - [Pricing Page](https://platform.claude.com/docs/en/about-claude/pricing)
+- Google (Gemini) - [Pricing Page](https://ai.google.dev/gemini-api/docs/pricing)
+
+---
+
+## 🔧 Fix Command
+
+\`\`\`bash
+@claude[agent] Please investigate why the pricing scraper is not updating data. Check the browser rendering service logs, verify the cron job execution in backend/src/index.ts, and manually trigger a pricing scrape if needed. Update the pricing-registry.ts with current prices from the provider documentation pages listed above.
+\`\`\`
 
 ---
 *This issue was automatically created by the pricing monitoring system.*
 `;
-    
+    }
+
     const response = await octokit.issues.create({
       owner: env.GITHUB_OWNER,
       repo: 'core-github-api',
       title,
       body,
-      labels: ['bug', 'critical', 'pricing', 'automated'],
+      labels: hasPriceChanges
+        ? ['pricing', 'automated', 'enhancement']
+        : ['bug', 'critical', 'pricing', 'automated'],
     });
-    
-    logger.info('Created GitHub issue for stale pricing', { issueNumber: response.data.number });
-    
+
+    logger.info('Created GitHub issue for pricing update', { issueNumber: response.data.number });
+
   } catch (error: any) {
     logger.error('Failed to create GitHub issue', { error: error.message });
   }
