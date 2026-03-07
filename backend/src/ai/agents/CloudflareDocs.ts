@@ -181,7 +181,7 @@ export class CloudflareDocsAgent extends HonoBaseAgent<
           parsed = JSON.parse(kvRaw);
         } catch(e){
           /* raw string — use as-is */
-          console.error("[CloudflareDocsAgent] KV_CONFIGS key is a raw string, using as-is", JSON.stringify(e));
+          console.warn("[CloudflareDocsAgent] KV_CONFIGS key is a raw string, using as-is", JSON.stringify(e));
         }
         const fromKv =
           parsed && typeof parsed === "object" && "value" in parsed

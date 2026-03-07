@@ -45,7 +45,6 @@ export class DeepReasoningAgent extends BaseAgent<Env, BaseAgentState> {
    */
   constructor(state: DurableObjectState, env: Env) {
     super(state, env);
-    (this as any).logger = new Logger(env, "DeepReasoningAgent");
   }
 
   /**
