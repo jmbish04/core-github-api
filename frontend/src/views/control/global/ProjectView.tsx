@@ -216,7 +216,7 @@ export default function ProjectView() {
         credentials: "include",
       });
       if (!response.ok) throw new Error("Failed to load project overview");
-      return (await response.json()) as OverviewResponse;
+      return ((await response.json()) as any) as OverviewResponse;
     },
     enabled: Boolean(projectId),
   });
@@ -251,7 +251,7 @@ export default function ProjectView() {
         },
       );
       if (!response.ok) throw new Error("Failed to load file");
-      return (await response.json()) as FileResponse;
+      return ((await response.json()) as any) as FileResponse;
     },
     enabled: Boolean(projectId && selectedFile),
   });
@@ -326,7 +326,7 @@ export default function ProjectView() {
   if (!data?.success) {
     return (
       <div className="space-y-3">
-        <Button variant="ghost" onClick={() => navigate("/control-center/projects")}>
+        <Button variant="ghost" onClick={() => navigate("/projects")}>
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to Projects
         </Button>
@@ -344,7 +344,7 @@ export default function ProjectView() {
     <div className="space-y-6 pb-24">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0 space-y-2">
-          <Button variant="ghost" className="-ml-3" onClick={() => navigate("/control-center/projects")}>
+          <Button variant="ghost" className="-ml-3" onClick={() => navigate("/projects")}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Projects
           </Button>

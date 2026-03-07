@@ -1,5 +1,15 @@
 import type { AgentInputItem } from "@openai/agents";
-import { Agent as CFAgent, callable } from "agents";
+/**
+ * AI Pattern: Evaluator-Optimizer
+ *
+ * Implements an iterative refinement loop where one LLM step
+ * generates a response and a second step evaluates it for
+ * quality and correctness, providing feedback for the next iteration.
+ *
+ * @module AI/Agents/Base/Patterns/EvaluatorOptimizer
+ */
+import { BaseAgent } from "@/ai/agents/base/BaseAgent";
+import { callable } from "agents";
 import { z } from "zod";
 
 // --- Schemas & Types ---
@@ -7,6 +17,15 @@ const EvaluationSchema = z.object({
   feedback: z.string(),
   score: z.enum(["pass", "fail"])
 });
+
+/**
+ * Input for the Evaluator-Optimizer loop.
+ */
+export interface EvaluatorOptimizerInput {
+  initialPrompt: string;
+  maxIterations?: number;
+  successThreshold?: number;
+}
 
 type EvaluatorState = {
   history: {
@@ -20,7 +39,10 @@ type EvaluatorState = {
 };
 
 // --- Agent Class ---
-export class EvaluatorOptimizerAgent extends CFAgent<Env, EvaluatorState> {
+/**
+ * Abstract class implementation of the Evaluator-Optimizer pattern.
+ */
+export abstract class EvaluatorOptimizerAgent extends BaseAgent<Env, EvaluatorState> {
   initialState: EvaluatorState = {
     history: [],
     status: "idle"

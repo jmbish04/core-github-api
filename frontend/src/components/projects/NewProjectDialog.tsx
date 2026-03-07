@@ -78,11 +78,11 @@ export function NewProjectDialog({ open, onOpenChange }: NewProjectDialogProps) 
                     description: data.description,
                     visibility: data.visibility,
                     infraType: data.infraType,
-                    owner: env.GITHUB_OWNER,
+                    owner: import.meta.env.VITE_GITHUB_OWNER || '',
                 }),
             });
 
-            const json = await res.json().catch(() => ({}));
+            const json = (await res.json().catch(() => ({} as any))) as any;
             if (!res.ok) {
                 throw new Error(json?.error || `Failed to create project (${res.status})`);
             }
@@ -90,7 +90,7 @@ export function NewProjectDialog({ open, onOpenChange }: NewProjectDialogProps) 
             await queryClient.invalidateQueries({ queryKey: ['projects'] });
             setIsSubmitting(false);
             onOpenChange(false);
-            navigate('/control-center/projects');
+            navigate('/projects');
         } catch (error: any) {
             setIsSubmitting(false);
             setSubmitError(error?.message || 'Failed to create project');

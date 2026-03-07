@@ -1,21 +1,22 @@
 /**
- * @file backend/src/lib/model-config.ts
- * @description Cost-optimized model configuration for all agents
+ * Agent Model Configuration & Cost Optimization
+ * 
+ * Defines the mapping between specific AI agents and their target models 
+ * based on tiered performance and cost requirements.
+ * 
+ * Cost Strategy:
+ * - Free: Workers AI (Simple tasks)
+ * - Ultra-Low: GPT-4o-mini (General tasks)
+ * - Low: Haiku 3.5 (Fast lightweight reasoning)
+ * - Medium: GPT-4o / Sonnet 4.5 (Complex orchestration)
+ * 
+ * @module AI/Utils/ModelConfig
  * @owner AI Infrastructure Team
  */
 
 /**
- * Agent Model Configuration
- * Maps each agent to the most cost-effective model based on their requirements
- * 
- * Cost Optimization Strategy:
- * - Cloudflare Workers AI: FREE (best for high-volume, simple tasks)
- * - Haiku 3.5: $0.80/$4.00 per 1M tokens (best for fast, lightweight tasks)
- * - GPT-4o-mini: $0.15/$0.60 per 1M tokens (best balance of cost/quality)
- * - Sonnet 4.5: $3.00/$15.00 per 1M tokens (complex reasoning)
- * - GPT-4o: $2.50/$10.00 per 1M tokens (high-quality general purpose)
+ * The unified set of agent identifiers in the ecosystem.
  */
-
 export type AgentName =
   | 'ResearchAgent'
   | 'OwnerAgent'
@@ -28,6 +29,9 @@ export type AgentName =
   | 'DataProcessor'
   | 'Sandbox';
 
+/**
+ * Configuration for an agent's model deployment.
+ */
 export interface ModelConfig {
   model: string;
   provider: 'cloudflare' | 'openai' | 'anthropic' | 'google';
@@ -36,7 +40,7 @@ export interface ModelConfig {
 }
 
 /**
- * Cost-optimized model assignments for each agent
+ * Static map of cost-optimized model assignments for each agent.
  */
 export const AGENT_MODEL_CONFIG: Record<AgentName, ModelConfig> = {
   // FREE TIER - Cloudflare Workers AI (Best for high-volume, simple tasks)
@@ -111,9 +115,11 @@ export const AGENT_MODEL_CONFIG: Record<AgentName, ModelConfig> = {
 };
 
 /**
- * Get the configured model for a specific agent
- * @param agentName - Name of the agent
- * @returns Model configuration for the agent
+ * Retrieves the full model configuration for a specific agent.
+ * 
+ * @param agentName - Name of the agent.
+ * @returns Configured model metadata.
+ * @throws Error if agent identifier is unknown.
  */
 export function getAgentModel(agentName: AgentName): ModelConfig {
   const config = AGENT_MODEL_CONFIG[agentName];
@@ -124,9 +130,7 @@ export function getAgentModel(agentName: AgentName): ModelConfig {
 }
 
 /**
- * Get just the model string for an agent (convenience function)
- * @param agentName - Name of the agent
- * @returns Model string (e.g., 'gpt-4o', 'claude-haiku-3.5')
+ * Retrieves just the model slug for an agent.
  */
 export function getAgentModelName(agentName: AgentName): string {
   return getAgentModel(agentName).model;
@@ -144,11 +148,12 @@ export function getAgentsByCostTier(tier: ModelConfig['costTier']): AgentName[] 
 }
 
 /**
- * Calculate estimated cost for a conversation
- * @param agentName - Name of the agent
- * @param inputTokens - Number of input tokens
- * @param outputTokens - Number of output tokens
- * @returns Estimated cost in USD
+ * Estimates the monetary cost (USD) for a specific agent transaction.
+ * 
+ * @param agentName - Target agent.
+ * @param inputTokens - Input token count.
+ * @param outputTokens - Output token count.
+ * @returns Estimated cost in USD.
  */
 export function estimateAgentCost(
   agentName: AgentName,

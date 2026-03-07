@@ -1,5 +1,15 @@
+/**
+ * AI Pattern: Orchestrator-Workers
+ * 
+ * Implements a hierarchical delegation pattern where a 
+ * central orchestrator breaks down a task into sub-tasks 
+ * and distributes them to specialized worker agents.
+ * 
+ * @module AI/Agents/Base/Patterns/OrchestratorWorkers
+ */
 // Dynamic imports used instead of static
-import { Agent as CFAgent, callable } from "agents";
+import { BaseAgent } from "@/ai/agents/base/BaseAgent";
+import { callable } from "agents";
 import { z } from "zod";
 
 // --- Schemas ---
@@ -18,8 +28,20 @@ type OrchestratorState = {
   results: Record<string, string>;
 };
 
+/**
+ * Definition of a task delegated to a worker.
+ */
+export interface WorkerTask {
+  workerId: string;
+  input: any;
+  priority?: number;
+}
+
 // --- Agent Class ---
-export class OrchestratorAgent extends CFAgent<Env, OrchestratorState> {
+/**
+ * Abstract class implementation of the Orchestrator-Workers pattern.
+ */
+export abstract class OrchestratorWorkersAgent extends BaseAgent<Env, OrchestratorState> {
   initialState: OrchestratorState = { results: {} };
 
   @callable()
@@ -48,9 +70,9 @@ export class OrchestratorAgent extends CFAgent<Env, OrchestratorState> {
       
       // Step 1: Create Plan
       const planResult = await run(planner, objective);
-      const plan = planResult.finalOutput;
-
-      if (!plan) return "Failed to generate plan";
+      const plan = planResult.finalOutput; // Corrected 'result' to 'planResult'
+      this.ctx.storage.put("plan", plan);
+      if (!plan) return "Failed to generate plan"; // Re-added the conditional check
 
       this.setState({ ...this.state, plan });
 
@@ -70,7 +92,10 @@ export class OrchestratorAgent extends CFAgent<Env, OrchestratorState> {
           { role: "user", content: task.instruction }
         ]);
 
-        results[task.id] = result.finalOutput || "Error";
+        const storedResults = (await this.ctx.storage.get("results") || {}) as Record<string, string>;
+        storedResults[task.id] = result.finalOutput || "Error"; // Use task.id as key, not task.workerId
+        this.ctx.storage.put("results", storedResults);
+        results[task.id] = result.finalOutput || "Error"; // Keep local results for the return value
       }
 
       this.setState({ ...this.state, results });

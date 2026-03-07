@@ -1,6 +1,6 @@
-import type { GoogleGenAI as IGoogleGenAI } from '@google/genai';
 import { z } from 'zod';
 import { generateUuid } from '@/utils/common';
+import { generateStructuredResponse } from '@/ai/providers/gemini';
 
 export const AgentResponseSchema = z.object({
   summary: z.string().describe("A concise 1-2 sentence summary of what this application does."),
@@ -21,15 +21,6 @@ export async function analyzeApplication(
   description: string | null,
   existingTags: { name: string; description: string | null }[]
 ): Promise<z.infer<typeof AgentResponseSchema>> {
-  const geminiApiKey = await env.GEMINI_API_KEY.get();
-  if (!geminiApiKey) {
-    throw new Error('GEMINI_API_KEY is not configured in the Secrets Store.');
-  }
-
-  const { GoogleGenAI } = await import('@google/genai');
-  const { zodToJsonSchema } = await import('zod-to-json-schema');
-  const ai = new GoogleGenAI({ apiKey: geminiApiKey });
-
   const prompt = `
 You are an expert Cloudflare application analyzer.
 
@@ -48,20 +39,16 @@ Your tasks:
 
 Respond strictly matching the required JSON schema.
 `;
+  
+  const { zodToJsonSchema } = await import('zod-to-json-schema');
+  
+  const result = await generateStructuredResponse(
+    env,
+    prompt,
+    zodToJsonSchema(AgentResponseSchema as any) as any,
+    undefined,
+    { model: "gemini-2.5-flash" }
+  );
 
-  const result = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
-    contents: [{ role: "user", parts: [{ text: prompt }] }],
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: zodToJsonSchema(AgentResponseSchema as any) as any,
-    }
-  });
-
-  const text = result.text;
-  if (!text) {
-    throw new Error('No text returned from Gemini API.');
-  }
-
-  return JSON.parse(text) as z.infer<typeof AgentResponseSchema>;
+  return result as z.infer<typeof AgentResponseSchema>;
 }

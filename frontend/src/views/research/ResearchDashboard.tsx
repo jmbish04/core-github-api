@@ -1,106 +1,148 @@
-import React, { useEffect, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card";
-import { useNavigate } from "react-router-dom";
-import { Plus, Clock, CheckCircle2, AlertCircle, Loader2, PlayCircle } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-
-type Brief = {
-  id: string;
-  title: string;
-  status: "planning" | "researching" | "waiting_approval" | "review" | "complete" | "failed";
-  createdAt: string;
-};
+import React, { useEffect, useState } from 'react';
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
+import { api } from '@/lib/api-client';
+import { Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function ResearchDashboard() {
-  const navigate = useNavigate();
-  const [briefs, setBriefs] = useState<Brief[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [candidates, setCandidates] = useState<any[]>([]);
+  const [feedback, setFeedback] = useState<Record<string, { rating: number, context: string }>>({});
+  const [topic, setTopic] = useState('topic:cloudflare-worker OR topic:cloudflare-pages');
+  const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
 
-  // Poll for updates every 10s
-  useEffect(() => {
-    const fetchBriefs = async () => {
-        try {
-            // Need a new endpoint: `GET /api/research/list`?
-            // Or just use `GET /api/research/:id` if we know IDs?
-            // We typically need a list endpoint. 
-            // Since I didn't create a list endpoint in backend yet, I'll add a TODO and use a mock or 
-            // if I missed creating it, I should likely create it. 
-            // Wait, I only created `/create` and `/:id`. I need `/list`.
-            // For now, I will Mock it to unblock UI dev, or use `localStorage` if I was allowed.
-            // Let's assume I will add `GET /api/research` to backend next.
-            const res = await fetch("/api/research"); 
-            if (res.ok) {
-                const data = await res.json();
-                setBriefs(data.briefs || []);
-            }
-        } catch (err) {
-            console.error(err);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    fetchBriefs();
-    const interval = setInterval(fetchBriefs, 10000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const getStatusColor = (status: string) => {
-      switch(status) {
-          case 'planning': return 'bg-blue-500/10 text-blue-500 hover:bg-blue-500/20';
-          case 'researching': return 'bg-purple-500/10 text-purple-500 hover:bg-purple-500/20';
-          case 'waiting_approval': return 'bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/20';
-          case 'complete': return 'bg-green-500/10 text-green-500 hover:bg-green-500/20';
-          default: return 'bg-gray-500/10 text-gray-500';
+  const fetchCandidates = async () => {
+    try {
+      // Use the newly mounted /api/daily-research endpoint
+      const res = await api['daily-research'].candidates.$get();
+      if (res.ok) {
+        const data = (await res.json()) as any;
+        setCandidates(data);
       }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setInitialLoading(false);
+    }
   };
 
-  return (
-    <div className="container mx-auto py-8">
-      <div className="flex justify-between items-center mb-8">
-        <div>
-           <h1 className="text-3xl font-bold tracking-tight">Research Center</h1>
-           <p className="text-muted-foreground">Manage autonomous research agents and topics.</p>
-        </div>
-        <Button onClick={() => navigate("/control-center/research/new")}>
-          <Plus className="mr-2 h-4 w-4" /> New Topic
-        </Button>
-      </div>
+  useEffect(() => { fetchCandidates(); }, []);
+
+  const handleTrigger = async () => {
+    setLoading(true);
+    try {
+      await api['daily-research'].trigger.$post({
+        json: { topic }
+      });
+      toast.success("Swarm dispatched! It will analyze and email you shortly.");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to trigger research swarm.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const submitFeedback = async (id: string) => {
+    const data = feedback[id];
+    if (!data?.rating) {
+      toast.error("Please provide a rating from 1 to 5.");
+      return;
+    }
+
+    try {
+      await api['daily-research'].feedback[':id'].$post({
+        param: { id: encodeURIComponent(id) },
+        json: { userRating: data.rating, userFeedback: data.context }
+      });
       
-      {loading && briefs.length === 0 ? (
-          <div className="flex justify-center p-12">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          </div>
+      setCandidates(prev => prev.filter((c: any) => c.id !== id));
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to save feedback.");
+    }
+  };
+
+  if (initialLoading) {
+    return (
+      <div className="flex justify-center p-12">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6 space-y-6 max-w-6xl mx-auto text-white">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-bold">Daily Trends (Deep Research)</h1>
+          <p className="text-zinc-400">Review AI-surfaced repositories and train the swarm.</p>
+        </div>
+        <div className="flex gap-2 w-full md:w-auto">
+          <Input 
+            value={topic} 
+            onChange={e => setTopic(e.target.value)} 
+            placeholder="Custom search topic..."
+            className="w-full md:w-64 bg-zinc-900 border-zinc-800 text-white"
+          />
+          <Button onClick={handleTrigger} disabled={loading} className="bg-purple-600 hover:bg-purple-500">
+            {loading ? 'Orchestrating...' : 'Run Research'}
+          </Button>
+        </div>
+      </div>
+
+      {candidates.length === 0 ? (
+        <div className="py-12 text-center text-zinc-500 border border-dashed border-zinc-800 rounded-lg">
+          No new candidates pending review. Trigger a new search!
+        </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {briefs.length === 0 ? (
-                <Card className="border-dashed bg-muted/40 col-span-full">
-                    <CardHeader>
-                        <CardTitle className="text-center text-muted-foreground">No active research</CardTitle>
-                    </CardHeader>
-                    <CardContent className="text-center pb-8">
-                        <Button variant="link" onClick={() => navigate("/control-center/research/new")}>Start your first topic</Button>
-                    </CardContent>
-                </Card>
-            ) : (
-                briefs.map(brief => (
-                    <Card key={brief.id} className="cursor-pointer hover:border-primary/50 transition-colors" onClick={() => navigate(`/control-center/research/${brief.id}`)}>
-                        <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
-                            <CardTitle className="text-lg font-semibold line-clamp-1">{brief.title}</CardTitle>
-                            <Badge variant="secondary" className={getStatusColor(brief.status)}>
-                                {brief.status.replace("_", " ")}
-                            </Badge>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="flex items-center text-sm text-muted-foreground mt-4">
-                                <Clock className="mr-1 h-3 w-3" />
-                                {new Date(brief.createdAt).toLocaleDateString()}
-                            </div>
-                        </CardContent>
-                    </Card>
-                ))
-            )}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {candidates.map((repo: any) => (
+            <Card key={repo.id} className="bg-black border border-zinc-800 flex flex-col">
+              <CardHeader>
+                <CardTitle className="flex justify-between items-center text-lg">
+                  <a href={repo.repoUrl} target="_blank" rel="noreferrer" className="text-blue-400 hover:underline">
+                    {repo.repoName}
+                  </a>
+                  <span className="text-sm font-normal text-yellow-500">⭐ {repo.stars}</span>
+                </CardTitle>
+                <p className="text-sm text-zinc-400 mt-2">{repo.description}</p>
+              </CardHeader>
+              
+              <CardContent className="flex-grow">
+                <div className="bg-zinc-900 border border-zinc-800 p-3 rounded-md mb-4">
+                  <h4 className="text-xs font-bold text-green-400 mb-1 uppercase tracking-wider">🤖 Judge Score: {repo.aiScore}/10</h4>
+                  <p className="text-sm text-zinc-300 italic">"{repo.aiReasoning}"</p>
+                </div>
+                
+                <div className="space-y-3 pt-2 border-t border-zinc-800">
+                  <label className="text-xs text-zinc-400 font-semibold uppercase tracking-wider">Human in the Loop</label>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm">Interest (1-5):</span>
+                    <Input 
+                      type="number" min="1" max="5" 
+                      className="w-20 bg-zinc-900 border-zinc-700 h-8 text-white"
+                      onChange={(e) => setFeedback({ ...feedback, [repo.id]: { ...feedback[repo.id], rating: parseInt(e.target.value) } })}
+                    />
+                  </div>
+                  <Textarea 
+                    placeholder="Context: Why do you like/dislike this repo? (Trains future AI runs)"
+                    className="bg-zinc-900 border-zinc-700 text-sm h-20 text-white"
+                    onChange={(e) => setFeedback({ ...feedback, [repo.id]: { ...feedback[repo.id], context: e.target.value } })}
+                  />
+                </div>
+              </CardContent>
+
+              <CardFooter>
+                <Button onClick={() => submitFeedback(repo.id)} className="w-full bg-zinc-800 hover:bg-zinc-700 text-white">
+                  Save Feedback & Train
+                </Button>
+              </CardFooter>
+            </Card>
+          ))}
         </div>
       )}
     </div>

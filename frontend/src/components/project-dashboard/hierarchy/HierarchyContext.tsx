@@ -112,7 +112,7 @@ export function HierarchyProvider({ initialData, projectId, children }: { initia
 
       if (!res.ok) throw new Error("Failed to create");
       
-      const newRow = await res.json();
+      const newRow = (await res.json()) as any;
       setData((prev: any) => addChildToNode(prev, parentId, newRow, childKeyMap[type]));
       toast.success(`${type} created`);
     } catch (err) {

@@ -5,6 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 export default function ResearchIntake() {
   const navigate = useNavigate();
@@ -32,12 +33,12 @@ export default function ResearchIntake() {
 
       if (!res.ok) throw new Error("Failed to create brief");
 
-      const data = await res.json();
+      const data = (await res.json()) as any;
       // Redirect to the new brief's detail page
       navigate(`/research/${data.brief.id}`);
     } catch (err) {
       console.error(err);
-      alert("Failed to create research brief");
+      toast.error("Failed to create research brief");
     } finally {
       setLoading(false);
     }

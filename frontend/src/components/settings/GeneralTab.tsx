@@ -41,7 +41,7 @@ export function GeneralTab() {
         { credentials: "include" },
       );
       if (!response.ok) throw new Error("Failed to load settings");
-      return (await response.json()) as SettingsResponse;
+      return ((await response.json()) as any) as SettingsResponse;
     },
   });
 

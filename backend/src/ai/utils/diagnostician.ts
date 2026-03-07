@@ -1,6 +1,22 @@
-
+/**
+ * AI Health Failure Diagnostic Utility
+ * 
+ * Leverages structured LLM generation to analyze health check failures.
+ * Determines root cause, severity, and generates actionable "Fix Prompts" 
+ * for other AI agents to remediate the underlying issue.
+ * 
+ * @module AI/Utils/Diagnostician
+ */
 import { generateStructuredResponse } from "@/ai/providers";
 
+/**
+ * Results of an AI failure analysis.
+ * @property rootCause - Explanation of the specific failure reason.
+ * @property suggestedFix - Human-readable fix instructions.
+ * @property severity - Criticality of the failure.
+ * @property confidence - AI's confidence in the diagnosis (0.0 - 1.0).
+ * @property fixPrompt - Targeted prompt for an agent to apply the fix.
+ */
 export interface HealthFailureAnalysis {
     rootCause: string;
     suggestedFix: string;
@@ -15,7 +31,15 @@ export interface HealthFailureAnalysis {
 }
 
 /**
- * Analyzes a health check failure using AI to determine root cause and fix.
+ * Analyzes a health check failure using structured AI generation.
+ * 
+ * @param env - Cloudflare Environment bindings.
+ * @param stepName - The name of the health check step that failed.
+ * @param errorMsg - The raw error message captured.
+ * @param details - Optional metadata or payload context from the failure.
+ * @param options - UI/Logic performance options.
+ * @returns A detailed analysis or null if AI services are unavailable.
+ * @agent-note This is used by the Health Domain to provide "Remediation Hints" to the user.
  */
 export async function analyzeFailure(
     env: Env,
@@ -26,7 +50,12 @@ export async function analyzeFailure(
 ): Promise<HealthFailureAnalysis | null> {
     if (!env.AI) return null;
 
-    const detailsStr = details ? JSON.stringify(details, null, 2) : 'None';
+    const contextPayload = details || {};
+    const safeContextString = Object.keys(contextPayload).length > 0
+        ? JSON.stringify(contextPayload).substring(0, 10000)
+        : "None";
+
+    const detailsStr = safeContextString;
 
     // Explicitly format the input so the model can echo it back accurately.
     const prompt = `
@@ -102,10 +131,26 @@ export async function analyzeFailure(
             undefined,
             { effort: options?.reasoningEffort || "high" }
         );
+        
+        if (!analysis) {
+            throw new Error("Provider returned empty response or encountered a parsing error.");
+        }
+        
         return analysis;
-    } catch (err) {
-        console.error(`AI Analysis failed for ${stepName}: `, err);
-        // Fallback or return null
-        return null;
+    } catch (error: any) {
+        console.error(`AI Analysis critical error for ${stepName}: `, error);
+        
+        return {
+            rootCause: `Agent execution failed: ${error.message || "400 Bad Request"}`,
+            suggestedFix: "Review raw logs, check AI Gateway token limits, and verify payload schemas.",
+            severity: "critical",
+            confidence: 0,
+            providedContext: {
+                stepName: stepName,
+                errorMsg: error.message || "Unknown execution error",
+                details: { errorName: error.name || "Error", rawError: error.message }
+            },
+            fixPrompt: "Please analyze the logs to determine why the Health Diagnostician failed."
+        };
     }
 }

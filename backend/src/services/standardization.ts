@@ -6,7 +6,7 @@ import { getDb } from "@db";
 import { standardizationRules } from "@db/schemas/app/standardization";
 import { eq } from "drizzle-orm";
 import type { Agent } from "@openai/agents";
-import { createRunner, resolveDefaultAiModel, resolveDefaultAiProvider } from "@/ai/agent-ai";
+import { createRunner, resolveDefaultAiModel, resolveDefaultAiProvider } from "@/ai/agents/base/agent-ai";
 
 export class StandardizationService {
     private static STANDARD_REPO_OWNER = DEFAULT_GITHUB_OWNER;

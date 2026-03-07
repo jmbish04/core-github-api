@@ -7,7 +7,7 @@
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
 import { getOctokit } from '@services/octokit/core'
 
-import { DEFAULT_WORKFLOWS, shouldIncludeCloudflareWorkflow } from '@/flows/workflowTemplates'
+import { DEFAULT_WORKFLOWS, shouldIncludeCloudflareWorkflow } from '@/routes/api/webhooks/handlers/flows/workflowTemplates'
 import { encode } from '@utils/base64'
 import { getDb, schema } from '@db'
 import { projects } from '@db/schemas/projects/roadmap'
@@ -244,7 +244,7 @@ app.openapi(retrofitRoute, async (c) => {
 
     const octokit = await getOctokit(c.env)
 
-    let targetRepos = []
+    let targetRepos: any[] = []
     if (repos && repos.length > 0) {
         for (const r of repos) {
             try {
@@ -266,7 +266,7 @@ app.openapi(retrofitRoute, async (c) => {
 
     for (const repo of targetRepos) {
         try {
-            const rootFiles = [] // Optimization: Skip checking root files for tool simplicity or query if needed
+            const rootFiles: any[] = [] // Optimization: Skip checking root files for tool simplicity or query if needed
             // For simplicity in tool, assume we try to add all default workflows
             for (const wf of DEFAULT_WORKFLOWS) {
                 // Check wrangler logic if strictly needed, or just try

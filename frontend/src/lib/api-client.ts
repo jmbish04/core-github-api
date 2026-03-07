@@ -28,7 +28,7 @@ const client = hc<AppType>(getBaseUrl(), {
     }
 });
 
-export const api = client.api;
+export const api = (client as any).api;
 
 /**
  * Example Usage:

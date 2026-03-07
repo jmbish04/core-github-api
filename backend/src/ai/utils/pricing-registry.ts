@@ -1,3 +1,12 @@
+/**
+ * AI Model Pricing Registry & Guardrail System
+ * 
+ * Centralizes the pricing data (USD per 1M tokens) for all supported AI models.
+ * Implements a "Guardrail" system to prevent accidental usage of extremely 
+ * expensive models or long-context surge pricing.
+ * 
+ * @module AI/Utils/Pricing
+ */
 import { z } from 'zod';
 
 // ============================================================================
@@ -9,6 +18,10 @@ import { z } from 'zod';
  * If a model's base input or output cost exceeds these thresholds (per 1M tokens),
  * the system will throw a hard error.
  * * Adjust these values based on your risk tolerance.
+ */
+/**
+ * Safety thresholds for model selection.
+ * Throws an error if a model's base rate exceeds these limits.
  */
 export const BUDGET_LIMITS = {
   maxInputPricePerM: 10.00,  // Throw if input > $10/M (Blocks: o1, Opus 4.x Long Context)
@@ -42,12 +55,19 @@ export const ModelPricingSchema = z.object({
   is_preview: z.boolean().optional().default(false),
 });
 
+/**
+ * Type definition for model pricing metadata.
+ */
 export type ModelPricing = z.infer<typeof ModelPricingSchema>;
 
 // ============================================================================
 // 3. COMPREHENSIVE PRICING CATALOG
 // ============================================================================
 
+/**
+ * The master catalog of AI model prices.
+ * Prices are in USD per 1,000,000 tokens.
+ */
 export const PRICING_CATALOG: Record<string, ModelPricing> = {
   // --- ANTHROPIC: OPUS SERIES ---
   'claude-opus-4.6': {
@@ -189,8 +209,12 @@ export interface CostCalculationParams {
 }
 
 /**
- * Validates a model against budget limits.
- * @throws ExpensiveModelError if limits are exceeded.
+ * Performs a guardrail check on a specific model and context length.
+ * 
+ * @param modelId - The identifier of the model.
+ * @param model - The pricing metadata for the model.
+ * @param isLongContext - Whether the context length exceeds the standard tier (200k).
+ * @throws ExpensiveModelError if the active price exceeds budget limits.
  */
 export function guardCheck(modelId: string, model: ModelPricing, isLongContext: boolean) {
   // 1. Skip if allowlisted
@@ -212,7 +236,10 @@ export function guardCheck(modelId: string, model: ModelPricing, isLongContext: 
 }
 
 /**
- * Calculates cost and verifies guardrails.
+ * Calculates the total cost for an AI transaction and verifies safety limits.
+ * 
+ * @param params - Input/Output token counts and attribution.
+ * @returns Object containing total cost (USD) and breakdown.
  */
 export function calculateAndVerifyCost(params: CostCalculationParams) {
   const model = PRICING_CATALOG[params.modelId];

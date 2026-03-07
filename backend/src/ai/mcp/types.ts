@@ -1,4 +1,11 @@
-
+/**
+ * MCP Domain Types
+ * 
+ * Defines the core types and interfaces for the Model Context Protocol, 
+ * including JSON-RPC request/response structures and migration assets.
+ * 
+ * @module AI/MCP/Types
+ */
 import { z } from "zod";
 
 export interface ToolDefinition {

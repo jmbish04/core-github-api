@@ -45,7 +45,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ apiKey, agentId, r
                 headers: { 'x-api-key': apiKey || '' }
             });
             if (res.ok) {
-                const data = await res.json();
+                const data = (await res.json()) as any;
                 // Optional: Filter threads by agentId if one is provided?
                 // For now, let's show all, or filter if agentId is passed.
                 // If agentId is "cloudflare-docs", maybe we only show those?
@@ -82,7 +82,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ apiKey, agentId, r
                     headers: { 'x-api-key': apiKey || '' }
                 });
                 if (res.ok) {
-                    const data = await res.json();
+                    const data = (await res.json()) as any;
                     setMessages(data);
                 }
             } catch (e) {
@@ -110,7 +110,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ apiKey, agentId, r
                 })
             });
             if (res.ok) {
-                const newThread = await res.json();
+                const newThread = (await res.json()) as any;
                 setThreads(prev => [newThread, ...prev]);
                 setActiveThreadId(newThread.id);
             }
@@ -144,7 +144,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ apiKey, agentId, r
             });
 
             if (res.ok) {
-                const newMessages = await res.json();
+                const newMessages = (await res.json()) as any;
                 // Replace optimistic or append. DB returns [userMsg, agentMsg].
                 // We'll just append the agent message since we showed user one.
                 const agentMsg = newMessages.find((m: any) => m.role === 'agent');
@@ -185,7 +185,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ apiKey, agentId, r
                         >
                             <MessageSquare className="w-4 h-4 mt-0.5 shrink-0 opactiy-70" />
                             <div className="overflow-hidden">
-                                <div className="truncate">{thread.subject || "Untitled Discussion"}</div>
+                                <div className="break-words leading-snug">{thread.subject || "Untitled Discussion"}</div>
                                 <div className="text-[10px] opacity-70 mt-1">
                                     {formatDistanceToNow(new Date(thread.timestampStarted), { addSuffix: true })}
                                 </div>

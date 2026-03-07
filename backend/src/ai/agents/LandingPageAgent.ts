@@ -1,5 +1,5 @@
 
-import { BaseAgent } from "./BaseAgent";
+import { BaseAgent } from "./base/BaseAgent";
 import { callable } from "agents";
 import { z } from "zod";
 

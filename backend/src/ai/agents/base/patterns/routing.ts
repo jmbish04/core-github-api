@@ -1,5 +1,15 @@
 // Dynamic imports used instead of static
-import { Agent as CFAgent, callable } from "agents";
+/**
+ * AI Pattern: Routing
+ *
+ * Implements a decision-making pattern where an initial
+ * model step classifies the input and routes it to
+ * the most appropriate downstream specialized agent or tool.
+ *
+ * @module AI/Agents/Base/Patterns/Routing
+ */
+import { BaseAgent } from "@/ai/agents/base/BaseAgent";
+import { callable } from "agents";
 import { z } from "zod";
 
 const RouteSchema = z.object({
@@ -7,12 +17,24 @@ const RouteSchema = z.object({
   reasoning: z.string()
 });
 
-export class RouterAgent extends CFAgent<Env> {
-  
+/**
+ * Definition of a routing destination.
+ */
+export interface Route {
+  id: string;
+  description: string;
+  handler: string;
+}
+
+/**
+ * Abstract class implementation of the Routing pattern.
+ */
+export abstract class RoutingAgent extends BaseAgent<Env> {
+
   @callable()
   async handleRequest(query: string) {
     const { Agent, run } = await import("@openai/agents");
-    
+
     // The Router / Classifier
     const router = new Agent({
       name: "Router",

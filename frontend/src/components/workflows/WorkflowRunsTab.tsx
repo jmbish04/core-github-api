@@ -75,7 +75,7 @@ export function WorkflowRunsTab({ workflow }: WorkflowRunsTabProps) {
       const res = await fetch(`/api/webhooks?${params.toString()}`);
       if (!res.ok) throw new Error("Failed to fetch runs");
       
-      const json = await res.json();
+      const json = (await res.json()) as any;
       setRuns(json.data.map((d: any) => ({
         ...d,
         payload: typeof d.payload === 'string' ? JSON.parse(d.payload) : d.payload

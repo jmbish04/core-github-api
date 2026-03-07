@@ -20,8 +20,7 @@ export default function TaskDetails() {
         queryKey: ['task', taskId],
         queryFn: async () => {
             const res = await fetch(`/api/tasks/${taskId}`);
-            if (!res.ok) throw new Error('Failed to fetch task');
-            return res.json();
+            return (await res.json()) as any;
         }
     });
 

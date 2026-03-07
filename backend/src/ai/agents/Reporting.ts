@@ -1,4 +1,4 @@
-import { BaseAgent } from "./BaseAgent";
+import { BaseAgent } from "./base/BaseAgent";
 import { ResearchLogger } from "@research-logger";
 import { getDb } from "@db";
 import { resolveDefaultAiProvider, resolveDefaultAiModel } from "@/ai/providers/config";

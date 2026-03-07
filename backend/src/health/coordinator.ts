@@ -11,9 +11,10 @@ import { checkGitHubAPIHealth, checkWebhooksHealth, checkGitHubAppAuthHealth } f
 import { checkHealth as checkAIHealth } from '@/ai/health';
 import { checkHealth as checkAgentsHealth } from '@/ai/agents/health';
 import { checkHealth as checkMCPHealth } from '@/ai/mcp/health';
-import { checkHealth as checkBrowserHealth } from '@/ai/agents/tools/browser/health';
-import { checkGitHealth, checkSandboxHealth } from '@/ai/agents/tools/git/health';
-import { checkAPIHealth } from '@/api/health';
+import { checkHealth as checkBrowserHealth } from '@/ai/mcp/tools/browser/health';
+import { checkGitHealth, checkSandboxHealth } from '@/ai/mcp/tools/github/git-sandbox-health';
+import { checkAPIHealth } from '@/routes/api/health';
+import { checkHealth as checkResearchHealth } from '@/workflows/research/health';
 
 // ─── Check Registry ──────────────────────────────────────────────────────
 // Each check returns HealthStepResult and maps to a category for D1 persistence.
@@ -34,6 +35,7 @@ const CODE_CHECKS: RegisteredCheck[] = [
     { id: 'webhooks', category: 'webhooks', fn: checkWebhooksHealth },
     { id: 'git',      category: 'git',      fn: checkGitHealth },
     { id: 'sandbox',  category: 'sandbox',  fn: checkSandboxHealth },
+    { id: 'deep_research', category: 'research', fn: checkResearchHealth },
 ];
 
 export class HealthCoordinator {
@@ -203,10 +205,20 @@ export class HealthCoordinator {
                 })
                 .where(eq(healthRuns.id, runId));
 
-            // 7. Bulk Insert Results
+            // 7. Batch-insert results — D1 caps bind params at 100 per statement.
+            // health_results has 10 columns → max 9 rows per stmt (9×10=90 params).
             if (results.length > 0) {
-                await this.db.insert(healthResults).values(results);
+                const BATCH_SIZE = 9;
+                const chunks: HealthResult[][] = [];
+                for (let i = 0; i < results.length; i += BATCH_SIZE) {
+                    chunks.push(results.slice(i, i + BATCH_SIZE));
+                }
+                const stmts = chunks.map(chunk =>
+                    this.db.insert(healthResults).values(chunk)
+                );
+                await this.db.batch(stmts as any);
             }
+
 
             return { runId, status: overallStatus, results };
 

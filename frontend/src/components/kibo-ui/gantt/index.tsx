@@ -1013,7 +1013,7 @@ export const GanttFeatureRow: FC<GanttFeatureRowProps> = ({
   );
 
   // Calculate sub-row positions for overlapping features using a proper algorithm
-  const featureWithPositions = [];
+  const featureWithPositions: (GanttFeature & { subRow: number })[] = [];
   const subRowEndTimes: Date[] = []; // Track when each sub-row becomes free
 
   for (const feature of sortedFeatures) {

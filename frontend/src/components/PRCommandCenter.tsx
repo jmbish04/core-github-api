@@ -96,7 +96,7 @@ export function PRCommandCenter({ repoOwner, repoName, initialPrs }: PRCommandCe
                     try {
                         const res = await fetch(`/api/pr/${repoOwner}/${repoName}/${pr.number}/review-status`, { credentials: 'include' });
                         if (res.ok) {
-                            const data = await res.json();
+                            const data = ((await res.json()) as any) as any;
                             statusMap[pr.number] = {
                                 status: data.status,
                                 commentCount: data.commentCount,
@@ -124,7 +124,7 @@ export function PRCommandCenter({ repoOwner, repoName, initialPrs }: PRCommandCe
                 if (!res.ok) throw new Error('Failed to fetch overview');
                 return res.json();
             })
-            .then(data => setOverview(data))
+            .then(data => setOverview(data as any))
             .catch(e => console.error('[PRCommandCenter] Overview fetch failed:', e))
             .finally(() => setLoadingOverview(false));
     }, [selectedPrNumber, repoOwner, repoName]);
@@ -229,6 +229,14 @@ export function PRCommandCenter({ repoOwner, repoName, initialPrs }: PRCommandCe
                                 {selectedPr.state}
                             </Badge>
                             {selectedPr.draft && <Badge variant="secondary">Draft</Badge>}
+                            <Button 
+                                variant="secondary" 
+                                size="sm" 
+                                onClick={() => setActiveTab('comments')}
+                                className="bg-primary/20 text-primary hover:bg-primary/30"
+                            >
+                                <MessageSquare className="w-3.5 h-3.5 mr-1" /> Extract Comments
+                            </Button>
                             <Button variant="outline" size="sm" asChild>
                                 <a href={selectedPr.url} target="_blank" rel="noreferrer">
                                     <ExternalLink className="w-3.5 h-3.5 mr-1" /> GitHub

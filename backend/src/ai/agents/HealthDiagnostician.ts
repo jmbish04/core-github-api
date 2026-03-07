@@ -1,15 +1,25 @@
-// backend/src/ai/agents/HealthDiagnostician.ts
+/**
+ * Health Diagnostician Agent (Autonomous SRE)
+ * 
+ * A specialized agent responsible for analyzing system health failures. It:
+ * 1. Investigates error logs and target components.
+ * 2. Uses RAG (via Vectorize) to extract relevant log chunks for deep analysis.
+ * 3. Consults Cloudflare MCP documentation for error remediation.
+ * 4. Determines the complexity of the fix:
+ *    - Simple: Creates a GitHub PR directly.
+ *    - Complex: Delegates to Jules (long-running coding agent) for deep refactoring.
+ * 
+ * @module AI/Agents/HealthDiagnostician
+ */
 import { Buffer } from "node:buffer";
 import { z } from "zod";
 import { Octokit } from "@octokit/rest";
 import { desc, eq } from "drizzle-orm";
-
-import { BaseAgent } from "./BaseAgent";
+import { BaseAgent } from "./base/BaseAgent";
 import { getDb } from "@db";
 import { healthResults } from "@db/schemas/logs/health";
 import { julesJobs } from "@/db/schemas/agents/jules";
-import { JulesService } from "@/services/jules";
-import type { Agent as OpenAIAgentType } from "@openai/agents";
+import { JulesService } from "@/services/jules/jules";
 
 // Define the exact schema we expect the Agent to return
 const HealthDiagnosticianOutputSchema = z.object({
@@ -28,6 +38,9 @@ const finalAnalysisSchema = z.object({
 
 type HealthDiagnosticianOutput = z.infer<typeof HealthDiagnosticianOutputSchema>;
 
+/**
+ * The HealthDiagnostician performs automated root cause analysis and remediation.
+ */
 export class HealthDiagnostician extends BaseAgent {
     
     // Override the core DO fetch to bypass PartyServer room enforcement for direct DO invocations
@@ -46,6 +59,10 @@ export class HealthDiagnostician extends BaseAgent {
         return super.fetch(request);
     }
 
+/**
+ * Main diagnostic entry point.
+ * Performs log investigative tasks, documentation lookup, and remediation delegation.
+ */
     private async handleDiagnose(request: Request) {
         const payload = await request.json<{
             errorName: string;
@@ -155,14 +172,10 @@ Conclude your investigation with a detailed summary containing the severity, roo
             model: this.resolveModel(this.resolveProvider()),
             tools: [
                 {
-                    type: 'function' as const,
                     name: 'check_duplicate_pr',
                     description: 'Check for identical active pull requests or database suggestion records.',
                     parameters: { type: 'object' as const, properties: {}, required: [], additionalProperties: false },
-                    strict: true,
-                    isEnabled: async () => true,
-                    needsApproval: async () => false,
-                    invoke: async (context: any, input: string) => {
+                    execute: async (context: any, input: string) => {
                         try {
                             const { data: prs } = await octokit.pulls.list({ owner: repoOwner, repo: repoName, state: "open" });
                             const openPrs = prs.map(pr => ({ title: pr.title, url: pr.html_url }));
@@ -186,7 +199,6 @@ Conclude your investigation with a detailed summary containing the severity, roo
                     }
                 },
                 {
-                    type: 'function' as const,
                     name: 'get_github_file',
                     description: 'Fetch file content from GitHub.',
                     parameters: { 
@@ -195,10 +207,7 @@ Conclude your investigation with a detailed summary containing the severity, roo
                         required: ['path'],
                         additionalProperties: false
                     },
-                    strict: true,
-                    isEnabled: async () => true,
-                    needsApproval: async () => false,
-                    invoke: async (context: any, input: string) => {
+                    execute: async (context: any, input: string) => {
                         try {
                             const args = JSON.parse(input);
                             const { data } = await octokit.repos.getContent({ owner: repoOwner, repo: repoName, path: args.path });
@@ -213,7 +222,6 @@ Conclude your investigation with a detailed summary containing the severity, roo
                     }
                 },
                 {
-                    type: 'function' as const,
                     name: 'create_pull_request',
                     description: 'Create a new pull request on GitHub.',
                     parameters: {
@@ -229,10 +237,7 @@ Conclude your investigation with a detailed summary containing the severity, roo
                         required: ['branchName', 'filePath', 'newContent', 'commitMessage', 'prTitle', 'prBody'],
                         additionalProperties: false
                     },
-                    strict: true,
-                    isEnabled: async () => true,
-                    needsApproval: async () => false,
-                    invoke: async (context: any, input: string) => {
+                    execute: async (context: any, input: string) => {
                         try {
                             const args = JSON.parse(input);
                             const { branchName, filePath, newContent, commitMessage, prTitle, prBody } = args;
@@ -265,7 +270,6 @@ Conclude your investigation with a detailed summary containing the severity, roo
                     }
                 },
                 {
-                    type: 'function' as const,
                     name: 'delegate_to_jules',
                     description: 'Delegate fixing the issues to a Jules deeper reasoning AI.',
                     parameters: {
@@ -277,10 +281,7 @@ Conclude your investigation with a detailed summary containing the severity, roo
                         required: ['prompt'],
                         additionalProperties: false
                     },
-                    strict: true,
-                    isEnabled: async () => true,
-                    needsApproval: async () => false,
-                    invoke: async (context: any, input: string) => {
+                    execute: async (context: any, input: string) => {
                         try {
                             const args = JSON.parse(input);
                             const julesService = JulesService.getInstance(this.env);
@@ -304,7 +305,6 @@ Conclude your investigation with a detailed summary containing the severity, roo
                     }
                 },
                 {
-                    type: 'function' as const,
                     name: "search_cloudflare_documentation",
                     description: "Search the Cloudflare documentation for specific products, features, or error codes. Returns semantic chunks.",
                     parameters: {
@@ -318,10 +318,7 @@ Conclude your investigation with a detailed summary containing the severity, roo
                         required: ["query"],
                         additionalProperties: false
                     },
-                    strict: true,
-                    isEnabled: async () => true,
-                    needsApproval: async () => false,
-                    invoke: async (_context: any, input: string) => {
+                    execute: async (_context: any, input: string) => {
                         try {
                             const { queryMCP } = await import("@/ai/mcp/mcp-client");
                             const args = JSON.parse(input);
@@ -337,37 +334,19 @@ Conclude your investigation with a detailed summary containing the severity, roo
 
         // 4. Execute the Agent using the BaseAgent's structured response method
         try {
-             // We need to bypass BaseAgent's protective wrapper to inject custom tools while still getting structured output.
-             // BaseAgent currently doesn't accept a `tools` parameter in `runStructuredResponseWithModel`. 
-             // We'll instantiate the OpenAIAgent directly here to achieve both tools AND schema.
-             
-             const runner = await import("@/ai/agent-sdk").then(m => m.createRunner(this.env, agentConfig.provider, agentConfig.model));
-             
-             const { Agent } = await import("@openai/agents");
-             const agent = new Agent({
-                 name: agentConfig.name,
-                 instructions: agentConfig.instructions,
-                 model: agentConfig.model,
-                 tools: agentConfig.tools,
-                 // Removed outputType here to comply with AI standard mandate: let agent run freely, extract structure internally below
-             });
-
              // Diagnostic tracking: monitor actual byte size of the outbound LLM payload
              const payloadBytes = new TextEncoder().encode(prompt).length;
              this.logger.info(`[HealthDiagnostician] Outbound Prompt Payload Size: ${payloadBytes} bytes`);
 
-             const result = await runner.run(agent, prompt);
-             
-             // Enforce strict JSON output using the globally mandated AiProvider.generateStructuredResponse
-             const { generateStructuredResponse } = await import("@/ai/providers/index");
-             const { zodToJsonSchema } = await import("zod-to-json-schema");
-             
-             const extractPrompt = `Extract the exact diagnosis details from the Agent's final response below. Respond ONLY with valid JSON.\n\nAgent Response:\n${result.finalOutput}`;
-             const finalData = await generateStructuredResponse<HealthDiagnosticianOutput>(
-                this.env, 
-                extractPrompt, 
-                zodToJsonSchema(HealthDiagnosticianOutputSchema as any, "structured_output")
-             );
+             const finalData = await this.runStructuredResponseWithModel<HealthDiagnosticianOutput>({
+                 name: agentConfig.name,
+                 instructions: agentConfig.instructions,
+                 prompt: prompt,
+                 schema: HealthDiagnosticianOutputSchema,
+                 tools: agentConfig.tools,
+                 provider: agentConfig.provider,
+                 model: agentConfig.model
+             });
 
              return new Response(JSON.stringify(finalData), {
                 headers: { "Content-Type": "application/json" }

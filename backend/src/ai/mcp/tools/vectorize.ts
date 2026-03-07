@@ -1,7 +1,14 @@
+/**
+ * Vectorize Index MCP Tools
+ * 
+ * Exposes Cloudflare Vectorize operations as tools for AI agents.
+ * Handles semantic search, text chunking, and vector upsertion with automated 
+ * embedding generation via OpenAI/AI Gateway.
+ * 
+ * @module AI/MCP/Tools/Vectorize
+ */
 import { z } from 'zod';
-import { Tool } from '@/ai/agent-sdk';
-import OpenAI from 'openai';
-import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters';
+import { Tool } from '@/ai/agents/base/BaseAgent';
 import { v4 as uuidv4 } from 'uuid';
 
 // Helper to get OpenAI client for embeddings via Gateway
@@ -10,11 +17,24 @@ async function getEmbeddingClient(env: Env) {
   const gatewayId = env.AI_GATEWAY_NAME || 'rag';
   const gateway = env.AI.gateway(gatewayId);
   const baseUrl = await gateway.getUrl("openai"); // Specific OpenAI endpoint for real ada-002
+  const apiKey = await env.AI_GATEWAY_TOKEN.get();
   
-  return new OpenAI({
-    apiKey: await env.AI_GATEWAY_TOKEN.get(),
-    baseURL: baseUrl,
-  });
+  return {
+    embeddings: {
+      create: async (body: any) => {
+        const res = await fetch(baseUrl + '/embeddings', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey || "dummy-key"}`,
+          },
+          body: JSON.stringify(body)
+        });
+        if (!res.ok) throw new Error(`Gateway Embeddings Error: ${await res.text()}`);
+        return await res.json();
+      }
+    }
+  } as any;
 }
 
 // Helper for vector normalization (L2)
@@ -37,7 +57,11 @@ export const VectorizeSearchTool = (env: Env): Tool => ({
     topK: z.number().optional().default(5).describe('Number of results to return.'),
     isTest: z.boolean().optional().default(false).describe('If true, include test vectors.')
   }),
-  execute: async ({ query, topK, isTest = false }: { query: string; topK?: number; isTest?: boolean }) => {
+  execute: async (args: Record<string, unknown>) => {
+    const query = args.query as string;
+    const topK = (args.topK as number) ?? 5;
+    const isTest = (args.isTest as boolean) ?? false;
+
     try {
       const client = await getEmbeddingClient(env);
       const embeddingResponse = await client.embeddings.create({
@@ -51,8 +75,9 @@ export const VectorizeSearchTool = (env: Env): Tool => ({
 
       const matches = await env.VECTORIZE.query(vector, { topK, returnMetadata: true, filter });
       return matches;
-    } catch (e: any) {
-      return { error: e.message };
+    } catch (e) {
+      const error = e as Error;
+      return { error: error.message };
     }
   }
 });
@@ -69,17 +94,24 @@ export const VectorizeUpsertTool = (env: Env): Tool => ({
   parameters: z.object({
     documentId: z.string().describe('The ID of the parent document (e.g. from a D1 table).'),
     text: z.string().describe('The full text content to index.'),
-    metadata: z.record(z.string(), z.any()).optional().describe('Additional metadata to store with vectors.'),
+    metadata: z.record(z.string(), z.unknown()).optional().describe('Additional metadata to store with vectors.'),
     isTest: z.boolean().optional().default(false).describe('If true, marks vectors as test data.')
   }),
-  execute: async ({ documentId, text, metadata = {}, isTest = false }: { documentId: string; text: string; metadata?: Record<string, any>; isTest?: boolean }) => {
+  execute: async (args: Record<string, unknown>) => {
+    const documentId = args.documentId as string;
+    const text = args.text as string;
+    const metadata = (args.metadata as Record<string, unknown>) || {};
+    const isTest = (args.isTest as boolean) ?? false;
+
     try {
       // 1. Chunking
-      const splitter = new RecursiveCharacterTextSplitter({
-        chunkSize: 1000,
-        chunkOverlap: 200,
-      });
-      const chunks = await splitter.createDocuments([text]);
+      // Basic recursive chunking without @langchain/textsplitters bloat
+      const chunks: { pageContent: string }[] = [];
+      const chunkSize = 1000;
+      const textChunks = text.match(new RegExp(`.{1,${chunkSize}}`, 'g')) || [];
+      for (const t of textChunks) {
+        chunks.push({ pageContent: t });
+      }
 
       if (chunks.length === 0) return { success: true, count: 0 };
 
@@ -94,7 +126,7 @@ export const VectorizeUpsertTool = (env: Env): Tool => ({
       });
 
       // 3. Prepare Vectorize records
-      const vectors = embeddingResponse.data.map((item, index) => ({
+      const vectors = embeddingResponse.data.map((item: any, index: number) => ({
         id: `${documentId}_chunk_${index}`, // Unique ID for chunk
         values: normalizeVector(item.embedding),
         metadata: {
@@ -115,8 +147,9 @@ export const VectorizeUpsertTool = (env: Env): Tool => ({
         inserted
       };
 
-    } catch (e: any) {
-      return { error: e.message };
+    } catch (e) {
+      const error = e as Error;
+      return { error: error.message };
     }
   }
 });

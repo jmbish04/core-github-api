@@ -8,9 +8,59 @@ import { AgentWorkflowTimeline } from "@/components/AgentWorkflowTimeline";
 import { RecentTasksCard } from "@/components/RecentTasksCard";
 import { LiveOpsModal } from "@/components/modals/LiveOpsModal";
 import { WorkflowsModal } from "@/components/modals/WorkflowsModal";
+import { useProjectStore } from "@/stores/useProjectStore";
+import { api } from "@/lib/api-client";
+import { useQuery } from "@tanstack/react-query";
+import { LucideBot, LucideUser, LucideClock3 } from "lucide-react";
+
+function RecentWorkshopActivity() {
+    const { data, isLoading } = useQuery({
+        queryKey: ['workshop', 'recent-events'],
+        queryFn: async () => {
+             const res = await api.frontend.workshop.events.recent.$get({});
+             if (!res.ok) return [];
+             const ds = await res.json();
+             return ds.events;
+        },
+        refetchInterval: 10000
+    });
+
+    if (isLoading) return <div className="p-4 flex items-center justify-center text-zinc-500"><LucideClock3 className="animate-spin w-4 h-4 mr-2"/>Loading...</div>;
+    
+    if (!data || data.length === 0) return <div className="p-4 text-xs text-zinc-500">No agent activity found.</div>;
+
+    return (
+        <ScrollArea className="flex-1 p-0">
+            <div className="divide-y divide-zinc-800/50">
+                {data.map((event: any) => {
+                     const isSystem = event.actor === 'system';
+                     const Icon = isSystem ? LucideBot : LucideUser;
+                     return (
+                         <div key={event.id} className="p-3 text-sm flex gap-3 hover:bg-zinc-800/20 transition-colors">
+                             <div className={cn("mt-0.5 shrink-0 p-1.5 rounded-md", isSystem ? "bg-indigo-500/20 text-indigo-400" : "bg-zinc-800 text-zinc-400")}>
+                                 <Icon className="w-3.5 h-3.5"/>
+                             </div>
+                             <div className="flex-1 min-w-0">
+                                 <div className="flex items-center justify-between gap-2">
+                                     <div className="font-medium text-zinc-200 capitalize truncate">{event.projectName || 'Draft Project'}</div>
+                                     <div className="text-[10px] text-zinc-500 shrink-0">{new Date(event.createdAt).toLocaleTimeString([], {timeStyle: 'short'})}</div>
+                                 </div>
+                                 <div className="text-zinc-400 text-xs mt-0.5 truncate">{event.type || 'Action'}: {event.content?.action || 'Update'}</div>
+                             </div>
+                         </div>
+                     );
+                })}
+            </div>
+        </ScrollArea>
+    );
+}
+
+import { cn } from "@/lib/utils";
 
 export default function DashboardPage() {
     const [activeOp, setActiveOp] = useState<string | null>(null);
+    const { activeProjects } = useProjectStore();
+    const primaryProject = activeProjects[0] || { owner: 'colby-dev', name: 'core-api' };
 
     const startFix = () => {
         const id = `fix-all-${Date.now()}`;
@@ -23,17 +73,17 @@ export default function DashboardPage() {
     return (
         <div className="flex flex-col h-screen bg-zinc-950 text-zinc-50 font-sans">
             {/* Header / Toolbar */}
-            <header className="border-b border-zinc-800 py-4 px-6 flex items-center justify-between bg-zinc-900/50 backdrop-blur-sm">
-                <div className="flex items-center gap-4">
+            <header className="border-b border-zinc-800 py-4 px-4 md:px-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-zinc-900/50 backdrop-blur-sm">
+                <div className="flex flex-wrap items-center gap-2 sm:gap-4 w-full sm:w-auto">
                     <h1 className="text-xl font-bold tracking-tight">Dashboard</h1>
-                    <div className="h-6 w-px bg-zinc-800" />
-                    <div className="flex items-center gap-2">
+                    <div className="hidden sm:block h-6 w-px bg-zinc-800" />
+                    <div className="flex items-center gap-2 ml-auto sm:ml-0">
                         <LiveOpsModal activeOpCount={activeOp ? 1 : 0} />
                         <WorkflowsModal />
                     </div>
                 </div>
-                <div className="flex gap-2">
-                    <Button variant="default" size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={startFix}>
+                <div className="flex gap-2 w-full sm:w-auto">
+                    <Button variant="default" size="sm" className="bg-emerald-600 hover:bg-emerald-700 w-full sm:w-auto" onClick={startFix}>
                         Auto-Fix Repo
                     </Button>
                 </div>
@@ -44,7 +94,7 @@ export default function DashboardPage() {
 
                     {/* Left Column: Repository Health */}
                     <div className="flex flex-col gap-6">
-                        <RepoHealthCard owner="env.GITHUB_OWNER" repo="core-github-api" />
+                        <RepoHealthCard owner={primaryProject.owner} repo={primaryProject.name} />
                         <Card className="border-zinc-800 bg-zinc-900/50">
                             <CardHeader>
                                 <CardTitle className="text-sm font-medium text-zinc-400">Security Status</CardTitle>
@@ -70,10 +120,8 @@ export default function DashboardPage() {
                                     Agent Activity
                                 </CardTitle>
                             </CardHeader>
-                            {/* Reusing AgentWorkflowTimeline directly in dashboard as the main feed */}
-                            <div className="flex-1 p-0 overflow-hidden relative">
-                                <AgentWorkflowTimeline operationId={activeOp || "demo-op"} />
-                            </div>
+                            {/* Unified view: Workshop Activity Feed */}
+                            <RecentWorkshopActivity />
                         </Card>
                     </div>
 

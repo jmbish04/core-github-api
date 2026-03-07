@@ -14,7 +14,8 @@ import {
     Trello,
     GitPullRequest,
     FolderGit2,
-    Star
+    Star,
+    Wand2
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
@@ -46,6 +47,7 @@ export function Sidebar({ className }: SidebarProps) {
     const [isControlCenterExpanded, setIsControlCenterExpanded] = useState(false);
     const [isDocsExpanded, setIsDocsExpanded] = useState(false);
     const [isWorkflowsExpanded, setIsWorkflowsExpanded] = useState(false);
+    const [isWorkshopExpanded, setIsWorkshopExpanded] = useState(false);
     const [recentProjects, setRecentProjects] = useState<RecentProject[]>([]);
 
     const { data: favorites = [] } = useQuery({
@@ -58,7 +60,7 @@ export function Sidebar({ className }: SidebarProps) {
             if (!response.ok) {
                 throw new Error("Failed to fetch favorites");
             }
-            const payload = await response.json() as { favorites?: FavoriteProject[] };
+            const payload = (await response.json()) as any as { favorites?: FavoriteProject[] };
             return payload.favorites || [];
         },
     });
@@ -66,7 +68,7 @@ export function Sidebar({ className }: SidebarProps) {
     const mainLinks = [
         { name: "Home", href: "/", icon: Home },
         { name: "Health", href: "/health", icon: Activity },
-        { name: "App Store", href: "/apps", icon: Package },
+        { name: "App Store", href: "/apps", icon: Package }
     ];
 
     const docsLinks = [
@@ -86,23 +88,31 @@ export function Sidebar({ className }: SidebarProps) {
         })),
     ];
 
+    const workshopLinks = [
+        { name: "Workshop", href: "/workshop" },
+        { name: "Command Center", href: "/workshop/command-center" },
+        { name: "Takeover Wizard", href: "/workshop/takeover" },
+        { name: "Decision Inbox", href: "/workshop/inbox" },
+        { name: "Analytics", href: "/workshop/analytics" },
+    ];
+
     const controlCenterLinks = [
-        { name: "Dashboard", href: "/control-center/dashboard", icon: LayoutDashboard },
-        { name: "Projects", href: "/control-center/projects", icon: FolderGit2 },
-        { name: "Chat", href: "/control-center/chat", icon: MessageSquare },
-        { name: "Kanban", href: "/control-center/kanban", icon: Trello },
-        { name: "Roadmap", href: "/control-center/roadmap", icon: Trello },
-        { name: "PR Command Center", href: "/control-center/pr-center", icon: GitPullRequest },
-        { name: "Settings", href: "/control-center/settings", icon: Settings },
-        { name: "General Todos", href: "/control-center/todos", icon: BookOpen },
+        { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+        { name: "Projects", href: "/projects", icon: FolderGit2 },
+        { name: "Chat", href: "/chat", icon: MessageSquare },
+        { name: "Kanban", href: "/kanban", icon: Trello },
+        { name: "Roadmap", href: "/roadmap", icon: Trello },
+        { name: "PR Command Center", href: "/pr-center", icon: GitPullRequest },
+        { name: "Settings", href: "/settings", icon: Settings },
+        { name: "General Todos", href: "/todos", icon: BookOpen },
     ];
 
     const isControlCenterActive = controlCenterLinks.some(link => location.pathname === link.href);
     const isDocsActive = docsLinks.some(link => location.pathname === link.href);
     const isWorkflowsActive =
-        location.pathname.startsWith("/workflows") ||
-        location.pathname.startsWith("/control-center/workflows");
+        location.pathname.startsWith("/workflows");
     const isProjectRouteActive = location.pathname.startsWith("/projects/");
+    const isWorkshopActive = location.pathname.startsWith("/workshop");
 
     useEffect(() => {
         if (isDocsActive) setIsDocsExpanded(true);
@@ -111,6 +121,10 @@ export function Sidebar({ className }: SidebarProps) {
     useEffect(() => {
         if (isWorkflowsActive) setIsWorkflowsExpanded(true);
     }, [isWorkflowsActive]);
+
+    useEffect(() => {
+        if (isWorkshopActive) setIsWorkshopExpanded(true);
+    }, [isWorkshopActive]);
 
     useEffect(() => {
         if (isControlCenterActive) setIsControlCenterExpanded(true);
@@ -126,7 +140,7 @@ export function Sidebar({ className }: SidebarProps) {
     const isWorkflowLinkActive = (href: string) => {
         if (location.pathname === href) return true;
         if (href.startsWith("/workflows")) {
-            return location.pathname === `/control-center${href}`;
+            return location.pathname === href;
         }
         return false;
     };
@@ -320,6 +334,48 @@ export function Sidebar({ className }: SidebarProps) {
                                             <BookOpen className="mr-2 h-4 w-4 opacity-70" />
                                             {link.name}
                                         </a>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Workshop Collapsible */}
+                        <div className="pt-2">
+                            <Button
+                                variant="ghost"
+                                className={cn(
+                                    "w-full justify-between hover:bg-accent hover:text-accent-foreground px-3 py-2 h-auto font-medium",
+                                    isWorkshopActive ? "text-primary" : "text-muted-foreground"
+                                )}
+                                onClick={() => setIsWorkshopExpanded(!isWorkshopExpanded)}
+                            >
+                                <span className="flex items-center text-sm">
+                                    <Wand2 className="mr-2 h-4 w-4" />
+                                    Agent Workshop
+                                </span>
+                                {isWorkshopExpanded ? (
+                                    <ChevronDown className="h-4 w-4" />
+                                ) : (
+                                    <ChevronRight className="h-4 w-4" />
+                                )}
+                            </Button>
+
+                            {isWorkshopExpanded && (
+                                <div className="ml-4 mt-1 space-y-1 border-l pl-2">
+                                    {workshopLinks.map((link) => (
+                                        <NavLink
+                                            key={link.href}
+                                            to={link.href}
+                                            className={({ isActive }) =>
+                                                cn(
+                                                    "flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors",
+                                                    isActive || location.pathname === link.href ? "bg-secondary/50 text-secondary-foreground" : "text-muted-foreground"
+                                                )
+                                            }
+                                        >
+                                            <Wand2 className="mr-2 h-4 w-4 opacity-70" />
+                                            {link.name}
+                                        </NavLink>
                                     ))}
                                 </div>
                             )}

@@ -1,6 +1,6 @@
 
 import { getOctokit } from "@services/octokit/core";
-import { BaseAgent } from "@agents/BaseAgent";
+import { BaseAgent } from "@/ai/agents/base/BaseAgent";
 
 export class AgentGenerator {
     static async ensureAgent(env: Env, owner: string, repo: string) {
@@ -88,7 +88,9 @@ export class AgentGenerator {
         try {
             await octokit.rest.repos.getContent({ owner, repo, path: "wrangler.toml" });
             stack.push("Cloudflare Workers");
-        } catch {}
+        } catch(e) {
+            console.log(`[AgentGen] No wrangler.toml found for ${owner}/${repo}`, JSON.stringify(e));
+        }
         try {
             const { data: pkgParams } = await octokit.rest.repos.getContent({ owner, repo, path: "package.json" });
             if ("content" in pkgParams) {
@@ -99,7 +101,9 @@ export class AgentGenerator {
                 if (deps.astro) stack.push("Astro");
                 if (deps.react) stack.push("React");
             }
-        } catch {}
+        } catch(e) {
+            console.log(`[AgentGen] No package.json found for ${owner}/${repo}`, JSON.stringify(e));
+        }
 
         const description = stack.length > 0 
             ? `Expert in ${stack.join(", ")} and repository standardization.`

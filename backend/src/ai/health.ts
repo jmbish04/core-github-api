@@ -1,3 +1,12 @@
+/**
+ * AI Domain Health & Diagnostic Suite
+ * 
+ * This module provides comprehensive health checks for the AI subsystem, 
+ * covering text generation, structured output, embeddings, and cross-provider 
+ * connectivity via AI Gateway.
+ * 
+ * @module AI/Health
+ */
 import { generateText, generateStructuredResponse, generateEmbedding } from "@/ai/providers";
 import { getAIGatewayUrl } from "./utils/ai-gateway";
 import { cleanJsonOutput, sanitizeAndFormatResponse } from "./utils/sanitizer";
@@ -7,14 +16,18 @@ import { getGeminiApiKey, getOpenaiApiKey } from "@utils/secrets";
 import { verifyCloudflareTokens } from "@utils/cloudflare/tokens";
 
 /**
- * Checks the health of the AI domain by validating:
- * 1. Sanitizer utilities (CPU-bound)
- * 2. Unstructured Text Generation (Network-bound)
- * 3. Structured JSON Generation (Network-bound, Multi-step)
- * 4. Vector Embeddings (Network-bound)
- * 5. Gemini via AI Gateway (SDK + Raw)
- * 6. OpenAI via AI Gateway (SDK + Raw)
- * 7. Diagnostician (self-test)
+ * Performs a deep health check of all AI domain components.
+ * 
+ * Validates:
+ * 1. Synchronous utility performance (Sanitizers).
+ * 2. Asynchronous API connectivity (Workers AI, Gemini, OpenAI).
+ * 3. AI Gateway authorization and token validity.
+ * 4. Structured data integrity (JSON schema adherence).
+ * 5. Self-diagnostic capabilities.
+ * 
+ * @param env - Cloudflare Environment bindings.
+ * @returns A structured HealthStepResult containing granular check statuses.
+ * @agent-note This is the primary diagnostic entry point for AI-related incidents.
  */
 export async function checkHealth(env: Env): Promise<HealthStepResult> {
     const start = Date.now();

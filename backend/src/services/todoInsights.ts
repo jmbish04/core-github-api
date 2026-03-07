@@ -11,7 +11,7 @@ import { BrowserService } from "./browser_render";
 import type { Agent } from "@openai/agents";
 import { z } from "zod";
 
-import { createRunner, resolveDefaultAiModel, resolveDefaultAiProvider } from "@/ai/agent-ai";
+import { createRunner, resolveDefaultAiModel, resolveDefaultAiProvider } from "@/ai/agents/base/agent-ai";
 
 const TodoInsightItemSchema = z.object({
     type: z.enum(["offer_to_help", "enrich_todo", "research"]).default("enrich_todo"),
@@ -39,7 +39,7 @@ export class TodoInsightService {
 
         // 2. Extract & Crawl Links
         const urls = this.extractUrls(todo.content || "");
-        const crawledData = [];
+        const crawledData: any[] = [];
 
         for (const url of urls) {
             // Check if already exists

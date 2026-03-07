@@ -7,8 +7,7 @@
 
 import { callable } from "agents";
 import { resolveDefaultAiModel, resolveDefaultAiProvider, type SupportedProvider } from "@/ai/providers/config";
-import { BaseAgentState } from "@/ai/agent-sdk";
-import { BaseAgent } from "@/ai/agents/BaseAgent";
+import { BaseAgent, BaseAgentState } from "@/ai/agents/base/BaseAgent";
 import { Logger } from "@logging";
 
 /**
@@ -36,7 +35,7 @@ interface DeepReasoningInput {
  * Intercepts POST requests, resolves the appropriate AI provider/model, and enforces 
  * strict JSON schema compliance on the output.
  */
-export class DeepReasoningAgent extends BaseAgent<BaseAgentState> {
+export class DeepReasoningAgent extends BaseAgent<Env, BaseAgentState> {
 
 
   /**
@@ -47,6 +46,19 @@ export class DeepReasoningAgent extends BaseAgent<BaseAgentState> {
   constructor(state: DurableObjectState, env: Env) {
     super(state, env);
     (this as any).logger = new Logger(env, "DeepReasoningAgent");
+  }
+
+  /**
+   * @method fetch
+   * @description Overrides the default CFAgent fetch to prevent strict Zod validation on /run.
+   */
+  async fetch(request: Request): Promise<Response> {
+    const url = new URL(request.url);
+    if (request.method === "POST" && url.pathname === "/run") {
+      // Clone request so onRequest can read body. We bypass CFAgent's /run entirely because it expects { input: string }
+      return this.onRequest(request.clone() as unknown as Request);
+    }
+    return super.fetch(request);
   }
 
   /**
@@ -83,9 +95,13 @@ export class DeepReasoningAgent extends BaseAgent<BaseAgentState> {
     }
 
     try {
-      const input = (await request.json()) as DeepReasoningInput;
+      const payload = (await request.json()) as any;
       const defaultProvider = resolveDefaultAiProvider(this.env);
-      const { prompt, schema, provider = defaultProvider } = input;
+      
+      // Support both `prompt` and `input` interchangeably to avoid strict SDK validation errors
+      const promptText = payload.prompt || payload.input;
+      const schemaObj = payload.schema || {};
+      const provider = payload.provider || defaultProvider;
       
       // DEBUG: Verify environment keys are accessible for AI Gateway/Provider routing
       const hasAiGateway = !!(await this.env.AI_GATEWAY_TOKEN?.get?.() ?? this.env.AI_GATEWAY_TOKEN);
@@ -94,19 +110,19 @@ export class DeepReasoningAgent extends BaseAgent<BaseAgentState> {
       
       console.log(`[DeepReasoning] Keys present: AI_GATEWAY=${hasAiGateway}, CF_TOKEN=${hasCfToken}, OPENAI_ENV=${hasOpenAi}`);
       
-      if (!prompt || !schema) {
-        return new Response("Missing prompt or schema", { status: 400 });
+      if (!promptText) {
+        return new Response("Missing prompt/input", { status: 400 });
       }
 
-      this.logger.info("Executing deep reasoning", { promptLength: prompt.length, provider });
+      this.logger.info("Executing deep reasoning", { promptLength: promptText.length, provider });
 
       const model = resolveDefaultAiModel(this.env, provider);
 
       const result = await this.runStructuredResponseWithModel({
         name: "DeepReasoningAgent",
         instructions: "You are a deep technical reasoning assistant. Return only output that matches the requested JSON schema.",
-        prompt: prompt,
-        schema: schema as any,
+        prompt: promptText,
+        schema: schemaObj as any,
         provider: provider as any,
         model: model
       });

@@ -1,5 +1,23 @@
+/**
+ * AI Log Vectorization & Retrieval Storage
+ * 
+ * Provides utilities to transform raw logs into vector embeddings and 
+ * store them in Cloudflare Vectorize. This enables semantic search and RAG 
+ * capabilities for log analysis.
+ * 
+ * @module AI/Utils/LogVectorizer
+ */
 import { generateEmbeddings } from "@/ai/providers";
 
+/**
+ * Batches log content, generates embeddings, and inserts them into the Vectorize index.
+ * 
+ * @param env - Cloudflare Environment bindings.
+ * @param runId - Unique identifier for the execution run.
+ * @param rawLogs - Array of raw log entries (strings or objects).
+ * @returns Total number of vectors inserted.
+ * @agent-note This is the core engine for Log RAG.
+ */
 export async function vectorizeAndStoreLogs(env: Env, runId: string, rawLogs: any[]) {
   const BATCH_SIZE = 50; 
   

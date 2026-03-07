@@ -16,7 +16,7 @@ export const PRCommandCenter: React.FC = () => {
         queryFn: async () => {
             const res = await fetch(`/api/projects/by-repo/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`, { credentials: 'include' });
             if (!res.ok) throw new Error(await res.text());
-            return (await res.json()) as { projectId: string; success: boolean };
+            return ((await res.json()) as any) as { projectId: string; success: boolean };
         },
     });
 
@@ -28,7 +28,7 @@ export const PRCommandCenter: React.FC = () => {
         queryFn: async () => {
             const res = await fetch(`/api/projects/${projectId}/overview`, { credentials: 'include' });
             if (!res.ok) throw new Error('Failed to load project overview');
-            return (await res.json()) as { success: boolean; pendingPrs: any[]; repository: { owner: string; name: string } };
+            return ((await res.json()) as any) as { success: boolean; pendingPrs: any[]; repository: { owner: string; name: string } };
         },
     });
 

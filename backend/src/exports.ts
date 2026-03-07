@@ -1,5 +1,5 @@
 // Export Workflows
-export { ResearchOrchestrator } from './workflows/research/orchestrator';
+export { ResearchOrchestrator } from './ai/agents/ResearchOrchestrator';
 export { DeepResearchWorkflow } from './workflows/research/deep';
 
 // Export Durable Objects (Agents)

@@ -5,7 +5,7 @@ import { BlueprintGenerator } from "./blueprint";
 import { TemplateGenerator } from "./template";
 import type { WorkerAnalysis, WranglerConfig, PackageJson } from "./types";
 import TOML from "@iarna/toml";
-import { resolveDefaultAiModel, resolveDefaultAiProvider, runTextAgent } from "@/ai/agent-ai";
+import { resolveDefaultAiModel, resolveDefaultAiProvider, runTextAgent } from "@/ai/agents/base/agent-ai";
 
 interface GenerateOptions {
     owner: string;

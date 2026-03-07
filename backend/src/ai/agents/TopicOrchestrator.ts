@@ -1,4 +1,14 @@
-import { BaseAgent } from "./BaseAgent";
+/**
+ * Topic Orchestrator Agent (Research Planning & Management)
+ * 
+ * Manages the high-level lifecycle of a research topic or brief. It:
+ * 1. Accepts user briefs and initiates the planning phase.
+ * 2. Generates structured research plans and search queries.
+ * 3. Coordinates logging across different research stages.
+ * 
+ * @module AI/Agents/TopicOrchestrator
+ */
+import { BaseAgent } from "./base/BaseAgent";
 import { getDb } from "@db";
 import { researchBriefs, researchPlans, researchCandidates } from "@db/schemas/github/research";
 import { ResearchLogger } from "@research-logger";
@@ -12,7 +22,10 @@ type AgentState = {
 
 // Actually I'll do two chunks.
 
-export class TopicOrchestratorAgent extends BaseAgent<AgentState> {
+/**
+ * The TopicOrchestratorAgent manages research lifecycle and goal definition.
+ */
+export class TopicOrchestratorAgent extends BaseAgent<Env, AgentState> {
   private researchLogger?: ResearchLogger;
   private doState: DurableObjectState; // Store DO state explicitly
 
@@ -24,6 +37,9 @@ export class TopicOrchestratorAgent extends BaseAgent<AgentState> {
 
   // --- Public Methods (RPC) ---
 
+/**
+ * Submits a new research brief and initiates the planning workflow.
+ */
   async submitBrief(userId: string, title: string, content: any) {
     const db = getDb(this.env.DB);
     

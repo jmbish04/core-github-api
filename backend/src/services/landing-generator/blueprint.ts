@@ -128,7 +128,7 @@ export class BlueprintGenerator {
 
     private static generateUseCases(analysis: WorkerAnalysis) {
         // Generate use cases based on architecture components
-        const cases = [];
+        const cases: any[] = [];
 
         if (analysis.components.some(c => c.type === 'Durable Object')) {
             cases.push({
@@ -221,7 +221,7 @@ export class BlueprintGenerator {
 
     private static generateArchitectureDescription(components: import('./types').ArchitectureComponent[]): string {
         const types = new Set(components.map(c => c.type));
-        const parts = [];
+        const parts: string[] = [];
 
         if (types.has('Durable Object')) {
             parts.push('Stateful Durable Objects for orchestration');
@@ -240,7 +240,7 @@ export class BlueprintGenerator {
     }
 
     private static generateArchitectureDiagram(components: import('./types').ArchitectureComponent[]): string {
-        const lines = [];
+        const lines: string[] = [];
         lines.push('┌─────────────────────────────────────────┐');
         lines.push('│        Cloudflare Edge Network         │');
         lines.push('└─────────────────┬───────────────────────┘');

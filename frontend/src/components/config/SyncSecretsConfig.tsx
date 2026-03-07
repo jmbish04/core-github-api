@@ -64,7 +64,7 @@ export function SyncSecretsConfig({ currentConfig, onConfigChanged }: SyncSecret
     try {
       const res = await fetch(`${API_BASE}/secrets/all`);
       if (res.ok) {
-        const json = await res.json();
+        const json = (await res.json()) as any;
         setAllSecrets(json.secrets || []);
       }
     } catch (e) {
@@ -302,7 +302,12 @@ export function SyncSecretsConfig({ currentConfig, onConfigChanged }: SyncSecret
                         <div className="space-y-2">
                             <Label>Secret Value</Label>
                             <Input 
-                              type="password"
+                              type="text"
+                              autoComplete="off"
+                              data-lpignore="true"
+                              data-1p-ignore="true"
+                              data-form-type="other"
+                              spellCheck={false}
                               placeholder="sk_live_..." 
                               value={newValue} 
                               onChange={e => setNewValue(e.target.value)}

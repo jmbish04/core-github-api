@@ -1,16 +1,26 @@
-
-
+/**
+ * Supervisor Agent (Operational Watchdog)
+ * 
+ * The Supervisor is a Durable Object responsible for:
+ * 1. Managing connections between the frontend and the backend container.
+ * 2. Monitoring execution health and logging.
+ * 3. Providing a "Live Surgery" interface for real-time debugging.
+ * 4. Running diagnostic health checks (GitHub, etc.).
+ * 5. Leveraging high-reasoning models to diagnose stuck processes.
+ * 
+ * @module AI/Agents/Supervisor
+ */
 import { Agent, callable } from "agents";
-import { BaseAgent } from "./BaseAgent";
+import { BaseAgent } from "./base/BaseAgent";
 import { DurableObject } from "cloudflare:workers";
-import { switchPort } from "@cloudflare/containers";
+import { getSandbox } from "@cloudflare/sandbox";
 import { generateUuid } from "@/utils/common";
-
 import { resolveDefaultAiModel, resolveDefaultAiProvider } from "@/ai/providers/config";
-
 import { checkGitHubAPIHealth, checkWebhooksHealth } from '@/workflows/health';
-import { runTextAgent } from "@/ai/agent-sdk";
 
+/**
+ * The Supervisor Durable Object manages task orchestration and infrastructure health.
+ */
 export class Supervisor extends BaseAgent<Env> {
     private static readonly CONTAINER_API_ORIGIN = "http://container:8788";
     private static readonly DEBUG_PORT = 8080;
@@ -140,11 +150,15 @@ export class Supervisor extends BaseAgent<Env> {
 
     // --- Logic ---
 
+/**
+ * Triggers a comprehensive GitHub integration health check.
+ * Checks API connectivity and webhook delivery status.
+ */
     async runGithubHealthCheck(): Promise<Response> {
         this.broadcast("[Supervisor] 🏥 Starting GitHub Health Check...\n");
 
         try {
-            const results = [];
+            const results: any[] = [];
             results.push(await checkGitHubAPIHealth(this.env));
             results.push(await checkWebhooksHealth(this.env));
 
@@ -344,8 +358,8 @@ export class Supervisor extends BaseAgent<Env> {
         const downstreamUrl = new URL(downstreamPath || "/", "http://container");
         downstreamUrl.search = url.search;
 
-        const proxied = switchPort(new Request(downstreamUrl, request), session.port);
-        return this.env.COLBY_OPS.fetch(proxied);
+        const sandbox = getSandbox(this.env.Sandbox, sessionId);
+        return sandbox.containerFetch(new Request(downstreamUrl, request), session.port);
         */
     }
 
@@ -377,18 +391,20 @@ export class Supervisor extends BaseAgent<Env> {
         }
     }
 
-    // --- Deep Reasoning Logic ---
+/**
+ * Core reasoning logic for operational assistance.
+ * Analyzes logs/context to provide guidance to the operator.
+ */
     async processDeepReasoning(prompt: string): Promise<string> {
         const provider = resolveDefaultAiProvider(this.env as any);
         const model = resolveDefaultAiModel(this.env as any, provider);
-        return await runTextAgent({
-            env: this.env as any,
+        return await this.runTextWithModel({
             provider,
             model,
             name: "SupervisorReasoning",
             instructions:
                 "You are a helpful AI ops assistant. Analyze logs and respond with concise, actionable guidance.",
-            input: prompt,
+            prompt,
         });
     }
 

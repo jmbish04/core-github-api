@@ -80,10 +80,10 @@ ${score.weaknesses.map((w) => `- ⚠️ ${w}`).join("\n")}
   return markdown.trim();
 }
 
-import { sendEmail } from "@utils/email";
+import { sendRepoDiscoveryEmail } from "@/utils/email/send/repo-discovery";
 
 /**
- * Send email report via SendEmail binding
+ * Send email report via SEND_EMAIL_NEWSLETTER binding
  * Uses destination_address binding, so recipient is pre-configured
  */
 export async function sendResearchReport(
@@ -104,10 +104,10 @@ export async function sendResearchReport(
     </div>
   `;
 
-  if (env.SEB) {
+  if (env.SEND_EMAIL_NEWSLETTER) {
     try {
-        await sendEmail(env, {
-          to: "research@yourdomain.com", // This will be overridden by the binding's destination_address if configured as strict
+        await sendRepoDiscoveryEmail(env, {
+          title: `Daily Research Report - ${new Date().toLocaleDateString()}`,
           subject: `Daily Research Report - ${new Date().toLocaleDateString()}`,
           contentHtml: htmlContent,
           plainTextFallback: markdown

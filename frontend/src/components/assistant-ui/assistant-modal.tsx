@@ -93,7 +93,7 @@ export function AssistantModal({
         credentials: "include",
         body: JSON.stringify({ prompt: clean }),
       });
-      const data = (await response.json()) as AssistantResponse;
+      const data = ((await response.json()) as any) as AssistantResponse;
 
       if (!response.ok || !data.success) {
         throw new Error(data.error || `Request failed (${response.status})`);

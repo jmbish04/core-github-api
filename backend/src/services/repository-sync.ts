@@ -8,6 +8,7 @@ import { getGithubConfigs } from "@github-utils";
 import { getOctokit } from "@services/octokit/core";
 import type { Bindings } from "@utils/hono";
 import { generateUuid } from "@/utils/common";
+import { ConsoleSpanExporter } from "@openai/agents";
 
 type RepoVisibility = "public" | "private" | "internal";
 
@@ -109,57 +110,12 @@ const REPO_BASE_COLUMNS = [
   "updated_at",
 ] as const;
 
-async function ensureRepositorySyncTables(env: Env): Promise<void> {
-  await env.DB.prepare(
-    `CREATE TABLE IF NOT EXISTS repositories (
-      id TEXT PRIMARY KEY,
-      provider TEXT NOT NULL,
-      owner TEXT NOT NULL,
-      name TEXT NOT NULL,
-      slug TEXT NOT NULL UNIQUE,
-      infrastructure TEXT,
-      repo_url TEXT NOT NULL,
-      homepage_url TEXT,
-      description TEXT,
-      topics_json TEXT,
-      visibility TEXT NOT NULL,
-      fingerprint_json TEXT,
-      last_audit_at TEXT,
-      lifecycle_stage TEXT,
-      is_template INTEGER NOT NULL DEFAULT 0,
-      criticality INTEGER NOT NULL DEFAULT 0,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL,
-      last_scanned_at TEXT,
-      human_summary TEXT,
-      ai_summary TEXT,
-      notes TEXT
-    )`,
-  ).run();
-
-  await env.DB.prepare(
-    "CREATE UNIQUE INDEX IF NOT EXISTS idx_repositories_slug ON repositories(slug)",
-  ).run();
-  await env.DB.prepare(
-    "CREATE INDEX IF NOT EXISTS idx_repositories_owner_name ON repositories(owner, name)",
-  ).run();
-
-  await env.DB.prepare(
-    `CREATE TABLE IF NOT EXISTS projects (
-      id TEXT PRIMARY KEY,
-      repo_id TEXT NOT NULL,
-      name TEXT NOT NULL,
-      description TEXT,
-      status TEXT DEFAULT 'planning',
-      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
-      owner TEXT
-    )`,
-  ).run();
-  await env.DB.prepare(
-    "CREATE INDEX IF NOT EXISTS idx_projects_repo ON projects(repo_id)",
-  ).run();
-}
+/**
+ * @deprecated This compat upsert path exists only for environments where the
+ * `repositories` table schema has drifted from the Drizzle-managed schema.
+ * It falls back to raw D1 statements when the normal Drizzle insert throws.
+ * New code MUST NOT call this directly — use `upsertRepositoryFromGitHub()` instead.
+ */
 
 function chunkArray<T>(input: readonly T[], size: number = SYNC_BATCH_SIZE): T[][] {
   if (input.length === 0) return [];
@@ -334,52 +290,29 @@ async function batchUpsertRepositoriesForSync(
     return { repoIds: [], reposCreated: 0 };
   }
 
-  const columns = await getTableColumns(env.DB, "repositories");
-  if (!columns.has("id")) {
-    throw new Error("repositories table missing required 'id' column.");
+
+  // --- Batch ID resolution via a single Drizzle query ---
+  // Instead of firing N prepared statements, fetch all existing records
+  // that match by slug using a single inArray() query. This is fully typed
+  // and avoids raw D1 client access entirely.
+  const allSlugs = rows.map((r) => r.slug);
+  const db = getDb(env.DB);
+  const existingBySlug: Array<{ id: string; slug: string }> = [];
+  for (const slugBatch of chunkArray(allSlugs, SYNC_BATCH_SIZE)) {
+    const batch = await db
+      .select({ id: repositories.id, slug: repositories.slug })
+      .from(repositories)
+      .where(inArray(repositories.slug, slugBatch));
+    existingBySlug.push(...batch);
   }
+  const slugToId = new Map(existingBySlug.map((r) => [r.slug, r.id]));
 
-  const slugLookups: Array<{ results?: { id?: string }[] } | null> = [];
-  if (columns.has("slug")) {
-    for (const batch of chunkArray(rows, SYNC_BATCH_SIZE)) {
-      const batchResults = await env.DB.batch(
-        batch.map((row) =>
-          env.DB.prepare("SELECT id FROM repositories WHERE slug = ? LIMIT 1").bind(row.slug),
-        ),
-      );
-      slugLookups.push(...(batchResults as any[]));
-    }
-  }
-
-  const ownerNameLookups: Array<{ results?: { id?: string }[] } | null> = [];
-  if (columns.has("owner") && columns.has("name")) {
-    for (const batch of chunkArray(rows, SYNC_BATCH_SIZE)) {
-      const batchResults = await env.DB.batch(
-        batch.map((row) =>
-          env.DB.prepare(
-            "SELECT id FROM repositories WHERE lower(owner) = lower(?) AND lower(name) = lower(?) LIMIT 1",
-          )
-            .bind(row.owner, row.name),
-        ),
-      );
-      ownerNameLookups.push(...(batchResults as any[]));
-    }
-  }
-
-  const resolved = rows.map((row, index) => {
-    // Determine the resolved ID from either slug lookup or owner/name lookup, or fall back to the row's own ID
-    const fromSlugRaw = slugLookups[index];
-    const fromSlug = (fromSlugRaw as any)?.results?.[0]?.id;
-
-    const fromOwnerNameRaw = ownerNameLookups[index];
-    const fromOwnerName = (fromOwnerNameRaw as any)?.results?.[0]?.id;
-
-    const targetId = String(fromSlug || fromOwnerName || row.id);
+  const resolved = rows.map((row) => {
+    const targetId = String(slugToId.get(row.slug) ?? row.id);
     return { ...row, id: targetId };
   });
 
   const uniqueIds = Array.from(new Set(resolved.map((row) => row.id)));
-  const db = getDb(env.DB);
   const existing: Array<{ id: string }> = [];
   for (const idBatch of chunkArray(uniqueIds, SYNC_BATCH_SIZE)) {
     const rowsForBatch = await db
@@ -394,35 +327,22 @@ async function batchUpsertRepositoriesForSync(
     0,
   );
 
-  const insertColumns: string[] = [];
-  const updateColumns = [
-    "owner",
-    "name",
-    "slug",
-    "repo_url",
-    "description",
-    "topics_json",
-    "visibility",
-    "is_template",
-    "updated_at",
-    ...(columns.has("infrastructure") ? ["infrastructure"] : []),
+  // All columns known to always be present in the current Drizzle-managed schema.
+  const insertColumns: string[] = [
+    "id", "provider", "owner", "name", "slug", "repo_url",
+    "description", "topics_json", "visibility", "is_template", "criticality",
+    "created_at", "updated_at",
   ];
 
-  for (const column of REPO_BASE_COLUMNS) {
-    if (columns.has(column)) insertColumns.push(column);
-  }
-  if (columns.has("infrastructure")) {
-    insertColumns.push("infrastructure");
-  }
+  // Remove the unused columns helper — inArray resolution no longer needs it.
+  const updateColumns = [
+    "owner", "name", "slug", "repo_url", "description",
+    "topics_json", "visibility", "is_template", "updated_at",
+  ];
 
   const placeholders = insertColumns.map(() => "?").join(", ");
-  const updateAssignments = updateColumns
-    .filter((column) => columns.has(column))
-    .map((column) => `${column} = excluded.${column}`);
-  const statementText =
-    updateAssignments.length > 0
-      ? `INSERT INTO repositories (${insertColumns.join(", ")}) VALUES (${placeholders}) ON CONFLICT(id) DO UPDATE SET ${updateAssignments.join(", ")}`
-      : `INSERT OR IGNORE INTO repositories (${insertColumns.join(", ")}) VALUES (${placeholders})`;
+  const updateAssignments = updateColumns.map((c) => `${c} = excluded.${c}`);
+  const statementText = `INSERT INTO repositories (${insertColumns.join(", ")}) VALUES (${placeholders}) ON CONFLICT(id) DO UPDATE SET ${updateAssignments.join(", ")}`;
 
   for (let i = 0; i < resolved.length; i += SYNC_BATCH_SIZE) {
     const chunk = resolved.slice(i, i + SYNC_BATCH_SIZE);
@@ -477,7 +397,6 @@ export async function upsertRepositoryFromGitHub(
   repo: GitHubRepositoryLike,
   options: UpsertRepoOptions = {},
 ): Promise<{ repoId: string; created: boolean }> {
-  await ensureRepositorySyncTables(env);
   const db = getDb(env.DB);
   const fromFullName = splitFullName(repo.full_name);
   const owner =
@@ -578,6 +497,8 @@ export async function upsertRepositoryFromGitHub(
       updated_at: repo.updated_at || now,
       infrastructure: options.infrastructure || null,
     });
+
+    console.log(`[RepoSync] Upserted ${owner}/${name} to DB`, JSON.stringify(error));
   }
 
   return {
@@ -591,7 +512,6 @@ export async function ensureProjectForRepository(
   repoId: string,
   options: EnsureProjectOptions,
 ): Promise<{ projectId: string; created: boolean }> {
-  await ensureRepositorySyncTables(env);
   const db = getDb(env.DB);
   const existing = await db
     .select()
@@ -664,7 +584,6 @@ export async function syncOwnerRepositories(
   projectsCreated: number;
 }> {
   const owner = resolveGitHubOwner(env, ownerInput);
-  await ensureRepositorySyncTables(env);
   const repos = await listOwnerRepositoriesFromGitHub(env, owner);
   const ownerLower = owner.toLowerCase();
 

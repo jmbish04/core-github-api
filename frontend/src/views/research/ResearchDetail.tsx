@@ -43,7 +43,7 @@ export default function ResearchDetail() {
           // Fetch Brief & Candidates
           const resBrief = await fetch(`/api/research/${id}`);
           if (resBrief.ok) {
-              const data = await resBrief.json();
+              const data = ((await resBrief.json()) as any) as any;
               setBrief(data.brief);
               setCandidates(data.candidates || []);
           }
@@ -51,7 +51,7 @@ export default function ResearchDetail() {
           // Fetch Logs
           const resLogs = await fetch(`/api/research/${id}/logs`);
           if (resLogs.ok) {
-              const data = await resLogs.json();
+              const data = ((await resLogs.json()) as any) as any;
               setLogs(data.logs || []);
           }
       } catch (e) {
@@ -99,7 +99,7 @@ export default function ResearchDetail() {
                </div>
            </div>
            <div className="flex gap-2">
-               <Button variant="outline" onClick={() => navigate("/control-center/research")}>Back to Dashboard</Button>
+               <Button variant="outline" onClick={() => navigate("/research")}>Back to Dashboard</Button>
            </div>
        </div>
 

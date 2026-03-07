@@ -252,7 +252,7 @@ export function WorkflowStudio({ workflow, mode }: WorkflowStudioProps) {
       }),
     });
 
-    const json = await response.json().catch(() => ({} as Record<string, any>));
+    const json = (await response.json().catch(() => ({} as Record<string, any>))) as any;
 
     if (!response.ok) {
       return {

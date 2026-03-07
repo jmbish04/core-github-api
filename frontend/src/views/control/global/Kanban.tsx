@@ -11,19 +11,14 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 
-// Default columns as fallback
-
-
-const dateFormatter = new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-});
-
-const shortDateFormatter = new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-});
+// Default columns shown when the API returns no column metadata
+const DEFAULT_COLUMNS = [
+    { id: 'backlog',     name: 'Backlog',     color: '#6b7280' },
+    { id: 'todo',        name: 'To Do',       color: '#3b82f6' },
+    { id: 'in_progress', name: 'In Progress', color: '#f59e0b' },
+    { id: 'review',      name: 'In Review',   color: '#8b5cf6' },
+    { id: 'done',        name: 'Done',        color: '#10b981' },
+];
 
 export default function KanbanPage() {
     const queryClient = useQueryClient();
@@ -36,16 +31,16 @@ export default function KanbanPage() {
     const { data, isLoading } = useQuery({
         queryKey: ['tasks', owner, repo],
         queryFn: async () => {
-            const url = (owner && repo) 
+            const url = (owner && repo)
                 ? `/api/tasks/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/tasks`
                 : '/api/tasks';
-            
+
             const res = await fetch(url);
             if (!res.ok) throw new Error('Failed to fetch tasks');
-            const json = await res.json();
+            const json = (await res.json()) as any;
 
             // Map API tasks to Kanban items
-            const mappedTasks = json.tasks.map((t: any) => ({
+            const mappedTasks = (json.tasks ?? []).map((t: any) => ({
                 id: t.id,
                 columnId: t.kanbanColumn || t.status || 'backlog',
                 content: t.title,
@@ -57,15 +52,16 @@ export default function KanbanPage() {
                 dueDate: t.dueDate ? new Date(t.dueDate) : undefined
             }));
 
-            // If we are in project view but API doesn't return columns meta for it, use defaults
-            // or existing global logic. Current API might not return meta for project specific?
-            // Assuming API structure is similar for both.
             return {
                 tasks: mappedTasks,
-                columns: json.meta?.columns || []
+                // Use API columns if provided, or fall back to defaults so the board always renders
+                columns: (json.meta?.columns && json.meta.columns.length > 0)
+                    ? json.meta.columns
+                    : DEFAULT_COLUMNS,
             };
         },
-        refetchInterval: 5000
+        staleTime: 30_000,          // treat data as fresh for 30 s
+        refetchOnWindowFocus: false, // don't re-fetch when the tab regains focus
     });
 
     const tasks = data?.tasks || [];
@@ -162,7 +158,7 @@ export default function KanbanPage() {
                                             )}
                                         </div>
                                         <p className="m-0 text-muted-foreground text-xs">
-                                            {shortDateFormatter.format(new Date(feature.startAt))}
+                                            {feature.startAt ? new Date(feature.startAt).toISOString().slice(0, 10) : ''}
                                         </p>
                                     </KanbanCard>
                                 )}

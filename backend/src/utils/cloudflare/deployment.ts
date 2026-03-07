@@ -37,21 +37,19 @@ type Binding = z.infer<typeof BindingSchema>;
 type GitConfig = z.infer<typeof GitConfigSchema>;
 
 export class WorkerManagementService {
-	private readonly baseUrl = 'https://api.cloudflare.com/client/v4';
+	private readonly baseUrl: string;
 	private readonly accountId: string;
 	private readonly apiToken: string;
 
-	constructor(accountId: string, apiToken: string) {
+	constructor(accountId: string, apiToken: string, baseUrl?: string) {
 		this.accountId = accountId;
 		this.apiToken = apiToken;
+		this.baseUrl = baseUrl ?? 'https://api.cloudflare.com/client/v4';
 	}
 
 	private async request<T>(path: string, options: RequestInit = {}): Promise<T> {
 		const url = path.startsWith('http') ? path : `${this.baseUrl}${path}`;
-		// All AI-related analytics or logs route through Cloudflare AI Gateway
-		const finalUrl = path.includes('ai') ? `https://gateway.ai.cloudflare.com/v1/${this.accountId}/default/${path}` : url;
-
-		const response = await fetch(finalUrl, {
+		const response = await fetch(url, {
 			...options,
 			headers: {
 				Authorization: `Bearer ${this.apiToken}`,
@@ -185,7 +183,8 @@ export class WorkerManagementService {
 
 export default {
 	async fetch(request: Request, env: any) {
-		const service = new WorkerManagementService(env.CLOUDFLARE_ACCOUNT_ID, env.CLOUDFLARE_API_TOKEN);
+		const baseUrl = env.CLOUDFLARE_API_BASE_URL ? `${env.CLOUDFLARE_API_BASE_URL}/v4` : undefined;
+		const service = new WorkerManagementService(env.CLOUDFLARE_ACCOUNT_ID, env.CLOUDFLARE_API_TOKEN, baseUrl);
 
 		// Example route: Configure CI/CD
 		if (request.method === 'POST' && request.url.includes('/setup-cicd')) {

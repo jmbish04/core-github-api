@@ -1,31 +1,163 @@
 /**
- * @file backend/src/ai/agents/CloudflareDocs.ts
- * @description Agent for querying Cloudflare Documentation with GitHub context and auto-PR workflows.
- * @owner Cloudflare Docs Integration Team
+ * CloudflareDocsAgent — Specialized Cloudflare Documentation Expert
+ *
+ * An expert agent for Cloudflare products, features, and best practices.
+ * It combines documentation search (via MCP) with structured reasoning to provide 
+ * high-fidelity answers and code samples following project conventions.
+ * 
+ * Inference Strategy:
+ * 1. Primary: Gemini (JSON mode) for precise, structured rendering info.
+ * 2. Fallback: Workers AI (Llama 3.x) for resilient plain-text responses.
+ * 
+ * Features:
+ * - Dynamic system prompt resolution from KV.
+ * - Repo-context-aware responses (aware of project file trees).
+ * - Automatic logging of interactions for training and evaluation.
+ * 
+ * A concrete implementation of HonoBaseAgent focused on answering questions
+ * about Cloudflare products, features, and best practices.
+ *
+ * This agent sources its system prompt from KV_CONFIGS (live-editable via
+ * /api/agents/cloudflare-docs/system-prompt) and falls back to the compiled
+ * SYSTEM_PROMPT_BASE constant when the KV key is absent.
+ *
+ * @module AI/Agents/CloudflareDocs
  */
 
-import { callable } from "agents";
-import { BaseAgent, BaseAgentState } from "@/ai/agent-sdk";
-import type { Agent } from "@openai/agents";
-import { getAgentModelName } from "@/ai/utils/model-config";
-import { queryMCP } from "@/ai/mcp/mcp-client";
-import { rewriteQuestionForMCP } from "@/ai/providers/index"; 
-import { JulesService } from "@/services/jules";
+import {
+  HonoBaseAgent,
+  HonoBaseAgentState,
+  ContentBlock,
+  HonoChatResult,
+} from "@/ai/agents/base/HonoBaseAgent";
+import { CF_DOCS_PROMPT_KV_KEY } from "@/ai/agents/constants";
 
-interface CloudflareDocsState extends BaseAgentState {
-  repoContext: {
-    url?: string;
-    owner?: string;
-    repo?: string;
-  } | null;
-  mcpCache: Record<string, string>;
-}
+// ─── Re-exports for backward compatibility ────────────────────────────────────
 
-export class CloudflareDocsAgent extends BaseAgent<Env, CloudflareDocsState> {
-  protected agent!: Agent;
+export type { ContentBlock };
+/** @deprecated Use HonoChatResult from HonoBaseAgent instead */
+export type CloudflareDocsChatResult = HonoChatResult;
 
-  constructor(state: DurableObjectState, env: Env) {
-    super(state, env);
+// ─── State ────────────────────────────────────────────────────────────────────
+
+type CloudflareDocsState = HonoBaseAgentState;
+
+// ─── System prompt ────────────────────────────────────────────────────────────
+
+export const SYSTEM_PROMPT_BASE = `You are an expert Cloudflare Support Engineer and Systems Architect.
+
+You have been provided with relevant Cloudflare documentation. Use it as your primary reference.
+Be specific, precise, and include working TypeScript code examples targeting Cloudflare Workers (nodejs_compat mode).
+
+═══════════════════════════════════════════════════════
+PROJECT CONVENTIONS (ALWAYS follow when generating code)
+═══════════════════════════════════════════════════════
+
+PACKAGE MANAGER: Always use pnpm. Never npm or yarn.
+
+CONFIG FILE: Always use wrangler.jsonc. NEVER suggest wrangler.toml.
+
+AI SDK: NEVER use Vercel AI SDK ("ai" package / ai-sdk). It has a breaking zod v3 dependency.
+        Use Workers AI (env.AI.run) directly, or the @google/genai SDK for Gemini.
+
+AI GATEWAY: All AI calls route through Cloudflare AI Gateway.
+  URL pattern: env.AI.gateway(env.AI_GATEWAY_NAME).url('provider-name')
+  Provider names: 'google-ai-studio', 'openai', 'anthropic', 'workers-ai'
+  The AI_GATEWAY_TOKEN comes from Cloudflare Secrets Store binding in wrangler.jsonc.
+
+AGENTS SDK: Use the "agents" package (Cloudflare Agents SDK). Never @cloudflare/ai-chat.
+  Chat agents: extend Agent, handle WebSocket onMessage, stream progress events back to frontend.
+  Workflow agents: extend WorkflowEntrypoint for long-running backend tasks.
+
+MODULAR FILE STRUCTURE (always generate code targeting this layout):
+
+  backend/src/
+    ai/
+      agents/
+        by-usecase/
+          chat/          ← stateful chat agents (WebSocket, streaming, user-facing)
+          workflow/      ← durable workflow agents (backend processing)
+        tools/           ← MCP tools, one file per tool: {tool_name}.ts
+      providers/
+        worker-ai.ts     ← default model constants for reasoning, structured, embeddings
+        gemini.ts
+        openai.ts
+        anthropic.ts
+        ai-gateway.ts    ← gateway URL builder using env.AI.gateway(env.AI_GATEWAY_NAME).url(provider)
+        index.ts         ← single entrypoint — exports generateText, generateStructuredResponse, etc.
+                           • defaults to worker-ai if no provider specified
+                           • defaults to provider's default model if model omitted
+        types.ts
+      health.ts
+    api/                 ← modularized route definitions (REST + WebSocket)
+    db/
+      schemas/
+        {table_name}.ts  ← one file per Drizzle table
+      health.ts
+    routes/
+      {route_name}.ts    ← individual Hono route files
+      health.ts
+    health/
+      index.ts           ← imports all health modules
+      types.ts
+      db.ts
+    index.ts             ← main Worker entrypoint
+
+  frontend/src/
+    (Shadcn React components for Astro on Workers Assets)
+
+ALWAYS emit wrangler.jsonc snippets (not .toml). Always use pnpm install commands.
+If showing agent code, always import from "agents" not "@cloudflare/workers-types".
+
+ENV GOVERNANCE: NEVER define or include "interface Env { ... }" in any code sample.
+  The Env type is auto-generated by running "wrangler types" which writes worker-configuration.d.ts.
+  That file is registered as a global type in tsconfig.json so Env is available everywhere.
+  Manually defining interface Env will conflict with the generated type and break the build.
+  If a code sample needs to reference env bindings, just use the Env type directly (e.g. env: Env)
+  and add a comment telling the user to run "wrangler types" to regenerate worker-configuration.d.ts.
+
+DURABLE OBJECTS — MIGRATIONS (CRITICAL):
+  When writing wrangler.jsonc migration entries for Durable Objects, you MUST ALWAYS use
+  "new_sqlite_classes" and NEVER "new_class".
+
+  CORRECT:
+    "migrations": [
+      {
+        "tag": "v1",
+        "new_sqlite_classes": ["MyAgent"]
+      }
+    ]
+
+  WRONG (never do this):
+    "migrations": [
+      {
+        "tag": "v1",
+        "new_class": ["MyAgent"]   ← FORBIDDEN
+      }
+    ]
+
+  WHY: "new_sqlite_classes" provisions the Durable Object with a built-in SQLite storage layer,
+  which gives it stateful memory (key-value + SQL access via this.ctx.storage). This is
+  ESPECIALLY important when the Durable Object is a Cloudflare Agents SDK agent (extends Agent
+  or extends WorkflowEntrypoint), because the Agents SDK stores conversation history, session
+  state, and agent memory directly in that SQLite storage. Using "new_class" instead will create
+  a stateless DO that silently discards all agent memory on restart, breaking agent sessions.
+  Always use "new_sqlite_classes" — there is no valid reason to use "new_class" in this project.`;
+
+// ─── Agent ────────────────────────────────────────────────────────────────────
+
+/**
+ * CloudflareDocsAgent — Expert Cloudflare documentation agent.
+ *
+ * All runtime logic (WebSocket, RPC, Gemini, Workers AI fallback, logging)
+ * is provided by HonoBaseAgent. This class only supplies identity + prompt.
+ */
+export class CloudflareDocsAgent extends HonoBaseAgent<
+  Env,
+  CloudflareDocsState
+> {
+  protected get agentName(): string {
+    return "CloudflareDocsAgent";
   }
 
   initialState: CloudflareDocsState = {
@@ -35,179 +167,31 @@ export class CloudflareDocsAgent extends BaseAgent<Env, CloudflareDocsState> {
     mcpCache: {},
   };
 
-  async onStart(): Promise<void> {
-    this.logger.info("CloudflareDocsAgent initialized");
-
-    const submitPRTool = {
-      type: 'function' as const,
-      name: "submit_pr",
-      description: "Submit a Pull Request to the user's repository. Use this after offering to submit a PR and getting user approval. Provide the complexity level ('low' or 'high') and details.",
-      parameters: {
-        type: "object" as const,
-        properties: {
-          complexity: { type: "string" as const, enum: ["low", "high"], description: "Complexity of the PR. Low effort = small file changes. High effort = complex architecture changes." },
-          title: { type: "string" as const, description: "Title of the PR" },
-          description: { type: "string" as const, description: "Description of the PR" },
-          instructions: { type: "string" as const, description: "Specific instructions for what needs to be changed (especially for high complexity Jules tasks)" }
-        },
-        required: ["complexity", "title", "description", "instructions"],
-        additionalProperties: false
-      },
-      strict: true,
-      isEnabled: async () => true,
-      needsApproval: async () => false,
-      invoke: async (_context: any, input: string) => {
-        try {
-          const args = JSON.parse(input);
-          const repo = this.state.repoContext;
-          if (!repo || !repo.owner || !repo.repo) {
-            return JSON.stringify({ error: "No GitHub repository context available to submit a PR." });
-          }
-
-          if (args.complexity === "high") {
-            const jules = JulesService.getInstance(this.env);
-            await jules.startSession({
-              prompt: `Please implement the following PR: ${args.title}\n\nDescription: ${args.description}\n\nInstructions: ${args.instructions}`,
-              repo: { owner: repo.owner, repo: repo.repo },
-              autoPr: true
-            });
-            return JSON.stringify({ success: true, message: "High complexity PR task successfully delegated to Jules. It will process the changes and open a PR asynchronously." });
-          } else {
-            return JSON.stringify({ success: true, message: "Low complexity PR generated and submitted directly by Agent." });
-          }
-        } catch (error: any) {
-          return JSON.stringify({ error: `PR submission failed: ${error.message}` });
-        }
-      }
-    };
-
-    const searchCloudflareDocsTool = {
-      type: 'function' as const,
-      name: "search_cloudflare_documentation",
-      description: "Search the Cloudflare documentation for specific products, features, or error codes. Returns semantic chunks.",
-      parameters: {
-        type: "object" as const,
-        properties: {
-          query: {
-            type: "string" as const,
-            description: "The search query (e.g., 'how to configure D1 bindings', 'workers size limit', 'error 1001')."
-          }
-        },
-        required: ["query"],
-        additionalProperties: false
-      },
-      strict: true,
-      isEnabled: async () => true,
-      needsApproval: async () => false,
-      invoke: async (_context: any, input: string) => {
-        try {
-          const args = JSON.parse(input);
-          return await queryMCP(args.query, "CloudflareDocsAgent");
-        } catch (error: any) {
-          return JSON.stringify({ error: `MCP Query failed: ${error.message}` });
-        }
-      }
-    };
-
-    const { Agent: OpenAIAgent } = await import("@openai/agents");
-    this.agent = new OpenAIAgent({
-      name: "CloudflareDocsAgent",
-      model: getAgentModelName('GeminiAgent'),
-      instructions: `You are an expert Cloudflare Support Engineer and Systems Architect.
-      
-Your goal is to answer user questions about Cloudflare products. You have access to Cloudflare Docs (already pre-fetched in context) and GitHub repository code (pre-fetched in context).
-
-GUIDELINES:
-1. Synthesize the provided MCP documentation results and the GitHub repository code.
-2. If the user asks about their specific code, reference the provided GitHub tree and sampled modules.
-3. Provide concrete code examples (wrangler.jsonc, TypeScript) whenever possible.
-4. If a solution requires code changes, OFFER to submit a PR for them. Wait for their acceptance.
-5. If the user accepts a PR submission, evaluate the complexity. Use the 'submit_pr' tool. Choose 'low' complexity for simple tweaks, or 'high' complexity if it requires deep refactoring so Jules can handle it.
-6. ALWAYS use the 'search_cloudflare_documentation' tool to verify facts. Do not hallucinate Cloudflare limits or APIs.
-`,
-      tools: [submitPRTool, searchCloudflareDocsTool],
-    });
-  }
-
-  async fetchGithubTree(owner: string, repo: string): Promise<any> {
+  /**
+   * Returns the system prompt, preferring a live version from KV_CONFIGS.
+   * Falls back to the compiled-in SYSTEM_PROMPT_BASE when the KV key is
+   * absent, empty, or cannot be parsed.
+   */
+  protected async getSystemPromptBase(): Promise<string> {
     try {
-      const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/trees/main?recursive=1`, {
-        headers: { 
-            "User-Agent": "CloudflareDocsAgent",
-            "Accept": "application/vnd.github.v3+json"
+      const kvRaw = await this.env.KV_CONFIGS.get(CF_DOCS_PROMPT_KV_KEY);
+      if (kvRaw) {
+        let parsed: any = null;
+        try {
+          parsed = JSON.parse(kvRaw);
+        } catch(e){
+          /* raw string — use as-is */
+          console.error("[CloudflareDocsAgent] KV_CONFIGS key is a raw string, using as-is", JSON.stringify(e));
         }
-      });
-      if (!res.ok) return null;
-      return await res.json();
+        const fromKv =
+          parsed && typeof parsed === "object" && "value" in parsed
+            ? (parsed.value as string)
+            : kvRaw;
+        if (fromKv && fromKv.length > 20) return fromKv;
+      }
     } catch {
-      return null;
+      /* KV unavailable — fall through */
     }
-  }
-
-  @callable()
-  async chat(message: string, history: Array<{ role: string; content: string }>, context?: { repoUrl?: string }): Promise<{ response: string }> {
-    this.logger.info("Received chat request", { message, context });
-
-    let owner: string | undefined, repo: string | undefined;
-    if (context?.repoUrl) {
-      const urlMatch = context.repoUrl.match(/github\.com\/([^/]+)\/([^/]+)/);
-      if (urlMatch) {
-        owner = urlMatch[1];
-        repo = urlMatch[2];
-        await this.setState({ ...this.state, repoContext: { url: context.repoUrl, owner, repo } });
-      }
-    } else if (this.state.repoContext) {
-      owner = this.state.repoContext.owner;
-      repo = this.state.repoContext.repo;
-    }
-
-    // Step 1: Rewrite question for MCP
-    let mcpQuery = message;
-    try {
-       const rewritten = await rewriteQuestionForMCP(this.env, message);
-       if (rewritten && rewritten.length > 0) {
-           mcpQuery = rewritten;
-       }
-    } catch (e) {
-       this.logger.warn("rewriteQuestionForMCP fallback, using original message.", e);
-    }
-
-    // Step 2: Query MCP and cache in DO state
-    let mcpContext = "";
-    if (!this.state.mcpCache[mcpQuery]) {
-        try {
-            const result = await queryMCP(mcpQuery, "CloudflareDocsAgent");
-            const resultStr = typeof result === 'string' ? result : JSON.stringify(result);
-            const newCache = { ...this.state.mcpCache, [mcpQuery]: resultStr };
-            await this.setState({ ...this.state, mcpCache: newCache });
-        } catch (e) {
-            this.logger.warn(`MCP query failed for: ${mcpQuery}`, e);
-        }
-    }
-    mcpContext = `Query: ${mcpQuery}\nDocs Result: ${this.state.mcpCache[mcpQuery] || "No results"}\n\n`;
-
-    // Step 3: GitHub repo tree scan (sample config + TS files)
-    let repoContextInfo = "";
-    if (owner && repo) {
-      const tree = await this.fetchGithubTree(owner, repo);
-      if (tree && tree.tree) {
-         const sampledFiles = tree.tree
-            .filter((t: any) => t.path.includes("wrangler") || t.path.includes("package.json") || t.path.endsWith(".ts"))
-            .slice(0, 15)
-            .map((t: any) => t.path)
-            .join(", ");
-         
-         repoContextInfo = `\n\nGitHub Repository Context (${owner}/${repo}):\nAvailable sampled files: ${sampledFiles}\n(Agent note: You can propose changes to these files via PR).`;
-      }
-    }
-
-    // Step 4: Construct enriched prompt and run agent
-    const fullMessage = `User Prompt: ${message}\n\nRelevant Cloudflare Docs Context:\n${mcpContext}${repoContextInfo}\n\nPlease generate a helpful response based on the above docs and code tree context. If code changes are needed, explicitly offer to submit a Pull Request.`;
-
-    const conversation = history.map(h => `${h.role === 'model' ? 'Assistant' : 'User'}: ${h.content}`).join('\n');
-    const enrichedInput = `${conversation}\nUser: ${fullMessage}`;
-
-    const result = await this.runAgent(this.agent, enrichedInput);
-    return { response: String(result.finalOutput) };
+    return SYSTEM_PROMPT_BASE;
   }
 }

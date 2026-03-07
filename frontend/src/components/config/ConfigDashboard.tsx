@@ -51,12 +51,12 @@ export function ConfigDashboard({ category }: ConfigDashboardProps) {
       if (category === "history") {
          const res = await fetch(`${API_BASE}/history`);
          if(!res.ok) throw new Error("Failed to fetch history");
-         const json = await res.json();
+         const json = (await res.json()) as any;
          setLogs(json.logs || []);
       } else {
          const res = await fetch(API_BASE);
          if(!res.ok) throw new Error("Failed to fetch config");
-         const json = await res.json();
+         const json = (await res.json()) as any;
          setData(json.config || {});
       }
     } catch (e) {

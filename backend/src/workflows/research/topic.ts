@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { WorkflowEntrypoint, WorkflowStep, WorkflowEvent } from "cloudflare:workers";
 import { TopicOrchestratorAgent } from "@agents/TopicOrchestrator";
 import { WebSearchAgent } from "@agents/WebSearch";

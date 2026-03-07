@@ -214,17 +214,26 @@ const RoadmapPage = () => {
         queryKey: ['projects'],
         queryFn: async () => {
             const res = await fetch('/api/projects');
-            const data = await res.json();
+            if (!res.ok) throw new Error('Failed to load projects');
+            const data = (await res.json()) as any;
 
-            // For each project, fetch details (phases)
-            // Ideally we'd have an endpoint /api/projects?include=phases, but let's do parallel fetch for now or relying on list
-            // Actually, the Gantt needs phases. Let's fetch details for all.
-            const projectsWithPhases = await Promise.all(data.projects.map(async (p: any) => {
-                const details = await fetch(`/api/projects/${p.id}`).then(r => r.json());
-                return { ...p, phases: details.phases || [] };
-            }));
+            // Fetch phase details for each project in parallel,
+            // but never let a single failure abort the whole load.
+            const projectsWithPhases = await Promise.all(
+                (data.projects ?? []).map(async (p: any) => {
+                    try {
+                        const details = await fetch(`/api/projects/${p.id}`).then(r => r.json() as any);
+                        return { ...p, phases: details.phases ?? [] };
+                    } catch {
+                        return { ...p, phases: [] };
+                    }
+                })
+            );
             return projectsWithPhases;
-        }
+        },
+        staleTime: 60_000,           // treat data as fresh for 60 s
+        refetchOnWindowFocus: false,  // don't refetch on tab focus
+        retry: 1,
     });
 
     const [selectedPhase, setSelectedPhase] = useState<Phase | null>(null);

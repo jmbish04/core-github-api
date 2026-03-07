@@ -12,7 +12,6 @@ import {
   FolderKanban, 
   MessageSquare, 
   Map, 
-  GitPullRequest, 
   Settings, 
   CheckSquare, 
   Star,
@@ -21,9 +20,17 @@ import {
   Sparkles,
   Palette,
   ListChecks,
+  GitPullRequest,
+  SearchCode,
+  Cloud,
+  Wrench,
+  ChevronDown
 } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { Badge } from '@/components/ui/badge';
 import { useProjectStore, type Repository } from '@/stores/useProjectStore';
 import { cn } from '@/lib/utils';
+import { getControlCenterUserId } from '@/lib/control-user';
 
 interface ProjectFolderProps {
   repo: Repository;
@@ -32,25 +39,46 @@ interface ProjectFolderProps {
 export function ProjectFolder({ repo }: ProjectFolderProps) {
   const [isOpen, setIsOpen] = useState(true);
   const [isDashboardOpen, setIsDashboardOpen] = useState(true);
-  const { toggleFavorite, isFavorite, closeProject } = useProjectStore();
+  const [isToolsOpen, setIsToolsOpen] = useState(false);
+  const { addFavorite, removeFavorite, isFavorite } = useProjectStore();
   const location = useLocation();
   const isFav = isFavorite(repo.full_name);
+  const userId = getControlCenterUserId();
 
   const basePath = `/project/${repo.owner}/${repo.name}`;
 
-  // Dashboard sub-tabs
-  const dashboardTabs = [
-    { slug: "dashboard", label: "Stats", icon: BarChart3 },
+  // Fetch active PR count
+  const overviewQuery = useQuery({
+    queryKey: ["project-overview-prs", repo.owner, repo.name],
+    enabled: Boolean(isOpen),
+    queryFn: async () => {
+      // Find internal ID if needed, but we can hit an optimized path if possible. 
+      // For now, assume the standard overview endpoint handles it if we lookup by name, 
+      // or we just fetch the standard overview which caches.
+      const lookupResp = await fetch(`/api/projects/by-repo/${encodeURIComponent(repo.owner)}/${encodeURIComponent(repo.name)}`, { credentials: "include" });
+      if (!lookupResp.ok) return null;
+      const { projectId } = (await lookupResp.json()) as any as any;
+      if (!projectId) return null;
+
+      const response = await fetch(`/api/projects/${projectId}/overview`, { credentials: "include" });
+      if (!response.ok) return null;
+      return ((await response.json()) as any) as any;
+    },
+    staleTime: 60000 // 1 minute
+  });
+
+  const activePrCount = overviewQuery.data?.pendingPrs?.length || 0;
+
+  // Flattened Tabs
+  const projectTabs = [
+    { slug: "stats", label: "Stats", icon: BarChart3 },
+    { slug: "explorer", label: "File Explorer", icon: SearchCode },
+    { slug: "cloudflaresdk", label: "CloudflareSDK", icon: Cloud },
     { slug: "vibesdk", label: "VibeSDK", icon: Sparkles },
     { slug: "ux-workshop", label: "UX Workshop", icon: Palette },
     { slug: "plan", label: "Plan", icon: ListChecks },
-    { slug: "pr-command", label: "PR Command Center", icon: GitPullRequest },
+    { slug: "prs", label: "PRs", icon: GitPullRequest, badge: activePrCount > 0 ? activePrCount : null },
   ];
-
-  // Check if any dashboard tab is active
-  const isDashboardActive = dashboardTabs.some(
-    (tab) => location.pathname === `${basePath}/${tab.slug}`
-  ) || location.pathname === `${basePath}/dashboard`;
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen} className="space-y-1">
@@ -67,7 +95,7 @@ export function ProjectFolder({ repo }: ProjectFolderProps) {
         {/* Quick Actions (Hover Only) */}
         <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
           <button 
-            onClick={() => toggleFavorite(repo)}
+            onClick={() => isFav ? removeFavorite(getControlCenterUserId(), repo) : addFavorite(getControlCenterUserId(), repo)}
             className="p-1 hover:bg-background rounded-sm"
             title={isFav ? "Unfavorite" : "Favorite"}
           >
@@ -75,7 +103,7 @@ export function ProjectFolder({ repo }: ProjectFolderProps) {
           </button>
           {!isFav && (
             <button 
-              onClick={() => closeProject(repo.full_name)}
+              onClick={() => removeFavorite(getControlCenterUserId(), repo)}
               className="p-1 hover:bg-background rounded-sm text-muted-foreground hover:text-red-400"
               title="Close"
             >
@@ -86,87 +114,73 @@ export function ProjectFolder({ repo }: ProjectFolderProps) {
       </div>
 
       {/* Folder Contents */}
-      <CollapsibleContent className="space-y-1 pl-4 border-l ml-4 border-border/40">
+      <CollapsibleContent className="space-y-1 pl-4 border-l ml-4 border-border/40 pb-2">
         
-        {/* Dashboard with sub-tabs */}
-        <Collapsible open={isDashboardOpen} onOpenChange={setIsDashboardOpen} className="space-y-0.5">
-          <CollapsibleTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              className={cn(
-                "w-full justify-start gap-3 h-9 px-2 font-normal text-muted-foreground hover:text-foreground",
-                isDashboardActive && "text-foreground font-medium bg-secondary/50"
-              )}
-            >
-              <ChevronRight className={cn("w-3.5 h-3.5 transition-transform text-muted-foreground", isDashboardOpen && "rotate-90")} />
-              <LayoutDashboard className="w-4 h-4" />
-              Dashboard
-            </Button>
-          </CollapsibleTrigger>
-          <CollapsibleContent className="space-y-0.5 pl-5 border-l ml-3 border-border/30">
-            {dashboardTabs.map((tab) => (
+        {projectTabs.map((tab) => (
+          <NavItem
+            key={tab.slug}
+            href={`${basePath}/${tab.slug}`}
+            icon={tab.icon}
+            label={tab.label}
+            badge={tab.badge}
+          />
+        ))}
+
+        {/* Tools — collapsible, default closed */}
+        <div>
+          <button
+            onClick={() => setIsToolsOpen(v => !v)}
+            className={cn(
+              "w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-md text-sm font-medium transition-colors",
+              "text-muted-foreground hover:text-foreground hover:bg-accent/60"
+            )}
+          >
+            <span className="flex items-center gap-3">
+              <Wrench className="w-4 h-4" />
+              <span>Tools</span>
+            </span>
+            {isToolsOpen
+              ? <ChevronDown className="w-3.5 h-3.5 opacity-60" />
+              : <ChevronRight className="w-3.5 h-3.5 opacity-60" />
+            }
+          </button>
+          {isToolsOpen && (
+            <div className="ml-2 pl-2 border-l space-y-0.5 mt-0.5">
               <NavItem
-                key={tab.slug}
-                href={`${basePath}/${tab.slug}`}
-                icon={tab.icon}
-                label={tab.label}
+                href={`${basePath}/tools/cloudflare-docs`}
+                icon={Cloud}
+                label="Cloudflare Docs"
               />
-            ))}
-          </CollapsibleContent>
-        </Collapsible>
-        
-        <NavItem 
-          href={`${basePath}/kanban`} 
-          icon={FolderKanban} 
-          label="Projects (Kanban)" 
-        />
-
-        {/* Assistant UI Integration */}
-        <NavItem 
-          href={`${basePath}/chat`} 
-          icon={MessageSquare} 
-          label="Chat Assistant" 
-        />
-
-        <NavItem 
-          href={`${basePath}/roadmap`} 
-          icon={Map} 
-          label="Roadmap" 
-        />
-
-        <NavItem 
-          href={`${basePath}/settings`} 
-          icon={Settings} 
-          label="Settings" 
-        />
-
-        <NavItem 
-          href={`${basePath}/icebox`} 
-          icon={CheckSquare} 
-          label="General Todos" 
-        />
-
+            </div>
+          )}
+        </div>
       </CollapsibleContent>
     </Collapsible>
   );
 }
 
 // Sub-component for individual links
-function NavItem({ href, icon: Icon, label }: { href: string; icon: any; label: string }) {
+function NavItem({ href, icon: Icon, label, badge }: { href: string; icon: any; label: string; badge?: number | string | null }) {
   return (
     <Button 
       variant="ghost" 
       size="sm" 
       className={cn(
-        "w-full justify-start gap-3 h-9 px-2 font-normal text-muted-foreground hover:text-foreground",
+        "w-full justify-start gap-3 h-9 px-2 font-normal text-muted-foreground hover:text-foreground relative group",
         "aria-[current=page]:text-foreground aria-[current=page]:font-medium aria-[current=page]:bg-secondary"
       )}
       asChild
     >
       <NavLink to={href} end>
-        <Icon className="w-4 h-4" />
-        {label}
+        <span className="flex items-center gap-3 w-full">
+            <Icon className="w-4 h-4 shrink-0" />
+            <span className="truncate flex-1 text-left">{label}</span>
+            {badge !== undefined && badge !== null && (
+                <Badge variant="destructive" className="ml-auto px-2 min-w-[1.5rem] h-5 justify-center text-xs shrink-0">
+                    {badge}
+                </Badge>
+            )}
+        </span>
       </NavLink>
     </Button>
   );

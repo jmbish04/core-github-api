@@ -1,15 +1,18 @@
 /**
- * @file src/mcp/tools.ts
- * @description Model Context Protocol (MCP) tools listing and execution
- * @owner AI-Builder
+ * MCP Tools Registry & Execution Logic
+ * 
+ * Central registry for all available MCP tools in the system.
+ * Handles tool validation via Zod, serialization to JSON Schema, and routing 
+ * to underlying API endpoints.
+ * 
+ * @module AI/MCP/Tools
  */
-
 import { z } from "zod";
 import * as S from "@/schemas/apiSchemas";
 import { DEFAULT_GITHUB_OWNER } from "@github-utils";
 
 /**
- * MCP Tool Definition
+ * MCP Tool Definition interface.
  */
 export interface MCPTool {
   name: string;

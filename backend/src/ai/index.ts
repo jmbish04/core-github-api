@@ -1,3 +1,11 @@
+/**
+ * AI Subsystem Entry Point
+ * 
+ * This module serves as the central export hub for all AI-related services, 
+ * including providers, utilities, and health diagnostic tools.
+ * 
+ * @module AI
+ */
 // Centralized AI Services Export
 
 // Providers (Namespaced to avoid function name collisions)

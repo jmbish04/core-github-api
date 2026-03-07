@@ -1,12 +1,12 @@
 
 import { useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import axios from "axios";
-import { 
-  Search, 
-  Webhook, 
-  Activity, 
+import {
+  Search,
+  Webhook,
+  Activity,
   Clock,
   ChevronLeft,
   ChevronRight,
@@ -16,6 +16,10 @@ import {
   GitBranch,
   User,
   X,
+  Zap,
+  CheckCircle2,
+  XCircle,
+  Loader2,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -53,7 +57,21 @@ type WebhookDelivery = {
   repo_full_name: string | null;
   created_at: string;
   payload: any;
-  summary_payload: any;
+  summary_payload: {
+    action?: string;
+    sender?: { login: string; avatar_url?: string; html_url?: string; type?: string };
+    repository?: { full_name: string; html_url?: string; description?: string; private?: boolean };
+    workflow_job?: {
+      workflow_name?: string;
+      name?: string;
+      head_branch?: string;
+      html_url?: string;
+      status: string;
+      conclusion?: string;
+      steps?: Array<{ number: number; name: string; status: string; conclusion?: string }>;
+    };
+    triggered_workflows?: string[];
+  } | null;
 };
 
 type WebhooksResponse = {
@@ -74,6 +92,18 @@ type WebhookStats = {
   total: number;
   recent24h: number;
   topEvents: Array<{ event: string; count: number }>;
+};
+
+type AuditLog = {
+  id: string;
+  deliveryId: string;
+  repoFullName: string;
+  triggerEvent: string;
+  analysisDetail: string;
+  actionTaken: string;
+  verificationStatus: string; // 'SUCCESS' | 'FAILURE'
+  verificationReason?: string;
+  createdAt: string;
 };
 
 // -------------------------------------------------------------------
@@ -121,6 +151,16 @@ function eventColor(event: string): string {
   return colors[event] || "bg-zinc-950/50 text-zinc-300 border-zinc-700/40";
 }
 
+/** Workflow badge style — distinct teal/indigo treatment */
+function workflowBadgeClass(): string {
+  return "bg-indigo-950/50 text-indigo-300 border-indigo-700/50 hover:bg-indigo-900/60 cursor-pointer transition-colors";
+}
+
+/** Human-readable workflow display name */
+function workflowLabel(id: string): string {
+  return id.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 // -------------------------------------------------------------------
 // Copy Button Component
 // -------------------------------------------------------------------
@@ -134,7 +174,6 @@ function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) 
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Fallback
       const textarea = document.createElement("textarea");
       textarea.value = text;
       document.body.appendChild(textarea);
@@ -160,13 +199,85 @@ function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) 
 }
 
 // -------------------------------------------------------------------
+// Actions Taken (Audit Logs) sub-component
+// -------------------------------------------------------------------
+
+function ActionsTaken({ deliveryId }: { deliveryId: string }) {
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["webhook-audit-logs", deliveryId],
+    queryFn: async () => {
+      const res = await axios.get<{ success: boolean; data: AuditLog[] }>(
+        `/api/webhooks/${deliveryId}/audit-logs`
+      );
+      return res.data.data ?? [];
+    },
+    staleTime: 30_000,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center gap-2 text-sm text-zinc-500 py-2">
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        Loading actions…
+      </div>
+    );
+  }
+
+  if (isError) {
+    return <p className="text-xs text-red-400 py-1">Failed to load actions.</p>;
+  }
+
+  if (!data || data.length === 0) {
+    return (
+      <p className="text-xs text-zinc-500 py-1 italic">No actions recorded for this delivery.</p>
+    );
+  }
+
+  return (
+    <ul className="space-y-2">
+      {data.map((log) => (
+        <li key={log.id} className="flex items-start gap-2 text-sm">
+          {log.verificationStatus === "SUCCESS" ? (
+            <CheckCircle2 className="h-4 w-4 text-emerald-400 mt-0.5 shrink-0" />
+          ) : (
+            <XCircle className="h-4 w-4 text-red-400 mt-0.5 shrink-0" />
+          )}
+          <span
+            className={
+              log.verificationStatus === "SUCCESS" ? "text-zinc-200" : "text-red-300"
+            }
+          >
+            <span className="font-medium">{log.actionTaken}</span>
+            {log.verificationReason && (
+              <span className="text-zinc-500 ml-1 text-xs">— {log.verificationReason}</span>
+            )}
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+// -------------------------------------------------------------------
 // Summary Tab Content
 // -------------------------------------------------------------------
 
-function SummaryView({ summary, event, action }: { summary: any; event: string; action: string | null }) {
+function SummaryView({
+  summary,
+  event,
+  action,
+  deliveryId,
+}: {
+  summary: WebhookDelivery["summary_payload"];
+  event: string;
+  action: string | null;
+  deliveryId: string;
+}) {
   if (!summary) {
     return <p className="text-sm text-zinc-500 p-4">No summary available for this delivery.</p>;
   }
+
+  const triggeredWorkflows = summary.triggered_workflows ?? [];
 
   return (
     <div className="space-y-4 p-4">
@@ -179,6 +290,45 @@ function SummaryView({ summary, event, action }: { summary: any; event: string; 
           </Badge>
         )}
       </div>
+
+      {/* Triggered Workflows */}
+      {triggeredWorkflows.length > 0 && (
+        <Card className="bg-zinc-900/50 border-zinc-800">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Zap className="h-3.5 w-3.5 text-indigo-400" />
+              Triggered Workflows
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-2">
+            {triggeredWorkflows.map((wfId) => (
+              <Link
+                key={wfId}
+                to={`/workflows/${wfId}`}
+                className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${workflowBadgeClass()}`}
+                title={`View ${workflowLabel(wfId)} workflow`}
+              >
+                <Zap className="h-3 w-3" />
+                {workflowLabel(wfId)}
+                <ExternalLink className="h-2.5 w-2.5 opacity-60" />
+              </Link>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Actions Taken (Audit Logs) */}
+      <Card className="bg-zinc-900/50 border-zinc-800">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Activity className="h-3.5 w-3.5 text-zinc-400" />
+            Actions Taken
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ActionsTaken deliveryId={deliveryId} />
+        </CardContent>
+      </Card>
 
       {/* Sender */}
       {summary.sender && (
@@ -313,7 +463,7 @@ function SummaryView({ summary, event, action }: { summary: any; event: string; 
               <div className="mt-2 border-t border-zinc-800 pt-2">
                 <p className="text-xs text-zinc-500 mb-1">Steps:</p>
                 <div className="space-y-1">
-                  {summary.workflow_job.steps.map((step: any, i: number) => (
+                  {summary.workflow_job.steps.map((step, i) => (
                     <div key={i} className="flex items-center gap-2 text-xs">
                       <span className="text-zinc-600 w-4">{step.number}</span>
                       <span className="text-zinc-300 flex-1">{step.name}</span>
@@ -351,20 +501,25 @@ function WebhookModal({
   hook,
   open,
   onClose,
+  onWorkflowBadgeClick,
 }: {
   hook: WebhookDelivery | null;
   open: boolean;
   onClose: () => void;
+  onWorkflowBadgeClick?: (wfId: string, e: React.MouseEvent) => void;
 }) {
   if (!hook) return null;
 
-  const rawPayloadStr = typeof hook.payload === "string"
-    ? hook.payload
-    : JSON.stringify(hook.payload, null, 2);
+  const rawPayloadStr =
+    typeof hook.payload === "string"
+      ? hook.payload
+      : JSON.stringify(hook.payload, null, 2);
 
   const summaryStr = hook.summary_payload
     ? JSON.stringify(hook.summary_payload, null, 2)
     : "";
+
+  const triggeredWorkflows = hook.summary_payload?.triggered_workflows ?? [];
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -377,6 +532,18 @@ function WebhookModal({
           <CardDescription className="flex items-center gap-2 flex-wrap">
             <Badge variant="outline" className={eventColor(hook.event)}>{hook.event}</Badge>
             {hook.action && <Badge variant="secondary" className="bg-zinc-800">{hook.action}</Badge>}
+            {/* Triggered Workflow Badges in modal header */}
+            {triggeredWorkflows.map((wfId) => (
+              <button
+                key={wfId}
+                onClick={(e) => onWorkflowBadgeClick?.(wfId, e)}
+                className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${workflowBadgeClass()}`}
+                title={`Filter by workflow: ${workflowLabel(wfId)}`}
+              >
+                <Zap className="h-3 w-3" />
+                {workflowLabel(wfId)}
+              </button>
+            ))}
             <span className="text-zinc-600">•</span>
             <span className="font-mono text-xs">{hook.delivery_id}</span>
             <span className="text-zinc-600">•</span>
@@ -397,7 +564,12 @@ function WebhookModal({
               <CopyButton text={summaryStr} label="Copy Summary" />
             </div>
             <ScrollArea className="h-[400px] w-full rounded-md border border-zinc-800 bg-zinc-900/50">
-              <SummaryView summary={hook.summary_payload} event={hook.event} action={hook.action} />
+              <SummaryView
+                summary={hook.summary_payload}
+                event={hook.event}
+                action={hook.action}
+                deliveryId={hook.delivery_id}
+              />
             </ScrollArea>
           </TabsContent>
 
@@ -428,6 +600,7 @@ export default function WebhooksPage() {
   const [typeFilter, setTypeFilter] = useState("all");
   const [actionFilter, setActionFilter] = useState("all");
   const [repoFilter, setRepoFilter] = useState("");
+  const [workflowFilter, setWorkflowFilter] = useState("all");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [selectedHook, setSelectedHook] = useState<WebhookDelivery | null>(null);
@@ -461,6 +634,21 @@ export default function WebhooksPage() {
     },
   });
 
+  // Collect all unique triggered workflows from the current page for the filter dropdown
+  const _allWfRaw: string[] = [];
+  for (const h of webhooks?.data ?? []) {
+    for (const wf of h.summary_payload?.triggered_workflows ?? []) {
+      _allWfRaw.push(wf);
+    }
+  }
+  const allTriggeredWorkflows: string[] = [...new Set(_allWfRaw)].sort();
+
+  // Client-side filter by triggered workflow
+  const visibleData = (webhooks?.data ?? []).filter((hook) => {
+    if (workflowFilter === "all") return true;
+    return hook.summary_payload?.triggered_workflows?.includes(workflowFilter);
+  });
+
   const handleRowClick = (hook: WebhookDelivery) => {
     setSelectedHook(hook);
     setModalOpen(true);
@@ -474,17 +662,34 @@ export default function WebhooksPage() {
     }
   };
 
+  /** Clicking a workflow badge in the table opens the modal for that row */
+  const handleWorkflowBadgeClick = (hook: WebhookDelivery, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedHook(hook);
+    setModalOpen(true);
+  };
+
+  /** Clicking a workflow badge in the modal header can update the workflow filter */
+  const handleModalWorkflowBadgeClick = (wfId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    // Navigate to the workflow page from the modal
+    navigate(`/workflows/${wfId}`);
+  };
+
   const clearFilters = () => {
     setSearch("");
     setTypeFilter("all");
     setActionFilter("all");
     setRepoFilter("");
+    setWorkflowFilter("all");
     setFromDate("");
     setToDate("");
     setPage(1);
   };
 
-  const hasActiveFilters = search || typeFilter !== "all" || actionFilter !== "all" || repoFilter || fromDate || toDate;
+  const hasActiveFilters =
+    search || typeFilter !== "all" || actionFilter !== "all" ||
+    repoFilter || workflowFilter !== "all" || fromDate || toDate;
 
   return (
     <div className="flex flex-col h-screen bg-zinc-950 text-zinc-50 font-sans">
@@ -576,6 +781,21 @@ export default function WebhooksPage() {
               </SelectContent>
             </Select>
 
+            {/* Workflow Filter */}
+            <Select value={workflowFilter} onValueChange={(v) => setWorkflowFilter(v)}>
+              <SelectTrigger className="w-[180px] bg-zinc-900/50 border-zinc-700">
+                <SelectValue placeholder="Workflow triggered" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Workflows</SelectItem>
+                {allTriggeredWorkflows.map((wfId) => (
+                  <SelectItem key={wfId} value={wfId}>
+                    {workflowLabel(wfId)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
             {/* Repo Filter */}
             <div className="relative min-w-[180px]">
               <GitBranch className="absolute left-2.5 top-2.5 h-4 w-4 text-zinc-500" />
@@ -620,7 +840,9 @@ export default function WebhooksPage() {
           {/* Pagination */}
           <div className="flex items-center justify-between">
             <p className="text-xs text-zinc-500">
-              {webhooks?.pagination.total.toLocaleString() || 0} results
+              {workflowFilter !== "all"
+                ? `${visibleData.length} filtered`
+                : `${webhooks?.pagination.total.toLocaleString() || 0} results`}
             </p>
             <div className="flex items-center gap-2">
               <Button
@@ -653,55 +875,87 @@ export default function WebhooksPage() {
               <TableRow className="border-zinc-800 hover:bg-transparent">
                 <TableHead className="text-zinc-400">Event</TableHead>
                 <TableHead className="text-zinc-400">Action</TableHead>
+                <TableHead className="text-zinc-400">Workflows Triggered</TableHead>
                 <TableHead className="text-zinc-400">Repository</TableHead>
                 <TableHead className="text-zinc-400">Time (PST)</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                 <TableRow>
-                   <TableCell colSpan={4} className="h-24 text-center text-zinc-500">
-                     Loading webhooks...
-                   </TableCell>
-                 </TableRow>
-              ) : webhooks?.data.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="h-24 text-center text-zinc-500">
+                  <TableCell colSpan={5} className="h-24 text-center text-zinc-500">
+                    Loading webhooks...
+                  </TableCell>
+                </TableRow>
+              ) : visibleData.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="h-24 text-center text-zinc-500">
                     No webhooks found.
                   </TableCell>
                 </TableRow>
               ) : (
-                webhooks?.data.map((hook) => (
-                  <TableRow
-                    key={hook.id}
-                    className="border-zinc-800 hover:bg-zinc-800/50 cursor-pointer transition-colors"
-                    onClick={() => handleRowClick(hook)}
-                  >
-                    <TableCell>
-                      <Badge variant="outline" className={eventColor(hook.event)}>
-                        {hook.event}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-zinc-300 font-medium text-sm">
-                      {hook.action || "-"}
-                    </TableCell>
-                    <TableCell>
-                      {hook.repo_full_name ? (
-                        <button
-                          onClick={(e) => handleRepoClick(e, hook.repo_full_name!)}
-                          className="text-sm text-blue-400 hover:text-blue-300 hover:underline underline-offset-4 font-medium transition-colors"
-                        >
-                          {hook.repo_full_name}
-                        </button>
-                      ) : (
-                        <span className="text-xs text-zinc-600">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-zinc-400 text-sm font-mono">
-                      {formatPST(hook.created_at)}
-                    </TableCell>
-                  </TableRow>
-                ))
+                visibleData.map((hook) => {
+                  const workflows = hook.summary_payload?.triggered_workflows ?? [];
+                  return (
+                    <TableRow
+                      key={hook.id}
+                      className="border-zinc-800 hover:bg-zinc-800/50 cursor-pointer transition-colors"
+                      onClick={() => handleRowClick(hook)}
+                    >
+                      {/* Event badge */}
+                      <TableCell>
+                        <Badge variant="outline" className={eventColor(hook.event)}>
+                          {hook.event}
+                        </Badge>
+                      </TableCell>
+
+                      {/* Action */}
+                      <TableCell className="text-zinc-300 font-medium text-sm">
+                        {hook.action || "-"}
+                      </TableCell>
+
+                      {/* Triggered Workflows badges */}
+                      <TableCell>
+                        {workflows.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {workflows.map((wfId) => (
+                              <button
+                                key={wfId}
+                                onClick={(e) => handleWorkflowBadgeClick(hook, e)}
+                                className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${workflowBadgeClass()}`}
+                                title={`${workflowLabel(wfId)} — click to open details`}
+                              >
+                                <Zap className="h-2.5 w-2.5" />
+                                {workflowLabel(wfId)}
+                              </button>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-zinc-600">—</span>
+                        )}
+                      </TableCell>
+
+                      {/* Repo */}
+                      <TableCell>
+                        {hook.repo_full_name ? (
+                          <button
+                            onClick={(e) => handleRepoClick(e, hook.repo_full_name!)}
+                            className="text-sm text-blue-400 hover:text-blue-300 hover:underline underline-offset-4 font-medium transition-colors"
+                          >
+                            {hook.repo_full_name}
+                          </button>
+                        ) : (
+                          <span className="text-xs text-zinc-600">—</span>
+                        )}
+                      </TableCell>
+
+                      {/* Time */}
+                      <TableCell className="text-zinc-400 text-sm font-mono">
+                        {formatPST(hook.created_at)}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>
@@ -713,6 +967,7 @@ export default function WebhooksPage() {
         hook={selectedHook}
         open={modalOpen}
         onClose={() => setModalOpen(false)}
+        onWorkflowBadgeClick={handleModalWorkflowBadgeClick}
       />
     </div>
   );

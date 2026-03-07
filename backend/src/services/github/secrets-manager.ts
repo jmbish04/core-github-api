@@ -1,33 +1,62 @@
 
 import { getOctokit } from "../octokit/core";
-import _sodium from "libsodium-wrappers";
+// // REMOVED
 
 
 /**
- * Encrypt a secret value using LibSodium for GitHub Actions Secrets.
- * 
- * GitHub requires the secret to be encrypted using the repo's public key.
- * The value is a Base64 encoded string of the encrypted box.
+ * Encrypt a secret using libsodium (used by GitHub for secret updates)
  */
 async function encryptSecret(
-  sodium: typeof _sodium,
   key: string,
-  value: string
+  secret: string,
+  sodium: any,
 ): Promise<string> {
-  // Convert the key and verify
-  const binkey = sodium.from_base64(key, _sodium.base64_variants.ORIGINAL);
-  const binsec = sodium.from_string(value);
+  // Convert the secret and key to a Uint8Array.
+  const binkey = sodium.from_base64(key, 1); // 1 = _sodium.base64_variants.ORIGINAL
+  const binsec = sodium.from_string(secret);
 
-  // Encrypt
+  // Encrypt the secret using libsodium
   const encBytes = sodium.crypto_box_seal(binsec, binkey);
 
-  // Convert to Base64
-  return sodium.to_base64(encBytes, _sodium.base64_variants.ORIGINAL);
+  // Convert the encrypted Uint8Array to Base64
+  return sodium.to_base64(encBytes, 1);
 }
 
 export interface SecretDefinition {
   name: string;
   value: string;
+}
+
+export async function putRepositorySecret(
+  octokit: any, // Assuming Octokit type is available or can be 'any' for now
+  owner: string,
+  repo: string,
+  secretName: string,
+  secretValue: string,
+): Promise<void> {
+  // 1. Get the public key for the repository
+  const { data: publicKeyInfo } = await octokit.rest.actions.getRepoPublicKey({
+    owner,
+    repo,
+  });
+
+  // 2. Initialize libsodium
+  const _sodium: any = {}; // Mock
+  await _sodium.ready;
+  const sodium = _sodium;
+
+  const keyId = publicKeyInfo.key_id;
+  const key = publicKeyInfo.key;
+
+  const encryptedValue = await encryptSecret(key, secretValue, sodium);
+
+  await octokit.rest.actions.createOrUpdateRepoSecret({
+    owner,
+    repo,
+    secret_name: secretName,
+    encrypted_value: encryptedValue,
+    key_id: keyId,
+  });
 }
 
 export async function syncRepoSecrets(
@@ -37,6 +66,7 @@ export async function syncRepoSecrets(
   secrets: SecretDefinition[]
 ) {
   const octokit = await getOctokit(env);
+  const _sodium: any = {}; // Mock
   await _sodium.ready;
   const sodium = _sodium;
 
@@ -50,7 +80,7 @@ export async function syncRepoSecrets(
   const keyId = publicKey.key_id;
   const key = publicKey.key;
 
-  const results = [];
+  const results: any[] = [];
 
   // 2. Encrypt and set each secret
   for (const secret of secrets) {

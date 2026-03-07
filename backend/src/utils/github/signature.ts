@@ -4,9 +4,9 @@
  * Appends a format-appropriate footer to content before it is sent to GitHub.
  */
 
-export const SIGNATURE_MARKDOWN = "\n\n---\n*This action initiated by core-worker-api*";
-export const SIGNATURE_HASH = "\n\n# This action initiated by core-worker-api\n";
-export const SIGNATURE_DOCSTRING = "\n/* This action initiated by core-worker-api */\n";
+export const SIGNATURE_MARKDOWN = "\n\n---\n*This action initiated by core-github-api*";
+export const SIGNATURE_HASH = "\n\n# This action initiated by core-github-api\n";
+export const SIGNATURE_DOCSTRING = "\n/* This action initiated by core-github-api */\n";
 
 /**
  * Append an action signature to content. Selects the appropriate comment format
@@ -14,7 +14,7 @@ export const SIGNATURE_DOCSTRING = "\n/* This action initiated by core-worker-ap
  * Idempotent — skips if the signature is already present.
  */
 export function appendSignature(content: string, filename?: string): string {
-  if (content.includes("core-worker-api")) return content;
+  if (content.includes("core-github-api")) return content;
 
   if (filename) {
     const ext = filename.split('.').pop()?.toLowerCase();

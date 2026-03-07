@@ -1,5 +1,22 @@
 // Dynamic imports used instead of static
+/**
+ * AI Pattern: Parallelization
+ * 
+ * Implements a "Scatter-Gather" approach where independent sub-tasks 
+ * are executed in parallel across multiple model instances, 
+ * then synthesized into a final result.
+ * 
+ * @module AI/Agents/Base/Patterns/Parallelization
+ */
 import { Agent as CFAgent, callable } from "agents";
+
+/**
+ * Input for parallel execution.
+ */
+export interface ParallelInput {
+  tasks: any[];
+  concurrencyLimit?: number;
+}
 
 export class ParallelAgent extends CFAgent<Env> {
   

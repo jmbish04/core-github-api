@@ -1,13 +1,16 @@
 /**
- * AI Configuration Module (Consolidated)
- * Centralizes model selection, provider resolution, and AI Gateway URL construction.
+ * AI Configuration & Provider Resolution Module
  * 
- * Merges logic from:
- * - lib/ai-config.ts
- * - lib/agent-ai.ts
- * - utils/ai-provider-utils.ts
+ * Centralizes the logic for:
+ * 1. AI Provider normalization and resolution from environment variables.
+ * 2. Model selection for specific agent modules.
+ * 3. AI Gateway URL construction according to different SDK use cases.
+ * 4. Model name normalization for cross-provider compatibility.
+ * 
+ * @module AI/Providers/Config
  */
 
+/** Supported AI provider identifiers. */
 export type SupportedProvider =
   | 'worker-ai'
   | 'workers-ai'
@@ -16,11 +19,21 @@ export type SupportedProvider =
   | 'google-ai-studio'
   | 'anthropic';
 
+/** Default fallback provider. */
 export const DEFAULT_AI_PROVIDER: SupportedProvider = 'worker-ai';
+/** Default high-performance model for Workers AI. */
 export const DEFAULT_WORKERS_AI_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 
 /**
  * Valid SDK use cases for determining the correct Gateway endpoint format.
+ */
+/**
+ * Defined Use Cases for AI Gateway endpoint resolution.
+ * - openai_agents_sdk: Used by the @openai/agents package.
+ * - openai_sdk: Standard OpenAI client usage.
+ * - worker_ai: Raw Workers AI REST interactions.
+ * - google_sdk: Official Google Generative AI SDK.
+ * - anthropic_sdk: Official Anthropic SDK.
  */
 export type GatewayUseCase = 
   | 'openai_agents_sdk' 
@@ -33,6 +46,12 @@ export type GatewayUseCase =
 // Model & Provider Resolution
 // ==========================================
 
+/**
+ * Normalizes provider strings into the `SupportedProvider` union.
+ * 
+ * @param provider - Raw input string (e.g., 'Google', 'Workers-AI').
+ * @returns A validated provider key.
+ */
 export function normalizeProvider(provider?: string): SupportedProvider {
   if (!provider) {
     return DEFAULT_AI_PROVIDER;
@@ -55,6 +74,13 @@ export function normalizeProvider(provider?: string): SupportedProvider {
   return DEFAULT_AI_PROVIDER;
 }
 
+/**
+ * Resolves the primary AI provider from the environment.
+ * Checks `AI_DEFAULT_PROVIDER` or `AI_PROVIDER`.
+ * 
+ * @param env - Cloudflare Environment bindings.
+ * @returns The resolved provider key.
+ */
 export function resolveDefaultAiProvider(env: Partial<Env>): SupportedProvider {
   const configured =
     (env as Partial<Env> & { AI_DEFAULT_PROVIDER?: string; AI_PROVIDER?: string }).AI_DEFAULT_PROVIDER ||
@@ -62,6 +88,15 @@ export function resolveDefaultAiProvider(env: Partial<Env>): SupportedProvider {
   return normalizeProvider(configured);
 }
 
+/**
+ * Resolves the default AI model for a given provider or environment.
+ * Handles provider-specific model defaults if not explicitly configured in `env`.
+ * 
+ * @param env - Cloudflare Environment bindings.
+ * @param provider - Target provider to resolve for.
+ * @returns The model identifier string.
+ * @agent-note Use this to obtain the "standard" model for a provider when one isn't specified.
+ */
 export function resolveDefaultAiModel(env: Partial<Env>, provider?: SupportedProvider): string {
   const model =
     (env as Partial<Env> & { AI_DEFAULT_MODEL?: string; WORKERS_AI_MODEL?: string }).AI_DEFAULT_MODEL ||
@@ -100,6 +135,15 @@ export function resolveDefaultAiModel(env: Partial<Env>, provider?: SupportedPro
 
 /**
  * Retrieves the configured model slug for a given agent or module.
+ */
+/**
+ * Mapping function to retrieve task-specific model slugs.
+ * Supports a global `USE_OPENAI_MODELS` toggle to switch between 
+ * OpenAI (Reliability) and Workers AI (Cost) modes.
+ * 
+ * @param moduleName - The identifier/key for the agent module (e.g., 'finance-critic').
+ * @param env - Cloudflare Environment bindings.
+ * @returns The model slug to use for the agent.
  */
 export const getAgentModel = (moduleName: string, env?: Env): string => {
   // Default to TRUE if env is missing or varies
@@ -163,6 +207,14 @@ export const getAgentModel = (moduleName: string, env?: Env): string => {
 // Gateway URL Construction
 // ==========================================
 
+/**
+ * Constructs the full AI Gateway URL for a given provider and use case.
+ * 
+ * @param env - Cloudflare Environment bindings.
+ * @param fullModelNameOrProvider - Model slug or provider key.
+ * @param useCase - The SDK/protocol context for the endpoint.
+ * @returns The absolute URL to the Gateway endpoint.
+ */
 export async function getAiGatewayUrl(
   env: Env,
   fullModelNameOrProvider: string,
@@ -204,14 +256,13 @@ export async function getAiGatewayUrl(
       // The original code used `await gateway.getUrl()` for compat.
       const baseUrl = await gateway.getUrl('workers-ai'); 
       const cleanBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
-      // Check if /compat is needed. original code said yes.
-      return `${cleanBase}compat`;
+      return `${cleanBase}v1`;
     }
 
     case 'worker_ai': {
       const baseUrl = await gateway.getUrl('workers-ai');
       const cleanBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
-      return `${cleanBase}compat`;
+      return `${cleanBase}v1`;
     }
 
     case 'google_sdk':
@@ -228,6 +279,13 @@ export async function getAiGatewayUrl(
 // Alias for backward compatibility if needed
 export const getAiBaseUrl = getAiGatewayUrl;
 
+/**
+ * Normalizes model slugs for compatibility with specific provider endpoints.
+ * E.g., strips 'openai/' prefix for native OpenAI calls.
+ * 
+ * @param modelSlug - The raw model name.
+ * @returns The normalized model name.
+ */
 export function getCompatModelName(modelSlug: string): string {
   if (modelSlug.startsWith('@cf/')) {
     return modelSlug;

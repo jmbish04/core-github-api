@@ -71,7 +71,7 @@ export default function CommentsViewerPage() {
                     throw new Error('Failed to fetch comments');
                 }
 
-                const data = await res.json();
+                const data = (await res.json()) as any;
                 setComments(Array.isArray(data) ? data : []); 
             } catch (err: any) {
                 setError(err.message);

@@ -5,7 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Filter, GitBranch, FolderGit2, Loader2, ArrowRight, Star, RefreshCw } from 'lucide-react';
+import { Plus, Search, Filter, GitBranch, FolderGit2, Loader2, ArrowRight, Star, RefreshCw, XCircle } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Skeleton } from '@/components/ui/skeleton';
 import { NewProjectDialog } from '@/components/projects/NewProjectDialog';
 import { getControlCenterUserId } from '@/lib/control-user';
 import { pushRecentProject, removeRecentProject } from '@/lib/project-recents';
@@ -58,7 +60,7 @@ export default function Projects() {
     const [isNewProjectOpen, setIsNewProjectOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
 
-    const { data, isLoading } = useQuery({
+    const { data, isLoading, isError, error, isFetching } = useQuery({
         queryKey: ['projects'],
         queryFn: async () => {
             const res = await fetch('/api/projects', { credentials: 'include' });
@@ -74,64 +76,33 @@ export default function Projects() {
                 credentials: 'include'
             });
             if (!res.ok) throw new Error('Failed to fetch project favorites');
-            const payload = await res.json() as { favorites?: FavoriteProject[] };
+            const payload = (await res.json()) as any as { favorites?: FavoriteProject[] };
             return payload.favorites || [];
         }
     });
 
     const favoriteSet = new Set(
-        (favoritesQuery.data || []).map(
-            (favorite) => `${favorite.repoOwner.toLowerCase()}/${favorite.repoName.toLowerCase()}`
-        )
+        (favoritesQuery.data || [])
+            .filter(f => f.repoOwner && f.repoName)
+            .map(f => `${f.repoOwner.toLowerCase()}/${f.repoName.toLowerCase()}`)
     );
 
-    const toggleFavoriteMutation = useMutation({
-        mutationFn: async ({ repoOwner, repoName, isFavorite }: { repoOwner: string; repoName: string; isFavorite: boolean }) => {
-            if (isFavorite) {
-                const response = await fetch(
-                    `/api/projects/favorites/${encodeURIComponent(repoOwner)}/${encodeURIComponent(repoName)}?userId=${encodeURIComponent(userId)}`,
-                    {
-                        method: 'DELETE',
-                        credentials: 'include',
-                    },
-                );
-                if (!response.ok) {
-                    throw new Error('Failed to remove favorite');
-                }
-                return;
-            }
+    const { addFavorite, removeFavorite, isFavorite } = useProjectStore();
 
-            const response = await fetch('/api/projects/favorites', {
-                method: 'POST',
-                headers: { 'content-type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({
-                    userId,
-                    repoOwner,
-                    repoName,
-                }),
-            });
-            if (!response.ok) {
-                throw new Error('Failed to save favorite');
-            }
-        },
-        onSuccess: async (_, variables) => {
-            await queryClient.invalidateQueries({ queryKey: ['project-favorites', userId] });
-            if (variables.isFavorite) {
-                pushRecentProject({
-                    repoOwner: variables.repoOwner,
-                    repoName: variables.repoName,
-                });
-                return;
-            }
-            removeRecentProject({
-                repoOwner: variables.repoOwner,
-                repoName: variables.repoName,
-            });
-        },
-    });
-
-    const openProjectInSidebar = useProjectStore((state) => state.openProject);
+    const toggleFavorite = (project: Project) => {
+        const repo = {
+            id: parseInt(project.repoId) || 0,
+            owner: project.repoOwner!,
+            name: project.repoName!,
+            full_name: `${project.repoOwner}/${project.repoName}`,
+            description: project.description
+        };
+        if (isFavorite(repo.full_name)) {
+            removeFavorite(userId, repo);
+        } else {
+            addFavorite(userId, repo);
+        }
+    };
 
     const openProject = (project: Project) => {
         if (project.repoOwner && project.repoName) {
@@ -141,20 +112,22 @@ export default function Projects() {
                 projectName: project.name,
             });
             
-            // Add to sidebar
-            openProjectInSidebar({
+            const repo = {
                 id: parseInt(project.repoId) || 0,
                 owner: project.repoOwner,
                 name: project.repoName,
                 full_name: `${project.repoOwner}/${project.repoName}`,
                 description: project.description
-            });
+            };
+            
+            // Adding as favorite makes it an active workspace
+            addFavorite(userId, repo);
 
             navigate(`/project/${project.repoOwner}/${project.repoName}/dashboard`);
             return;
         }
 
-        navigate(`/control-center/projects/${project.id}`);
+        navigate(`/projects/${project.id}`);
     };
 
     const projects = [...(data?.projects || [])].sort((a, b) => {
@@ -167,14 +140,44 @@ export default function Projects() {
         p.description?.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
+    // Render Skeletons for Loading State
+    const Skeletons = () => (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {Array.from({ length: 6 }).map((_, i) => (
+                <Card key={i} className="flex flex-col h-full border-muted">
+                    <CardHeader className="gap-2">
+                        <div className="flex items-start justify-between">
+                            <Skeleton className="h-6 w-3/4" />
+                            <div className="flex gap-2">
+                                <Skeleton className="h-5 w-16" />
+                                <Skeleton className="h-5 w-16 rounded-full" />
+                            </div>
+                        </div>
+                        <Skeleton className="h-4 w-full mt-2" />
+                        <Skeleton className="h-4 w-5/6" />
+                    </CardHeader>
+                    <CardContent className="flex-1">
+                        <div className="flex gap-2 mt-4">
+                            <Skeleton className="h-3 w-12" />
+                            <Skeleton className="h-3 w-24" />
+                        </div>
+                    </CardContent>
+                    <CardFooter className="bg-muted/10 border-t pt-4">
+                        <Skeleton className="h-9 w-full" />
+                    </CardFooter>
+                </Card>
+            ))}
+        </div>
+    );
+
     return (
-        <div className="h-full flex flex-col space-y-6 container mx-auto py-6">
-            <div className="flex items-center justify-between">
+        <div className="h-full overflow-y-auto flex flex-col space-y-6 container mx-auto py-6 px-4 md:px-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">Projects</h1>
                     <p className="text-muted-foreground">Manage your repositories and expeditions.</p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                     <Button 
                         variant="outline" 
                         onClick={() => {
@@ -196,8 +199,8 @@ export default function Projects() {
             </div>
 
             {/* Filters */}
-            <div className="flex items-center gap-4 bg-card p-4 rounded-lg border">
-                <div className="relative flex-1 max-w-sm">
+            <div className="flex flex-wrap items-center gap-4 bg-card p-4 rounded-lg border w-full">
+                <div className="relative flex-1 min-w-[200px] max-w-sm">
                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                     <Input
                         placeholder="Search projects..."
@@ -211,11 +214,35 @@ export default function Projects() {
                 </Button>
             </div>
 
+            {/* Status Alert */}
+            {isLoading || isFetching ? (
+                <Card className="mb-6 bg-muted/20 border-muted">
+                    <CardContent className="flex items-center gap-3 py-4">
+                        <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                        <span className="text-sm font-medium">
+                            {isLoading ? "Loading projects..." : "Syncing latest data..."}
+                        </span>
+                    </CardContent>
+                </Card>
+            ) : isError ? (
+                <Card className="mb-6 border-destructive/50 bg-destructive/10">
+                    <CardContent className="flex items-center gap-3 py-4 text-destructive">
+                        <div className="rounded-full bg-destructive/20 p-1">
+                            <XCircle className="h-5 w-5" />
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-sm font-semibold">Error Loading Projects</span>
+                            <span className="text-xs opacity-90">
+                                {error instanceof Error ? error.message : "An unexpected error occurred."}
+                            </span>
+                        </div>
+                    </CardContent>
+                </Card>
+            ) : null}
+
             {/* Grid */}
-            {isLoading ? (
-                <div className="flex justify-center py-20">
-                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                </div>
+            {isLoading || isError ? (
+                <Skeletons />
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {filteredProjects.map(project => {
@@ -247,18 +274,13 @@ export default function Projects() {
                                                     className="h-7 w-7"
                                                     onClick={(event) => {
                                                         event.stopPropagation();
-                                                        const key = `${project.repoOwner!.toLowerCase()}/${project.repoName!.toLowerCase()}`;
-                                                        toggleFavoriteMutation.mutate({
-                                                            repoOwner: project.repoOwner!,
-                                                            repoName: project.repoName!,
-                                                            isFavorite: favoriteSet.has(key),
-                                                        });
+                                                        toggleFavorite(project);
                                                     }}
                                                 >
                                                     <Star
                                                         className={cn(
                                                             "h-4 w-4",
-                                                            favoriteSet.has(`${project.repoOwner.toLowerCase()}/${project.repoName.toLowerCase()}`)
+                                                            isFavorite(`${project.repoOwner!.toLowerCase()}/${project.repoName!.toLowerCase()}`)
                                                                 ? "fill-current text-amber-400"
                                                                 : "text-muted-foreground",
                                                         )}

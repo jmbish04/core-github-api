@@ -49,7 +49,7 @@ export function UxWorkshopTab({ projectId, projectName }: UxWorkshopTabProps) {
       </TabsContent>
 
       <TabsContent value="landing" className="h-[calc(100%-3rem)] mt-0 border-none outline-none">
-         <LandingPageGenerator projectId={projectId} projectName={projectName} className="h-full" />
+         <LandingPageGenerator projectId={projectId} projectName={projectName} />
       </TabsContent>
     </Tabs>
   );

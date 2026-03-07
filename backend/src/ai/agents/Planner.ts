@@ -1,8 +1,16 @@
+/**
+ * Planner Agent (Strategy & Step Generation)
+ * 
+ * Specialized agent responsible for breaking down a high-level goal 
+ * into a structured, execution-ready implementation plan.
+ * 
+ * @module AI/Agents/Planner
+ */
 import { callable } from "agents";
 import type { Agent } from "@openai/agents";
 import { z } from "zod";
-import { resolveDefaultAiModel, resolveDefaultAiProvider, createGatewayClient } from "@/ai/agent-sdk";
-import { BaseAgent, BaseAgentState } from "@/ai/agent-sdk";
+import { resolveDefaultAiModel, resolveDefaultAiProvider } from "@/ai/providers/config";
+import { BaseAgent, BaseAgentState } from "@/ai/agents/base/BaseAgent";
 import { Logger } from "@logging";
 
 const PlanSchema = z.object({
@@ -17,6 +25,9 @@ const PlanSchema = z.object({
   ),
 });
 
+/**
+ * The PlannerAgent generates structured step-by-step implementation plans.
+ */
 export class PlannerAgent extends BaseAgent<Env, BaseAgentState> {
 
 
@@ -33,6 +44,10 @@ export class PlannerAgent extends BaseAgent<Env, BaseAgentState> {
     };
   }
 
+/**
+ * Handles incoming planning requests.
+ * Parses the goal and invokes the LLM to generate a structured plan.
+ */
   async onRequest(request: Request) {
     const url = new URL(request.url);
     if (request.method === "GET" && url.pathname === "/health-probe") {
@@ -57,19 +72,17 @@ export class PlannerAgent extends BaseAgent<Env, BaseAgentState> {
       
       this.logger.info("Generating plan", { goalLength: goal.length, provider, model });
 
-      const client = await createGatewayClient(this.env, model);
-      const { Agent: OpenAIAgent } = await import("@openai/agents");
-      const planner = new OpenAIAgent({
+      const result = await this.runStructuredResponseWithModel({
         name: "PlannerAgent",
         model,
-        outputType: PlanSchema,
+        provider,
+        schema: PlanSchema,
         instructions:
           "Create an implementation plan for the user goal. Return a concise, execution-ready plan.",
+        prompt: goal,
       });
 
-      const result = await this.runAgent(planner as any, goal);
-
-      return Response.json(result.finalOutput ?? { title: "Plan", steps: [] });
+      return Response.json(result ?? { title: "Plan", steps: [] });
     } catch (error: any) {
       this.logger.error("Planning failed", { error: error.message });
       return new Response(JSON.stringify({ error: error.message }), {

@@ -58,7 +58,7 @@ export function PrCommentExtractor({ defaultOwner, defaultRepo, defaultPrNumber 
             }
 
             fetch(`https://api.github.com/repos/${defaultOwner}/${defaultRepo}/pulls?state=open&sort=created&direction=desc`)
-              .then(res => res.json())
+              .then(res => (res.json() as any) as Promise<any[]>)
               .then(data => {
                   if (Array.isArray(data)) {
                       setPrs(data);
@@ -120,7 +120,7 @@ export function PrCommentExtractor({ defaultOwner, defaultRepo, defaultPrNumber 
             
             if (!res.ok) throw new Error("Failed to extract comments");
             
-            const data = await res.json();
+            const data = ((await res.json()) as any) as any;
             
             if (data.success && data.extraction_id) {
                 setExtractionId(data.extraction_id);
@@ -129,7 +129,7 @@ export function PrCommentExtractor({ defaultOwner, defaultRepo, defaultPrNumber 
                 const commentsRes = await fetch(`/api/tools/comments/${data.extraction_id}`);
                 if (!commentsRes.ok) throw new Error("Failed to fetch extracted comments");
                 
-                const commentsData = await commentsRes.json();
+                const commentsData = ((await commentsRes.json()) as any) as ExtractedComment[];
                 setComments(commentsData);
                 
                 setStatus({

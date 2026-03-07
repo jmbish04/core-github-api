@@ -117,13 +117,13 @@ export class BrowserService {
     }
 
     private async callCloudflare(endpoint: string, requestBody: object, expectsJson: boolean = true) {
-        const { CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_API_TOKEN, CLOUDBROWSER_API_BASE_URL } = this.env;
+        const { CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_API_TOKEN, CLOUDFLARE_API_BASE_URL } = this.env;
 
-        if (!CLOUDFLARE_ACCOUNT_ID || !CLOUDFLARE_API_TOKEN || !CLOUDBROWSER_API_BASE_URL) {
+        if (!CLOUDFLARE_ACCOUNT_ID || !CLOUDFLARE_API_TOKEN || !CLOUDFLARE_API_BASE_URL) {
             throw new Error('Missing Cloudflare environment variables.');
         }
 
-        const apiUrl = `${CLOUDBROWSER_API_BASE_URL}/${CLOUDFLARE_ACCOUNT_ID}/browser-rendering${endpoint}`;
+        const apiUrl = `${CLOUDFLARE_API_BASE_URL}/${CLOUDFLARE_ACCOUNT_ID}/browser-rendering${endpoint}`;
 
         const fetchOptions: RequestInit = {
             method: 'POST',
@@ -187,7 +187,7 @@ const browserRender = new Hono<{
     Bindings: {
         CLOUDFLARE_ACCOUNT_ID: string;
         CLOUDFLARE_API_TOKEN: string;
-        CLOUDBROWSER_API_BASE_URL: string; // e.g., "https://api.cloudflare.com/client/v4/accounts"
+        CLOUDFLARE_API_BASE_URL: string; // e.g., "https://api.cloudflare.com/client/v4/accounts"
     }
 }>();
 

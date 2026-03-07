@@ -1,3 +1,14 @@
+/**
+ * AI Budget Tracking & Cost Enforcement Module
+ * 
+ * This module is responsible for:
+ * 1. Tracking AI token usage and estimated costs in micro-dollars (USD).
+ * 2. Enforcing global spending limits defined in the environment.
+ * 3. Fetching dynamic pricing for Workers AI models from the Cloudflare API.
+ * 4. Auditing transactions and logging them to D1 for analytics.
+ * 
+ * @module AI/Utils/Budget
+ */
 import { drizzle } from 'drizzle-orm/d1';
 import { aiCostLogs, budgetEvents, sessions } from '@db/schema';
 import { generateUuid } from '@/utils/common';
@@ -44,8 +55,10 @@ let CACHE_TIMESTAMP = 0;
 const CACHE_TTL_MS = 1000 * 60 * 60; // 1 hour
 
 /**
- * BudgetTracker enforces the global AI spending limit.
- * It tracks usage in D1 and halts execution if the limit is exceeded.
+ * BudgetTracker enforces global and session-level AI spending limits.
+ * It provides methods to track usage, check budget health, and reset counters.
+ * 
+ * @agent-note All AI-calling modules should inject this tracker to ensure compliance with billing rules.
  */
 export class BudgetTracker {
   private db: ReturnType<typeof drizzle>;
@@ -177,9 +190,19 @@ export class BudgetTracker {
   }
 
   /**
-   * Calculates the cost of a transaction in micro-dollars (1/1,000,000 USD).
-   * Enforces Guardrails via Pricing Registry.
-   */
+ * Calculates the cost of an AI interaction in micro-dollars (1/1,000,000 USD).
+ * 
+ * logic:
+ * 1. Resolves model pricing from static registry or dynamic CF cache.
+ * 2. Applies long-context surge pricing if applicable.
+ * 3. Enforces guardrail checks (max cost per call).
+ * 
+ * @param modelName - The model slug.
+ * @param inputTokens - Number of input/prompt tokens.
+ * @param outputTokens - Number of output/completion tokens.
+ * @returns Cost in micro-dollars.
+ * @throws ExpensiveModelError if guardrails are violated.
+ */
   private calculateCostMicros(modelName: string, inputTokens: number, outputTokens: number): number {
     let pricing: ModelPricing | undefined;
 
@@ -254,6 +277,11 @@ export class BudgetTracker {
    * Tracks a transaction and logs it to D1.
    * "Fire and forget" style is recommended for the caller, but this method is async.
    */
+  /**
+ * Persists an AI transaction's usage data to the database.
+ * 
+ * @param params - Usage metadata including tokens and attribution IDs.
+ */
   async trackUsage(params: {
     model: string;
     inputTokens: number;
@@ -287,9 +315,11 @@ export class BudgetTracker {
   }
 
   /**
-   * Checks if the total budget has been exceeded since the last reset.
-   * Throws an Error if budget is exceeded.
-   */
+ * Validates the current cumulative spending against the `MAX_AI_BUDGET`.
+ * Stops execution if the limit is reached.
+ * 
+ * @throws Error if budget is exceeded.
+ */
   async checkBudgetStrict(): Promise<void> {
     const maxBudgetUsd = parseFloat(this.env.MAX_AI_BUDGET || '0');
     if (maxBudgetUsd <= 0) return; // No limit set

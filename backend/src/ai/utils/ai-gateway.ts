@@ -1,4 +1,12 @@
-
+/**
+ * AI Gateway URL Construction & Normalization Utility
+ * 
+ * Provides functions to build absolute URLs for Cloudflare AI Gateway endpoints.
+ * Handles provider-specific suffixing (e.g., chat/completions for OpenAI, 
+ * generateContent for Gemini) and account-bound gateway routing.
+ * 
+ * @module AI/Utils/Gateway
+ */
 
 export type AIGatewayProvider = "compat" | "worker-ai" | "google-ai-studio" | "openai";
 
@@ -19,10 +27,17 @@ interface GatewayOptions {
 }
 
 /**
- * Constructs the URL for Cloudflare AI Gateway.
- * * Usage:
- * 1. Base URL (for SDKs): getAIGatewayUrl(env, { provider: 'openai' })
- * 2. Full URL (for fetch): getAIGatewayUrl(env, { provider: 'google-ai-studio', modelName: 'gemini-1.5-pro', apiVersion: 'v1beta' })
+ * Constructs the absolute URL for a Cloudflare AI Gateway endpoint.
+ * 
+ * @param env - Cloudflare Environment bindings.
+ * @param options - Routing and identification options.
+ * @returns The final URL string.
+ * @example
+ * // For SDK usage:
+ * getAIGatewayUrl(env, { provider: 'openai' })
+ * // For direct fetch:
+ * getAIGatewayUrl(env, { provider: 'google-ai-studio', modelName: 'gemini-1.5-pro' })
+ * @agent-note This is the lower-level utility used by provider modules to locate the gateway.
  */
 export async function getAIGatewayUrl(
     env: Env,
@@ -86,11 +101,21 @@ const GATEWAY_PROVIDER_ALIASES: Record<string, string> = {
   anthropic: "anthropic",
 };
 
+/**
+ * Maps common provider aliases (e.g., 'google') to canonical Gateway identifiers.
+ */
 export function normalizeAiGatewayProvider(provider: string): string {
   const normalized = provider.toLowerCase().trim();
   return GATEWAY_PROVIDER_ALIASES[normalized] || normalized;
 }
 
+/**
+ * High-level wrapper to resolve a Gateway URL with optional OpenAI compatibility.
+ * 
+ * @param env - Cloudflare Environment bindings.
+ * @param provider - Provider name.
+ * @param options - Options for compatibility flags.
+ */
 export async function getAiGatewayUrl(env: Env, provider: string, options?: { openaiCompat?: boolean }): Promise<string> {
   try {
     const normalizedProvider = normalizeAiGatewayProvider(provider);
@@ -99,10 +124,10 @@ export async function getAiGatewayUrl(env: Env, provider: string, options?: { op
     
     baseUrl = baseUrl.replace(/\/+$/, "");
 
-    // Workers AI requires /compat suffix for OpenAI-format requests (chat completions).
-    // When openaiCompat is true and provider is workers-ai, append /compat.
+    // Workers AI requires /v1 suffix for OpenAI-format requests (chat completions).
+    // When openaiCompat is true and provider is workers-ai, append /v1.
     if (options?.openaiCompat && normalizedProvider === 'workers-ai') {
-      return `${baseUrl}/compat`;
+      return `${baseUrl}/v1`;
     }
 
     return baseUrl;

@@ -26,6 +26,11 @@ type VibeChatResponse = {
   implementationSteps?: string[];
   suggestedFiles?: string[];
   taskForJules?: string;
+  planSaved?: {
+    epicsCreated: number;
+    userStoriesCreated: number;
+    tasksCreated: number;
+  } | null;
   jules?: {
     dispatched: boolean;
     message: string;
@@ -89,7 +94,7 @@ export function VibeCodingTab({
         credentials: "include",
         body: JSON.stringify({ prompt: clean }),
       });
-      const data = (await response.json()) as VibeChatResponse;
+      const data = ((await response.json()) as any) as VibeChatResponse;
 
       if (!response.ok || !data.success) {
         throw new Error(data.error || `Request failed (${response.status})`);
@@ -108,6 +113,11 @@ export function VibeCodingTab({
       }
       if (data.taskForJules) {
         detailBlocks.push(`Jules Task:\n${data.taskForJules}`);
+      }
+      if (data.planSaved) {
+        detailBlocks.push(
+          `[PLAN SAVED TO DATABASE]\nEpics: ${data.planSaved.epicsCreated} | Stories: ${data.planSaved.userStoriesCreated} | Tasks: ${data.planSaved.tasksCreated}`,
+        );
       }
       if (data.jules) {
         detailBlocks.push(

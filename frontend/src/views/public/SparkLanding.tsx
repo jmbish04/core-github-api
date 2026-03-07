@@ -33,7 +33,7 @@ export default function SparkLanding() {
           <div className="flex gap-6 pt-8">
             <Button 
                 className="h-14 px-8 bg-white text-black hover:bg-cyan-50 rounded-full text-lg font-medium transition-all hover:shadow-[0_0_30px_rgba(34,211,238,0.4)]"
-                onClick={() => navigate("/control-center/dashboard")}
+                onClick={() => navigate("/dashboard")}
             >
               Initialize World
             </Button>

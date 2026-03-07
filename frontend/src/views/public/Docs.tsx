@@ -1,11 +1,16 @@
+import { useSearchParams } from "react-router-dom";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Terminal, Cpu, Shield, Zap, GitPullRequest, Box } from "lucide-react";
+import { Terminal, Cpu, Shield, Zap, GitPullRequest, Box, Code } from "lucide-react";
 
 export default function DocsPage() {
+    const [searchParams, setSearchParams] = useSearchParams();
+    const activeTab = searchParams.get("tab") || "architecture";
+    const handleTabChange = (val: string) => setSearchParams({ tab: val }, { replace: true });
+
     return (
         <div className="container mx-auto py-10 max-w-6xl space-y-8">
             <div className="space-y-4">
@@ -17,11 +22,12 @@ export default function DocsPage() {
                 </p>
             </div>
 
-            <Tabs defaultValue="architecture" className="space-y-8">
+            <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-8">
                 <TabsList className="grid w-full grid-cols-1 md:grid-cols-4 h-auto p-1 bg-muted/50 rounded-xl">
                     <TabsTrigger value="architecture" className="py-3 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm">Architecture</TabsTrigger>
                     <TabsTrigger value="commands" className="py-3 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm">Slash Commands</TabsTrigger>
                     <TabsTrigger value="workflows" className="py-3 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm">Workflows</TabsTrigger>
+                    <TabsTrigger value="jules" className="py-3 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm">Jules API</TabsTrigger>
                     <TabsTrigger value="configuration" className="py-3 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm">Configuration</TabsTrigger>
                 </TabsList>
 
@@ -169,6 +175,35 @@ export default function DocsPage() {
                             </ol>
                         </div>
                     </div>
+                </TabsContent>
+
+                {/* --- JULES TAB --- */}
+                <TabsContent value="jules" className="space-y-6">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2"><Code className="h-5 w-5 text-amber-500" /> Jules Integration</CardTitle>
+                            <CardDescription>How the frontend interacts with the Google Jules codebase orchestrator.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <p className="text-sm text-muted-foreground">
+                                Jules is deeply integrated into the backend API using the <code>@google/jules-sdk</code> to handle automated code scaffolding, reviews, and architecture planning.
+                            </p>
+                            
+                            <h3 className="text-lg font-semibold mt-6">Core Flow</h3>
+                            <ol className="list-decimal pl-5 space-y-2 text-sm text-muted-foreground">
+                                <li><strong>Invocation:</strong> Triggers `/api/agents/jules/start` with a prompt and repository.</li>
+                                <li><strong>Standards Injection:</strong> Global project architecture standards are prepended to ensure the PR aligns with team conventions.</li>
+                                <li><strong>State Storage:</strong> Sessions are stored in D1 <code>jules_sessions</code> and <code>jules_jobs</code>.</li>
+                                <li><strong>Overseer Sync:</strong> (Optional) Triggers the stateful Overseer durable object to check background job statuses.</li>
+                            </ol>
+                            
+                            <h3 className="text-lg font-semibold mt-6">Database Entities</h3>
+                            <ul className="list-disc pl-5 space-y-2 text-sm text-muted-foreground">
+                                <li><strong>julesSessions:</strong> Bound directly 1:1 with the Jules SDK session handle.</li>
+                                <li><strong>julesJobs:</strong> Internal wrapper identifying repo contexts and status workflows independent of the SDK's execution.</li>
+                            </ul>
+                        </CardContent>
+                    </Card>
                 </TabsContent>
 
                 {/* --- CONFIG TAB --- */}

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { matchAutomations } from "@/config/webhook-conditionals";
 
 // -----------------------------------------------------------------------------
 // Zod Schemas for Webhook Summary
@@ -56,6 +57,12 @@ export const GithubWebhookSummarySchema = z.object({
   sender: WebhookSenderSchema.optional(),
   repository: WebhookRepositorySchema.optional(),
   workflow_job: WebhookWorkflowJobSchema.optional(),
+  /**
+   * The list of automation workflow IDs that were triggered by this event.
+   * e.g. ["deploy-production", "run-tests"]
+   * Computed at storage time via matchAutomations().
+   */
+  triggered_workflows: z.array(z.string()).optional(),
 });
 
 export type GithubWebhookSummary = z.infer<typeof GithubWebhookSummarySchema>;
@@ -67,16 +74,35 @@ export type GithubWebhookSummary = z.infer<typeof GithubWebhookSummarySchema>;
 /**
  * Parses a raw GitHub Webhook Payload and returns a clean, summarized version
  * containing only the important details for the UI.
+ *
+ * @param rawPayload - The raw webhook payload object
+ * @param eventType  - The x-github-event header value (used to match automation rules)
+ * @param rules - List of dynamic rules from DB
  */
-export function summarizeWebhookPayload(rawPayload: unknown): GithubWebhookSummary {
+export function summarizeWebhookPayload(rawPayload: unknown, eventType?: string, rules: any[] = []): GithubWebhookSummary {
+  // Resolve triggered workflows from the automation registry (pure/synchronous)
+  let triggered_workflows: string[] | undefined;
+  if (eventType) {
+    try {
+      const runs = matchAutomations(rules, eventType, "", rawPayload as Record<string, any>);
+      if (runs.length > 0) {
+        // Deduplicate workflow IDs
+        triggered_workflows = [...new Set(runs.map((r) => r.workflow))];
+      }
+    } catch {
+      // Silent — don't fail the summary if automation matching errors
+    }
+  }
+
   try {
-    return GithubWebhookSummarySchema.parse(rawPayload);
+    const parsed = GithubWebhookSummarySchema.parse(rawPayload);
+    return { ...parsed, triggered_workflows };
   } catch (error) {
     console.warn("Webhook payload did not match expected summary schema. Attempting safe fallback.", error);
 
     const result = GithubWebhookSummarySchema.safeParse(rawPayload);
     if (result.success) {
-      return result.data;
+      return { ...result.data, triggered_workflows };
     }
 
     // Absolute worst-case fallback
@@ -88,6 +114,7 @@ export function summarizeWebhookPayload(rawPayload: unknown): GithubWebhookSumma
         url: safePayload.sender.url,
         html_url: safePayload.sender.html_url,
       } : undefined,
+      triggered_workflows,
     };
   }
 }

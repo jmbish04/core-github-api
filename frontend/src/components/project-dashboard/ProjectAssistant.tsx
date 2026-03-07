@@ -36,6 +36,12 @@ type AssistantResponse = {
   jules?: {
     dispatched: boolean;
     message: string;
+    sessionId?: string;
+  } | null;
+  stitch?: {
+    dispatched: boolean;
+    message: string;
+    sessionId?: string;
   } | null;
   error?: string;
 };
@@ -120,8 +126,15 @@ export function ProjectAssistant({
       if (data.jules) {
         details.push(
           data.jules.dispatched
-            ? `Jules dispatch: ${data.jules.message}`
+            ? `Jules dispatch: ${data.jules.message}${data.jules.sessionId ? `\nSession ID: ${data.jules.sessionId}` : ''}`
             : `Jules not dispatched: ${data.jules.message}`,
+        );
+      }
+      if (data.stitch) {
+        details.push(
+          data.stitch.dispatched
+            ? `Stitch dispatch: ${data.stitch.message}${data.stitch.sessionId ? `\nSession ID: ${data.stitch.sessionId}` : ''}`
+            : `Stitch not dispatched: ${data.stitch.message}`,
         );
       }
       if (data.prd) {

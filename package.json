@@ -4,7 +4,7 @@
   "private": true,
   "description": "A Cloudflare Worker that proxies the GitHub API.",
   "main": "backend/src/index.ts",
-  "packageManager": "pnpm@10.29.3+sha512.498e1fb4cca5aa06c1dcf2611e6fafc50972ffe7189998c409e90de74566444298ffe43e6cd2acdc775ba1aa7cc5e092a8b7054c811ba8c5770f84693d33d2dc",
+  "packageManager": "pnpm@10.30.3+sha512.c961d1e0a2d8e354ecaa5166b822516668b7f44cb5bd95122d590dd81922f606f5473b6d23ec4a5be05e7fcd18e8488d47d978bbe981872f1145d06e9a740017",
   "engines": {
     "pnpm": ">=10.28.2"
   },
@@ -13,9 +13,14 @@
       "ignoreMissing": [
         "@openai/agents"
       ]
+    },
+    "overrides": {
+      "hono": "^4.12.0"
     }
   },
   "scripts": {
+    "dev": "pnpm run build:frontend && wrangler dev",
+    "dev:watch": "concurrently \"pnpm --filter frontend dev\" \"wrangler dev\"",
     "start": "wrangler dev",
     "test": "vitest --run",
     "test:e2e": "uv run tests/e2e/test_runner.py",
@@ -27,30 +32,28 @@
     "tail": "rm -f wrangler.txt && wrangler tail --format pretty | tee wrangler.txt",
     "check": "tsc --noEmit",
     "sandbox-check": "node scripts/verify-sandbox-version.mjs",
-    "build:frontend": "VITE_PUBLIC_API_URL=https://core-github-api.hacolby.workers.dev pnpm --filter frontend build",
+    "build:frontend": "rm -rf frontend/.astro && VITE_PUBLIC_API_URL=https://core-github-api.hacolby.workers.dev pnpm --filter frontend build",
     "deploy": "pnpm run sandbox-check && pnpm run build:frontend && pnpm run db:generate:all && pnpm run migrate:remote:all && pnpm run deploy:only",
-    "deploy:only": "env -u CLOUDFLARE_API_TOKEN wrangler deploy",
+    "deploy:only": "node scripts/deploy.mjs",
     "deploy:tail": "rm -f wrangler.txt && pnpm run deploy && wrangler tail --format pretty | tee wrangler.txt",
     "dry-run": "WRANGLER_LOG_PATH=.wrangler/wrangler.log pnpm exec wrangler deploy --dry-run",
     "db:generate:core": "drizzle-kit generate --config=backend/drizzle.config.core.ts",
     "db:generate:webhooks": "drizzle-kit generate --config=backend/drizzle.config.webhooks.ts",
-    "db:generate:all": "pnpm run db:generate:core && pnpm run db:generate:webhooks",
+    "db:generate:do": "drizzle-kit generate --config=drizzle.do.config.ts",
+    "db:generate:all": "pnpm run db:generate:core && pnpm run db:generate:webhooks && pnpm run db:generate:do",
     "migrate:local:all": "pnpm run migrate:local:core && pnpm run migrate:local:webhooks",
     "migrate:remote:all": "pnpm run migrate:remote:core && pnpm run migrate:remote:webhooks",
-    "migrate:local:core": "wrangler d1 migrations apply DB --local",
-    "migrate:remote:core": "wrangler d1 migrations apply DB --remote",
-    "migrate:local:webhooks": "wrangler d1 migrations apply DB_WEBHOOKS --local",
-    "migrate:remote:webhooks": "wrangler d1 migrations apply DB_WEBHOOKS --remote",
+    "migrate:local:core": "yes | wrangler d1 migrations apply DB --local",
+    "migrate:remote:core": "yes | wrangler d1 migrations apply DB --remote",
+    "migrate:local:webhooks": "yes | wrangler d1 migrations apply DB_WEBHOOKS --local",
+    "migrate:remote:webhooks": "yes | wrangler d1 migrations apply DB_WEBHOOKS --remote",
     "secrets:audit": "node scripts/audit-secrets.mjs"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.78.0",
     "@asteasolutions/zod-to-openapi": "^8.4.1",
-    "@cloudflare/containers": "latest",
     "@cloudflare/puppeteer": "^1.0.6",
-    "@cloudflare/sandbox": "0.7.5",
-    "@google/adk": "^0.3.0",
-    "@google/genai": "^1.42.0",
+    "@cloudflare/sandbox": "0.7.13",
+    "@google/jules-mcp": "^0.0.6",
     "@google/jules-sdk": "^0.0.6",
     "@hono/swagger-ui": "latest",
     "@hono/zod-openapi": "latest",
@@ -67,9 +70,9 @@
     "@paralleldrive/cuid2": "^3.3.0",
     "@sinclair/typebox": "^0.34.48",
     "@tsndr/cloudflare-worker-jwt": "^3.2.1",
+    "@types/libsodium-wrappers": "^0.8.2",
     "agents": "latest",
     "arktype": "^2.1.29",
-    "cloudflare": "^5.2.0",
     "drizzle-orm": "0.45.1",
     "drizzle-zod": "^0.8.3",
     "eventsource": "^4.1.0",
@@ -80,7 +83,6 @@
     "libsodium-wrappers": "^0.8.2",
     "mimetext": "^3.0.28",
     "octokit": "^5.0.5",
-    "openai": "^6.22.0",
     "smol-toml": "^1.6.0",
     "uuid": "^13.0.0",
     "valibot": "^1.2.0",
@@ -100,6 +102,7 @@
     "globals": "^16.5.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.56.0",
+    "undici": "^7.22.0",
     "vitest": "~3.2.4",
     "wrangler": "latest"
   }

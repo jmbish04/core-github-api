@@ -1,30 +1,27 @@
-// Dynamically imported
-import { getAiGatewayUrl, resolveDefaultAiModel } from "./config";
+/**
+ * Anthropic AI Provider Integration
+ * 
+ * Provides an interface to Anthropic's Claude models via the official SDK, 
+ * routed through Cloudflare AI Gateway for observability and centralized auth.
+ * Support for text generation, structured responses, and tool calling.
+ * 
+ * @module AI/Providers/Anthropic
+ */
+
+import { resolveDefaultAiModel } from "./config";
+import { createUniversalGatewayClient, createUniversalGatewayRunner } from "../utils/gateway-client";
 import { getAnthropicApiKey } from "@utils/secrets";
-import { AIOptions, TextWithToolsResponse, StructuredWithToolsResponse } from "./index";
-
-export async function createAnthropicClient(env: Env) {
-  const apiKey = await getAnthropicApiKey(env);
-  // @ts-ignore
-  const aigToken = typeof env.AI_GATEWAY_TOKEN === 'object' && env.AI_GATEWAY_TOKEN?.get ? await env.AI_GATEWAY_TOKEN.get() : env.AI_GATEWAY_TOKEN as string;
-
-  if (!apiKey) {
-    throw new Error("Missing ANTHROPIC_API_KEY in environment variables");
-  }
-
-  const { default: Anthropic } = await import("@anthropic-ai/sdk");
-  return new Anthropic({
-    apiKey: apiKey,
-    baseURL: await getAiGatewayUrl(env, "anthropic", "anthropic_sdk"),
-    defaultHeaders: aigToken ? { 'cf-aig-authorization': `Bearer ${aigToken}` } : undefined,
-  });
-}
+import { cleanJsonOutput } from "@/ai/utils/sanitizer";
+import { AIOptions, TextWithToolsResponse, StructuredWithToolsResponse, UnifiedModel, ModelFilter, ToolCall } from "./index";
+import { Agent, tool } from "@openai/agents";
 
 export async function verifyApiKey(env: Env): Promise<boolean> {
   try {
-    const client = await createAnthropicClient(env);
-    await client.messages.create({
-      model: "claude-3-5-sonnet-latest",
+    const apiKey = await getAnthropicApiKey(env);
+    if (!apiKey) return false;
+    const client = await createUniversalGatewayClient(env, apiKey);
+    await client.chat.completions.create({
+      model: "anthropic/claude-3-5-sonnet-latest",
       max_tokens: 1,
       messages: [{ role: "user", content: "hi" }]
     });
@@ -35,149 +32,153 @@ export async function verifyApiKey(env: Env): Promise<boolean> {
   }
 }
 
-export async function generateText(
-  env: Env,
-  prompt: string,
-  systemPrompt?: string,
-  options?: AIOptions
-): Promise<string> {
-  const client = await createAnthropicClient(env);
-  const model = options?.model || resolveDefaultAiModel(env, "anthropic");
-
-  const response = await client.messages.create({
-    model,
-    max_tokens: options?.maxTokens || 4096,
-    temperature: options?.temperature,
-    system: systemPrompt,
-    messages: [{ role: "user", content: prompt }]
-  });
-
-  return (response.content.find((c: any) => c.type === 'text') as any)?.text || "";
-}
-
-export async function generateStructuredResponse<T = any>(
-  env: Env,
-  prompt: string,
-  schema: object,
-  systemPrompt?: string,
-  options?: AIOptions
+async function executeWithFallback<T>(
+  env: Env, originalModel: string, requiredCapability: ModelFilter | undefined,
+  executionFn: (model: string) => Promise<T>
 ): Promise<T> {
-  const client = await createAnthropicClient(env);
-  const model = options?.model || resolveDefaultAiModel(env, "anthropic");
-
-  const response = await client.messages.create({
-    model,
-    max_tokens: options?.maxTokens || 4096,
-    temperature: options?.temperature,
-    system: systemPrompt,
-    messages: [{ role: "user", content: prompt }],
-    tool_choice: { type: "tool", name: "structured_output" },
-    tools: [{
-      name: "structured_output",
-      description: "Output strictly matching the required JSON schema",
-      input_schema: schema as any
-    }]
-  });
-
-  const toolCall = response.content.find((c: any) => c.type === "tool_use" && c.name === "structured_output");
-  if (toolCall && toolCall.type === "tool_use") {
-    return toolCall.input as T;
+  try {
+    return await executionFn(originalModel);
+  } catch (error: any) {
+    console.warn(`[Anthropic Fallback] Initial execution failed for model ${originalModel}:`, error?.message);
+    const models = await getAnthropicModels(env);
+    const fallbackModelInfo = models.find(m => m.id !== originalModel && (!requiredCapability || m.capabilities.includes(requiredCapability)));
+    
+    if (!fallbackModelInfo) throw error;
+    console.warn(`[Anthropic Fallback] Retrying with alternative model: ${fallbackModelInfo.id}`);
+    return await executionFn(fallbackModelInfo.id);
   }
-  
-  throw new Error("Anthropic failed to return the structured_output tool call");
 }
 
-export async function generateTextWithTools(
-  env: Env,
-  prompt: string,
-  tools: any[],
-  systemPrompt?: string,
-  options?: AIOptions
-): Promise<TextWithToolsResponse> {
-  const client = await createAnthropicClient(env);
-  const model = options?.model || resolveDefaultAiModel(env, "anthropic");
+export async function generateText(env: Env, prompt: string, systemPrompt?: string, options?: AIOptions): Promise<string> {
+  const apiKey = await getAnthropicApiKey(env);
+  if (!apiKey) throw new Error("Missing ANTHROPIC_API_KEY in environment variables");
 
-  const anthropicTools = tools.map((t) => ({
-    name: t.function.name,
-    description: t.function.description || "",
-    input_schema: t.function.parameters as any
-  }));
+  const initialModel = options?.model || resolveDefaultAiModel(env, "anthropic");
+  return executeWithFallback(env, initialModel, undefined, async (model) => {
+    const namespacedModel = model.includes('/') ? model : `anthropic/${model}`;
+    const runner = await createUniversalGatewayRunner(env, apiKey, namespacedModel);
+    
+    const agent = new Agent({
+      name: "Anthropic_Agent",
+      instructions: systemPrompt || "You are a helpful assistant.",
+      model: namespacedModel,
+    });
 
-  const response = await client.messages.create({
-    model,
-    max_tokens: options?.maxTokens || 4096,
-    temperature: options?.temperature,
-    system: systemPrompt,
-    messages: [{ role: "user", content: prompt }],
-    tools: anthropicTools,
+    const result = await runner.run(agent, prompt);
+    return String(result.finalOutput ?? "");
   });
-
-  const text = (response.content.find((c: any) => c.type === "text") as any)?.text || "";
-  const toolCalls = response.content
-    .filter((c: any) => c.type === "tool_use")
-    .map((c: any) => ({
-      id: c.id,
-      function: {
-        name: c.name,
-        arguments: JSON.stringify(c.input)
-      }
-    }));
-
-  return { text, toolCalls };
 }
 
-export async function generateStructuredWithTools<T = any>(
-  env: Env,
-  prompt: string,
-  schema: object,
-  tools: any[],
-  systemPrompt?: string,
-  options?: AIOptions
-): Promise<StructuredWithToolsResponse<T>> {
-  const client = await createAnthropicClient(env);
-  const model = options?.model || resolveDefaultAiModel(env, "anthropic");
+export async function generateStructuredResponse<T = any>(env: Env, prompt: string, schema: object, systemPrompt?: string, options?: AIOptions): Promise<T> {
+  const apiKey = await getAnthropicApiKey(env);
+  if (!apiKey) throw new Error("Missing ANTHROPIC_API_KEY in environment variables");
 
-  const structuredTool = {
-    name: "structured_output",
-    description: "Provide your final answered data here",
-    input_schema: schema as any
-  };
+  const initialModel = options?.model || resolveDefaultAiModel(env, "anthropic");
+  return executeWithFallback(env, initialModel, 'structured_response', async (model) => {
+    const namespacedModel = model.includes('/') ? model : `anthropic/${model}`;
+    const client = await createUniversalGatewayClient(env, apiKey);
+    const messages: any[] = [];
+    if (systemPrompt) messages.push({ role: "system", content: systemPrompt });
+    messages.push({ role: "user", content: prompt });
 
-  const anthropicTools = [
-    ...tools.map(t => ({
-      name: t.function.name,
-      description: t.function.description || "",
-      input_schema: t.function.parameters as any
-    })),
-    structuredTool
-  ];
-
-  const contextualSystemPrompt = systemPrompt 
-    ? `${systemPrompt}\nYou must use the 'structured_output' tool to output your final answer.`
-    : "You must use the 'structured_output' tool to output your final answer.";
-
-  const response = await client.messages.create({
-    model,
-    max_tokens: options?.maxTokens || 4096,
-    temperature: options?.temperature,
-    system: contextualSystemPrompt,
-    messages: [{ role: "user", content: prompt }],
-    tools: anthropicTools
+    const response = await client.chat.completions.create({
+      model: namespacedModel, messages, temperature: options?.temperature, max_tokens: options?.maxTokens,
+      response_format: { type: "json_schema", json_schema: { name: "structured_output", schema: schema as any, strict: true } }
+    });
+    return JSON.parse(cleanJsonOutput(response.choices[0]?.message?.content || "{}")) as T;
   });
+}
 
-  const structureCall = response.content.find((c: any) => c.type === "tool_use" && c.name === "structured_output");
-  const toolCalls = response.content
-    .filter((c: any) => c.type === "tool_use" && c.name !== "structured_output")
-    .map((c: any) => ({
-      id: c.id,
-      function: {
-        name: c.name,
-        arguments: JSON.stringify(c.input)
-      }
-    }));
+export async function generateTextWithTools(env: Env, prompt: string, tools: any[], systemPrompt?: string, options?: AIOptions): Promise<TextWithToolsResponse> {
+  const apiKey = await getAnthropicApiKey(env);
+  if (!apiKey) throw new Error("Missing ANTHROPIC_API_KEY in environment variables");
 
-  return {
-    data: (structureCall?.type === "tool_use" ? structureCall.input : {}) as T,
-    toolCalls
-  };
+  const initialModel = options?.model || resolveDefaultAiModel(env, "anthropic");
+  return executeWithFallback(env, initialModel, 'function_calling', async (model) => {
+    const namespacedModel = model.includes('/') ? model : `anthropic/${model}`;
+    const runner = await createUniversalGatewayRunner(env, apiKey, namespacedModel);
+
+    const capturedToolCalls: ToolCall[] = [];
+    const agentTools = tools.map((t, idx) => {
+       const functionDef = t.function;
+       return tool({
+           name: functionDef.name,
+           description: functionDef.description || "",
+           parameters: functionDef.parameters || {},
+           execute: async (args: any) => {
+               capturedToolCalls.push({
+                   id: `call_${idx}_${Date.now()}`,
+                   function: {
+                       name: functionDef.name,
+                       arguments: JSON.stringify(args)
+                   }
+               });
+               return "Tool execution deferred to caller";
+           }
+       });
+    });
+
+    const agent = new Agent({
+      name: "Anthropic_Agent",
+      instructions: systemPrompt || "You are a helpful assistant.",
+      model: namespacedModel,
+      tools: agentTools,
+      toolUseBehavior: 'run_llm_again'
+    });
+
+    const result = await runner.run(agent, prompt);
+    
+    return {
+      text: String(result.finalOutput || ""),
+      toolCalls: capturedToolCalls
+    };
+  });
+}
+
+export async function generateStructuredWithTools<T = any>(env: Env, prompt: string, schema: object, tools: any[], systemPrompt?: string, options?: AIOptions): Promise<StructuredWithToolsResponse<T>> {
+  const apiKey = await getAnthropicApiKey(env);
+  if (!apiKey) throw new Error("Missing ANTHROPIC_API_KEY in environment variables");
+
+  const initialModel = options?.model || resolveDefaultAiModel(env, "anthropic");
+  return executeWithFallback(env, initialModel, 'function_calling', async (model) => {
+    const namespacedModel = model.includes('/') ? model : `anthropic/${model}`;
+    const client = await createUniversalGatewayClient(env, apiKey);
+    
+    const messages: any[] = [];
+    if (systemPrompt) messages.push({ role: "system", content: systemPrompt });
+    messages.push({ role: "user", content: prompt });
+
+    const response = await client.chat.completions.create({
+      model: namespacedModel, messages, tools, temperature: options?.temperature, max_tokens: options?.maxTokens,
+      response_format: { type: "json_schema", json_schema: { name: "structured_output", schema: schema as any, strict: true } }
+    });
+    const msg = response.choices[0]?.message;
+    return {
+      data: JSON.parse(cleanJsonOutput(msg?.content || "{}")) as T,
+      toolCalls: msg?.tool_calls?.map((tc: any) => ({ id: tc.id, function: { name: tc.function?.name, arguments: tc.function?.arguments } })) || []
+    };
+  });
+}
+
+export async function getAnthropicModels(env: Env, filter?: ModelFilter): Promise<UnifiedModel[]> {
+  try {
+    const apiKey = await getAnthropicApiKey(env);
+    const res = await fetch('https://api.anthropic.com/v1/models', {
+      headers: { 'x-api-key': apiKey || "", 'anthropic-version': '2023-06-01' }
+    });
+    const data = await res.json() as any;
+    
+    const models: UnifiedModel[] = (data.data || []).map((m: any) => {
+      const caps: ModelFilter[] = ['vision', 'function_calling'];
+      if (m.id.includes('haiku')) caps.push('fast');
+      if (m.id.includes('opus')) caps.push('high_reasoning');
+      return {
+        id: m.id, provider: 'anthropic', name: m.display_name || m.id,
+        description: `Anthropic ${m.id} model`, capabilities: caps, raw: m
+      };
+    });
+    return filter ? models.filter(m => m.capabilities.includes(filter)) : models;
+  } catch (e) {
+    return [];
+  }
 }

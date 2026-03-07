@@ -77,11 +77,11 @@ export default function Research() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = (await response.json()) as any;
         throw new Error(errorData.error || "Failed to start research");
       }
 
-      const data = await response.json();
+      const data = (await response.json()) as any;
       setWorkflowId(data.workflowId);
 
       addConsoleMessage("success", `Workflow started: ${data.workflowId}`, "✅");

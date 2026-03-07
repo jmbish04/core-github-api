@@ -1,9 +1,21 @@
-import { BaseAgent } from "./BaseAgent";
+/**
+ * Jules Overseer Agent (Asynchronous Agent Manager)
+ * 
+ * Monitors the lifecycle of long-running Jules (coding agent) sessions.
+ * 1. Detects sessions inactive or stuck waiting for user input.
+ * 2. Uses AI reasoning to evaluate the stuck state and provide autonomous guidance.
+ * 3. Notifies humans of completed tasks or critical blockers via the Alerts system.
+ * 4. Automatically triggers unblocking messages using the MCP-enabled BaseAgent foundation.
+ * 
+ * @module AI/Agents/JulesOverseer
+ */
+import { BaseAgent } from "./base/BaseAgent";
 import { getDb } from "@db";
-import { julesSessions, julesJobs } from "@/db/schemas/agents/jules";
+import { julesSessions, julesJobs } from "@db/schemas/jules";
 import { alerts } from "@/db/schemas/app/alerts";
 import { eq, notInArray, desc } from "drizzle-orm";
-import { JulesService } from "@/services/jules";
+import { JulesService } from "@services/jules";
+import { z } from "zod";
 
 type SessionCheckResult = {
   sessionId: string;
@@ -11,6 +23,9 @@ type SessionCheckResult = {
   actionTaken: string;
 };
 
+/**
+ * The JulesOverseer ensures autonomous progress for the Jules coding subsystem.
+ */
 export class JulesOverseer extends BaseAgent {
   // Check for sessions inactive for more than 1 hour
   private static STUCK_THRESHOLD_MS = 60 * 60 * 1000; 
@@ -28,6 +43,10 @@ export class JulesOverseer extends BaseAgent {
       return super.fetch(request);
   }
 
+/**
+ * Core monitoring loop. Scans the database for active jobs and 
+ * inspects their status in the Jules service.
+ */
   async checkJulesStatus(args?: any): Promise<SessionCheckResult[]> {
     const db = getDb(this.env.DB);
     const julesService = JulesService.getInstance(this.env);
@@ -47,7 +66,7 @@ export class JulesOverseer extends BaseAgent {
             const session = await julesService.getSession(job.sessionId);
             
             let status = 'unknown';
-            let julesContext = null;
+            let julesContext: any = null;
 
             try {
                 // Fetch the status and history/info from Jules
@@ -68,11 +87,11 @@ export class JulesOverseer extends BaseAgent {
                         id: crypto.randomUUID(),
                         title: "Jules Remediation Completed",
                         description: `Jules has finished the assigned task and submitted a PR for session ${job.sessionId}. Human review of the PR is recommended.`,
-                        processOrigin: "JulesOverseer",
-                        repoOrigin: job.repoFullName,
-                        workerOrigin: "core-github-api",
-                        isActionNeeded: true,
-                        actionRequired: "Review generated Pull Request in GitHub"
+                        process_origin: "JulesOverseer",
+                        repo_origin: job.repoFullName,
+                        worker_origin: "core-github-api",
+                        is_action_needed: true,
+                        action_required: "Review generated Pull Request in GitHub"
                     });
                 }
 
@@ -124,27 +143,62 @@ export class JulesOverseer extends BaseAgent {
    * The AI Manager Logic
    * Leverages BaseAgent to automatically gain access to Cloudflare MCP.
    */
+/**
+ * AI-powered stuck session evaluator.
+ * Leverages high-reasoning models and MCP tools to understand why 
+ * a session is stuck and generate authoritative remediation instructions.
+ */
   private async evaluateStuckJules(julesContext: any): Promise<string> {
       const systemPrompt = `You are the Jules Overseer, an AI Engineering Manager overseeing an asynchronous coding agent named Jules.
 Jules is currently working on the repository \`jmbish04/core-github-api\` but has become stuck and is waiting for your instructions.
 
 YOUR DIRECTIVE:
 1. Review Jules's current status and the error/roadblock they are facing.
-2. Use your native Cloudflare MCP tools to query the official documentation if Jules is confused about Cloudflare-specific implementations (e.g., Workers, D1, KV, bindings).
+2. If Jules is confused about Cloudflare-specific implementations (e.g., Workers, D1, KV, bindings), provide authoritative guidance.
 3. Formulate a clear, authoritative, and step-by-step response to unblock Jules and guide it toward the correct implementation.
 4. If Jules reports that the code is complete and asks for review/approval, explicitly instruct Jules to "Proceed to submit the Pull Request."`;
 
       const userPrompt = `Jules is stuck. Here is their current context and last message: \n${JSON.stringify(julesContext, null, 2)}`;
 
       try {
-          // Utilizing the BaseAgent's built-in ReAct loop + MCP server mount
-          const response = await this.runTextWithModel({
+          const julesService = JulesService.getInstance(this.env);
+          const provider = this.resolveProvider();
+          const model = this.resolveModel(provider);
+
+          return await this.runTextWithModel({
               name: "JulesOverseer",
               instructions: systemPrompt,
-              prompt: userPrompt
+              prompt: userPrompt,
+              provider,
+              model,
+              tools: [
+                  {
+                      name: "get_session_info",
+                      description: "Get detailed information about a Jules session to understand why it is stuck.",
+                      parameters: z.object({ sessionId: z.string() }) as any,
+                      execute: async ({ sessionId }: { sessionId: string }) => {
+                          try {
+                              const session = await julesService.getSession(sessionId);
+                              return await session.info();
+                          } catch (e: any) {
+                              return { error: e.message };
+                          }
+                      }
+                  },
+                  {
+                      name: "get_session_snapshot",
+                      description: "Get a point-in-time snapshot of the session including the full filesystem state and history.",
+                      parameters: z.object({ sessionId: z.string() }) as any,
+                      execute: async ({ sessionId }: { sessionId: string }) => {
+                          try {
+                              return await julesService.getSessionSnapshot(sessionId, { includeActivities: false });
+                          } catch (e: any) {
+                              return { error: e.message };
+                          }
+                      }
+                  }
+              ]
           });
-          
-          return response;
       } catch (error) {
           this.logger.error("Failed to evaluate stuck Jules session", { error });
           return "Please review the files, consult standard Cloudflare Worker documentation, and try an alternative approach.";

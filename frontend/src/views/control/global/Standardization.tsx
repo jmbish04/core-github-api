@@ -1,5 +1,6 @@
 
 import React, { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -8,9 +9,13 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { RefreshCw, ExternalLink, ShieldCheck, ShieldAlert, Plus } from "lucide-react";
+import { RefreshCw, ExternalLink, ShieldCheck, ShieldAlert, Plus, Trash2, Loader2, Lock } from "lucide-react";
 
 export default function Standardization() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get("tab") || "mcp";
+  const handleTabChange = (val: string) => setSearchParams({ tab: val }, { replace: true });
+
   return (
     <div className="space-y-6">
       <div>
@@ -20,7 +25,7 @@ export default function Standardization() {
         </p>
       </div>
 
-      <Tabs defaultValue="mcp" className="space-y-4">
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
         <TabsList>
           <TabsTrigger value="mcp">MCP Defaults</TabsTrigger>
           <TabsTrigger value="secrets">Default Secrets</TabsTrigger>
@@ -101,24 +106,83 @@ function McpDefaults() {
 }
 
 function SecretDefaults() {
-    // This list matches backend/src/services/standardization/secret-sync.ts
-    const KNOWN_SECRETS = [
-        "WORKER_API_KEY",
-        "OPENAI_API_KEY",
-        "ANTHROPIC_API_KEY",
-        "GEMINI_API_KEY",
-        "GH_TOKEN",
-        "CLOUDFLARE_API_TOKEN"
-    ];
-
-    const [activeSecrets, setActiveSecrets] = useState<string[]>(["WORKER_API_KEY", "OPENAI_API_KEY"]);
+    const [activeSecrets, setActiveSecrets] = useState<string[]>([]);
+    const [requiredSecrets, setRequiredSecrets] = useState<string[]>([]);
+    const [availableSecrets, setAvailableSecrets] = useState<{ id: string; name: string }[]>([]);
     const [selectedSecret, setSelectedSecret] = useState("");
+    const [loading, setLoading] = useState(true);
 
-    const handleAdd = () => {
+    // Fetch initial state
+    React.useEffect(() => {
+        const fetchState = async () => {
+            try {
+                // Fetch Active Defaults from Configs
+                const configRes = await fetch("/api/config");
+                const configData = (await configRes.json()) as any;
+                if (configData.success) {
+                    if (configData.requiredSecrets && Array.isArray(configData.requiredSecrets)) {
+                        setRequiredSecrets(configData.requiredSecrets);
+                    }
+                    const defaultsConfig = configData.settings.find((s: any) => s.key === "DEFAULT_SYNC_SECRETS");
+                    if (defaultsConfig && Array.isArray(defaultsConfig.value)) {
+                        setActiveSecrets(defaultsConfig.value);
+                    }
+                }
+
+                // Fetch All Available Secrets from Store
+                const secretsRes = await fetch("/api/config/secrets/all");
+                const secretsData = (await secretsRes.json()) as any;
+                if (secretsData.success && Array.isArray(secretsData.secrets)) {
+                    setAvailableSecrets(secretsData.secrets);
+                }
+            } catch (err) {
+                console.error("Failed to load secrets config:", err);
+                toast.error("Failed to load secrets configuration");
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchState();
+    }, []);
+
+    const saveActiveSecrets = async (newActiveSecrets: string[]) => {
+        try {
+            const res = await fetch("/api/config", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    key: "DEFAULT_SYNC_SECRETS",
+                    value: newActiveSecrets,
+                    type: "json",
+                    category: "general",
+                    isSecretStoreManaged: false
+                })
+            });
+            if (!res.ok) throw new Error("Failed to save defaults");
+            setActiveSecrets(newActiveSecrets);
+            return true;
+        } catch (e: any) {
+            toast.error(e.message);
+            return false;
+        }
+    };
+
+    const handleAdd = async () => {
         if (selectedSecret && !activeSecrets.includes(selectedSecret)) {
-            setActiveSecrets([...activeSecrets, selectedSecret]);
-            setSelectedSecret("");
-            toast.success(`added ${selectedSecret} to default sync list`);
+            const newList = [...activeSecrets, selectedSecret];
+            const success = await saveActiveSecrets(newList);
+            if (success) {
+                setSelectedSecret("");
+                toast.success(`Added ${selectedSecret} to default sync list`);
+            }
+        }
+    };
+
+    const handleRemove = async (secretToRemove: string) => {
+        const newList = activeSecrets.filter(s => s !== secretToRemove);
+        const success = await saveActiveSecrets(newList);
+        if (success) {
+            toast.success(`Removed ${secretToRemove} from defaults`);
         }
     };
 
@@ -128,11 +192,20 @@ function SecretDefaults() {
             new Promise(r => setTimeout(r, 2000)),
             {
                 loading: "Force syncing secrets to ALL known repositories...",
-                success: "Sync command queued for 12 repositories",
+                success: "Sync command queued for repositories",
                 error: "Failed to queue sync"
             }
         );
     };
+
+    if (loading) {
+        return (
+            <div className="flex h-40 items-center justify-center">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground mr-2" />
+                <span className="text-muted-foreground">Loading Configuration...</span>
+            </div>
+        );
+    }
 
     return (
         <div className="grid gap-4">
@@ -156,11 +229,13 @@ function SecretDefaults() {
                                     <SelectValue placeholder="Select a secret key..." />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {KNOWN_SECRETS.filter(s => !activeSecrets.includes(s)).map(s => (
-                                        <SelectItem key={s} value={s}>
-                                            {s}
-                                        </SelectItem>
-                                    ))}
+                                    {availableSecrets
+                                        .filter(s => !activeSecrets.includes(s.name) && !requiredSecrets.includes(s.name))
+                                        .map(s => (
+                                            <SelectItem key={s.id} value={s.name}>
+                                                {s.name}
+                                            </SelectItem>
+                                        ))}
                                 </SelectContent>
                             </Select>
                         </div>
@@ -173,13 +248,34 @@ function SecretDefaults() {
                     <div className="grid gap-2">
                         <Label>Active Defaults</Label>
                         <div className="grid gap-2">
+                             {requiredSecrets.map(secret => (
+                                <div key={`req-${secret}`} className="flex items-center justify-between rounded-md border p-3 bg-muted/30">
+                                    <div className="flex items-center gap-3">
+                                        <Lock className="h-4 w-4 text-blue-500" />
+                                        <span className="font-mono text-sm">{secret}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                         <Badge variant="secondary" className="hidden sm:inline-flex">Required</Badge>
+                                    </div>
+                                </div>
+                            ))}
                             {activeSecrets.map(secret => (
-                                <div key={secret} className="flex items-center justify-between rounded-md border p-3">
+                                <div key={secret} className="flex items-center justify-between rounded-md border p-3 group">
                                     <div className="flex items-center gap-3">
                                         <ShieldCheck className="h-4 w-4 text-green-500" />
                                         <span className="font-mono text-sm">{secret}</span>
                                     </div>
-                                    <Badge variant="outline">Active</Badge>
+                                    <div className="flex items-center gap-2">
+                                        <Badge variant="outline" className="hidden sm:inline-flex">Active</Badge>
+                                        <Button 
+                                            variant="ghost" 
+                                            size="icon" 
+                                            className="h-8 w-8 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                                            onClick={() => handleRemove(secret)}
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </div>
                                 </div>
                             ))}
                         </div>

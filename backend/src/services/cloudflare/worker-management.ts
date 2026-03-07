@@ -1,21 +1,19 @@
 import { type Binding, type GitConfig } from '@/types/cloudflare/deployment';
 
 export class WorkerManagementService {
-	private readonly baseUrl = 'https://api.cloudflare.com/client/v4';
+	private readonly baseUrl: string;
 	private readonly accountId: string;
 	private readonly apiToken: string;
 
-	constructor(accountId: string, apiToken: string) {
+	constructor(accountId: string, apiToken: string, baseUrl?: string) {
 		this.accountId = accountId;
 		this.apiToken = apiToken;
+		this.baseUrl = baseUrl ?? 'https://api.cloudflare.com/client/v4';
 	}
 
 	private async request<T>(path: string, options: RequestInit = {}): Promise<T> {
 		const url = path.startsWith('http') ? path : `${this.baseUrl}${path}`;
-		// All AI-related analytics or logs route through Cloudflare AI Gateway
-		const finalUrl = path.includes('ai') ? `https://gateway.ai.cloudflare.com/v1/${this.accountId}/default/${path}` : url;
-
-		const response = await fetch(finalUrl, {
+		const response = await fetch(url, {
 			...options,
 			headers: {
 				Authorization: `Bearer ${this.apiToken}`,

@@ -44,7 +44,7 @@ export default function Home() {
                         </Badge>
                     </motion.div>
 
-                    <motion.h1 variants={item} className="text-6xl md:text-8xl font-black tracking-tight leading-none">
+                    <motion.h1 variants={item} className="text-5xl sm:text-6xl md:text-8xl font-black tracking-tight leading-none px-2 sm:px-0">
                         <span className="bg-clip-text text-transparent bg-gradient-to-b from-white to-white/60">
                             Automate Your
                         </span>
@@ -59,14 +59,14 @@ export default function Home() {
                         Handles standardization, merge conflicts, and code reviews while you sleep.
                     </motion.p>
 
-                    <motion.div variants={item} className="flex flex-col sm:flex-row gap-4 justify-center pt-8">
-                        <Link to="/chat">
-                            <Button size="lg" className="rounded-full px-8 text-lg bg-white text-black hover:bg-white/90 shadow-2xl shadow-indigo-500/20">
+                    <motion.div variants={item} className="flex flex-col sm:flex-row gap-4 justify-center pt-8 w-full px-4 sm:px-0">
+                        <Link to="/chat" className="w-full sm:w-auto">
+                            <Button size="lg" className="w-full sm:w-auto rounded-full px-8 text-lg bg-white text-black hover:bg-white/90 shadow-2xl shadow-indigo-500/20">
                                 Enter Command Center <Terminal className="ml-2 h-5 w-5" />
                             </Button>
                         </Link>
-                        <Link to="/docs">
-                            <Button size="lg" variant="outline" className="rounded-full px-8 text-lg border-zinc-800 bg-black/50 backdrop-blur-xl hover:bg-zinc-900/80">
+                        <Link to="/docs" className="w-full sm:w-auto">
+                            <Button size="lg" variant="outline" className="w-full sm:w-auto rounded-full px-8 text-lg border-zinc-800 bg-black/50 backdrop-blur-xl hover:bg-zinc-900/80">
                                 View Documentation <ArrowRight className="ml-2 h-5 w-5" />
                             </Button>
                         </Link>

@@ -1,9 +1,21 @@
-import { BaseAgent } from "./BaseAgent";
+/**
+ * Judge Agent (LLM-as-a-Judge)
+ * 
+ * A specialized agent used to evaluate content (e.g., research candidates, 
+ * code snippets, or documentation) against a set of objective criteria.
+ * Returns a structured score and reasoning.
+ * 
+ * @module AI/Agents/Judge
+ */
+import { BaseAgent } from "./base/BaseAgent";
 import { ResearchLogger } from "@research-logger";
 import { getDb } from "@db";
 import { resolveDefaultAiProvider, resolveDefaultAiModel } from "@/ai/providers/config";
 import { z } from "zod";
 
+/**
+ * The JudgeAgent performs objective evaluations using structured output.
+ */
 export class JudgeAgent extends BaseAgent {
   private researchLogger?: ResearchLogger;
   private doState: DurableObjectState;
@@ -13,7 +25,11 @@ export class JudgeAgent extends BaseAgent {
     this.doState = state;
   }
 
-  async evaluateCandidate(briefId: string, candidate: { url: string; content?: string }, criteria: string) {
+/**
+ * Evaluates a specific candidate item against provided criteria.
+ * Logs the thought process and result to the research logging system.
+ */
+    async evaluateCandidate(briefId: string, candidate: { url: string; content?: string }, criteria: string) {
     const db = getDb(this.env.DB);
     this.researchLogger = new ResearchLogger(db, briefId, null, "JudgeAgent", this.doState);
     

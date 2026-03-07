@@ -39,6 +39,7 @@ export class WranglerInspectorService {
           break;
         }
       } catch (e) {
+        console.log("[WranglerInspectorService] File not found:", JSON.stringify(e));
         continue; // File not found, try next
       }
     }

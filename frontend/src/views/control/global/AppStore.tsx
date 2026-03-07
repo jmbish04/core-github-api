@@ -16,7 +16,7 @@ export default function AppStore() {
     try {
       const res = await api.appstore.$get();
       if (res.ok) {
-        const data = await res.json();
+        const data = (await res.json()) as any;
         setApps(data.applications);
       }
     } catch (err) {
@@ -38,7 +38,7 @@ export default function AppStore() {
         // refresh data after sync
         await fetchApps();
       } else {
-        console.error("Sync failed:", await res.json());
+        console.error("Sync failed:", (await res.json()) as any);
       }
     } catch (err) {
       console.error("Sync error:", err);

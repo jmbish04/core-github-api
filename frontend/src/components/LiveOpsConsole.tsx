@@ -50,7 +50,7 @@ export function LiveOpsConsole({ operationId }: LiveOpsConsoleProps) {
         let isMounted = true;
 
         (async () => {
-            const [{ default: XTerm }, { FitAddon }, { AttachAddon }] = await Promise.all([
+            const [{ Terminal: XTerm }, { FitAddon }, { AttachAddon }] = await Promise.all([
                 import('@xterm/xterm'),
                 import('@xterm/addon-fit'),
                 import('@xterm/addon-attach'),

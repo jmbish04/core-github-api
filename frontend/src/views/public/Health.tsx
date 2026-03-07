@@ -1,7 +1,8 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/auth-context';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
     Loader2, CheckCircle2, XCircle, AlertCircle, Play, Activity,
     Server, Cpu, Brain, GitBranch, Globe, Settings2, History,
@@ -245,6 +246,7 @@ export default function HealthPage() {
     const { apiKey } = useAuth();
     const [activeTab, setActiveTab] = useState<'current' | 'history'>('current');
     const [isLoading, setIsLoading] = useState(false);
+    const [isLoadingLatest, setIsLoadingLatest] = useState(true); // true on mount — shows skeleton until D1 data loads
     const [isAnalyzing, setIsAnalyzing] = useState<string | null>(null);
     const [analysisResults, setAnalysisResults] = useState<Record<string, any>>({});
     const [lastRun, setLastRun] = useState<RunWithResults | null>(null);
@@ -263,30 +265,35 @@ export default function HealthPage() {
         fetchLatest();
     }, [apiKey]);
 
-    const fetchLatest = async () => {
+    const fetchLatest = useCallback(async () => {
         try {
             setError(null);
             const res = await fetch('/api/health/latest', { headers, credentials: 'include' });
             if (res.ok) {
-                const data = await res.json();
+                const data = (await res.json()) as any;
                 if (data.run) {
                     setLastRun({ run: data.run, results: data.results || [] });
+                } else {
+                    setLastRun(null);
                 }
             } else {
                 const details = await res.text();
                 setError(details || `Health service returned ${res.status}`);
+                setLastRun(null);
             }
         } catch (e) {
             console.error("Failed to fetch latest health", e);
             setError('Failed to reach health service.');
+        } finally {
+            setIsLoadingLatest(false);
         }
-    };
+    }, [headers]);
 
     const fetchHistory = async () => {
         try {
             const res = await fetch('/api/health/history?limit=20', { headers, credentials: 'include' });
             if (res.ok) {
-                const data = await res.json();
+                const data = (await res.json()) as any;
                 setHistory(data.runs || []);
             }
         } catch (e) {
@@ -294,7 +301,15 @@ export default function HealthPage() {
         }
     };
 
-    const runTests = async () => {
+    /**
+     * clearForScan — clears the current results, shows skeleton state,
+     * then triggers an on-demand health run and updates D1.
+     * Called by the "Run Checks" button.
+     */
+    const clearForScan = useCallback(async () => {
+        // 1. Clear current results → skeleton appears on stats + accordion
+        setLastRun(null);
+        setIsLoadingLatest(true);
         setIsLoading(true);
         setAnalysisResults({});
         setError(null);
@@ -310,7 +325,7 @@ export default function HealthPage() {
                 throw new Error(await res.text() || 'Run failed');
             }
 
-            const data = await res.json();
+            const data = (await res.json()) as any;
             setLastRun({
                 run: { id: data.runId, status: data.status, created_at: new Date().toISOString() },
                 results: data.results || []
@@ -319,8 +334,11 @@ export default function HealthPage() {
             setError(e.message || 'Failed to run health checks.');
         } finally {
             setIsLoading(false);
+            setIsLoadingLatest(false);
         }
-    };
+    }, [headers]);
+
+    const runTests = clearForScan;
 
     const analyzeFailure = async (result: HealthResult) => {
         setIsAnalyzing(result.id);
@@ -336,7 +354,7 @@ export default function HealthPage() {
             });
 
             if (res.ok) {
-                const data = await res.json();
+                const data = (await res.json()) as any;
                 const analysis = typeof data === 'string' ? { analysis: data, fixes: [] } : data;
                 setAnalysisResults(prev => ({ ...prev, [result.id]: analysis }));
             } else {
@@ -437,6 +455,19 @@ export default function HealthPage() {
 
             {/* Stats Overview */}
             <div className="grid gap-4 md:grid-cols-4">
+                {isLoadingLatest ? (
+                    // Skeleton state for stats cards
+                    Array.from({ length: 4 }).map((_, i) => (
+                        <div key={i} className="rounded-xl border border-border/50 bg-card/50 p-6 space-y-3">
+                            <div className="flex items-center justify-between">
+                                <Skeleton className="h-4 w-24" />
+                                <Skeleton className="h-4 w-4 rounded-full" />
+                            </div>
+                            <Skeleton className="h-8 w-20" />
+                        </div>
+                    ))
+                ) : (
+                <>
                 <Card className="bg-card/50 backdrop-blur-sm border-border/50">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Overall Status</CardTitle>
@@ -481,6 +512,8 @@ export default function HealthPage() {
                         <div className="text-2xl font-bold">{formatDuration(stats.duration)}</div>
                     </CardContent>
                 </Card>
+                </>
+                )}
             </div>
 
             {/* Tabs */}
@@ -514,6 +547,22 @@ export default function HealthPage() {
 
             {/* Tab Content */}
             {activeTab === 'current' ? (
+                isLoadingLatest ? (
+                    // Skeleton state for accordion while loading
+                    <div className="space-y-3">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                            <div key={i} className="border border-border/50 rounded-lg px-4 py-4 bg-card/30 space-y-3">
+                                <div className="flex items-center gap-3">
+                                    <Skeleton className="h-9 w-9 rounded-full" />
+                                    <div className="space-y-1.5 flex-1">
+                                        <Skeleton className="h-4 w-40" />
+                                        <Skeleton className="h-3 w-28" />
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
                 <Accordion type="multiple" defaultValue={sortedCategories} className="space-y-3">
                     {sortedCategories.map((cat) => {
                         const items = groupedResults[cat] || [];
@@ -564,6 +613,7 @@ export default function HealthPage() {
                         );
                     })}
                 </Accordion>
+                )
             ) : (
                 <HistoryTimeline history={history} />
             )}

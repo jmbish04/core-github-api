@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Lock } from 'lucide-react';
 import { GithubLoginButton } from "react-social-login-buttons";
+import { toast } from 'sonner';
 
 export default function LoginPage() {
     const [keyInput, setKeyInput] = useState('');
@@ -14,19 +15,19 @@ export default function LoginPage() {
     const navigate = useNavigate();
     const location = useLocation();
 
-    const from = location.state?.from?.pathname || '/control-center/dashboard';
+    const from = location.state?.from?.pathname || '/dashboard';
 
     const handleLogin = (e: React.FormEvent) => {
         e.preventDefault();
         if (!keyInput.trim()) return;
 
         setApiKey(keyInput.trim());
-        alert("Authentication successful");
+        toast.success("Authentication successful");
         navigate(from, { replace: true });
     };
 
     return (
-        <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="flex items-center justify-center min-h-screen bg-background px-4 sm:px-0">
             <Card className="w-full max-w-sm">
                 <CardHeader className="space-y-1">
                     <CardTitle className="text-2xl font-bold flex items-center gap-2">
@@ -40,7 +41,12 @@ export default function LoginPage() {
                     <CardContent className="space-y-4">
                         <div className="space-y-2">
                             <Input
-                                type="password"
+                                type="text"
+                                autoComplete="off"
+                                data-lpignore="true"
+                                data-1p-ignore="true"
+                                data-form-type="other"
+                                spellCheck={false}
                                 placeholder="sk-..."
                                 value={keyInput}
                                 onChange={(e) => setKeyInput(e.target.value)}

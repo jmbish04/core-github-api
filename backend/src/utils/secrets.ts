@@ -85,6 +85,21 @@ export async function getWorkerApiKey(env: Env): Promise<string | undefined> {
     return getSecret(env, "WORKER_API_KEY");
 }
 
+/**
+ * Helper to fetch the AGENTIC_WORKER_API_KEY from the Secrets Store.
+ * This key is exclusively for agent/automation access to the frontend.
+ * It supports the ?AGENT_AUTH= URL query param auth path, which is NOT
+ * available to the regular WORKER_API_KEY.
+ */
+export async function getAgenticWorkerApiKey(env: Env): Promise<string | undefined> {
+    if (env.AGENTIC_WORKER_API_KEY) {
+        return typeof env.AGENTIC_WORKER_API_KEY === 'string'
+            ? env.AGENTIC_WORKER_API_KEY
+            : await env.AGENTIC_WORKER_API_KEY.get();
+    }
+    return getSecret(env, "AGENTIC_WORKER_API_KEY");
+}
+
 export async function getGithubToken(env: Env): Promise<string | undefined> {
     if (env.GITHUB_TOKEN) {
         return typeof env.GITHUB_TOKEN === 'string'
