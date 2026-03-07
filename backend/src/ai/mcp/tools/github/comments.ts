@@ -6,7 +6,7 @@
  */
 
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
-import { getOctokit } from '../../../../services/octokit/core'
+import { extractReviewCommentsAndPostReply } from '@services/github/pr-ingestion'
 
 
 // --- Schemas ---
@@ -139,82 +139,25 @@ const commentsTools = new OpenAPIHono<{ Bindings: Env }>()
 
 commentsTools.openapi(extractRoute, async (c) => {
     const { owner, repo, pull_number } = c.req.valid('json')
-    const octokit = await getOctokit(c.env)
+    const origin = new URL(c.req.url).origin
+    
+    const result = await extractReviewCommentsAndPostReply(c.env, owner, repo, pull_number, origin);
 
-    // 1. Fetch Review Comments
-    let reviewComments;
-    try {
-        const result = await octokit.pulls.listReviewComments({
-            owner,
-            repo,
-            pull_number,
-        })
-        reviewComments = result.data;
-    } catch (error: any) {
-        console.error(`[comments] Failed to list review comments: ${error.message}`);
-        // Return success: false but structured to avoid crashing the runner
+    if (!result.success) {
         return c.json({
             success: false,
             count: 0,
             view_url: '',
             extraction_id: '',
-            error: error.message
+            error: result.error
         }, 500)
     }
 
-    // 2. Process Comments
-    const extractedComments = reviewComments.map(comment => {
-        // Check for suggestion in body (GitHub suggestions use ```suggestion block)
-        const suggestionMatch = comment.body.match(/```suggestion\r?\n([\s\S]*?)\r?\n```/)
-        const suggestion = suggestionMatch ? suggestionMatch[1] : undefined
-
-        return {
-            id: comment.id,
-            path: comment.path,
-            line: comment.line, // The line of the comment
-            start_line: comment.start_line, // If multi-line
-            original_line: comment.original_line,
-            // Strip Gemini Code Assist priority badges (e.g., ![high](https://www.gstatic.com/codereviewagent/high-priority.svg))
-            body: comment.body.replace(/!\[.*?\]\(https:\/\/www\.gstatic\.com\/codereviewagent\/.*?-priority\.svg\)/g, '').trim(),
-            diff_hunk: comment.diff_hunk,
-            suggestion,
-            user: {
-                login: comment.user.login,
-                avatar_url: comment.user.avatar_url,
-            },
-            created_at: comment.created_at,
-            html_url: comment.html_url
-        }
-    })
-
-    // 3. Store in KV
-    const extractionId = `${owner}-${repo}-${pull_number}-${Date.now()}`
-    // Using a simpler ID for public URL but including enough entropy or PR details
-    // For safety, maybe just a UUID? But for now let's use a readable ID.
-    const storageKey = `COMMENTS_${extractionId}`
-
-    await c.env.COMMENTS_KV.put(storageKey, JSON.stringify(extractedComments), {
-        expirationTtl: 60 * 60 * 24 * 30 // 30 days
-    })
-
-    // 4. Construct Public URL
-    // Assuming the frontend is served from the same origin
-    const origin = new URL(c.req.url).origin
-    const viewUrl = `${origin}/view-comments/${extractionId}`
-
-    // 5. Post URL to PR
-    await octokit.issues.createComment({
-        owner,
-        repo,
-        issue_number: pull_number,
-        body: `### ✨ Code Comments Extracted\n\nI have extracted **${extractedComments.length}** code comments for easier triage.\n\n[**View Extracted Comments**](${origin}/view-comments/${owner}/${repo}/pull/${pull_number})`
-    })
-
     return c.json({
         success: true,
-        count: extractedComments.length,
-        view_url: viewUrl,
-        extraction_id: extractionId
+        count: result.count,
+        view_url: result.view_url,
+        extraction_id: result.extraction_id
     })
 })
 

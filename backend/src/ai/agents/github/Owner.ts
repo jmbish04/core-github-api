@@ -7,10 +7,11 @@
  */
 
 import { callable } from "agents";
-import { BaseAgent, BaseAgentState } from "@agent-sdk";
+import { BaseAgent, BaseAgentState } from "@/ai/agents/base/BaseAgent";
 import { Logger } from "@logging";
-import { desc, eq } from "drizzle-orm";
-import { getAgentDb, agentSchema, type AgentDb } from "@/db/schemas/agents/stateful";
+import { generateUuid } from "@/utils/common";
+import { desc, eq, notInArray } from "drizzle-orm";
+import { getAgentDb, agentSchema, migrateAgentDb, type AgentDb } from "@/db/schemas/agents/stateful";
 import type {
   GitHubEventType,
   GitHubForkPayload,
@@ -27,6 +28,7 @@ import type {
   GitHubWebhookPayload,
   StoredEvent,
 } from "@/ai/agents/github-types";
+
 
 /**
  * @interface OwnerState
@@ -53,7 +55,7 @@ export type OwnerState = BaseAgentState & {
  */
 export class OwnerAgent extends BaseAgent<Env, OwnerState> {
   private _db: AgentDb | null = null;
-  protected logger: Logger;
+  // logger inherited from BaseAgent
 
   /**
    * @constructor
@@ -62,7 +64,13 @@ export class OwnerAgent extends BaseAgent<Env, OwnerState> {
    */
   constructor(state: DurableObjectState, env: Env) {
     super(state, env);
-    this.logger = new Logger(env, "OwnerAgent");
+    // Initialize the Drizzle ORM client backed by the DO's embedded SQLite.
+    this._db = getAgentDb(this.ctx.storage);
+    // Apply pending schema migrations before any requests can be processed.
+    // blockConcurrencyWhile() ensures no incoming requests observe a partially migrated schema.
+    this.ctx.blockConcurrencyWhile(async () => {
+      migrateAgentDb(this.ctx.storage);
+    });
   }
 
   /**
@@ -98,44 +106,11 @@ export class OwnerAgent extends BaseAgent<Env, OwnerState> {
 
   /**
    * @method onStart
-   * @description Lifecycle hook executed when the agent starts. Responsible for 
-   * idempotent table schema initialization in the Durable Object SQLite backend.
+   * @description Lifecycle hook kept for BaseAgent compatibility.
+   * Schema migration is now handled via `blockConcurrencyWhile` in the constructor.
    */
   async onStart(): Promise<void> {
-    // Idempotent table creation (Drizzle doesn't auto-migrate inside DOs natively yet).
-    this.sql`
-      CREATE TABLE IF NOT EXISTS events (
-        id TEXT PRIMARY KEY,
-        type TEXT NOT NULL,
-        action TEXT,
-        title TEXT NOT NULL,
-        description TEXT,
-        url TEXT,
-        actor_login TEXT,
-        actor_avatar TEXT,
-        timestamp TEXT NOT NULL,
-        repo_name TEXT
-      )
-    `;
-    this.sql`
-      CREATE INDEX IF NOT EXISTS idx_events_timestamp ON events(timestamp DESC)
-    `;
-    this.sql`
-      CREATE TABLE IF NOT EXISTS automation_runs (
-        id TEXT PRIMARY KEY,
-        rule_id TEXT NOT NULL,
-        rule_name TEXT NOT NULL,
-        workflow TEXT NOT NULL,
-        event_id TEXT NOT NULL,
-        status TEXT NOT NULL DEFAULT 'pending',
-        started_at TEXT NOT NULL,
-        completed_at TEXT,
-        FOREIGN KEY (event_id) REFERENCES events(id)
-      )
-    `;
-    this.sql`
-      CREATE INDEX IF NOT EXISTS idx_automation_runs_event ON automation_runs(event_id)
-    `;
+    // No-op: table creation is managed by the Drizzle DO migrator in the constructor.
   }
 
   /**
@@ -246,10 +221,16 @@ export class OwnerAgent extends BaseAgent<Env, OwnerState> {
         })
         .run();
 
-      // Optimize storage space: Cleanup old events keeping only the latest 200.
-      this.db.run(
-        "DELETE FROM events WHERE id IN (SELECT id FROM events ORDER BY timestamp DESC LIMIT -1 OFFSET 200)"
-      );
+      // Keep only the latest 200 events — trim the oldest using typed Drizzle delete.
+      const keepIds = this.db
+        .select({ id: agentSchema.agentEvents.id })
+        .from(agentSchema.agentEvents)
+        .orderBy(desc(agentSchema.agentEvents.timestamp))
+        .limit(200);
+      this.db
+        .delete(agentSchema.agentEvents)
+        .where(notInArray(agentSchema.agentEvents.id, keepIds))
+        .run();
     }
   }
 
@@ -279,7 +260,7 @@ export class OwnerAgent extends BaseAgent<Env, OwnerState> {
     eventType: GitHubEventType,
     payload: GitHubWebhookPayload
   ): StoredEvent | null {
-    const id = crypto.randomUUID();
+    const id = generateUuid();
     const timestamp = new Date().toISOString();
     
     const getRepoPrefix = () => {

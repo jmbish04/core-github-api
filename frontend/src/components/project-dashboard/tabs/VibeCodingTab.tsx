@@ -26,6 +26,11 @@ type VibeChatResponse = {
   implementationSteps?: string[];
   suggestedFiles?: string[];
   taskForJules?: string;
+  planSaved?: {
+    epicsCreated: number;
+    userStoriesCreated: number;
+    tasksCreated: number;
+  } | null;
   jules?: {
     dispatched: boolean;
     message: string;
@@ -89,7 +94,7 @@ export function VibeCodingTab({
         credentials: "include",
         body: JSON.stringify({ prompt: clean }),
       });
-      const data = (await response.json()) as VibeChatResponse;
+      const data = ((await response.json()) as any) as VibeChatResponse;
 
       if (!response.ok || !data.success) {
         throw new Error(data.error || `Request failed (${response.status})`);
@@ -108,6 +113,11 @@ export function VibeCodingTab({
       }
       if (data.taskForJules) {
         detailBlocks.push(`Jules Task:\n${data.taskForJules}`);
+      }
+      if (data.planSaved) {
+        detailBlocks.push(
+          `[PLAN SAVED TO DATABASE]\nEpics: ${data.planSaved.epicsCreated} | Stories: ${data.planSaved.userStoriesCreated} | Tasks: ${data.planSaved.tasksCreated}`,
+        );
       }
       if (data.jules) {
         detailBlocks.push(
@@ -196,15 +206,21 @@ export function VibeCodingTab({
 
           <div className="space-y-2">
             <div className="flex flex-wrap gap-2">
-              <Badge variant="outline">Golden Path</Badge>
-              <Badge variant="outline">Scaffolding</Badge>
-              <Badge variant="outline">Jules Handoff</Badge>
+              <Badge variant="outline" className="cursor-pointer hover:bg-accent" onClick={() => setInput("Enforce Golden Path standards on this repo.")}>Golden Path</Badge>
+              <Badge variant="outline" className="cursor-pointer hover:bg-accent" onClick={() => setInput("Scaffold a new feature with strict typing.")}>Scaffolding</Badge>
+              <Badge variant="outline" className="cursor-pointer hover:bg-accent" onClick={() => setInput("Prepare a Jules Handoff task for this implementation.")}>Jules Handoff</Badge>
             </div>
             <Textarea
               rows={4}
               value={input}
               onChange={(event) => setInput(event.target.value)}
               placeholder={placeholder}
+              onKeyDown={(e) => {
+                   if (e.key === 'Enter' && !e.shiftKey) {
+                       e.preventDefault();
+                       void handleSend();
+                   }
+               }}
             />
             <div className="flex justify-end">
               <Button onClick={() => void handleSend()} disabled={isRunning}>

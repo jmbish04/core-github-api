@@ -4,17 +4,19 @@
  * @owner AI-Builder
  */
 
-import { getDb } from '../index' // Assuming main db helper is at src/db/index.ts
-import type { D1Database } from '@cloudflare/workers-types'
+import { getDb } from '@db' // Assuming main db helper is at src/db/index.ts
+import { projects } from '@db/schemas/projects/roadmap'
 import {
     repositories,
     repoTechStack,
     repoMetrics,
     repoInfra,
-    repoTags
-} from '../schemas/github/repos'
+    repoTags,
+    type GitHubRepository,
+    type NewGitHubRepository
+} from '@db/schemas/github/repos'
 import { eq } from 'drizzle-orm'
-import type { RepoAnalysis } from '../../ai/mcp/tools/github/repo-analysis'
+import type { RepoAnalysis } from '@/ai/mcp/tools/github/repo-analysis'
 
 export async function upsertRepoAnalysis(d1: D1Database, analysis: RepoAnalysis, manualId?: string) {
     const db = getDb(d1);

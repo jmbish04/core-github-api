@@ -8,8 +8,7 @@ import { OpenAPIHono } from '@hono/zod-openapi'
 
 
 import { v4 as uuidv4 } from 'uuid'
-import type { OrchestratorAgent } from '../ai/agents/Orchestrator'
-import type { PlannerAgent } from '../ai/agents/Planner'
+import { ChatSession } from '@custom-types'
 
 // Re-export Env as Bindings for compatibility
 export type Bindings = Env

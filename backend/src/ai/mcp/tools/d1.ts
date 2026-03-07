@@ -1,5 +1,13 @@
+/**
+ * D1 Database MCP Tools
+ * 
+ * Exposes Cloudflare D1 database operations as tools for AI agents.
+ * Supports raw SQL execution for both reading (SELECT) and writing (INSERT/UPDATE/DELETE).
+ * 
+ * @module AI/MCP/Tools/D1
+ */
 import { z } from 'zod';
-import { Tool } from '../../agent-sdk';
+import { Tool } from '@/ai/agents/base/BaseAgent';
 
 /**
  * Tool for reading from D1 database via SQL.
@@ -12,13 +20,16 @@ export const D1ReadTool = (env: Env): Tool => ({
     query: z.string().describe('The SELECT SQL query to execute.'),
     params: z.array(z.union([z.string(), z.number(), z.boolean()])).optional().describe('Optional parameters for the query.')
   }),
-  execute: async ({ query, params = [] }: { query: string; params?: any[] }) => {
+  execute: async (args: Record<string, unknown>) => {
+    const query = args.query as string;
+    const params = (args.params as unknown[]) || [];
     try {
       const stmt = env.DB.prepare(query).bind(...params);
       const { results } = await stmt.all();
       return results;
-    } catch (e: any) {
-      return { error: e.message };
+    } catch (e) {
+      const error = e as Error;
+      return { error: error.message };
     }
   }
 });
@@ -34,7 +45,9 @@ export const D1WriteTool = (env: Env): Tool => ({
     query: z.string().describe('The SQL query to execute (INSERT, UPDATE, DELETE).'),
     params: z.array(z.union([z.string(), z.number(), z.boolean()])).optional().describe('Optional parameters for the query.')
   }),
-  execute: async ({ query, params = [] }: { query: string; params?: any[] }) => {
+  execute: async (args: Record<string, unknown>) => {
+    const query = args.query as string;
+    const params = (args.params as unknown[]) || [];
     try {
       const stmt = env.DB.prepare(query).bind(...params);
       const result = await stmt.run();
@@ -43,8 +56,9 @@ export const D1WriteTool = (env: Env): Tool => ({
         meta: result.meta,
         error: result.error
       };
-    } catch (e: any) {
-      return { error: e.message, success: false };
+    } catch (e) {
+      const error = e as Error;
+      return { error: error.message, success: false };
     }
   }
 });

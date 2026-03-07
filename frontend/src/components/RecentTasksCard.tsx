@@ -13,14 +13,19 @@ interface Task {
     priority: 'low' | 'medium' | 'high' | 'critical';
     assignee: string;
 }
+interface RecentTasksCardProps {
+    owner?: string;
+    repo?: string;
+}
 
-export function RecentTasksCard() {
-    const repoParams = { owner: 'colby-dev', repo: 'core-api' };
-
+export function RecentTasksCard({ owner, repo }: RecentTasksCardProps = {}) {
     const { data: tasks = [] } = useQuery({
-        queryKey: ['tasks', repoParams],
+        queryKey: ['tasks', owner, repo],
         queryFn: async () => {
-            const res = await axios.get(`/api/repos/${repoParams.owner}/${repoParams.repo}/tasks`);
+            const url = (owner && repo) 
+                ? `/api/repos/${owner}/${repo}/tasks`
+                : `/api/tasks`;
+            const res = await axios.get(url, { withCredentials: true });
             return res.data.tasks as Task[];
         },
         initialData: []

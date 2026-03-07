@@ -1,6 +1,20 @@
+/**
+ * Orchestrator Agent (Main Routing & Delegation)
+ * 
+ * The primary entry point for agentic workflows. It:
+ * 1. Plans high-level strategies by delegating to the `PlannerAgent`.
+ * 2. Routes messages to appropriate specialized agents.
+ * 3. Manages session lifecycle and WebSocket communication with clients.
+ * 
+ * @module AI/Agents/Orchestrator
+ */
 import { BaseOrchestrator } from "./base/orchestrator";
 import { callable, getAgentByName } from "agents";
+import { generateUuid } from "@/utils/common";
 
+/**
+ * The Orchestrator manages the high-level workflow and agent delegation.
+ */
 export class OrchestratorAgent extends BaseOrchestrator {
   
   constructor(state: DurableObjectState, env: Env) {
@@ -20,6 +34,21 @@ export class OrchestratorAgent extends BaseOrchestrator {
     };
   }
 
+/**
+ * Initiates a new orchestration session.
+ */
+  @callable()
+  async start(prompt: string) {
+    this.logger.info(`Starting new session with prompt: ${prompt}`);
+    return { 
+      sessionId: generateUuid(),
+      message: "Session started" 
+    };
+  }
+
+/**
+ * Generates a high-level implementation plan by calling the `PlannerAgent`.
+ */
   async plan(input: string): Promise<any> {
     try {
       this.logger.info(`Planning for goal: ${input}`);

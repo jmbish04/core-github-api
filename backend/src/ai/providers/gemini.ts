@@ -1,261 +1,202 @@
-import { GoogleGenAI } from "@google/genai";
-
-import { getAIGatewayUrl } from "../utils/ai-gateway";
-
-// Extended Env to include Gemini secrets and optional model config
-type GeminiEnv = Env;
-
-// Default Configuration
-export const DEFAULT_GEMINI_MODEL = "gemini-2.5-pro";
-
 /**
- * Initialize Gemini Client using Cloudflare AI Gateway
+ * Implements the Gemini provider using the `openai/agents sdk`
+ * Features:
+ * 1. BYOK (Bring Your Own Key) via Cloudflare AI Gateway.
+ * 2. Fetch interception to inject Gateway Auth and strip dummy keys.
+ * 3. Support for text, structured JSON, vision, and function calling.
+ * 4. Automatic model fallback orchestration.
  * 
- * Authentication flow:
- * - GEMINI_API_KEY: Used for authenticating with Google's Gemini API
- * - CF_AIG_TOKEN: Used for Cloudflare API operations (not for Gemini auth)
- * - The AI Gateway proxies requests and adds caching/observability
+ * @module AI/Providers/Gemini
  */
-export async function createGeminiClient(env: GeminiEnv) {
-  const geminiApiKey = env.GEMINI_API_KEY;
-  // Unwrap SecretsStoreSecret if needed
-  // @ts-ignore - handling string or secret
-  const apiKey = typeof geminiApiKey === 'object' && geminiApiKey !== null && 'get' in geminiApiKey ? await geminiApiKey.get() : geminiApiKey as string;
 
-  if (!apiKey || !env.CLOUDFLARE_ACCOUNT_ID) {
-    throw new Error("Missing GEMINI_API_KEY or CLOUDFLARE_ACCOUNT_ID in environment variables");
+import { resolveDefaultAiModel } from "./config";
+import { createUniversalGatewayClient, createUniversalGatewayRunner } from "../utils/gateway-client";
+import { cleanJsonOutput } from "@/ai/utils/sanitizer";
+import { AIOptions, TextWithToolsResponse, StructuredWithToolsResponse, UnifiedModel, ModelFilter, ToolCall } from "./index";
+import { Agent, tool } from "@openai/agents";
+
+export async function verifyApiKey(env: Env): Promise<boolean> {
+  try {
+    let apiKey = "cf-aig-byok-dummy-key";
+    try { apiKey = await (env as any).GEMINI_API_KEY?.get() || apiKey; }
+catch (e) {
+  console.log(`[AI Providers - Gemini] GEMINI_API_KEY not found`, JSON.stringify(e));
+}
+    const client = await createUniversalGatewayClient(env, apiKey);
+    await client.chat.completions.create({
+      model: "google-ai-studio/gemini-2.5-flash",
+      max_tokens: 1,
+      messages: [{ role: "user", content: "hi" }]
+    });
+    return true;
+  } catch (error) {
+    console.error("Gemini BYOK Verification Error:", error);
+    return false;
   }
+}
 
-  // Unwrap AI Gateway Token
-  // @ts-ignore
-  const aigToken = typeof env.AI_GATEWAY_TOKEN === 'object' && env.AI_GATEWAY_TOKEN?.get ? await env.AI_GATEWAY_TOKEN.get() : env.AI_GATEWAY_TOKEN;
+async function executeWithFallback<T>(
+  env: Env, originalModel: string, requiredCapability: ModelFilter | undefined,
+  executionFn: (model: string) => Promise<T>
+): Promise<T> {
+  try {
+    return await executionFn(originalModel);
+  } catch (error: any) {
+    console.warn(`[Gemini Fallback] Initial execution failed for model ${originalModel}:`, error?.message);
+    const models = await getGoogleModels(env);
+    const fallbackModelInfo = models.find(m => m.id !== originalModel && (!requiredCapability || m.capabilities.includes(requiredCapability)));
+    
+    if (!fallbackModelInfo) throw error;
+    console.warn(`[Gemini Fallback] Retrying with alternative model: ${fallbackModelInfo.id}`);
+    return await executionFn(fallbackModelInfo.id);
+  }
+}
 
-  return new GoogleGenAI({
-    apiKey: apiKey,
-    apiVersion: "v1beta",
-    httpOptions: {
-      // Proxies requests through Cloudflare AI Gateway for caching/monitoring
-      baseUrl: getAIGatewayUrl(env, { provider: "google-ai-studio" }),
-      headers: {
-        'cf-aig-authorization': `Bearer ${aigToken}`,
-      }
-    },
+export async function generateText(env: Env, prompt: string, systemPrompt?: string, options?: AIOptions): Promise<string> {
+  let apiKey = "cf-aig-byok-dummy-key";
+  try { apiKey = await (env as any).GEMINI_API_KEY?.get() || apiKey; }
+catch (e) {
+  console.log(`[AI Providers - Gemini] GEMINI_API_KEY not found`, JSON.stringify(e));
+}
+
+  const initialModel = options?.model || resolveDefaultAiModel(env, "gemini");
+  return executeWithFallback(env, initialModel, undefined, async (model) => {
+    const namespacedModel = model.includes('/') ? model : `google-ai-studio/${model}`;
+    const runner = await createUniversalGatewayRunner(env, apiKey, namespacedModel);
+    
+    const agent = new Agent({
+      name: "Gemini_Agent",
+      instructions: systemPrompt || "You are a helpful assistant.",
+      model: namespacedModel,
+    });
+
+    const result = await runner.run(agent, prompt);
+    return String(result.finalOutput ?? "");
   });
 }
 
-/**
- * Helper to get the effective model
- */
-export function getGeminiModel(env: GeminiEnv): string {
-  return env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL;
+export async function generateStructuredResponse<T = any>(env: Env, prompt: string, schema: object, systemPrompt?: string, options?: AIOptions): Promise<T> {
+  let apiKey = "cf-aig-byok-dummy-key";
+  try { apiKey = await (env as any).GEMINI_API_KEY?.get() || apiKey; }
+catch (e) {
+  console.log(`[AI Providers - Gemini] GEMINI_API_KEY not found`, JSON.stringify(e));
 }
 
-/**
- * Standard query to Gemini
- * Mirrors: queryWorkerAI
- */
-export async function queryGemini(
-  env: GeminiEnv,
-  prompt: string,
-  systemPrompt?: string
-): Promise<string> {
-  const client = await createGeminiClient(env);
-  const model = getGeminiModel(env);
+  const initialModel = options?.model || resolveDefaultAiModel(env, "gemini");
+  return executeWithFallback(env, initialModel, 'structured_response', async (model) => {
+    const namespacedModel = model.includes('/') ? model : `google-ai-studio/${model}`;
+    
+    // We use the raw client for JSON schema compatibility as Agents SDK `Agent` outputType expects complex typing.
+    const client = await createUniversalGatewayClient(env, apiKey);
+    const messages: any[] = [];
+    if (systemPrompt) messages.push({ role: "system", content: systemPrompt });
+    messages.push({ role: "user", content: prompt });
 
+    const response = await client.chat.completions.create({
+      model: namespacedModel, messages, temperature: options?.temperature, max_tokens: options?.maxTokens,
+      response_format: { type: "json_schema", json_schema: { name: "structured_output", schema: schema as any, strict: true } }
+    });
+    return JSON.parse(cleanJsonOutput(response.choices[0]?.message?.content || "{}")) as T;
+  });
+}
+
+export async function generateTextWithTools(env: Env, prompt: string, tools: any[], systemPrompt?: string, options?: AIOptions): Promise<TextWithToolsResponse> {
+  let apiKey = "cf-aig-byok-dummy-key";
+  try { apiKey = await (env as any).GEMINI_API_KEY?.get() || apiKey; }
+catch (e) {
+  console.log(`[AI Providers - Gemini] GEMINI_API_KEY not found`, JSON.stringify(e));
+}
+
+  const initialModel = options?.model || resolveDefaultAiModel(env, "gemini");
+  return executeWithFallback(env, initialModel, 'function_calling', async (model) => {
+    const namespacedModel = model.includes('/') ? model : `google-ai-studio/${model}`;
+    const runner = await createUniversalGatewayRunner(env, apiKey, namespacedModel);
+
+    const capturedToolCalls: ToolCall[] = [];
+    const agentTools = tools.map((t, idx) => {
+       const functionDef = t.function;
+       return tool({
+           name: functionDef.name,
+           description: functionDef.description || "",
+           parameters: functionDef.parameters || {},
+           execute: async (args: any) => {
+               capturedToolCalls.push({
+                   id: `call_${idx}_${Date.now()}`,
+                   function: {
+                       name: functionDef.name,
+                       arguments: JSON.stringify(args)
+                   }
+               });
+               return "Tool execution deferred to caller";
+           }
+       });
+    });
+
+    const agent = new Agent({
+      name: "Gemini_Agent",
+      instructions: systemPrompt || "You are a helpful assistant.",
+      model: namespacedModel,
+      tools: agentTools,
+      toolUseBehavior: 'stop_on_first_tool'
+    });
+
+    const result = await runner.run(agent, prompt);
+    
+    return {
+      text: String(result.finalOutput || ""),
+      toolCalls: capturedToolCalls
+    };
+  });
+}
+
+export async function generateStructuredWithTools<T = any>(env: Env, prompt: string, schema: object, tools: any[], systemPrompt?: string, options?: AIOptions): Promise<StructuredWithToolsResponse<T>> {
+  let apiKey = "cf-aig-byok-dummy-key";
+  try { apiKey = await (env as any).GEMINI_API_KEY?.get() || apiKey; }
+catch (e) {
+  console.log(`[AI Providers - Gemini] GEMINI_API_KEY not found`, JSON.stringify(e));
+}
+
+  const initialModel = options?.model || resolveDefaultAiModel(env, "gemini");
+  return executeWithFallback(env, initialModel, 'function_calling', async (model) => {
+    const namespacedModel = model.includes('/') ? model : `google-ai-studio/${model}`;
+    const client = await createUniversalGatewayClient(env, apiKey);
+
+    // Fallback to raw client for precise schema + tools handling simultaneously
+    const messages: any[] = [];
+    if (systemPrompt) messages.push({ role: "system", content: systemPrompt });
+    messages.push({ role: "user", content: prompt });
+
+    const response = await client.chat.completions.create({
+      model: namespacedModel, messages, tools, temperature: options?.temperature, max_tokens: options?.maxTokens,
+      response_format: { type: "json_schema", json_schema: { name: "structured_output", schema: schema as any, strict: true } }
+    });
+    
+    const msg = response.choices[0]?.message;
+    return {
+      data: JSON.parse(cleanJsonOutput(msg?.content || "{}")) as T,
+      toolCalls: msg?.tool_calls?.map((tc: any) => ({ id: tc.id, function: { name: tc.function?.name, arguments: tc.function?.arguments } })) || []
+    };
+  });
+}
+
+export async function getGoogleModels(env: Env, filter?: ModelFilter): Promise<UnifiedModel[]> {
   try {
-    const response = await client.models.generateContent({
-      model: model,
-      config: {
-        systemInstruction: systemPrompt,
-      },
-      contents: [
-        {
-          role: "user",
-          parts: [{ text: prompt }]
-        }
-      ]
+    const apiKey = await (env as any).GEMINI_API_KEY?.get() as string;
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+    const { models } = await res.json() as any;
+    
+    const mapped: UnifiedModel[] = (models || []).map((m: any) => {
+      const caps: ModelFilter[] = [];
+      if (m.name.includes('flash')) caps.push('fast');
+      if (m.name.includes('pro')) caps.push('high_reasoning');
+      if (m.supportedGenerationMethods?.includes('generateContent')) caps.push('vision', 'function_calling');
+      return {
+        id: m.name.replace('models/', ''), provider: 'google', name: m.displayName || m.name,
+        description: m.description, capabilities: caps, maxTokens: m.inputTokenLimit, raw: m
+      };
     });
-
-    return response.text || "";
-  } catch (error) {
-    console.error("Gemini Query Error:", error);
-    throw error;
-  }
-}
-
-/**
- * Structured query to Gemini
- * Mirrors: queryWorkerAIStructured
- * * Note: Unlike the 2-step process in worker-ai.ts (GPT-OSS -> Llama),
- * Gemini supports JSON schema natively, so this is a single, faster call.
- */
-export async function queryGeminiStructured(
-  env: GeminiEnv,
-  prompt: string,
-  schema: object,
-  systemPrompt?: string
-): Promise<any> {
-  const client = await createGeminiClient(env);
-  const model = getGeminiModel(env);
-
-  try {
-    const response = await client.models.generateContent({
-      model: model,
-      config: {
-        systemInstruction: systemPrompt,
-        responseMimeType: "application/json",
-        responseSchema: schema as any,
-      },
-      contents: [
-        {
-          role: "user",
-          parts: [{ text: prompt }]
-        }
-      ]
-    });
-
-    const text = response.text;
-    if (!text) throw new Error("Empty response from Gemini");
-
-    return JSON.parse(text);
-  } catch (error) {
-    console.error("Gemini Structured Query Error:", error);
-    throw error;
-  }
-}
-
-/**
- * Rewrite a question with full context for MCP
- * Mirrors: rewriteQuestionForMCP
- */
-export async function rewriteQuestionForMCP(
-  env: GeminiEnv,
-  question: string,
-  context?: {
-    bindings?: string[];
-    libraries?: string[];
-    tags?: string[];
-    codeSnippets?: Array<{
-      file_path: string;
-      code: string;
-      relation: string;
-    }>;
-  }
-): Promise<string> {
-  const systemPrompt = `You are a technical documentation assistant. Rewrite the user question to be clear, comprehensive, and well-suited for querying Cloudflare documentation.`;
-
-  let contextStr = "";
-  if (context) {
-    if (context.bindings?.length) contextStr += `Bindings: ${context.bindings.join(", ")}\n`;
-    if (context.libraries?.length) contextStr += `Libraries: ${context.libraries.join(", ")}\n`;
-    if (context.tags?.length) contextStr += `Tags: ${context.tags.join(", ")}\n`;
-    if (context.codeSnippets?.length) {
-      contextStr += `\nCode Context:\n${context.codeSnippets.map((s: any) =>
-        `File: ${s.file_path} (${s.relation})\n${s.code}`
-      ).join("\n\n")}`;
-    }
-  }
-
-  const prompt = `Original Question: ${question}\n\n${contextStr}\nRewrite this question with technical precision for a search engine.`;
-
-  const schema = {
-    type: "OBJECT",
-    properties: {
-      rewritten_question: {
-        type: "STRING",
-        description: "The rewritten, technical version of the question."
-      }
-    },
-    required: ["rewritten_question"],
-  };
-
-  const result = await queryGeminiStructured(env, prompt, schema, systemPrompt);
-  return result.rewritten_question;
-}
-
-/**
- * Analyze MCP response and generate follow-up questions
- * Mirrors: analyzeResponseAndGenerateFollowUps
- */
-export async function analyzeResponseAndGenerateFollowUps(
-  env: GeminiEnv,
-  originalQuestion: string,
-  mcpResponse: any
-): Promise<{ analysis: string; followUpQuestions: string[] }> {
-  const systemPrompt = `You are a technical documentation analyst. Analyze responses from documentation and identify gaps.`;
-
-  const prompt = `Original Question: ${originalQuestion}
-
-Documentation Response: ${JSON.stringify(mcpResponse, null, 2)}
-
-Please:
-1. Analyze if the response fully answers the question
-2. Identify any gaps or unclear areas
-3. Generate 2-3 specific follow-up questions if needed`;
-
-  const schema = {
-    type: "OBJECT",
-    properties: {
-      analysis: {
-        type: "STRING",
-        description: "Brief analysis of the response quality"
-      },
-      followUpQuestions: {
-        type: "ARRAY",
-        items: { type: "STRING" },
-        description: "2-3 specific follow-up questions"
-      }
-    },
-    required: ["analysis", "followUpQuestions"],
-  };
-
-  return await queryGeminiStructured(env, prompt, schema, systemPrompt);
-}
-
-/**
- * Stream Gemini response
- * Mirrors: streamWorkerAI
- */
-export async function streamGemini(
-  env: GeminiEnv,
-  prompt: string,
-  systemPrompt?: string
-): Promise<ReadableStream> {
-  const client = await createGeminiClient(env);
-  const model = getGeminiModel(env);
-
-  try {
-    const result = await client.models.generateContentStream({
-      model: model,
-      config: {
-        systemInstruction: systemPrompt,
-      },
-      contents: [
-        {
-          role: "user",
-          parts: [{ text: prompt }]
-        }
-      ]
-    });
-
-    // Convert Gemini Async Generator to standard ReadableStream for Cloudflare Workers
-    return new ReadableStream({
-      async start(controller) {
-        try {
-          for await (const chunk of result) {
-            const text = chunk.text;
-            if (text) {
-              controller.enqueue(new TextEncoder().encode(text));
-            }
-          }
-          controller.close();
-        } catch (err) {
-          controller.error(err);
-        }
-      }
-    });
-  } catch (error) {
-    console.error("Gemini Stream Error:", error);
-    throw error;
+    return filter ? mapped.filter(m => m.capabilities.includes(filter)) : mapped;
+  } catch (e) {
+    return [];
   }
 }

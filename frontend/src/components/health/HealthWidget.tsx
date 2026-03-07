@@ -3,42 +3,53 @@ import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Activity } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useAuth } from "@/context/auth-context";
 
 interface HealthWidgetProps extends React.HTMLAttributes<HTMLDivElement> {
-    status?: "healthy" | "degraded" | "down" | "unknown";
+    status?: "healthy" | "degraded" | "unhealthy" | "unknown";
 }
 
 export function HealthWidget({ className, status: initialStatus = "unknown" }: HealthWidgetProps) {
     const [status, setStatus] = useState<HealthWidgetProps["status"]>(initialStatus);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
+    const { apiKey } = useAuth();
 
     useEffect(() => {
         const fetchHealth = async () => {
+            if (!apiKey) return; // Prevent 401s when not logged in
             try {
-                const res = await fetch("/healthz");
+                const res = await fetch(`/api/health/latest?t=${Date.now()}`, {
+                    method: "GET",
+                    cache: "no-store",
+                    credentials: "include",
+                    headers: {
+                        'x-api-key': apiKey
+                    }
+                });
                 if (res.ok) {
-                    const data = await res.json();
-                    setStatus(data.status || "healthy");
+                    const data = (await res.json()) as any;
+                    // API returns { run: { status: 'healthy|degraded|unhealthy' }, results: [...] }
+                    setStatus(data.run?.status || "unknown");
                     setErrorMsg(null);
                 } else {
-                    const data = await res.json().catch(() => ({}));
-                    setStatus("down");
+                    const data = (await res.json().catch(() => ({}))) as any;
+                    setStatus("unhealthy");
                     setErrorMsg(data.error || res.statusText);
                 }
             } catch (e: any) {
-                setStatus("down");
+                setStatus("unhealthy");
                 setErrorMsg(e.message || "Network Error");
             }
         };
         fetchHealth();
         const interval = setInterval(fetchHealth, 30000); // Poll every 30s
         return () => clearInterval(interval);
-    }, []);
+    }, [apiKey]);
 
     const statusColors = {
         healthy: "bg-emerald-500",
         degraded: "bg-yellow-500",
-        down: "bg-red-500",
+        unhealthy: "bg-red-500",
         unknown: "bg-gray-500",
     };
 

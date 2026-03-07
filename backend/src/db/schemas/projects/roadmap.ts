@@ -10,7 +10,7 @@ import {
     index,
 } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
-import { repositories } from "../github/repos";
+import { repositories } from "@db/schemas/github/repos";
 
 // Projects Table
 // A Project is a high-level initiative that groups phases and tasks.

@@ -8,48 +8,65 @@ import { OpenAPIHono } from '@hono/zod-openapi'
 import type { MiddlewareHandler } from 'hono'
 import { swaggerUI } from '@hono/swagger-ui'
 import { getAgentByName } from 'agents'
+import { generateUuid } from '@/utils/common'
 // 'app' is the Hono app that handles all our API routes
 import { app, Bindings } from "@utils/hono";
 import { logSecretStatus } from "@utils/debug-secrets";
+import { getWorkerApiKey, getGithubToken } from "@utils/secrets";
 import { GitHubWorkerRPC } from "@/routes/rpc";
 import { convertOpenAPIToYAML, buildCompleteOpenAPIDocument } from "@utils/openapi";
 import { MCP_TOOLS, getToolStats, getTool, MCPExecuteRequest, TOOL_ROUTES, serializeTools } from "@/ai/mcp/tools";
 import { getDb, schema } from "@db";
-import { eq, and, desc } from 'drizzle-orm'
+import { eq, and, desc, isNull } from 'drizzle-orm'
 
-// Import routes
-import octokitApi from "@/services/octokit";
-import toolsApi from "@/ai/mcp/tools/github/index";
-import agentsApi from "@/routes/api/agents";
-import retrofitApi from "@/retrofit";
-import flowsApi from "@/flows";
-import { webhookHandler } from "@/routes/webhooks";
-import { starsHandler } from "@/routes/stars";
-import { healthHandler } from "@/routes/health";
-import opsApi from "@/routes/api/ops";
-import tasksApi from "@/routes/api/tasks";
-import statsApi from "@/routes/api/stats";
-import timelineApi from "@/routes/api/timeline";
-import landingGeneratorApi from "@/routes/api/landing-generator";
+// --- Lazy loaded types for heavy routes ---
+import type octokitApi from "@/services/octokit";
+import type toolsApi from "@/ai/mcp/tools/github/index";
+import type agentsApi from "@/routes/api/agents";
+import type retrofitApi from "@/retrofit";
+import type flowsApi from "@/routes/api/webhooks/handlers/flows";
+import type landingGeneratorApi from "@/routes/api/agents/landing-generator";
+import type research from "@/routes/api/frontend/research/research";
+
+// --- Eagerly loaded lean routes ---
 import webhooksApi from "@/routes/api/webhooks";
+import starsApi from "@/routes/api/frontend/projects/stars";
+import opsApi from "@/routes/api/ops/ops";
+import tasksApi from "@/routes/api/frontend/planner/tasks";
+import statsApi from "@/routes/api/frontend/stats";
+import timelineApi from "@/routes/api/frontend/planner/timeline";
 import healthApi from "@/routes/api/health";
-import chatApi from "@/routes/api/chat";
-import workflowsApi from "@/routes/api/workflows";
-import settingsApi from "@/routes/api/settings";
-import research from "./routes/api/research";
+import chatApi from "@/routes/api/frontend/ai/chat";
+import workflowsApi from "@/routes/api/ops/workflows";
+import settingsApi from "@/routes/api/frontend/settings";
 import browserRender from "@services/browser_render";
-import authApi from "@/routes/auth";
+import authApi from "@/routes/api/auth";
 import julesApi from "@/routes/api/jules";
-import dailyTrendsApi from "@/routes/daily-trends";
-import ghActionsApi from "@/routes/api/gh-actions";
-import standardsApi from "@/routes/api/standards";
-import invokeApi from "@/routes/api/jules/invoke";
-import trendingReposApi from "@/routes/api/trending-repos";
-import { sendEmail } from "@utils/email";
+import dailyTrendsApi from "@/routes/api/frontend/research/daily-trends";
+import ghActionsApi from "@/routes/api/services/github/gh-actions";
+import standardsApi from "@/routes/api/ops/standards";
 
+import trendingReposApi from "@/routes/api/services/github/trending-repos";
 
+import { sendRepoDiscoveryEmail } from "@/utils/email/send/repo-discovery";
+import appstoreApi from "@/routes/api/frontend/projects/appstore";
+import { cors } from 'hono/cors'
 
 // --- 1. Middleware ---
+
+// CORS
+// CORS
+app.use('*', async (c, next) => {
+  const corsMiddleware = cors({
+    origin: ['http://localhost:5173', 'http://localhost:3000', c.env.BASE_URL || ''],
+    allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+    allowHeaders: ['Content-Type', 'Authorization', 'X-API-Key', 'x-api-key'],
+    exposeHeaders: ['Content-Length', 'X-Kuma-Revision'],
+    maxAge: 600,
+    credentials: true,
+  });
+  return corsMiddleware(c as any, next);
+});
 
 // Logging middleware
 app.use('*', async (c, next) => {
@@ -123,8 +140,8 @@ const requireApiKey: MiddlewareHandler<{ Bindings: Env }> = async (c, next) => {
 
   // Diagnostic: Check all secrets from Secrets Store
   try {
-    const workerApiKey = await c.env.WORKER_API_KEY.get()
-    const githubToken = await c.env.GITHUB_TOKEN.get()
+    const workerApiKey = await getWorkerApiKey(c.env)
+    const githubToken = await getGithubToken(c.env)
     const aiGatewayToken = await c.env.AI_GATEWAY_TOKEN.get()
     
     console.log('[Secrets Diagnostic]', {
@@ -136,7 +153,7 @@ const requireApiKey: MiddlewareHandler<{ Bindings: Env }> = async (c, next) => {
     console.error('[Secrets Diagnostic Error]', err)
   }
 
-  const expectedApiKey = await c.env.WORKER_API_KEY.get()
+  const expectedApiKey = await getWorkerApiKey(c.env)
 
   if (!expectedApiKey) {
     console.error('WORKER_API_KEY is not configured')
@@ -167,9 +184,9 @@ const requireApiKey: MiddlewareHandler<{ Bindings: Env }> = async (c, next) => {
     }
   }
 
-  // 4. Check Query Param (key) - useful for quick debugging or specific WS cases if cookies fail
+  // 4. Check Query Param (key or token) - useful for quick debugging or specific WS cases if cookies fail
   if (!providedApiKey) {
-    providedApiKey = c.req.query('key');
+    providedApiKey = c.req.query('key') || c.req.query('token');
   }
 
   if (providedApiKey !== expectedApiKey) {
@@ -188,49 +205,61 @@ app.use('/upsert/*', requireApiKey)
 
 // --- 2. Route Definitions (on main 'app') ---
 
-// Health check endpoint (NOT documented in OpenAPI)
-app.get('/healthz', healthHandler)
-
-// Webhook endpoint (NOT documented in OpenAPI)
-app.post('/webhooks', webhookHandler)
-
-// Stars Sync endpoint
-app.post('/upsert/stars', starsHandler)
-
 // Daily Research endpoint
-import { dailyResearchHandler } from "@/routes/daily-research";
-app.post('/upsert/daily-research', dailyResearchHandler)
+import dailyResearchApi from "@/routes/api/frontend/research/daily-research";
+app.route('/upsert/daily-research', dailyResearchApi)
 
 // Config endpoint - exposes public configuration to the frontend
-app.get('/api/config', (c) => {
-  return c.json({
-    owner: (c.env as any).GITHUB_OWNER || '',
-    features: { automations: true, liveEvents: true },
-  })
-})
+// Config endpoint - exposes public configuration to the frontend
+// app.get('/api/config') replaced by sharedApi.route('/config', configApi)
+
+// AMP Email Chat endpoint (unauthenticated for email clients)
+import ampChatApi from "@/routes/api/public/amp-chat";
+app.route('/public/amp-chat', ampChatApi);
 
 // Route for /api/webhooks
 app.route('/api/webhooks', webhooksApi);
 app.route('/api/health', healthApi);
+app.route('/upsert/stars', starsApi);
 
 
 // --- 3. API Spec Generation Apps ---
 
 // App 1: Full Spec (for /openapi.json)
-const fullSpecApp = new OpenAPIHono<{ Bindings: Env }>()
-fullSpecApp.route('/octokit', octokitApi)
-fullSpecApp.route('/tools', toolsApi)
-fullSpecApp.route('/agents', agentsApi)
-fullSpecApp.route('/retrofit', retrofitApi)
-fullSpecApp.route('/flows', flowsApi)
-fullSpecApp.route('/landing-generator', landingGeneratorApi)
+const generateFullSpecApp = async () => {
+  const [octokitMod, toolsMod, agentsMod, retrofitMod, flowsMod, landingMod] = await Promise.all([
+    import("@/services/octokit"),
+    import("@/ai/mcp/tools/github/index"),
+    import("@/routes/api/agents"),
+    import("@/retrofit"),
+    import("@/routes/api/webhooks/handlers/flows"),
+    import("@/routes/api/agents/landing-generator")
+  ]);
+
+  const fullSpecApp = new OpenAPIHono<{ Bindings: Env }>()
+  fullSpecApp.route('/octokit', octokitMod.default)
+  fullSpecApp.route('/tools', toolsMod.default)
+  fullSpecApp.route('/agents', agentsMod.default)
+  fullSpecApp.route('/retrofit', retrofitMod.default)
+  fullSpecApp.route('/flows', flowsMod.default)
+  fullSpecApp.route('/landing-generator', landingMod.default)
+  return fullSpecApp;
+}
 
 // App 2: GPT-Specific Spec (for /gpt/openapi.json)
-const gptSpecApp = new OpenAPIHono<{ Bindings: Env }>()
-gptSpecApp.route('/octokit', octokitApi) // 3 methods
-gptSpecApp.route('/agents', agentsApi)   // 2 methods
-gptSpecApp.route('/flows', flowsApi)     // 2 methods
-// Total = 7 methods
+const generateGptSpecApp = async () => {
+  const [octokitMod, agentsMod, flowsMod] = await Promise.all([
+    import("@/services/octokit"),
+    import("@/routes/api/agents"),
+    import("@/routes/api/webhooks/handlers/flows"),
+  ]);
+
+  const gptSpecApp = new OpenAPIHono<{ Bindings: Env }>()
+  gptSpecApp.route('/octokit', octokitMod.default) // 3 methods
+  gptSpecApp.route('/agents', agentsMod.default)   // 2 methods
+  gptSpecApp.route('/flows', flowsMod.default)     // 2 methods
+  return gptSpecApp;
+}
 
 
 /**
@@ -261,6 +290,7 @@ const getEnhancedApiSpec = async (
 // /openapi.json [Full API Schema, 3.1.0, JSON]
 app.get('/openapi.json', async (c) => {
   try {
+    const fullSpecApp = await generateFullSpecApp();
     const enhanced = await getEnhancedApiSpec(c, fullSpecApp, // Use fullSpecApp
       'GitHub API Worker (Full Spec)',
       'Full API Spec (3.1.0) with all 11 operations.'
@@ -277,6 +307,7 @@ app.get('/openapi.json', async (c) => {
 // /openapi.yaml [Full API Schema, 3.1.0, YAML]
 app.get('/openapi.yaml', async (c) => {
   try {
+    const fullSpecApp = await generateFullSpecApp();
     const enhanced = await getEnhancedApiSpec(c, fullSpecApp, // Use fullSpecApp
       'GitHub API Worker (Full Spec)',
       'Full API Spec (3.1.0) with all 11 operations.'
@@ -297,6 +328,7 @@ app.get('/openapi.yaml', async (c) => {
 // /gpt/openapi.json [Limited Schema for GPTs, 3.1.0, JSON]
 app.get('/gpt/openapi.json', async (c) => {
   try {
+    const gptSpecApp = await generateGptSpecApp();
     const enhanced = await getEnhancedApiSpec(c, gptSpecApp, // <-- Use gptSpecApp
       'GitHub Worker - GPT Custom Action',
       'A focused set of 7 high-level tools for OpenAI GPTs.'
@@ -313,6 +345,7 @@ app.get('/gpt/openapi.json', async (c) => {
 // /gpt/openapi.yaml [Limited Schema for GPTs, 3.1.0, YAML]
 app.get('/gpt/openapi.yaml', async (c) => {
   try {
+    const gptSpecApp = await generateGptSpecApp();
     const enhanced = await getEnhancedApiSpec(c, gptSpecApp, // <-- Use gptSpecApp
       'GitHub Worker - GPT Custom Action',
       'A focused set of 7 high-level tools for OpenAI GPTs.'
@@ -368,7 +401,7 @@ app.get('/mcp-tools', async (c) => {
   const stats = getToolStats()
   return c.json({
     success: true,
-    tools: serializeTools(), // Serialize Zod schemas to JSON Schema
+    tools: await serializeTools(), // Serialize Zod schemas to JSON Schema
     stats,
     metadata: {
       version: '1.0.0',
@@ -493,42 +526,81 @@ app.get('/ws', async (c) => {
   return orchestratorStub.fetch(c.req.raw)
 })
 
-import todosApi from "@/routes/api/todos";
-import projectsApi from "@/routes/api/projects";
+import todosApi from "@/routes/api/frontend/planner/todos";
+import projectsApi from "@/routes/api/frontend/projects";
+import prOverviewApi from "@/routes/api/services/github/pr-overview";
 
 // Optional: Add swagger UI (points to the new 3.1.0 JSON spec)
 app.get('/doc', swaggerUI({ url: '/openapi.json' }))
 
 // --- 5. API Runtime Routes (on main 'app') ---
 
+// Helper for wildcard lazy routing
+const mountedRouters = new Map<string, OpenAPIHono<any>>();
+
+function lazyRoute(basePaths: string[], routePath: string, importFn: () => Promise<any>) {
+  return async (c: any, next: any) => {
+    let routerApp = mountedRouters.get(routePath);
+    if (!routerApp) {
+      const module = await importFn();
+      routerApp = new OpenAPIHono<{ Bindings: Env }>();
+      // Mount under all base paths so it matches incoming Request URLs properly
+      for (const base of basePaths) {
+         routerApp.route(`${base}${routePath}`, module.default || module);
+      }
+      mountedRouters.set(routePath, routerApp);
+    }
+    const res = await routerApp.fetch(c.req.raw, c.env, c.executionCtx);
+    // If not found in this subrouter, continue to next middleware/routes
+    if (res.status === 404) return next();
+    return res;
+  };
+}
+
 // Create ONE shared router instance for all business logic
 const sharedApi = new OpenAPIHono<{ Bindings: Env }>()
-sharedApi.route('/octokit', octokitApi)
-sharedApi.route('/tools', toolsApi)
-sharedApi.route('/agents', agentsApi)
-sharedApi.route('/retrofit', retrofitApi)
-sharedApi.route('/flows', flowsApi)
+
+// Lazy load heavy route handlers via wildcards to save boot time
+const bases = ['/api', '/mcp', '/a2a'];
+sharedApi.use('/octokit/*', lazyRoute(bases, '/octokit', () => import("@/services/octokit")));
+sharedApi.use('/octokit', lazyRoute(bases, '/octokit', () => import("@/services/octokit")));
+
+sharedApi.use('/tools/*', lazyRoute(bases, '/tools', () => import("@/ai/mcp/tools/github/index")));
+sharedApi.use('/tools', lazyRoute(bases, '/tools', () => import("@/ai/mcp/tools/github/index")));
+
+sharedApi.use('/agents/*', lazyRoute(bases, '/agents', () => import("@/routes/api/agents")));
+sharedApi.use('/agents', lazyRoute(bases, '/agents', () => import("@/routes/api/agents")));
+
+sharedApi.use('/retrofit/*', lazyRoute(bases, '/retrofit', () => import("@/retrofit")));
+sharedApi.use('/retrofit', lazyRoute(bases, '/retrofit', () => import("@/retrofit")));
+
+sharedApi.use('/flows/*', lazyRoute(bases, '/flows', () => import("@/routes/api/webhooks/handlers/flows")));
+sharedApi.use('/flows', lazyRoute(bases, '/flows', () => import("@/routes/api/webhooks/handlers/flows")));
+
+sharedApi.use('/research/*', lazyRoute(bases, '/research', () => import("@/routes/api/frontend/research/research")));
+sharedApi.use('/research', lazyRoute(bases, '/research', () => import("@/routes/api/frontend/research/research")));
+
+sharedApi.use('/landing-generator/*', lazyRoute(bases, '/landing-generator', () => import("@/routes/api/agents/landing-generator")));
+sharedApi.use('/landing-generator', lazyRoute(bases, '/landing-generator', () => import("@/routes/api/agents/landing-generator")));
+
+// Eagerly load lean routes
 sharedApi.route('/ops', opsApi)
 sharedApi.route('/tasks', tasksApi)
 sharedApi.route('/todos', todosApi)
 sharedApi.route('/projects', projectsApi)
 sharedApi.route('/stats', statsApi)
 sharedApi.route('/timeline', timelineApi)
-sharedApi.route('/landing-generator', landingGeneratorApi)
 sharedApi.route('/health', healthApi)
 sharedApi.route('/chat', chatApi)
 sharedApi.route('/workflows', workflowsApi)
 sharedApi.route('/settings', settingsApi)
-sharedApi.route('/settings', settingsApi)
-sharedApi.route('/research', research)
 sharedApi.route('/jules', julesApi)
 sharedApi.route('/daily-trends', dailyTrendsApi)
 sharedApi.route('/', ghActionsApi)
 sharedApi.route('/actions/daily-trends', trendingReposApi)
 sharedApi.route('/standards', standardsApi)
-sharedApi.route('/jules/invoke', invokeApi)
-
-
+sharedApi.route('/appstore', appstoreApi)
+sharedApi.route('/', prOverviewApi)
 // Mount browser-render BEFORE sharedApi to avoid shadowing if sharedApi captures /api base
 app.route('/api/browser-render', browserRender)
 
@@ -540,14 +612,73 @@ app.route('/a2a', sharedApi)
 app.route('/api/webhooks', webhooksApi)
 app.route('/auth', authApi)
 
+// Define full AppType for frontend RPC generation using a type-only approach
+// This prevents runtime crashes from Hono trying to read `.routes` off mock objects.
+const eagerApi = new OpenAPIHono<{ Bindings: Env }>()
+  .route('/ops', opsApi)
+  .route('/tasks', tasksApi)
+  .route('/todos', todosApi)
+  .route('/projects', projectsApi)
+  .route('/stats', statsApi)
+  .route('/timeline', timelineApi)
+  .route('/health', healthApi)
+  .route('/chat', chatApi)
+  .route('/workflows', workflowsApi)
+  .route('/settings', settingsApi)
+  .route('/jules', julesApi)
+  .route('/daily-trends', dailyTrendsApi)
+  .route('/', ghActionsApi)
+  .route('/actions/daily-trends', trendingReposApi)
+  .route('/standards', standardsApi)
+  .route('/appstore', appstoreApi)
+  .route('/', prOverviewApi);
+
+export type AppType = typeof eagerApi
+  & { '/octokit': typeof octokitApi }
+  & { '/tools': typeof toolsApi }
+  & { '/agents': typeof agentsApi }
+  & { '/retrofit': typeof retrofitApi }
+  & { '/flows': typeof flowsApi }
+  & { '/research': typeof research }
+  & { '/landing-generator': typeof landingGeneratorApi };
+
+
 
 // --- 6. Helper Functions for Queue ---
 
 async function handleQueue(batch: MessageBatch<any>, env: Env): Promise<void> {
   // Check if this queue is for workflows
   if (batch.queue === 'workflows') {
-    // Process workflow events
-    // TODO: Add workflow processing logic here
+    for (const message of batch.messages) {
+      try {
+        const { workflowName, id, params } = message.body || {};
+        
+        if (!workflowName) {
+          console.error('[Queue:workflows] message body missing workflowName');
+          message.retry();
+          continue;
+        }
+
+        const workflowBinding = (env as any)[workflowName];
+        if (!workflowBinding || typeof workflowBinding.create !== 'function') {
+          console.error(`[Queue:workflows] Invalid or missing workflow binding: ${workflowName}`);
+          message.retry();
+          continue;
+        }
+
+        const instanceContext = {
+          id: id || crypto.randomUUID(),
+          params: params || {}
+        };
+
+        const instance = await workflowBinding.create(instanceContext);
+        console.log(`[Queue:workflows] Started workflow ${workflowName} with ID: ${instance.id}`);
+        message.ack();
+      } catch (error) {
+        console.error('[Queue:workflows] Error processing workflow event:', error);
+        message.retry();
+      }
+    }
   }
 }
 
@@ -578,6 +709,13 @@ export { ReportingAgent } from "./ai/agents/Reporting";
 // Existing Exports
 export { ResearchAgent } from "@/ai/agents/Research";
 export { JulesOverseer } from "@/ai/agents/JulesOverseer";
+export { CloudflareDocsAgent } from "@/ai/agents/CloudflareDocs";
+export { DeepResearchChatAgent } from "@/ai/agents/DeepResearchChat";
+export { HealthDiagnostician } from "@/ai/agents/HealthDiagnostician";
+export { LandingPageAgent } from "@/ai/agents/LandingPageAgent";
+export { CfWorkshop_AgentsSdk } from "@/ai/agents/workshop/CfAgentsSdk";
+export { WorkshopAgent } from "@/ai/agents/workshop/WorkshopAgent";
+export { JulesWebhookBroadcaster } from "@/do/JulesWebhookBroadcaster";
 
 
 // Sandbox SDK — the Sandbox Durable Object class is provided by the SDK
@@ -645,24 +783,21 @@ async function handleScheduled(event: ScheduledController, env: Env, ctx: Execut
                 const output = status.output as any;
                 const candidates = output.candidates || [];
                 
-                if (candidates.length > 0 && env.SEB) {
-                   const htmlContent = `
-                      <h2 style="color: #111827; margin-top: 0;">Daily Trends Report</h2>
-                      <p style="color: #4b5563;">Found <strong>${candidates.length}</strong> trending items today.</p>
-                      <ul style="padding-left: 20px;">
-                          ${candidates.map((c: any) => `
-                              <li style="margin-bottom: 15px;">
-                                  <a href="${c.url}" style="color: #2563eb; text-decoration: none; font-weight: 600;">${c.title || c.url}</a><br/>
-                                  <span style="color: #6b7280; font-size: 14px;">${c.judgement.reasoning}</span>
-                              </li>
-                          `).join('')}
-                      </ul>
-                   `;
-                   
-                   await sendEmail(env, {
-                      to: "colby@internal.system", // Configure real recipient
+                if (candidates.length > 0 && env.SEND_EMAIL) {
+                   await sendRepoDiscoveryEmail(env, {
                       subject: `Daily Trends - ${brief.title}`,
-                      contentHtml: htmlContent,
+                      title: `Daily Trends - ${brief.title}`,
+                      dailyTrendsData: {
+                        date: new Date().toLocaleDateString(),
+                        trend_summary: `Found ${candidates.length} trending items today.`,
+                        top_picks: candidates.map((c: any) => ({
+                          name: c.title || c.url,
+                          url: c.url,
+                          category: 'Trend',
+                          why_its_interesting: c.judgement?.reasoning || 'No reasoning provided',
+                          innovation_score: c.judgement?.score || 0
+                        }))
+                      },
                       plainTextFallback: `Found ${candidates.length} trending items.`
                    });
                 }
@@ -734,6 +869,57 @@ async function handleScheduled(event: ScheduledController, env: Env, ctx: Execut
     const healthService = new HealthCoordinator(env);
     ctx.waitUntil(healthService.runAllChecks('scheduled'));
   }
+
+  // App Store AI Summary Backfill (Every 6 hours)
+  if (event.cron === '0 */6 * * *') {
+    console.log('[Scheduled] Starting app store AI summary backfill...');
+    ctx.waitUntil(
+      (async () => {
+        try {
+          const { analyzeApplicationWithWorkerAI } = await import('@/services/appstore-worker-ai');
+          const { persistAiResult } = await import('@/routes/api/frontend/projects/appstore');
+          const db = getDb(env.DB);
+
+          // Find apps without summaries
+          const unsummarized = await db.select()
+            .from(schema.applications)
+            .where(isNull(schema.applications.summary))
+            .limit(5);
+
+          if (unsummarized.length === 0) {
+            console.log('[Scheduled:AppStore] All apps have summaries. Nothing to do.');
+            return;
+          }
+
+          console.log(`[Scheduled:AppStore] Found ${unsummarized.length} unsummarized apps`);
+
+          // Load existing tags
+          const allTags = await db.select().from(schema.tags);
+          const currentTagsByName = new Map(allTags.map(t => [t.name.toLowerCase(), t]));
+          const tagsForAi = allTags.map(t => ({ name: t.name, description: t.description }));
+
+          for (const app of unsummarized) {
+            try {
+              console.log(`[Scheduled:AppStore] Analyzing ${app.name}...`);
+              const aiResult = await analyzeApplicationWithWorkerAI(
+                env,
+                app.name,
+                app.type,
+                app.description,
+                tagsForAi
+              );
+              await persistAiResult(env, app.id, aiResult, currentTagsByName);
+              console.log(`[Scheduled:AppStore] ✅ Summary saved for ${app.name}`);
+            } catch (err) {
+              console.error(`[Scheduled:AppStore] ❌ Failed for ${app.name}:`, err);
+            }
+          }
+        } catch (error) {
+          console.error('[Scheduled:AppStore] Backfill failed:', error);
+        }
+      })()
+    );
+  }
   
   // Daily Discovery: Research trending repositories
   ctx.waitUntil((async () => {
@@ -782,36 +968,23 @@ async function handleScheduled(event: ScheduledController, env: Env, ctx: Execut
       const successfulWorkflows = results.filter(r => r.status === 'triggered');
       const failedWorkflows = results.filter(r => r.status === 'failed');
       
-      const htmlContent = `
-        <h2 style="color: #111827; margin-top: 0; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">Daily GitHub Research Digest</h2>
-        
-        <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 25px 0;">
-          <h3 style="margin-top: 0; color: #111827;">Summary</h3>
-          <p style="margin: 5px 0;"><strong>Total Analyzed:</strong> ${trendingRepos.length}</p>
-          <p style="margin: 5px 0; color: #059669;"><strong>Successful Workflows:</strong> ${successfulWorkflows.length}</p>
-          <p style="margin: 5px 0; color: #dc2626;"><strong>Failed Workflows:</strong> ${failedWorkflows.length}</p>
-        </div>
-        
-        <h3 style="color: #111827;">Trending Repositories</h3>
-        <ul style="list-style: none; padding: 0;">
-          ${results.map(r => `
-            <li style="padding: 15px; margin: 10px 0; background: #ffffff; border: 1px solid #e5e7eb; border-left: 4px solid ${r.status === 'failed' ? '#ef4444' : '#10b981'}; border-radius: 6px;">
-              <strong style="color: #111827; font-size: 16px;">${r.repo}</strong><br>
-              <span style="font-size: 14px; color: #4b5563; display: inline-block; margin-top: 5px;">
-                ${r.status === 'triggered' ? `✅ Workflow ID: ${r.workflowId}` : `❌ Error: ${r.error}`}
-              </span>
-            </li>
-          `).join('')}
-        </ul>
-      `;
-
       // Send email
-      if (env.SEB) {
+      if (env.SEND_EMAIL_NEWSLETTER) {
         try {
-          await sendEmail(env, {
-            to: 'team@example.com',
+          await sendRepoDiscoveryEmail(env, {
             subject: `Daily Research Digest - ${today.toLocaleDateString()}`,
-            contentHtml: htmlContent,
+            title: `Daily Research Digest - ${today.toLocaleDateString()}`,
+            dailyTrendsData: {
+              date: today.toLocaleDateString(),
+              trend_summary: `Total Analyzed: ${trendingRepos.length} | Successful Workflows: ${successfulWorkflows.length} | Failed Workflows: ${failedWorkflows.length}`,
+              top_picks: results.map(r => ({
+                name: r.repo,
+                url: `https://github.com/${r.repo}`,
+                category: r.status === 'triggered' ? '✅ Triggered' : '❌ Failed',
+                why_its_interesting: r.status === 'triggered' ? `Workflow ID: ${r.workflowId}` : `Error: ${r.error}`,
+                innovation_score: r.status === 'triggered' ? 10 : 0
+              }))
+            },
             plainTextFallback: `Summary: ${successfulWorkflows.length} successful, ${failedWorkflows.length} failed.`
           });
         } catch (error: any) {
@@ -832,7 +1005,11 @@ export default {
    */
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     // Debug secrets on every request (non-blocking)
-    ctx.waitUntil(logSecretStatus(env));
+    // Debug secrets on every request (non-blocking) - REMOVED to prevent log spam
+    // ctx.waitUntil(logSecretStatus(env));
+    
+    // Prepare global context with requestId
+    const requestId = request.headers.get('x-request-id') || generateUuid()
     
     const url = new URL(request.url);
     const hasFileExtension = /\.[a-zA-Z0-9]+$/.test(url.pathname);
@@ -916,4 +1093,4 @@ export default {
 } satisfies ExportedHandler<Env>;
 
 // Export all Durable Objects and Workflows
-export * from './exports';
+export { ResearchOrchestrator } from '@/ai/agents/ResearchOrchestrator';

@@ -6,23 +6,18 @@
  */
 
 import { getAgentByName, routeAgentRequest, callable } from "agents";
-import { BaseAgent, BaseAgentState } from "@agent-sdk";
+import { BaseAgent, BaseAgentState, Tool } from "@/ai/agents/base/BaseAgent";
 import { Logger } from "@logging";
-import {
-  Agent as OpenAIAgent,
-  type AgentOutputType,
-  type Tool,
-} from "@openai/agents";
-import { desc } from "drizzle-orm";
+import { generateUuid } from "@/utils/common";
+import { desc, notInArray } from "drizzle-orm";
 
 import {
   DEFAULT_WORKERS_AI_MODEL,
   resolveDefaultAiModel,
-  createGatewayClient,
   type SupportedProvider,
-} from "../../agent-sdk";
+} from "@/ai/providers/config";
 import { verifySignature } from "@/utils/crypto";
-import { getAgentDb, agentSchema, type AgentDb } from "@/db/schemas/agents/stateful";
+import { getAgentDb, agentSchema, migrateAgentDb, type AgentDb } from "@/db/schemas/agents/stateful";
 
 import type {
   GitHubEventType,
@@ -79,12 +74,12 @@ type GenerateTextInput = RepoAgentAiOptions & {
 
 type GenerateStructuredResponseInput = RepoAgentAiOptions & {
   prompt: string;
-  outputType: AgentOutputType;
+  outputType: any;
 };
 
 type GenerateWithToolsInput = RepoAgentAiOptions & {
   prompt: string;
-  tools: Tool<unknown>[];
+  tools: Tool[];
 };
 
 /**
@@ -96,7 +91,7 @@ type GenerateWithToolsInput = RepoAgentAiOptions & {
  */
 export class RepoAgent extends BaseAgent<Env, RepoState> {
   private _db: AgentDb | null = null;
-  protected logger: Logger;
+  // logger inherited from BaseAgent
 
   /**
    * @constructor
@@ -105,7 +100,12 @@ export class RepoAgent extends BaseAgent<Env, RepoState> {
    */
   constructor(state: DurableObjectState, env: Env) {
     super(state, env);
-    this.logger = new Logger(env, "RepoAgent");
+    // Initialize the Drizzle ORM client backed by the DO's embedded SQLite.
+    this._db = getAgentDb(this.ctx.storage);
+    // Apply pending schema migrations before any requests can be processed.
+    this.ctx.blockConcurrencyWhile(async () => {
+      migrateAgentDb(this.ctx.storage);
+    });
   }
 
   /**
@@ -140,27 +140,11 @@ export class RepoAgent extends BaseAgent<Env, RepoState> {
 
   /**
    * @method onStart
-   * @description Asynchronous lifecycle hook enabling one-time SQLite table creation 
-   * since Drizzle migrations are not natively exposed in the DO runtime yet.
+   * @description Lifecycle hook kept for BaseAgent compatibility.
+   * Schema migration is now handled via `blockConcurrencyWhile` in the constructor.
    */
   async onStart(): Promise<void> {
-    this.sql`
-      CREATE TABLE IF NOT EXISTS events (
-        id TEXT PRIMARY KEY,
-        type TEXT NOT NULL,
-        action TEXT,
-        title TEXT NOT NULL,
-        description TEXT,
-        url TEXT,
-        actor_login TEXT,
-        actor_avatar TEXT,
-        repo_name TEXT,
-        timestamp TEXT NOT NULL
-      )
-    `;
-    this.sql`
-      CREATE INDEX IF NOT EXISTS idx_events_timestamp ON events(timestamp DESC)
-    `;
+    // No-op: table creation is managed by the Drizzle DO migrator in the constructor.
   }
 
   /**
@@ -182,7 +166,9 @@ export class RepoAgent extends BaseAgent<Env, RepoState> {
 
     const signature = request.headers.get("X-Hub-Signature-256");
     const body = await request.text();
-    const apiKey = await this.env.WORKER_API_KEY.get();
+    const apiKey = typeof this.env.WORKER_API_KEY === 'string' 
+      ? this.env.WORKER_API_KEY 
+      : await (this.env.WORKER_API_KEY as any).get();
 
     if (apiKey) {
       const isValid = await verifySignature(
@@ -202,14 +188,14 @@ export class RepoAgent extends BaseAgent<Env, RepoState> {
   }
 
   /**
-   * @private
+   * @protected
    * @method resolveProvider
    * @description Helper string normalization formatting for Provider determination.
    * @param {string} provider - Explicit generic string requested by the execution.
    * @returns {SupportedProvider} Strongly typed Supported Provider label.
    */
-  private resolveProvider(provider: string): SupportedProvider {
-    const normalized = provider.toLowerCase().trim();
+  protected resolveProvider(provider?: string | null): SupportedProvider {
+    const normalized = (provider || "").toLowerCase().trim();
 
     if (normalized === "worker-ai" || normalized === "workers-ai") {
       return "worker-ai";
@@ -244,15 +230,13 @@ export class RepoAgent extends BaseAgent<Env, RepoState> {
        promptLength: input.prompt.length 
     });
 
-    const client = await createGatewayClient(this.env, model);
-    const agent = new OpenAIAgent({
+    return await this.runTextWithModel({
       name: input.name || "RepoAgentText",
       model,
+      provider,
       instructions: input.instructions || DEFAULT_REPO_AGENT_INSTRUCTIONS,
+      prompt: input.prompt
     });
-
-    const result = await this.runAgent(agent, input.prompt);
-    return String(result.finalOutput ?? "");
   }
 
   /**
@@ -270,18 +254,14 @@ export class RepoAgent extends BaseAgent<Env, RepoState> {
     
     this.logger.info("Generating structured response", { provider, model });
 
-    const client = await createGatewayClient(this.env, model);
-    const agent = new OpenAIAgent({
+    return await this.runStructuredResponseWithModel<T>({
       name: input.name || "RepoAgentStructured",
       model,
-      instructions:
-        input.instructions ||
-        "Return output that strictly matches the requested schema.",
-      outputType: input.outputType,
+      provider,
+      instructions: input.instructions || "Return output that strictly matches the requested schema.",
+      schema: input.outputType as any,
+      prompt: input.prompt,
     });
-
-    const result = await this.runAgent(agent as any, input.prompt);
-    return result.finalOutput as T;
   }
 
   /**
@@ -297,18 +277,14 @@ export class RepoAgent extends BaseAgent<Env, RepoState> {
     
     this.logger.info("Generating with tools", { provider, model, toolCount: input.tools.length });
 
-    const client = await createGatewayClient(this.env, model);
-    const agent = new OpenAIAgent({
+    return await this.runTextWithModel({
       name: input.name || "RepoAgentTools",
       model,
-      instructions:
-        input.instructions ||
-        "Use tools when useful and provide concise, actionable outputs.",
-      tools: input.tools,
+      provider,
+      instructions: input.instructions || "Use tools when useful and provide concise, actionable outputs.",
+      prompt: input.prompt,
+      tools: input.tools
     });
-
-    const result = await this.runAgent(agent, input.prompt);
-    return result.finalOutput;
   }
 
   /**
@@ -372,10 +348,16 @@ export class RepoAgent extends BaseAgent<Env, RepoState> {
         })
         .run();
 
-      // Enforce limits optimally with a sub-query constraint
-      this.db.run(
-        "DELETE FROM events WHERE id IN (SELECT id FROM events ORDER BY timestamp DESC LIMIT -1 OFFSET 100)"
-      );
+      // Keep only the latest 100 events — trim the oldest using typed Drizzle delete.
+      const keepIds = this.db
+        .select({ id: agentSchema.agentEvents.id })
+        .from(agentSchema.agentEvents)
+        .orderBy(desc(agentSchema.agentEvents.timestamp))
+        .limit(100);
+      this.db
+        .delete(agentSchema.agentEvents)
+        .where(notInArray(agentSchema.agentEvents.id, keepIds))
+        .run();
     }
   }
 
@@ -405,7 +387,7 @@ export class RepoAgent extends BaseAgent<Env, RepoState> {
     eventType: GitHubEventType,
     payload: GitHubWebhookPayload,
   ): StoredEvent | null {
-    const id = crypto.randomUUID();
+    const id = generateUuid();
     const timestamp = new Date().toISOString();
 
     switch (eventType) {

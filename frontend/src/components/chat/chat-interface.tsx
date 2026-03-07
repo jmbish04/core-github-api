@@ -7,12 +7,15 @@ import { formatDistanceToNow } from 'date-fns';
 
 interface ChatInterfaceProps {
     apiKey?: string;
+    agentId?: string;
+    repoId?: string;
 }
 
 interface Thread {
     id: string;
     subject: string | null;
     timestampStarted: string;
+    agentId?: string; // Add agentId to Thread interface
 }
 
 interface ChatMessage {
@@ -23,7 +26,7 @@ interface ChatMessage {
     timestamp: string;
 }
 
-export const ChatInterface: React.FC<ChatInterfaceProps> = ({ apiKey }) => {
+export const ChatInterface: React.FC<ChatInterfaceProps> = ({ apiKey, agentId, repoId }) => {
     const [threads, setThreads] = useState<Thread[]>([]);
     const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -33,7 +36,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ apiKey }) => {
     // Fetch Threads
     useEffect(() => {
         fetchThreads();
-    }, []);
+    }, [apiKey]); // Add apiKey dependency
 
     const fetchThreads = async () => {
         setIsThreadsLoading(true);
@@ -42,11 +45,18 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ apiKey }) => {
                 headers: { 'x-api-key': apiKey || '' }
             });
             if (res.ok) {
-                const data = await res.json();
-                setThreads(data);
+                const data = (await res.json()) as any;
+                // Optional: Filter threads by agentId if one is provided?
+                // For now, let's show all, or filter if agentId is passed.
+                // If agentId is "cloudflare-docs", maybe we only show those?
+                const filtered = agentId 
+                    ? data.filter((t: any) => t.agentId === agentId)
+                    : data;
+                
+                setThreads(filtered);
                 // Auto-select most recent if none selected
-                if (!activeThreadId && data.length > 0) {
-                    setActiveThreadId(data[0].id);
+                if (!activeThreadId && filtered.length > 0) {
+                    setActiveThreadId(filtered[0].id);
                 }
             }
         } catch (e) {
@@ -55,6 +65,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ apiKey }) => {
             setIsThreadsLoading(false);
         }
     };
+
+    // ... existing message fetching ...
 
     // Fetch Messages when active thread changes
     useEffect(() => {
@@ -70,7 +82,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ apiKey }) => {
                     headers: { 'x-api-key': apiKey || '' }
                 });
                 if (res.ok) {
-                    const data = await res.json();
+                    const data = (await res.json()) as any;
                     setMessages(data);
                 }
             } catch (e) {
@@ -91,10 +103,14 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ apiKey }) => {
                     'Content-Type': 'application/json',
                     'x-api-key': apiKey || ''
                 },
-                body: JSON.stringify({ subject: 'New Discussion' })
+                body: JSON.stringify({ 
+                    subject: 'New Discussion',
+                    agentId, // Pass agentId
+                    repoId   // Pass repoId
+                })
             });
             if (res.ok) {
-                const newThread = await res.json();
+                const newThread = (await res.json()) as any;
                 setThreads(prev => [newThread, ...prev]);
                 setActiveThreadId(newThread.id);
             }
@@ -128,7 +144,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ apiKey }) => {
             });
 
             if (res.ok) {
-                const newMessages = await res.json();
+                const newMessages = (await res.json()) as any;
                 // Replace optimistic or append. DB returns [userMsg, agentMsg].
                 // We'll just append the agent message since we showed user one.
                 const agentMsg = newMessages.find((m: any) => m.role === 'agent');
@@ -169,7 +185,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ apiKey }) => {
                         >
                             <MessageSquare className="w-4 h-4 mt-0.5 shrink-0 opactiy-70" />
                             <div className="overflow-hidden">
-                                <div className="truncate">{thread.subject || "Untitled Discussion"}</div>
+                                <div className="break-words leading-snug">{thread.subject || "Untitled Discussion"}</div>
                                 <div className="text-[10px] opacity-70 mt-1">
                                     {formatDistanceToNow(new Date(thread.timestampStarted), { addSuffix: true })}
                                 </div>

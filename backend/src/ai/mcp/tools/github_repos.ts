@@ -210,7 +210,7 @@ export const githubTools: GitHubToolRegistry = {
 
   /**
    * Attach official GitHub MCP server
-   * Note: This requires GITHUB_MCP_PAT secret to be configured
+   * Note: This requires GITHUB_MCP_PAT secret to be configured or standard GITHUB_TOKEN.
    */
   async attachMCP(env: Env, callbackHost: string): Promise<RunnableTool[]> {
     // Check if MCP is configured
@@ -224,11 +224,48 @@ export const githubTools: GitHubToolRegistry = {
       return [];
     }
 
-    // TODO: Implement official GitHub MCP integration
-    // This would use createToolsFromMCP when the agents SDK supports it
-    // For now, return empty array as we're using internal tools
-    console.log("[GitHubTools] MCP integration placeholder - using internal tools");
-    return [];
+    try {
+      // Import the official SDK clients dynamically to avoid cold start overhead if untouched
+      const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
+      const { SSEClientTransport } = await import("@modelcontextprotocol/sdk/client/sse.js");
+
+      // Connect to the official MCP server. If env URL is not provided, use default local or worker hosted URL.
+      const targetUrl = env.MCP_API_URL || "https://docs.mcp.cloudflare.com/mcp";
+      const transport = new SSEClientTransport(new URL(targetUrl), {
+        requestInit: {
+          headers: {
+            Authorization: `Bearer ${mcpPat}`,
+          }
+        }
+      });
+      
+      const client = new Client({ name: "core-github-api-client", version: "1.0.0" }, { capabilities: {} });
+      await client.connect(transport);
+
+      const mcpToolsList = await client.listTools();
+
+      // Implement the 19.2 Tool Conversion Pattern mapping MCP Tool shape to RunnableTool
+      const mappedTools: RunnableTool[] = mcpToolsList.tools.map((tool) => ({
+        name: tool.name,
+        description: tool.description || "No description available",
+        parameters: tool.inputSchema as any,
+        execute: async (params: any) => {
+          // Implement the 19.3 Execution Loop proxy
+          const args = typeof params === "string" ? JSON.parse(params) : params;
+          const result = await client.callTool({
+            name: tool.name,
+            arguments: args
+          });
+          return JSON.stringify(result);
+        }
+      }));
+
+      console.log(`[GitHubTools] Successfully attached MCP Server with ${mappedTools.length} tools`);
+      return mappedTools;
+    } catch (error) {
+      console.error("[GitHubTools] MCP integration failed, falling back to internal tools:", error);
+      return [];
+    }
   },
 };
 

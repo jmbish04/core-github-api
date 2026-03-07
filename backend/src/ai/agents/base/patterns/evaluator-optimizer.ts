@@ -1,5 +1,15 @@
-import { Agent, run, type AgentInputItem, withTrace } from "@openai/agents";
-import { Agent as CFAgent, callable } from "agents";
+import type { AgentInputItem } from "@openai/agents";
+/**
+ * AI Pattern: Evaluator-Optimizer
+ *
+ * Implements an iterative refinement loop where one LLM step
+ * generates a response and a second step evaluates it for
+ * quality and correctness, providing feedback for the next iteration.
+ *
+ * @module AI/Agents/Base/Patterns/EvaluatorOptimizer
+ */
+import { BaseAgent } from "@/ai/agents/base/BaseAgent";
+import { callable } from "agents";
 import { z } from "zod";
 
 // --- Schemas & Types ---
@@ -7,6 +17,15 @@ const EvaluationSchema = z.object({
   feedback: z.string(),
   score: z.enum(["pass", "fail"])
 });
+
+/**
+ * Input for the Evaluator-Optimizer loop.
+ */
+export interface EvaluatorOptimizerInput {
+  initialPrompt: string;
+  maxIterations?: number;
+  successThreshold?: number;
+}
 
 type EvaluatorState = {
   history: {
@@ -20,27 +39,32 @@ type EvaluatorState = {
 };
 
 // --- Agent Class ---
-export class EvaluatorOptimizerAgent extends CFAgent<Env, EvaluatorState> {
+/**
+ * Abstract class implementation of the Evaluator-Optimizer pattern.
+ */
+export abstract class EvaluatorOptimizerAgent extends BaseAgent<Env, EvaluatorState> {
   initialState: EvaluatorState = {
     history: [],
     status: "idle"
   };
 
-  // 1. Generator Agent (The "Writer")
-  generator = new Agent({
-    name: "Generator",
-    instructions: "You are a helpful assistant. Improve your previous response based on feedback if provided."
-  });
-
-  // 2. Evaluator Agent (The "Judge")
-  evaluator = new Agent({
-    name: "Evaluator",
-    instructions: "Evaluate the content for accuracy and clarity. Provide constructive feedback.",
-    outputType: EvaluationSchema
-  });
-
   @callable()
   async execute(input: string) {
+    const { Agent, run, withTrace } = await import("@openai/agents");
+    
+    // 1. Generator Agent (The "Writer")
+    const generator = new Agent({
+      name: "Generator",
+      instructions: "You are a helpful assistant. Improve your previous response based on feedback if provided."
+    });
+
+    // 2. Evaluator Agent (The "Judge")
+    const evaluator = new Agent({
+      name: "Evaluator",
+      instructions: "Evaluate the content for accuracy and clarity. Provide constructive feedback.",
+      outputType: EvaluationSchema
+    });
+
     await withTrace("Evaluator-Optimizer Loop", async () => {
       let currentInput: AgentInputItem[] = [{ role: "user", content: input }];
       let attempts = 0;
@@ -51,14 +75,14 @@ export class EvaluatorOptimizerAgent extends CFAgent<Env, EvaluatorState> {
       while (attempts < MAX_ATTEMPTS) {
         // --- Generate ---
         console.log(`[Optimizer] Iteration ${attempts + 1}: Generating...`);
-        const genResult = await run(this.generator, currentInput);
+        const genResult = await run(generator, currentInput);
         const content = genResult.finalOutput;
 
         if (!content) throw new Error("No content generated");
 
         // --- Evaluate ---
         console.log(`[Optimizer] Iteration ${attempts + 1}: Evaluating...`);
-        const evalResult = await run(this.evaluator, [
+        const evalResult = await run(evaluator, [
           { role: "user", content: `Original Request: ${input}\nGenerated Content: ${content}` }
         ]);
         

@@ -1,5 +1,5 @@
-import { BaseAgent } from "./BaseAgent";
-import { ResearchLogger } from "../../lib/research-logger";
+import { BaseAgent } from "./base/BaseAgent";
+import { ResearchLogger } from "@research-logger";
 import { getDb } from "@db";
 import puppeteer from "@cloudflare/puppeteer";
 
@@ -10,7 +10,7 @@ type SearchResult = {
 };
 
 export class WebSearchAgent extends BaseAgent {
-  private logger?: ResearchLogger;
+  private researchLogger?: ResearchLogger;
   private doState: DurableObjectState;
 
   constructor(state: DurableObjectState, env: Env) {
@@ -20,9 +20,9 @@ export class WebSearchAgent extends BaseAgent {
 
   async search(briefId: string, query: string): Promise<SearchResult[]> {
     const db = getDb(this.env.DB);
-    this.logger = new ResearchLogger(db, briefId, null, "WebSearchAgent", this.doState);
+    this.researchLogger = new ResearchLogger(db, briefId, null, "WebSearchAgent", this.doState);
     
-    await this.logger.logToolInput("GoogleSearch", { query });
+    await this.researchLogger.logToolInput("GoogleSearch", { query });
 
     let browser;
     try {
@@ -30,7 +30,7 @@ export class WebSearchAgent extends BaseAgent {
       browser = await puppeteer.launch(this.env.BROWSER);
       const page = await browser.newPage();
       
-      await this.logger.logInfo("Puppeteer", "Navigating to Google...");
+      await this.researchLogger?.logInfo("Puppeteer", "Navigating to Google...");
       
       // Perform search
       const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
@@ -57,12 +57,12 @@ export class WebSearchAgent extends BaseAgent {
         return items.slice(0, 10); // Limit to top 10
       });
 
-      await this.logger.logToolOutput("GoogleSearch", { count: results.length, topResults: results.slice(0,3) });
+      await this.researchLogger?.logToolOutput("GoogleSearch", { count: results.length, topResults: results.slice(0,3) });
       
       return results;
 
     } catch (error) {
-      await this.logger.logError("GoogleSearch", error);
+      await this.researchLogger?.logError("GoogleSearch", error);
       throw error;
     } finally {
       if (browser) {

@@ -5,13 +5,14 @@
  */
 
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
-import { getOctokit } from '../../../../services/octokit/core'
+import { getOctokit } from '@services/octokit/core'
+import { DEFAULT_TEMPLATE_REPO, DEFAULT_GITHUB_OWNER } from "@github-utils";
 
 
 // --- 1. Zod Schema Definitions ---
 
 const CreateIssueRequestSchema = z.object({
-  owner: z.string().default('jmbish04').openapi({ example: 'octocat' }),
+  owner: z.string().default(DEFAULT_GITHUB_OWNER).openapi({ example: 'octocat' }),
   repo: z.string().openapi({ example: 'Hello-World' }),
   title: z.string().openapi({ example: 'Bug: Something is broken' }),
   body: z.string().optional().openapi({ example: 'Here are the steps to reproduce...' }),

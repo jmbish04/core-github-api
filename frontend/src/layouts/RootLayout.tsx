@@ -2,29 +2,46 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { HealthWidget } from "@/components/health/HealthWidget";
+import { UserNav } from "@/components/layout/UserNav";
+import { AlertBadge } from "@/components/alerts/AlertBadge";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Menu } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export default function RootLayout() {
     const topNavLinks = [
         { label: "Home", href: "/" },
-        { label: "Dashboard", href: "/control-center/dashboard" },
+        { label: "Dashboard", href: "/dashboard" },
         { label: "Projects", href: "/projects" },
         { label: "Research", href: "/research" },
         { label: "Health", href: "/health" },
         { label: "Workflows", href: "/workflows" },
-        { label: "Webhooks", href: "/control-center/webhooks" },
+        { label: "Webhooks", href: "/webhooks" },
+        { label: "Sitemap", href: "/sitemap" },
         { label: "Docs", href: "/docs" },
         { label: "Spark Core", href: "/spark" },
         { label: "Settings", href: "/settings" },
-        { label: "Control Center", href: "/control-center/dashboard" },
+        { label: "Control Center", href: "/dashboard" },
     ];
 
     return (
         <div className="flex h-screen bg-background text-foreground font-sans antialiased overflow-hidden">
-            <AppSidebar className="shrink-0" />
-            <main className="flex-1 flex flex-col h-full overflow-hidden relative">
-                <header className="h-14 border-b px-6 flex items-center justify-between bg-card/50 backdrop-blur-md sticky top-0 z-10 gap-4">
-                    <div className="flex items-center gap-4 min-w-0">
-                        <div className="flex items-center gap-2 text-muted-foreground shrink-0">
+            <AppSidebar className="hidden md:flex shrink-0" />
+            <main className="flex-1 flex flex-col h-full overflow-hidden relative w-full">
+                <header className="h-14 border-b px-4 md:px-6 flex items-center justify-between bg-card/50 backdrop-blur-md sticky top-0 z-10 gap-2 md:gap-4 overflow-hidden">
+                    <div className="flex items-center gap-2 md:gap-4 min-w-0">
+                        <Sheet>
+                            <SheetTrigger asChild>
+                                <Button variant="ghost" size="icon" className="md:hidden shrink-0">
+                                    <Menu className="h-5 w-5" />
+                                    <span className="sr-only">Toggle navigation menu</span>
+                                </Button>
+                            </SheetTrigger>
+                            <SheetContent side="left" className="p-0 w-64 border-r-0">
+                                <AppSidebar className="w-full h-full border-r-0" />
+                            </SheetContent>
+                        </Sheet>
+                        <div className="flex items-center gap-2 text-muted-foreground shrink-0 hidden sm:flex">
                             <svg
                                 aria-hidden="true"
                                 viewBox="0 0 24 24"
@@ -54,9 +71,13 @@ export default function RootLayout() {
                             ))}
                         </nav>
                     </div>
-                    <HealthWidget />
+                    <div className="flex items-center gap-2">
+                        <HealthWidget />
+                        <AlertBadge />
+                        <UserNav />
+                    </div>
                 </header>
-                <div className="flex-1 overflow-y-auto overflow-x-hidden p-6 relative">
+                <div className="flex-1 h-full overflow-hidden relative">
                     <Outlet />
                 </div>
             </main>

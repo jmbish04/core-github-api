@@ -6,13 +6,11 @@ import {
     sqliteTable,
     text,
     integer,
-    real,
-    primaryKey,
     index,
     check
 } from "drizzle-orm/sqlite-core";
 
-import { TaskStatus, KanbanColumn } from "../../../types/enums";
+import { TaskStatus, KanbanColumn } from "@/types/project-management/enums";
 
 // Tasks table for Kanban board
 export const tasks = sqliteTable(

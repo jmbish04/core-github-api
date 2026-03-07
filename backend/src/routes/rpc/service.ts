@@ -19,8 +19,8 @@
  * const result = await env.GITHUB_WORKER.upsertFile({ owner: '...', repo: '...', ... })
  */
 
-import { getOctokit } from '../../services/octokit/core'
-import { encode } from '../../utils/base64'
+import { getOctokit } from '@services/octokit/core'
+import { encode } from '@utils/base64'
 import { getAgentByName } from 'agents'
 import type {
   UpsertFileRequest,

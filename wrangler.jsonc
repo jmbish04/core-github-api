@@ -1,12 +1,28 @@
 {
-	"name": "core-github-api",
+	"name": "core-github-api-v2",
 	"main": "backend/src/index.ts",
 	"compatibility_date": "2026-02-10",
 	"compatibility_flags": [
 		"nodejs_compat"
 	],
+	// "minify": true,
+	"workers_dev": true,
+	"preview_urls": true,
+	
 	"observability": {
-		"enabled": true
+		"enabled": true,
+		"head_sampling_rate": 1,
+		"logs": {
+			"enabled": true,
+			"head_sampling_rate": 1,
+			"persist": true,
+			"invocation_logs": true
+		},
+		"traces": {
+			"enabled": false,
+			"persist": true,
+			"head_sampling_rate": 1
+		}
 	},
 	"vars": {
 		"LOG_LEVEL": "debug",
@@ -18,25 +34,19 @@
 		"DEFAULT_MODEL_STRUCTURED_RESPONSE": "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
 		"DEFAULT_MODEL_EMBEDDING": "@cf/baai/bge-large-en-v1.5",
 		"DEFAULT_MODEL_RERANKER": "@cf/baai/bge-reranker-base",
+		"HEALTH_SANDBOX_TIMEOUT_MS": 60000,
 		"AI_GATEWAY_NAME": "core-github-api",
 		"CLOUDFLARE_WORKER_NAME": "core-github-api",
 		"GITHUB_OWNER": "jmbish04",
+		"TEMPLATES_REPO_NAME": "core-repo-templates",
+		"STANDARDIZATION_REPO_NAME": "core-github-standardization",
+		"HEALTH_TEST_REPO_NAME": "testing-oktokit-commands",
 		"BASE_URL": "https://core-github-api.hacolby.workers.dev",
 		"MAX_AI_BUDGET": "50",
 		"USE_OPENAI_MODELS": false,
 		"MCP_API_URL": "https://docs.mcp.cloudflare.com/mcp"
 	},
 	"containers": [
-		// {
-		// 	"class_name": "DataProcessor",
-		// 	"image": "./container/Dockerfile",
-		// 	"max_instances": 1,
-		// 	"instance_type": {
-		// 		"vcpu": 1,
-		// 		"memory_mib": 3072,
-		// 		"disk_mb": 4096
-		// 	}
-		// },
 		{
 			"class_name": "Sandbox",
 			"image": "./container/Dockerfile",
@@ -104,30 +114,40 @@
 			"secret_name": "OPENAI_API_KEY"
 		},
 		{
-			"binding": "GITHUB_APP_PRIVATE_KEY_PT1",
-			"store_id": "8c42fa70938644e0a8a109744467375f",
-			"secret_name": "CORE_GITHUB_API_GITHUB_APP_PRIVATE_KEY_PT1"
-		},
-		{
-			"binding": "GITHUB_APP_PRIVATE_KEY_PT2",
-			"store_id": "8c42fa70938644e0a8a109744467375f",
-			"secret_name": "CORE_GITHUB_API_GITHUB_APP_PRIVATE_KEY_PT2"
-		},
-		{
-			"binding": "GITHUB_APP_PRIVATE_KEY_PT3",
-			"store_id": "8c42fa70938644e0a8a109744467375f",
-			"secret_name": "CORE_GITHUB_API_GITHUB_APP_PRIVATE_KEY_PT3"
-		},
-		{
 			"binding": "CLOUDFLARE_ACCOUNT_ID",
 			"store_id": "8c42fa70938644e0a8a109744467375f",
 			"secret_name": "CLOUDFLARE_ACCOUNT_ID"
 		},
 		{
+			"binding": "CLOUDFLARE_SECRETS_STORE_TOKEN",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "CLOUDFLARE_SECRETS_STORE_TOKEN"
+		},
+		{
+			"binding": "CLOUDFLARE_WORKER_ADMIN_TOKEN",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "CLOUDFLARE_WORKER_ADMIN_TOKEN"
+		},
+		{
+			"binding": "CLOUDFLARE_AI_SEARCH_TOKEN",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "CLOUDFLARE_AI_SEARCH_TOKEN"
+		},				
+		{
+			"binding": "CLOUDFLARE_OBSERVABILITY_TOKEN",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "CLOUDFLARE_OBSERVABILITY_TOKEN"
+		},		
+		{
 			"binding": "WORKER_API_KEY",
 			"store_id": "8c42fa70938644e0a8a109744467375f",
 			"secret_name": "WORKER_API_KEY"
 		},
+		{
+			"binding": "AGENTIC_WORKER_API_KEY",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "AGENTIC_WORKER_API_KEY"
+		},		
 		{
 			"binding": "AI_GATEWAY_TOKEN",
 			"store_id": "8c42fa70938644e0a8a109744467375f",
@@ -152,6 +172,11 @@
 			"binding": "ANTHROPIC_API_KEY",
 			"store_id": "8c42fa70938644e0a8a109744467375f",
 			"secret_name": "ANTHROPIC_API_KEY"
+		},
+		{
+			"binding": "DISCORD_TOKEN",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "DISCORD_TOKEN"			
 		}
 	],
 	"durable_objects": {
@@ -223,6 +248,34 @@
 			{
 				"name": "REPORTING_AGENT",
 				"class_name": "ReportingAgent"
+			},
+			{
+				"name": "LANDING_PAGE_AGENT",
+				"class_name": "LandingPageAgent"
+			},
+			{
+				"name": "CLOUDFLARE_DOCS_AGENT",
+				"class_name": "CloudflareDocsAgent"
+			},
+			{
+				"name": "DEEP_RESEARCH_CHAT_AGENT",
+				"class_name": "DeepResearchChatAgent"
+			},
+			{
+				"name": "HEALTH_DIAGNOSTICIAN",
+				"class_name": "HealthDiagnostician"
+			},
+			{
+				"name": "JULES_WEBHOOK_BROADCASTER",
+				"class_name": "JulesWebhookBroadcaster"
+			},
+			{
+				"name": "WORKSHOP_AGENT",
+				"class_name": "WorkshopAgent"
+			},
+			{
+				"name": "CF_WORKSHOP_AGENTS_SDK",
+				"class_name": "CfWorkshop_AgentsSdk"
 			}
 		]
 	},
@@ -265,6 +318,35 @@
 				// Reporting Agent for generating summaries
 				"ReportingAgent"
 			]
+		},
+		{
+			"tag": "v2",
+			"new_sqlite_classes": [
+				"LandingPageAgent"
+			]
+		},
+		{
+			"tag": "v3",
+			"new_sqlite_classes": [
+				// Agent for querying Cloudflare Documentation with GitHub context
+				"CloudflareDocsAgent"
+			]
+		},
+		{
+			"tag": "v4",
+			"new_sqlite_classes": [
+				// Autonomous agent for analyzing and remediating health check failures
+				"HealthDiagnostician",
+				"DeepResearchChatAgent"
+			]
+		},
+		{
+			"tag": "v5",
+			"new_sqlite_classes": [
+				"WorkshopAgent",
+				"CfWorkshop_AgentsSdk",
+				"JulesWebhookBroadcaster"
+			]
 		}
 	],
 	"workflows": [
@@ -278,7 +360,6 @@
 			"binding": "DEEP_RESEARCH_WORKFLOW",
 			"class_name": "DeepResearchWorkflow"
 		},
-
 		{
 			"name": "research-orchestrator",
 			"binding": "RESEARCH_ORCHESTRATOR",
@@ -306,10 +387,16 @@
 		{
 			"binding": "AGENT_CACHE",
 			"id": "9f070471888c435297b4bce51924f2df"
+		},
+		{
+			"binding": "KV_CONFIGS",
+			"id": "a2f723e74e3c4fd6a6377ab09bce9829",
+			"remote": true
 		}
 	],
 	// wrangler vectorize create core-github-api-vectors --preset @cf/baai/bge-large-en-v1.5
 	// wrangler vectorize create core-github-api-research --dimensions=1024 --metric=cosine
+	// wrangler vectorize create core-github-api-logs --preset @cf/baai/bge-large-en-v1.5
 	"vectorize": [
 		{
 			"binding": "VECTORIZE",
@@ -319,6 +406,11 @@
 		{
 			"binding": "RESEARCH_INDEX",
 			"index_name": "core-github-api-research",
+			"remote": true
+		},
+		{
+			"binding": "VECTORIZE_LOGS",
+			"index_name": "core-github-api-logs",
 			"remote": true
 		}
 	],
@@ -339,7 +431,21 @@
 	],
 	// Email sending bindings for Email Routing
 	// Targeted binding - sends only to the specified destination address
-	"send_email": [{"name": "SEB", "destination_address": "justin@126colby.com"}],
+  "send_email": [
+    {
+      "name": "SEND_EMAIL"
+    },
+    {
+      "name": "SEND_EMAIL_NEWSLETTER",
+      "destination_address": "ai@126colby.com"
+    },
+    {
+      "name": "Core Github API",
+      "allowed_destination_addresses": [
+        "ai@126colby.com"
+      ]
+    }
+  ],
 	// Scheduled triggers for automated tasks
 	// Cron format: minute hour day month day-of-week
 	"triggers": {
@@ -353,7 +459,10 @@
 			// Every 3 hours - Jules Overseer Check
 			"0 */3 * * *",
 			// Weekly Health Suite at 3:00 AM UTC on Sundays
-			"0 3 * * 7"
+			"0 3 * * 7",
+			// Every 6 hours - App Store AI Summary Backfill
+			// Processes unsummarized apps with Worker AI and saves to D1
+			"0 */6 * * *"
 		]
 	}
 }

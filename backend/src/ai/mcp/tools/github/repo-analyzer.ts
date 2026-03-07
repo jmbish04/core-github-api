@@ -1,8 +1,7 @@
-import { DetailedQuestion, MigrationPillar } from "../../types";
-import { queryWorkerAIStructured } from "../../../providers/worker-ai";
-import { queryGeminiStructured } from "../../../providers/gemini";
+import { DetailedQuestion, MigrationPillar } from "@/ai/mcp/types";
+import { generateStructuredResponse } from "@/ai/providers";
 import { getRepoStructure, fetchGitHubFile } from "./github";
-import { fetchCloudflareDocsIndex, fetchDocPages } from "../browser/docs-fetcher";
+import { fetchCloudflareDocsIndex, fetchDocPages } from "@/ai/mcp/tools/browser/docs-fetcher";
 import { MIGRATION_PILLARS, categorizeQuestion, createMigrationPlan } from "./migration-pillars";
 import { RepoAnalyzerContainer, getContainerUrl, getContainerFetcher } from "./container-repo";
 
@@ -12,8 +11,8 @@ import { RepoAnalyzerContainer, getContainerUrl, getContainerFetcher } from "./c
 export function parseRepoUrl(url: string): { owner: string; repo: string } | null {
   try {
     const patterns = [
-      /github\.com\/([^\/]+)\/([^\/\.]+)/,  // https://github.com/owner/repo
-      /github\.com\/([^\/]+)\/([^\/]+)\.git/, // https://github.com/owner/repo.git
+      new RegExp("github\\.com/([^/]+)/([^/.]+)"),  // https://github.com/owner/repo
+      new RegExp("github\\.com/([^/]+)/([^/]+)\\.git"), // https://github.com/owner/repo.git
     ];
 
     for (const pattern of patterns) {
@@ -223,11 +222,11 @@ export async function analyzeRepoAndGenerateQuestions(
     if (useGemini) {
       if (!env.AI_GATEWAY_TOKEN || !env.CLOUDFLARE_ACCOUNT_ID) {
         console.warn("[Analyzer] Gemini requested but missing credentials. Falling back to Workers AI.");
-        return await queryWorkerAIStructured(env, prompt, schema, sysPrompt);
+        return await generateStructuredResponse(env, prompt, schema, sysPrompt, undefined, "worker-ai");
       }
-      return await queryGeminiStructured(env, prompt, schema, sysPrompt);
+      return await generateStructuredResponse(env, prompt, schema, sysPrompt, undefined, "gemini");
     } else {
-      return await queryWorkerAIStructured(env, prompt, schema, sysPrompt);
+      return await generateStructuredResponse(env, prompt, schema, sysPrompt, undefined, "worker-ai");
     }
   };
 

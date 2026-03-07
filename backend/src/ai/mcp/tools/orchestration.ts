@@ -4,7 +4,7 @@
  */
 
 import { z } from "zod";
-import * as S from "../../../schemas/apiSchemas";
+import * as S from "@/schemas/apiSchemas";
 import { MCPTool } from "./index";
 
 export const ORCHESTRATION_TOOLS: MCPTool[] = [

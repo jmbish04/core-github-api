@@ -21,11 +21,11 @@ import { sql } from "drizzle-orm";
 // repositories
 // ----------------------
 export const repositories = sqliteTable("repositories", {
-    id: text("id").primaryKey(),                           // "github:jmbish04/core-github-api"
+    id: text("id").primaryKey(),                           // "github:env.GITHUB_OWNER/core-github-api"
     provider: text("provider").notNull(),                  // "github","gitlab","local"
-    owner: text("owner").notNull(),                        // "jmbish04"
+    owner: text("owner").notNull(),                        // "env.GITHUB_OWNER"
     name: text("name").notNull(),                          // "core-github-api"
-    slug: text("slug").notNull().unique(),                 // "github:jmbish04/core-github-api"
+    slug: text("slug").notNull().unique(),                 // "github:env.GITHUB_OWNER/core-github-api"
     infrastructure: text("infrastructure"),                // "python_script", "cloudflare_workers", "vercel", etc.
 
     repoUrl: text("repo_url").notNull(),                   // https://github.com/...
@@ -56,7 +56,11 @@ export const repositories = sqliteTable("repositories", {
     notes: text("notes")
 });
 
+
 export const repos = repositories;
+export type GitHubRepository = typeof repositories.$inferSelect;
+export type NewGitHubRepository = typeof repositories.$inferInsert;
+
 
 // ----------------------
 // repo_tech_stack

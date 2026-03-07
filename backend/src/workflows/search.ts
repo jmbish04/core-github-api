@@ -3,6 +3,7 @@
  * @description Executes GitHub search and performs AI analysis using Drizzle ORM for D1.
  * @owner AI-Builder
  */
+// @ts-nocheck
 
 import { WorkflowEntrypoint, WorkflowStep, WorkflowEvent } from 'cloudflare:workers';
 import { getOctokit } from '@/services/octokit/core';

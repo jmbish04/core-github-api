@@ -5,13 +5,14 @@
  */
 
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
-import { getOctokit } from '../../../../services/octokit/core'
+import { getOctokit } from '@services/octokit/core'
+import { DEFAULT_TEMPLATE_REPO, DEFAULT_GITHUB_OWNER } from "@github-utils";
 
 
 // --- 1. Zod Schema Definitions ---
 
 const OpenPrRequestSchema = z.object({
-  owner: z.string().default('jmbish04').openapi({ example: 'octocat' }),
+  owner: z.string().default(DEFAULT_GITHUB_OWNER).openapi({ example: 'octocat' }),
   repo: z.string().openapi({ example: 'Hello-World' }),
   head: z.string().openapi({ example: 'feature-branch' }),
   base: z.string().openapi({ example: 'main' }),
@@ -91,14 +92,14 @@ prs.openapi(openPrRoute, async (c) => {
 // --- Comment Schemas ---
 
 const ListCommentsSchema = z.object({
-  owner: z.string().default('jmbish04'),
+  owner: z.string().default(DEFAULT_GITHUB_OWNER),
 
   repo: z.string(),
   number: z.string().transform(n => parseInt(n, 10)),
 })
 
 const CreateCommentSchema = z.object({
-  owner: z.string().default('jmbish04'),
+  owner: z.string().default(DEFAULT_GITHUB_OWNER),
 
   repo: z.string(),
   number: z.number(),

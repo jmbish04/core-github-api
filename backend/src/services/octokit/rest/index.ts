@@ -5,9 +5,9 @@
  */
 
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
-import { getOctokit } from '../core'
-import { Bindings } from '../../../utils/hono'
-import { etagCache } from '../../../utils/etagCache'
+import { getOctokit } from '@services/octokit/core'
+import { Bindings } from '@utils/hono'
+import { etagCache } from '@utils/etagCache'
 
 // --- 1. Zod Schema Definitions ---
 
@@ -96,10 +96,17 @@ rest.use('*', etagCache())
 
 const handler = async (c: any) => {
   const { namespace, method } = c.req.param() as { namespace: string; method: string }
-  const octokit = getOctokit(c.env)
+  const octokit = await getOctokit(c.env)
+  
+  console.log(`[OctokitProxy] Request for ${namespace}.${method}`)
+  console.log(`[OctokitProxy] octokit keys: ${Object.keys(octokit)}`)
+  if (octokit['repos']) {
+      console.log(`[OctokitProxy] octokit.repos keys: ${Object.keys(octokit['repos'])}`)
+  }
 
   // @ts-ignore
   if (!octokit[namespace] || !octokit[namespace][method]) {
+    console.error(`[OctokitProxy] Method not found: ${namespace}.${method}`)
     return c.json({ error: 'Not Found' }, 404)
   }
 

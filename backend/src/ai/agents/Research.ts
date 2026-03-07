@@ -1,15 +1,20 @@
 /**
- * @file backend/src/agents/ResearchAgent.ts
- * @description Stateful orchestrator for the Agentic Research Team
+ * Research Agent (Deep Repository Analysis)
+ * 
+ * A stateful orchestrator for the Agentic Research Team. It:
+ * 1. Generates research plans for analyzing GitHub repositories.
+ * 2. Uses specialized GitHub code search tools.
+ * 3. Triggers asynchronous "Deep Research" workflows for long-running analysis.
+ * 4. Synthesizes findings into actionable engineering insights.
+ * 
+ * @module AI/Agents/Research
  * @owner Agentic Research Team
  */
-
 import { callable } from "agents";
-import { BaseAgent, BaseAgentState } from "@/ai/agent-sdk";
+import { BaseAgent, BaseAgentState } from "@/ai/agents/base/BaseAgent";
 import { Logger } from "@logging";
-import { Agent } from "@openai/agents";
 import { getAgentModelName } from "@/ai/utils/model-config";
-import { getOctokit } from "../../services/octokit/core";
+import { getOctokit } from "@services/octokit/core";
 import { z } from "zod";
 
 interface ResearchState extends BaseAgentState {
@@ -23,13 +28,14 @@ interface ResearchState extends BaseAgentState {
 // Define the search tool manually to match @openai/agents FunctionTool interface
 // Moved inside onStart to access this.env
 
+/**
+ * The ResearchAgent coordinates multi-stage repository analysis.
+ */
 export class ResearchAgent extends BaseAgent<Env, ResearchState> {
-  protected logger: Logger;
-  protected agent!: Agent;
+  // logger inherited from BaseAgent
 
   constructor(state: DurableObjectState, env: Env) {
     super(state, env);
-    this.logger = new Logger(env, "ResearchAgent");
   }
 
   initialState: ResearchState = {
@@ -44,86 +50,28 @@ export class ResearchAgent extends BaseAgent<Env, ResearchState> {
 
   async onStart(): Promise<void> {
     this.logger.info("ResearchAgent initialized");
+  }
 
-    const searchGithubCodeTool = {
-      type: 'function' as const,
-      name: "search_github_code",
-      description: "Search for code in GitHub repositories using GitHub's specialized search syntax. Using 'invok' signature for @openai/agents compatibility.",
-      parameters: {
-        type: "object" as const,
-        properties: {
-          query: { 
-            type: "string" as const, 
-            description: "The search query. Supports qualifiers like `org:cloudflare`, `repo:owner/name`, `filename:config.json`, `extension:ts`. Regex is NOT supported directly, but you can search for exact strings." 
-          },
-          regex_filter: { 
-            type: "string" as const, 
-            description: "Optional JS-compatible regex string to filter the search results locally (e.g., `^src\/.*\.ts$`). Application happens after fetching results." 
-          },
-          max_results: { 
-            type: "number" as const, 
-            description: "Maximum number of results to return (default: 10)." 
-          }
-        },
-        required: ["query"],
-        additionalProperties: false
-      },
-      strict: true,
-      isEnabled: async () => true, 
-      needsApproval: async () => false,
-      invoke: async (context: any, input: string) => {
-        try {
-          const args = JSON.parse(input);
-          const octokit = await getOctokit(this.env);
-          
-          // 1. Pre-process query
-          let finalQuery = args.query;
-          
-          // 2. Perform Search
-          try {
-            const { data } = await octokit.search.code({
-              q: finalQuery,
-              per_page: Math.min(args.max_results || 10, 100), // Cap at 100
-            });
+/**
+ * Entry point for research requests.
+ * Evaluates the query and determines if immediate analysis or a 
+ * background workflow is required.
+ */
+  @callable()
+  async onMessage(connection: any, message: any): Promise<any> {
+    const messageText = typeof message === 'string' ? message : message.text || JSON.stringify(message);
+    this.logger.info("Received research request", { message: messageText });
 
-            let items = data.items.map((item: any) => ({
-              name: item.name,
-              path: item.path,
-              repository: item.repository.full_name,
-              html_url: item.html_url,
-              score: item.score
-            }));
+    try {
+      // Update state to planning
+      await this.setState({ ...this.state, researchStatus: "planning" });
 
-            // 3. Post-Process matching (Regex Filter)
-            if (args.regex_filter) {
-              try {
-                const regex = new RegExp(args.regex_filter);
-                items = items.filter((item: any) => regex.test(item.path));
-              } catch (e) {
-                return JSON.stringify({ error: `Invalid regex provided: ${args.regex_filter}` });
-              }
-            }
-
-            return JSON.stringify({
-              total_count_raw: data.total_count,
-              returned_count: items.length,
-              items
-            });
-          } catch (err: any) {
-            return JSON.stringify({ error: `GitHub Search failed: ${err.message}` });
-          }
-        } catch (parseError: any) {
-          return JSON.stringify({ error: `Failed to parse tool input: ${parseError.message}` });
-        }
-      }
-    };
-    
-    // Initialize agent WITH tools
-    this.agent = new Agent({
-      name: "ResearchAgent",
-      model: getAgentModelName('ResearchAgent'), // Cost-optimized: gpt-4o
-      instructions: `You are a senior research analyst specializing in GitHub repository analysis.
-      
+      // Generate research plan using AI
+      const plan = await this.runTextWithModel({
+        name: "ResearchAgent",
+        model: getAgentModelName('ResearchAgent'),
+        instructions: `You are a senior research analyst specializing in GitHub repository analysis.
+        
 Your capabilities:
 - Search and analyze GitHub repositories
 - Clone repositories for deep code analysis
@@ -143,22 +91,9 @@ Querying Code (Base Population Search):
 - Use 'regex_filter' parameter to refine the returned list of paths locally.
 
 Always be thorough but concise. Focus on practical insights that developers can use.`,
-      tools: [searchGithubCodeTool],
-    });
-  }
-
-  @callable()
-  async onMessage(connection: any, message: any): Promise<any> {
-    const messageText = typeof message === 'string' ? message : message.text || JSON.stringify(message);
-    this.logger.info("Received research request", { message: messageText });
-
-    try {
-      // Update state to planning
-      await this.setState({ ...this.state, researchStatus: "planning" });
-
-      // Generate research plan using AI
-      const planResult = await this.runAgent(this.agent, messageText);
-      const plan = String(planResult.finalOutput || "");
+        prompt: messageText,
+        tools: [this.getSearchTool()],
+      });
 
       this.logger.info("Research plan generated", { plan });
 
@@ -232,6 +167,9 @@ Always be thorough but concise. Focus on practical insights that developers can 
     };
   }
 
+/**
+ * Callback for background workflows to report progress or final findings.
+ */
   @callable()
   async reportProgress(workflowId: string, findings: any): Promise<void> {
     this.logger.info("Workflow progress reported", { workflowId, findings });
@@ -255,6 +193,81 @@ Always be thorough but concise. Focus on practical insights that developers can 
     return {
       status: "approved",
       findings: this.state.findings,
+    };
+  }
+
+  private getSearchTool() {
+     return {
+      type: 'function' as const,
+      name: "search_github_code",
+      description: "Search for code in GitHub repositories using GitHub's specialized search syntax. Using 'invok' signature for @openai/agents compatibility.",
+      parameters: {
+        type: "object" as const,
+        properties: {
+          query: { 
+            type: "string" as const, 
+            description: "The search query. Supports qualifiers like `org:cloudflare`, `repo:owner/name`, `filename:config.json`, `extension:ts`. Regex is NOT supported directly, but you can search for exact strings." 
+          },
+          regex_filter: { 
+            type: "string" as const, 
+            description: "Optional JS-compatible regex string to filter the search results locally (e.g., `^src/.*.ts$`). Application happens after fetching results." 
+          },
+          max_results: { 
+            type: "number" as const, 
+            description: "Maximum number of results to return (default: 10)." 
+          }
+        },
+        required: ["query"],
+        additionalProperties: false
+      },
+      strict: true,
+      isEnabled: async () => true, 
+      needsApproval: async () => false,
+      invoke: async (context: any, input: string) => {
+        try {
+          const args = JSON.parse(input);
+          const octokit = await getOctokit(this.env);
+          
+          // 1. Pre-process query
+          const finalQuery = args.query;
+          
+          // 2. Perform Search
+          try {
+            const { data } = await octokit.search.code({
+              q: finalQuery,
+              per_page: Math.min(args.max_results || 10, 100), // Cap at 100
+            });
+
+            let items = data.items.map((item: any) => ({
+              name: item.name,
+              path: item.path,
+              repository: item.repository.full_name,
+              html_url: item.html_url,
+              score: item.score
+            }));
+
+            // 3. Post-Process matching (Regex Filter)
+            if (args.regex_filter) {
+              try {
+                const regex = new RegExp(args.regex_filter);
+                items = items.filter((item: any) => regex.test(item.path));
+              } catch (e) {
+                return JSON.stringify({ error: `Invalid regex provided: ${args.regex_filter}` });
+              }
+            }
+
+            return JSON.stringify({
+              total_count_raw: data.total_count,
+              returned_count: items.length,
+              items
+            });
+          } catch (err: any) {
+            return JSON.stringify({ error: `GitHub Search failed: ${err.message}` });
+          }
+        } catch (parseError: any) {
+          return JSON.stringify({ error: `Failed to parse tool input: ${parseError.message}` });
+        }
+      }
     };
   }
 

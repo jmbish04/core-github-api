@@ -2,7 +2,8 @@ import { defineConfig } from "drizzle-kit";
 
 export default defineConfig({
     schema: [
-        "./backend/src/db/schemas/github/webhooks.ts"
+        "./backend/src/db/schemas/github/webhooks.ts",
+        "./backend/src/db/schemas/logs/audit.ts"
     ],
     out: "./migrations/webhooks",
     dialect: "sqlite",

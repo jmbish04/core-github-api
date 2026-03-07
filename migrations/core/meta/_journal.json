@@ -211,6 +211,13 @@
       "when": 1772742000000,
       "tag": "0029_add_pricing_change_log",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "6",
+      "when": 1772854569788,
+      "tag": "0030_gifted_multiple_man",
+      "breakpoints": true
     }
   ]
 }

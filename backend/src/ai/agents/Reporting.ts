@@ -1,10 +1,10 @@
-import { BaseAgent } from "./BaseAgent";
-import { ResearchLogger } from "../../lib/research-logger";
+import { BaseAgent } from "./base/BaseAgent";
+import { ResearchLogger } from "@research-logger";
 import { getDb } from "@db";
 import { resolveDefaultAiProvider, resolveDefaultAiModel } from "@/ai/providers/config";
 
 export class ReportingAgent extends BaseAgent {
-  private logger?: ResearchLogger;
+  private researchLogger?: ResearchLogger;
   private doState: DurableObjectState;
 
   constructor(state: DurableObjectState, env: Env) {
@@ -14,9 +14,9 @@ export class ReportingAgent extends BaseAgent {
 
   async generateReport(briefId: string, candidates: any[], plan: any) {
     const db = getDb(this.env.DB);
-    this.logger = new ResearchLogger(db, briefId, null, "ReportingAgent", this.doState);
+    this.researchLogger = new ResearchLogger(db, briefId, null, "ReportingAgent", this.doState);
     
-    await this.logger.logInfo("Reporting", `Synthesizing report from ${candidates.length} sources...`);
+    await this.researchLogger.logInfo("Reporting", `Synthesizing report from ${candidates.length} sources...`);
 
     const sourcesText = candidates.map((c, i) => `Source [${i+1}] (${c.sourceUrl}): ${c.initialSummary}`).join("\n\n");
     const prompt = `Research Goal: ${JSON.stringify(plan)}\n\nVerified Sources:\n${sourcesText}\n\nGenerate a comprehensive markdown report. Cite sources using [Source URL] notation.`;
@@ -30,7 +30,7 @@ export class ReportingAgent extends BaseAgent {
       model: resolveDefaultAiModel(this.env, resolveDefaultAiProvider(this.env))
     });
 
-    await this.logger.logToolOutput("ReportGeneration", "Report generated successfully.");
+    await this.researchLogger?.logToolOutput("ReportGeneration", "Report generated successfully.");
     
     return report;
   }

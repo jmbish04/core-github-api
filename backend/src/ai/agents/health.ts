@@ -27,7 +27,7 @@ export async function checkHealth(env: Env): Promise<HealthStepResult> {
             const stub = await getByName(agent.binding, agent.instance);
             
             let message = 'Healthy';
-            let status = 'success';
+            const status = 'success';
 
             if (typeof stub.healthProbe === 'function') {
                 const probe = await stub.healthProbe();

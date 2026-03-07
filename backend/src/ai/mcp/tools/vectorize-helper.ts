@@ -9,7 +9,7 @@ import {
     codeReviewComments,
     codeReviewCommentEnrichments,
     repositories,
-} from "../../../db/schema";
+} from "@db/schema";
 
 type CodeReviewComment = InferSelectModel<typeof codeReviewComments>;
 type CodeReviewCommentEnrichment = InferSelectModel<typeof codeReviewCommentEnrichments>;

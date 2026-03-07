@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import Cookies from "js-cookie";
 
-const COOKIE_NAME = "CORE_API_KEY";
+const COOKIE_NAME = "colby_api_key";
 const COOKIE_EXPIRES_DAYS = 7;
 
 interface AuthContextValue {

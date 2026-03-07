@@ -14,4 +14,4 @@ export type {
   GitHubInstallationRepositoriesPayload,
   StoredEvent,
   RepoState,
-} from "../../types/github-webhooks";
+} from "@/types/github/webhooks";

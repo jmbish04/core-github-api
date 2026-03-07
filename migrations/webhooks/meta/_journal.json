@@ -29,6 +29,20 @@
       "when": 1771003075778,
       "tag": "0003_quick_luke_cage",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1771613626461,
+      "tag": "0004_closed_avengers",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1771815712683,
+      "tag": "0005_talented_flatman",
+      "breakpoints": true
     }
   ]
 }

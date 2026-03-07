@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, index, real } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
 import { createId } from "@paralleldrive/cuid2";
 
@@ -42,8 +42,9 @@ export const researchCandidates = sqliteTable(
   {
     id: text("id").primaryKey().$defaultFn(() => createId()),
     briefId: text("brief_id").references(() => researchBriefs.id).notNull(),
+    sourceId: text("source_id").notNull(), // Exact ID (GitHub Repo ID or Discord Message ID) for Deduplication
     sourceUrl: text("source_url").notNull(),
-    sourceType: text("source_type", { enum: ["github", "blog", "docs", "other"] }).notNull(),
+    sourceType: text("source_type", { enum: ["github", "blog", "docs", "other", "discord"] }).notNull(),
     initialSummary: text("initial_summary"),
     judgeScore: integer("judge_score"), // 0-100
     judgeReasoning: text("judge_reasoning"),
@@ -78,3 +79,44 @@ export const researchExecutionLogs = sqliteTable(
 );
 
 
+// 5. Research Recommendations - Overhauled deep research findings + HITL
+export const researchRecommendations = sqliteTable('research_recommendations', {
+  id: text('id').primaryKey(), // Repo full_name e.g., 'cloudflare/workers-sdk'
+  topic: text('topic').notNull(),
+  repoName: text('repo_name').notNull(),
+  repoUrl: text('repo_url').notNull(),
+  description: text('description'),
+  stars: integer('stars').default(0),
+  aiScore: real('ai_score'), // 1-10 scale by the Judge agent
+  aiReasoning: text('ai_reasoning'),
+  humanRating: integer('human_rating'), // 1-5 scale for HITL
+  humanFeedback: text('human_feedback'), // Context on why they liked/disliked
+  isReviewed: integer('is_reviewed', { mode: 'boolean' }).default(false),
+  createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`(strftime('%s', 'now'))`),
+});
+
+// 6. Deep Research Dashboard V2 - Stores configurations for custom runs, cron schedules, and drafts
+export const researchProjects = sqliteTable('research_projects', {
+  id: text('id').primaryKey(),
+  title: text('title').notNull().default(''),
+  goal: text('goal'),
+  type: text('type').notNull(), // 'custom' | 'cron'
+  status: text('status').notNull().default('draft'), // 'draft' | 'processing' | 'active' | 'completed' | 'failed'
+  globalDeduplication: integer('global_deduplication', { mode: 'boolean' }).default(true).notNull(), 
+  cronSchedule: text('cron_schedule'),
+  githubTerms: text('github_terms', { mode: 'json' }).$type<string[]>(),
+  discordTerms: text('discord_terms', { mode: 'json' }).$type<string[]>(),
+  discordSelectedChannels: text('discord_selected_channels', { mode: 'json' }).$type<string[]>(),
+  googleTerms: text('google_terms', { mode: 'json' }).$type<string[]>(),
+  progress: integer('progress').default(0), // 0 to 100 for real-time tracking
+  createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`(strftime('%s', 'now'))`),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).default(sql`(strftime('%s', 'now'))`),
+});
+
+// 7. Deep Research Dashboard V2 - Stores the actual execution findings/reports
+export const researchReports = sqliteTable('research_reports', {
+  id: text('id').primaryKey(),
+  projectId: text('project_id').notNull().references(() => researchProjects.id, { onDelete: 'cascade' }),
+  findings: text('findings', { mode: 'json' }), // The final report data
+  createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`(strftime('%s', 'now'))`),
+});

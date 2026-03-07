@@ -1,0 +1,68 @@
+<!doctype html>
+<html ⚡4email data-css-strict>
+{{> head }}
+
+<body>
+    <div class="container nano_wrapper">
+        {{#if imageUrl}}
+        <amp-img src="{{imageUrl}}" width="600" height="300" layout="responsive" class="hero-image"
+            alt="Repository preview"></amp-img>
+        {{/if}}
+
+        <div class="header">
+            <h1>{{owner}} / {{repo}}</h1>
+            <p>{{description}}</p>
+        </div>
+
+        <div class="content">
+            <div class="tags">
+                {{#each tags}}
+                <span class="tag">{{this}}</span>
+                {{/each}}
+            </div>
+
+            <div class="section-title">Analysis</div>
+            <div class="card">
+                <p>{{aiSummary}}</p>
+            </div>
+
+            <div class="section-title">Synergy & Fit</div>
+            <div class="card">
+                <p>{{personalReasoning}}</p>
+            </div>
+
+            <div class="chat-container">
+                <div class="section-title">Ask AI About This Repo</div>
+
+                <form method="post" action-xhr="{{workerChatUrl}}?repo={{owner}}/{{repo}}" id="chatForm">
+                    <div class="chat-input-wrapper">
+                        <input type="text" name="question" placeholder="e.g., Does this use Drizzle ORM?" required>
+                        <button type="submit">Ask</button>
+                    </div>
+
+                    <div submitting>
+                        <div class="chat-response visible" style="color: #a1a1aa;">Analyzing codebase...</div>
+                    </div>
+
+                    <div submit-success>
+                        <template type="amp-mustache">
+                            <div class="chat-response visible">
+                                <strong>Agent:</strong> \{{answer}}
+                            </div>
+                        </template>
+                    </div>
+
+                    <div submit-error>
+                        <template type="amp-mustache">
+                            <div class="chat-response visible" style="color: #ef4444; border-color: #7f1d1d;">
+                                Error: Failed to connect to Cloudflare AI Gateway.
+                            </div>
+                        </template>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

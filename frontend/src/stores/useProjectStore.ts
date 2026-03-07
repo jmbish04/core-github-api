@@ -5,69 +5,80 @@ export interface Repository {
   id: number;
   owner: string;
   name: string;
-  full_name: string; // "jmbish04/repo-name"
+  full_name: string; // "env.GITHUB_OWNER/repo-name"
   description?: string;
 }
 
 interface ProjectState {
-  // Projects currently visible in the sidebar
   activeProjects: Repository[];
-  // Projects that persist across reloads
-  favoriteProjects: Repository[];
+  isLoading: boolean;
   
-  // Actions
-  openProject: (repo: Repository) => void;
-  closeProject: (repoFullName: string) => void;
-  toggleFavorite: (repo: Repository) => void;
+  fetchFavorites: (userId: string) => Promise<void>;
+  addFavorite: (userId: string, repo: Repository) => Promise<void>;
+  removeFavorite: (userId: string, repo: Repository) => Promise<void>;
   isFavorite: (repoFullName: string) => boolean;
 }
 
-export const useProjectStore = create<ProjectState>()(
-  persist(
-    (set, get) => ({
-      activeProjects: [],
-      favoriteProjects: [],
+export const useProjectStore = create<ProjectState>()((set, get) => ({
+  activeProjects: [],
+  isLoading: false,
 
-      openProject: (repo) => {
-        const { activeProjects } = get();
-        // Prevent duplicates
-        if (!activeProjects.find((p) => p.full_name === repo.full_name)) {
-          set({ activeProjects: [...activeProjects, repo] });
-        }
-      },
-
-      closeProject: (repoFullName) => {
-        set((state) => ({
-          activeProjects: state.activeProjects.filter((p) => p.full_name !== repoFullName),
+  fetchFavorites: async (userId) => {
+    set({ isLoading: true });
+    try {
+      const resp = await fetch(`/api/projects/favorites?userId=${encodeURIComponent(userId)}`, { credentials: "include" });
+      if (resp.ok) {
+        const data = await resp.json() as any;
+        const mapped = (data.favorites || []).map((fav: any) => ({
+          id: fav.repoId,
+          owner: fav.repoOwner,
+          name: fav.repoName,
+          full_name: `${fav.repoOwner}/${fav.repoName}`,
+          description: fav.projectDescription
         }));
-      },
-
-      toggleFavorite: (repo) => {
-        const { favoriteProjects, activeProjects } = get();
-        const isFav = favoriteProjects.some((p) => p.full_name === repo.full_name);
-
-        if (isFav) {
-          set({
-            favoriteProjects: favoriteProjects.filter((p) => p.full_name !== repo.full_name),
-          });
-        } else {
-          set({
-            favoriteProjects: [...favoriteProjects, repo],
-            // If we favorite it, ensure it's open
-            activeProjects: activeProjects.find(p => p.full_name === repo.full_name) 
-              ? activeProjects 
-              : [...activeProjects, repo]
-          });
-        }
-      },
-
-      isFavorite: (repoFullName) => {
-        return get().favoriteProjects.some((p) => p.full_name === repoFullName);
-      },
-    }),
-    {
-      name: 'project-storage', // Key for localStorage
-      partialize: (state) => ({ favoriteProjects: state.favoriteProjects }), // Only persist favorites
+        set({ activeProjects: mapped });
+      }
+    } finally {
+      set({ isLoading: false });
     }
-  )
-);
+  },
+
+  addFavorite: async (userId, repo) => {
+    const { activeProjects } = get();
+    if (activeProjects.find(p => p.full_name === repo.full_name)) return;
+
+    try {
+      const resp = await fetch("/api/projects/favorites", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, repoOwner: repo.owner, repoName: repo.name }),
+        credentials: "include"
+      });
+      if (resp.ok) {
+        set({ activeProjects: [...activeProjects, repo] });
+      }
+    } catch (e) {
+      console.error("Failed to add favorite", e);
+    }
+  },
+
+  removeFavorite: async (userId, repo) => {
+    try {
+      const resp = await fetch(`/api/projects/favorites/${encodeURIComponent(repo.owner)}/${encodeURIComponent(repo.name)}?userId=${encodeURIComponent(userId)}`, {
+        method: "DELETE",
+        credentials: "include"
+      });
+      if (resp.ok) {
+        set((state) => ({
+          activeProjects: state.activeProjects.filter((p) => p.full_name !== repo.full_name),
+        }));
+      }
+    } catch (e) {
+      console.error("Failed to remove favorite", e);
+    }
+  },
+
+  isFavorite: (repoFullName) => {
+    return get().activeProjects.some((p) => p.full_name === repoFullName);
+  },
+}));

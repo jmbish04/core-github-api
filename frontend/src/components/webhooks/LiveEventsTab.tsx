@@ -118,7 +118,7 @@ export function LiveEventsTab() {
             `/api/webhooks/automation-runs?eventId=${encodeURIComponent(event.id)}&owner=${encodeURIComponent(ownerName)}`
           );
           if (res.ok) {
-            const runs = (await res.json()) as AutomationRunInfo[];
+            const runs = ((await res.json()) as any) as AutomationRunInfo[];
             if (runs.length > 0) {
               setAutomationRunsMap((prev) => ({ ...prev, [event.id]: runs }));
             } else {

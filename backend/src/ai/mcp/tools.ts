@@ -1,15 +1,18 @@
 /**
- * @file src/mcp/tools.ts
- * @description Model Context Protocol (MCP) tools listing and execution
- * @owner AI-Builder
+ * MCP Tools Registry & Execution Logic
+ * 
+ * Central registry for all available MCP tools in the system.
+ * Handles tool validation via Zod, serialization to JSON Schema, and routing 
+ * to underlying API endpoints.
+ * 
+ * @module AI/MCP/Tools
  */
-
 import { z } from "zod";
-import { zodToJsonSchema } from "zod-to-json-schema";
-import * as S from "../../schemas/apiSchemas";
+import * as S from "@/schemas/apiSchemas";
+import { DEFAULT_GITHUB_OWNER } from "@github-utils";
 
 /**
- * MCP Tool Definition
+ * MCP Tool Definition interface.
  */
 export interface MCPTool {
   name: string;
@@ -181,7 +184,7 @@ export const MCP_TOOLS: MCPTool[] = [
     category: "GitHub Files",
     tags: ["github", "files", "tree"],
     inputSchema: z.object({
-      owner: z.string().default('jmbish04').describe("Repository owner"),
+      owner: z.string().default(DEFAULT_GITHUB_OWNER).describe("Repository owner"),
       repo: z.string().describe("Repository name"),
       path: z.string().optional().describe("Path in repository (optional)"),
       branch: z.string().optional().describe("Branch name (optional)"),
@@ -192,14 +195,15 @@ export const MCP_TOOLS: MCPTool[] = [
 /**
  * Serialize MCP tools for JSON output (converting Zod schemas to JSON Schema)
  */
-export function serializeTools(): Array<{
+export async function serializeTools(): Promise<Array<{
   name: string;
   description: string;
   inputSchema: any;
   examples?: Array<{ input: Record<string, any>; output: Record<string, any> }>;
   category: string;
   tags?: string[];
-}> {
+}>> {
+  const { zodToJsonSchema } = await import("zod-to-json-schema");
   return MCP_TOOLS.map(tool => ({
     ...tool,
     inputSchema: zodToJsonSchema(tool.inputSchema as any, {

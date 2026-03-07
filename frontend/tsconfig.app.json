@@ -29,7 +29,33 @@
     "baseUrl": ".",
     "paths": {
       "@/*": [
-        "./src/*"
+        "./src/*",
+        "../backend/src/*"
+      ],
+      "@db": ["../backend/src/db/index.ts"],
+      "@db/*": ["../backend/src/db/*"],
+      "@agents/*": ["../backend/src/ai/agents/*"],
+      "@utils/*": ["../backend/src/utils/*"],
+      "@services/landing-generator": ["../backend/src/services/landing-generator/index.ts"],
+      "@services/*": ["../backend/src/services/*"],
+      "@custom-types": ["../backend/src/types/index.ts"],
+      "@custom-types/*": ["../backend/src/types/*"],
+      "@logging": ["../backend/src/lib/logger.ts"],
+      "@agent-sdk": ["../backend/src/ai/agent-sdk.ts"],
+      "@budget": ["../backend/src/ai/utils/budget-tracker.ts"],
+      "@model-config": ["../backend/src/ai/utils/model-config.ts"],
+      "@sandbox-sdk-tools": ["../backend/src/ai/mcp/tools/sandbox-sdk/index.ts"],
+      "@sandbox-sdk-tools/*": ["../backend/src/ai/mcp/tools/sandbox-sdk/*"],
+      "@ai-config": ["../backend/src/ai/ai-config.ts"],
+      "@agent-utils": ["../backend/src/ai/agent-utils.ts"],
+      "@health-check": ["../backend/src/health/health-check.ts"],
+      "@github-utils": ["../backend/src/utils/github/configs.ts"],
+      "@research-logger": ["../backend/src/lib/research-logger.ts"],
+      "@lib/*": ["../backend/src/lib/*"],
+      "@/config-settings": ["../backend/src/lib/config.ts"],
+      "@ai-agents/*": ["../backend/src/ai/agents/*"],
+      "@api/*": [
+        "../backend/src/*"
       ],
       "@diceui/timeline": [
         "./src/components/ui/diceui/timeline.tsx"

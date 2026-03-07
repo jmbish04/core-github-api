@@ -1,11 +1,19 @@
+/**
+ * MCP Health Check Suite
+ * 
+ * Validates the operational status of the MCP domain, including:
+ * 1. Connectivity to the documentation fetcher.
+ * 2. Protocol compliance of the MCP server.
+ * 3. Functional search capabilities.
+ * 
+ * @module AI/MCP/Health
+ */
 import { HealthStepResult } from "@/health/types";
 import { fetchCloudflareDocsIndex } from "./tools/browser/docs-fetcher";
 import { createMCPRequest } from "./mcp-client"; // Import the helper
 
 /**
- * Checks the health of the MCP domain by validating:
- * 1. Cloudflare Docs Fetching (External Connectivity)
- * 2. MCP Protocol Compliance (Internal/Upstream Connectivity)
+ * Checks the health of the MCP domain.
  */
 export async function checkHealth(env: Env): Promise<HealthStepResult> {
     const start = Date.now();

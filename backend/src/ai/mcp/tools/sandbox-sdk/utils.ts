@@ -7,7 +7,7 @@
  * Shell-escape a value for safe interpolation into a bash command.
  */
 export function shellEscape(value: string): string {
-  return `'${value.replace(/'/g, `'\"'\"'`)}'`;
+  return `'${value.replace(/'/g, `'"'"'`)}'`;
 }
 
 /**

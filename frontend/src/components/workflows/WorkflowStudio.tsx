@@ -230,7 +230,7 @@ export function WorkflowStudio({ workflow, mode }: WorkflowStudioProps) {
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        targetRepo: "jmbish04/core-github-api",
+        targetRepo: "env.GITHUB_OWNER/core-github-api",
         workflowKey: workflow.key,
         workflowTitle: workflow.title,
         mode,
@@ -252,7 +252,7 @@ export function WorkflowStudio({ workflow, mode }: WorkflowStudioProps) {
       }),
     });
 
-    const json = await response.json().catch(() => ({} as Record<string, any>));
+    const json = (await response.json().catch(() => ({} as Record<string, any>))) as any;
 
     if (!response.ok) {
       return {

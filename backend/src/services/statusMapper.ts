@@ -5,7 +5,7 @@
  * @owner AI-Builder
  */
 
-import { TaskStatus, KanbanColumn } from '../types/enums';
+import { TaskStatus, KanbanColumn } from '@/types/project-management/enums';
 
 export class StatusMapper {
 

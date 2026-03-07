@@ -117,17 +117,17 @@ export class BrowserService {
     }
 
     private async callCloudflare(endpoint: string, requestBody: object, expectsJson: boolean = true) {
-        const { CLOUDFLARE_ACCOUNT_ID, CLOUDBROWSER_API_BASE_URL } = this.env;
+        const { CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_API_BASE_URL } = this.env;
         // Handle CLOUDFLARE_API_TOKEN which might be a SecretsStoreSecret or a string
         const apiToken = this.env.CLOUDFLARE_API_TOKEN && typeof this.env.CLOUDFLARE_API_TOKEN.get === 'function'
             ? await this.env.CLOUDFLARE_API_TOKEN.get()
             : this.env.CLOUDFLARE_API_TOKEN;
 
-        if (!CLOUDFLARE_ACCOUNT_ID || !apiToken || !CLOUDBROWSER_API_BASE_URL) {
+        if (!CLOUDFLARE_ACCOUNT_ID || !apiToken || !CLOUDFLARE_API_BASE_URL) {
             throw new Error('Missing Cloudflare environment variables.');
         }
 
-        const apiUrl = `${CLOUDBROWSER_API_BASE_URL}/${CLOUDFLARE_ACCOUNT_ID}/browser-rendering${endpoint}`;
+        const apiUrl = `${CLOUDFLARE_API_BASE_URL}/${CLOUDFLARE_ACCOUNT_ID}/browser-rendering${endpoint}`;
 
         const fetchOptions: RequestInit = {
             method: 'POST',
@@ -191,7 +191,7 @@ const browserRender = new Hono<{
     Bindings: {
         CLOUDFLARE_ACCOUNT_ID: string;
         CLOUDFLARE_API_TOKEN: string;
-        CLOUDBROWSER_API_BASE_URL: string; // e.g., "https://api.cloudflare.com/client/v4/accounts"
+        CLOUDFLARE_API_BASE_URL: string; // e.g., "https://api.cloudflare.com/client/v4/accounts"
     }
 }>();
 

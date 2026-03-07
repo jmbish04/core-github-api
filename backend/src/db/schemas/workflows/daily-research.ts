@@ -15,6 +15,6 @@ export const dailyResearchDocs = sqliteTable('daily_research_docs', {
   judgeNotes: text('judge_notes'),
   findings: text('findings', { mode: 'json' }).notNull(), // JSON array of RepoFinding
   createdAt: integer('created_at', { mode: 'timestamp' })
-    .default(sql`(datetime('now'))`)
+    .default(sql`(unixepoch('now'))`)
     .notNull(),
 });

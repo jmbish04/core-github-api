@@ -59,7 +59,7 @@ export type RepoSession = {
 // ---------------------------------------------------------------------------
 
 export class SandboxSessionManager {
-  constructor(private binding: DurableObjectNamespace<Sandbox>) {}
+  constructor(private env: Env) {}
 
   /**
    * Get or create a sandbox scoped to a GitHub repository.
@@ -77,7 +77,7 @@ export class SandboxSessionManager {
   ): Promise<RepoSession> {
     const sandboxId = sanitizeRepoName(repoFullName);
 
-    const client = SandboxClient.create(this.binding, sandboxId, {
+    const client = await SandboxClient.create(this.env, sandboxId, {
       normalizeId: opts.normalizeId ?? true,
       keepAlive: opts.keepAlive,
     });

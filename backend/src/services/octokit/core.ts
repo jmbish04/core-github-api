@@ -4,10 +4,11 @@
  * @owner AI-Builder
  */
 
-import { Octokit } from '@octokit/rest'
-import { graphql } from '@octokit/graphql'
-import { retry } from '@octokit/plugin-retry'
-import { throttling } from '@octokit/plugin-throttling'
+// Types are safe to import top-level as they are erased at runtime
+import type { Octokit } from '@octokit/rest'
+import type { graphql } from '@octokit/graphql'
+
+let MyOctokit: any;
 
 
 type ThrottleOptions = {
@@ -22,7 +23,7 @@ type ThrottleLogger = {
   };
 };
 
-const MyOctokit = (Octokit as any).plugin(retry as any, throttling as any)
+// MyOctokit will be initialized dynamically
 
 let octokit: Octokit
 let gql: typeof graphql
@@ -33,13 +34,14 @@ let gql: typeof graphql
  */
 const initOctokit = async (bindings: Env) => {
   if (!octokit) {
-    let token: string | null = null;
-    // Handle both string (local dev/legacy) and SecretStore (production) types
-    if (typeof bindings.GITHUB_TOKEN === 'string') {
-        token = bindings.GITHUB_TOKEN;
-    } else if (bindings.GITHUB_TOKEN && typeof (bindings.GITHUB_TOKEN as any).get === 'function') {
-        token = await (bindings.GITHUB_TOKEN as any).get();
-    }
+    const { getGithubToken } = await import('@utils/secrets');
+    const { Octokit: RealOctokit } = await import('@octokit/rest');
+    const { retry } = await import('@octokit/plugin-retry');
+    const { throttling } = await import('@octokit/plugin-throttling');
+    
+    MyOctokit = (RealOctokit as any).plugin(retry as any, throttling as any);
+
+    const token = await getGithubToken(bindings);
 
     if (!token) {
         console.warn("GITHUB_TOKEN is missing or invalid");
@@ -79,21 +81,15 @@ const initOctokit = async (bindings: Env) => {
       },
     }) as Octokit
   }
-  if (!gql && octokit) {
-     // We can't easily extract the token back from octokit instance for graphql if we didn't save it.
-     // But we just resolved it above if we were in the !octokit block.
-     // If octokit was already initialized, we assume gql might be too, or we need the token again.
-     // Simplified: Just re-resolve token if gql is missing.
-      let token: string | null = null;
-      if (typeof bindings.GITHUB_TOKEN === 'string') {
-          token = bindings.GITHUB_TOKEN;
-      } else if (bindings.GITHUB_TOKEN && typeof (bindings.GITHUB_TOKEN as any).get === 'function') {
-          token = await (bindings.GITHUB_TOKEN as any).get();
-      }
-
-    gql = graphql.defaults({
+  
+  if (!gql) {
+     const { getGithubToken } = await import('@utils/secrets');
+     const { graphql: realGraphql } = await import('@octokit/graphql');
+     const token = await getGithubToken(bindings);
+     
+    gql = realGraphql.defaults({
       headers: {
-        authorization: `token ${token}`,
+        authorization: `token ${token || ''}`,
       },
     })
   }

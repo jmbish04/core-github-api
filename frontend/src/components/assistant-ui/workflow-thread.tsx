@@ -122,7 +122,7 @@ export function WorkflowThread({
         .join("\n");
 
       const optimizedPrompt = [
-        `Repository: jmbish04/core-github-api`,
+        `Repository: env.GITHUB_OWNER/core-github-api`,
         `Workflow Key: ${workflowKey}`,
         `Workflow Title: ${workflowTitle}`,
         `Mode: ${mode}`,
@@ -150,7 +150,7 @@ export function WorkflowThread({
           <div className="space-y-1">
             <p className="text-sm font-semibold">Workflow Assistant</p>
             <p className="text-xs text-muted-foreground">
-              Iterative edits + Jules handoff for `jmbish04/core-github-api`
+              Iterative edits + Jules handoff for `env.GITHUB_OWNER/core-github-api`
             </p>
           </div>
           <Badge variant="outline">{mode === "new" ? "New" : "Edit"}</Badge>

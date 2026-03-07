@@ -1,51 +1,63 @@
 /**
- * @module Sanitize
- * @description Utility module for cleaning and formatting AI-generated text for safe frontend display.
- * * This module addresses two critical needs when displaying LLM output:
- * 1. **Safety:** It escapes raw HTML to prevent Cross-Site Scripting (XSS) attacks if the model generates malicious tags.
- * 2. **Formatting:** It converts standard Markdown syntax (bold, headers, code blocks) into semantic HTML tags, 
- * ensuring the text renders beautifully in the UI without requiring a heavy Markdown library.
- * * @exports sanitizeAndFormatResponse - Main function to clean and format text.
- * @exports cleanJsonOutput - Helper to strip code block wrappers from JSON strings.
+ * AI Response Sanitization & Formatting Utility
+ * 
+ * Provides functions to:
+ * 1. Clean raw AI output by stripping Markdown code block wrappers.
+ * 2. Sanitize and escape HTML to prevent XSS.
+ * 3. Perform lightweight Markdown-to-HTML transformation for safe UI rendering.
+ * 
+ * @module AI/Utils/Sanitizer
  */
 
 /**
  * Strips Markdown code block wrappers (e.g., ```json ... ```) from a string.
- * * AI models often wrap structured output (like JSON) in Markdown code blocks for readability.
- * This function removes those wrappers so the string can be parsed by `JSON.parse()`.
- * * @param text - The raw string input from the AI model.
- * @returns The cleaned string with code block markers removed.
- * * @example
- * input: "```json\n{\"key\": \"value\"}\n```"
- * output: "{\"key\": \"value\"}"
+ * Ensures the string is safe to pass into `JSON.parse()`.
+ * 
+ * @param output - The raw message or object from the AI.
+ * @returns A cleaned JSON string.
  */
-export function cleanJsonOutput(text: string): string {
-    let clean = text.trim();
-    // Regex matches starting ``` (optional json) and ending ```
-    if (clean.startsWith("```")) {
-        clean = clean.replace(/^```(json)?\n?/, "").replace(/\n?```$/, "");
+export function cleanJsonOutput(output: any): string {
+    if (output === null || output === undefined) {
+        return "{}";
     }
-    return clean;
+
+    // If it's already an object (e.g., natively parsed by AI SDK), safely stringify it
+    if (typeof output === 'object') {
+        try {
+            return JSON.stringify(output);
+        } catch (e) {
+            return "{}";
+        }
+    }
+
+    // Ensure it's a string before calling string methods
+    let text = "";
+    try {
+        text = typeof output === 'string' ? output : String(output);
+    } catch(e) {
+        return "{}";
+    }
+
+    if (!text) return "{}";
+
+    text = text.trim();
+
+    // Strip markdown code blocks if present
+    text = text.replace(/^```(?:json)?\n?/i, '').replace(/\n?```$/i, '').trim();
+
+    return text;
 }
 
 /**
- * Sanitizes and formats an AI model response for safe frontend display.
- * * This function performs a multi-stage transformation:
- * 1. **Cleanup:** Strips outer code block wrappers using `cleanJsonOutput`.
- * 2. **Sanitization:** Escapes reserved HTML characters (<, >, &, ", ') to prevent XSS injection.
- * 3. **Formatting:** Converts supported Markdown syntax into semantic HTML tags.
- * * **Supported Markdown Transformations:**
- * - Headers: `#` -> `<h1>`, `##` -> `<h2>`, `###` -> `<h3>`
- * - Bold: `**text**` -> `<strong>text</strong>`
- * - Italic: `*text*` -> `<em>text</em>`
- * - Strikethrough: `~~text~~` -> `<del>text</del>`
- * - Code Blocks: ```lang ... ``` -> `<pre><code class="language-lang">...</code></pre>`
- * - Inline Code: `text` -> `<code>text</code>`
- * - Links: `[Text](url)` -> `<a href="url" target="_blank" ...>Text</a>`
- * - Lists: `- Item` -> `<li>Item</li>`
- * - Newlines: `\n` -> `<br>` (Preserves line breaks)
- * * @param text - The raw text string from the AI model.
- * @returns A string containing safe, formatted HTML.
+ * Sanitizes and formats an AI response for safe frontend display.
+ * 
+ * - Escapes HTML reserved characters.
+ * - Converts basic Markdown (headers, bold, lists, links, code) to HTML.
+ * - Adds security attributes to anchor tags.
+ * 
+ * @param text - Raw text from the LLM.
+ * @returns Safe HTML string.
+ * @agent-note Use this before piping AI text into a browser UI.
  */
 export function sanitizeAndFormatResponse(text: string): string {
     if (!text) return "";

@@ -1,283 +1,145 @@
-/**
- * @file backend/src/workflows/DeepResearchWorkflow.ts
- * @description Long-running research workflow using GitHub API + D1 + Vectorize for code analysis
- * @owner Agentic Research Team
- */
-
+import { drizzle } from 'drizzle-orm/d1';
+import { researchRecommendations } from '@/db/schemas/github/research';
+import { isNotNull, desc } from 'drizzle-orm';
 import { WorkflowEntrypoint, WorkflowStep, WorkflowEvent } from "cloudflare:workers";
-import { parseGitHubUrl, fetchGitHubTree, fetchCriticalFiles } from "@/ai/mcp/tools/github/research";
-import { getWebhooksDb, researchFiles} from "@/db";
 
-interface DeepResearchWorkflowParams {
-  repoUrl: string;
-  repoOwner: string;
-  repoName: string;
-  requestedBy?: string;
-  mode?: "discovery" | "targeted";
-}
 
-interface ResearchFindings {
-  repoUrl: string;
-  fileTree: string[];
-  readmeContent: string | null;
-  vectorizedFiles: number;
-  d1RecordsCreated: number;
-  insights: string;
-}
+export async function runDeepResearch(env: any, topic: string = "topic:cloudflare-worker OR topic:cloudflare-pages") {
+  console.log("[Orchestrator] Starting GitHub Deep Research Swarm...");
+  const db = drizzle(env.DB);
 
-export class DeepResearchWorkflow extends WorkflowEntrypoint<Env, DeepResearchWorkflowParams> {
-  async run(
-    event: Readonly<WorkflowEvent<DeepResearchWorkflowParams>>,
-    step: WorkflowStep
-  ): Promise<ResearchFindings> {
-    const { repoUrl, repoOwner, repoName, mode = "targeted" } = event.payload;
+  // 1. HITL: Fetch historical user feedback to train the Judge (Q-learning approach)
+  const historicalFeedback = await db.select()
+    .from(researchRecommendations)
+    .where(isNotNull(researchRecommendations.humanFeedback))
+    .orderBy(desc(researchRecommendations.createdAt))
+    .limit(10);
+    
+  const userPreferences = historicalFeedback.map(f => 
+    `- Repo: ${f.repoName} | Rating: ${f.humanRating}/5 | Feedback: "${f.humanFeedback}"`
+  ).join('\n');
 
-    // Step 1: Fetch File Tree via GitHub API (Fast, no Sandbox needed)
-    const analysis = await step.do("fetch-tree-and-readme", async () => {
-      console.log(`[DeepResearchWorkflow] Fetching file tree for ${repoOwner}/${repoName}`);
-      
-      // Get GitHub token
-      const token = await this.env.GITHUB_TOKEN.get();
-      
-      // Fetch file tree via GitHub API
-      const fileTree = await fetchGitHubTree(repoOwner, repoName, token);
-      
-      // Fetch critical files (README, package.json, etc.)
-      const criticalTargets = ["README.md", "readme.md", "package.json", "pyproject.toml", "Cargo.toml"];
-      const criticalFiles = await fetchCriticalFiles(repoOwner, repoName, fileTree, criticalTargets, token);
-      
-      const readmeContent = criticalFiles["README.md"] || criticalFiles["readme.md"] || null;
-      
-      return {
-        fileTree,
-        readmeContent,
-        criticalFiles,
-        totalFiles: fileTree.length,
-      };
-    });
+  // 2. ORCHESTRATOR: Fetch from GitHub API (Past 30 days)
+  const dateFilter = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const searchQuery = `${topic} created:>${dateFilter}`;
+  
+  const ghResponse = await fetch(`https://api.github.com/search/repositories?q=${encodeURIComponent(searchQuery)}&sort=stars&order=desc&per_page=20`, {
+    headers: { 
+      'User-Agent': 'Cloudflare-Agent-Swarm', 
+      'Authorization': `Bearer ${env.GITHUB_TOKEN}`,
+      'Accept': 'application/vnd.github.v3+json'
+    }
+  });
+  
+  if (!ghResponse.ok) throw new Error("GitHub API error");
+  const ghData = await ghResponse.json() as any;
+  const repos = ghData.items || [];
 
-    // Step 2: Vectorize Code Files + Create D1 Records with AI Analysis
-    const vectorizationResult = await step.do("vectorize-and-analyze", async () => {
-      // Filter code files (skip binaries, images, etc.)
-      const codeExtensions = [".ts", ".js", ".py", ".go", ".rs", ".java", ".cpp", ".c", ".md"];
-      const codeFiles = analysis.fileTree.filter((path: string) =>
-        codeExtensions.some((ext) => path.endsWith(ext))
-      ).slice(0, 50); // Limit to 50 files for now
+  // 3. DEDUPLICATION: Check D1 for existing repos
+  const existingRecords = await db.select({ id: researchRecommendations.id }).from(researchRecommendations);
+  const existingIds = new Set(existingRecords.map(r => r.id));
+  const newRepos = repos.filter((r: any) => !existingIds.has(r.full_name)).slice(0, 10); 
 
-      let vectorizedCount = 0;
-      let d1RecordsCreated = 0;
-      const token = await this.env.GITHUB_TOKEN.get();
-      const db = getWebhooksDb(this.env.DB_WEBHOOKS);
-
-      for (const filePath of codeFiles) {
-        try {
-          // 1. Generate UUID for this file
-          const fileUuid = crypto.randomUUID();
-          
-          // 2. Fetch file content via GitHub raw URL
-          const rawUrl = `https://raw.githubusercontent.com/${repoOwner}/${repoName}/main/${filePath}`;
-          const response = await fetch(rawUrl, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          
-          if (!response.ok) continue;
-          const content = await response.text();
-
-          if (!content || content.length === 0) continue;
-
-          // 3. Perform AI Analysis on the file
-          const fileAnalysis = await this.analyzeFile(filePath, content, analysis.fileTree);
-
-          // 4. Create D1 record
-          await db.insert(researchFiles).values({
-            id: fileUuid,
-            owner: repoOwner,
-            repo: repoName,
-            filename: filePath.split('/').pop() || filePath,
-            filepath: filePath,
-            extension: filePath.includes('.') ? '.' + filePath.split('.').pop() : null,
-            sizeBytes: content.length,
-            analysis: fileAnalysis,
-          });
-          
-          d1RecordsCreated++;
-
-          // 5. Chunk the file and vectorize with UUID linkage
-          const lines = content.split("\n");
-          const chunkSize = 100;
-          
-          for (let i = 0; i < lines.length; i += chunkSize) {
-            const chunk = lines.slice(i, i + chunkSize).join("\n");
-            
-            if (chunk.trim().length < 50) continue; // Skip tiny chunks
-
-            // Generate embedding
-            const embeddingResponse = await this.env.AI.run("@cf/baai/bge-large-en-v1.5", {
-              text: chunk,
-            });
-
-            // Extract embedding vector from response
-            // Response structure: { shape: [1, 1024], data: [[...1024 floats]], pooling: "mean" }
-            const embedding = (embeddingResponse as any).data?.[0] || [];
-
-            if (embedding.length === 0) {
-              console.warn(`[DeepResearchWorkflow] Empty embedding for ${filePath}:${i}`);
-              continue;
-            }
-
-            // Upsert to Vectorize with UUID in the ID
-            await this.env.RESEARCH_INDEX.upsert([
-              {
-                id: `${fileUuid}:chunk:${i}`, // UUID-based ID for linking
-                values: embedding,
-                metadata: {
-                  fileUuid, // Store UUID in metadata for easy lookup
-                  repo: `${repoOwner}/${repoName}`,
-                  filepath: filePath,
-                  chunkIndex: i,
-                  lines: `${i + 1}-${Math.min(i + chunkSize, lines.length)}`,
-                },
-              },
-            ]);
-
-            vectorizedCount++;
-          }
-        } catch (error) {
-          console.error(`[DeepResearchWorkflow] Failed to process ${filePath}:`, error);
-        }
-      }
-
-      return {
-        vectorizedFiles: codeFiles.length,
-        vectorizedChunks: vectorizedCount,
-        d1RecordsCreated,
-      };
-    });
-
-    // Step 3: Generate Insights using AI
-    const insights = await step.do("generate-insights", async () => {
-      const prompt = `
-Analyze the following repository and provide key insights:
-
-Repository: ${repoOwner}/${repoName}
-Total Files: ${analysis.totalFiles}
-README:
-${analysis.readmeContent || "No README available"}
-
-File Tree (sample):
-${analysis.fileTree.slice(0, 20).join("\n")}
-
-Provide a concise summary of:
-1. What this repository does
-2. Key technologies used
-3. Potential use cases or applications
-4. Notable patterns or architecture
-`;
-
-      const response = await this.env.AI.run("@cf/meta/llama-3.3-70b-instruct-fp8-fast", {
-        messages: [
-          {
-            role: "system",
-            content: "You are a senior software architect analyzing GitHub repositories.",
-          },
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
-      });
-
-      return (response as any).response || "No insights generated";
-    });
-
-    // Return findings (No Sandbox cleanup needed!)
-    return {
-      repoUrl,
-      fileTree: analysis.fileTree,
-      readmeContent: analysis.readmeContent,
-      vectorizedFiles: vectorizationResult.vectorizedChunks,
-      d1RecordsCreated: vectorizationResult.d1RecordsCreated,
-      insights,
-    };
+  if (newRepos.length === 0) {
+    console.log("[Orchestrator] No new repos found.");
+    return { status: 'no_new_repos' };
   }
 
-  /**
-   * Analyze a file using AI to generate structured insights via JSON Mode
-   */
-  private async analyzeFile(filepath: string, content: string, allFiles: string[]) {
-    // Schema definition based on your requested structure
-    const analysisSchema = {
-      type: "object",
-      properties: {
-        zoomedIn: {
-          type: "object",
-          properties: {
-            purpose: { type: "string" },
-            keyFunctions: { type: "array", items: { type: "string" } },
-            complexity: { type: "string", enum: ["low", "medium", "high"] },
-            codeQuality: { type: "string" }
-          },
-          required: ["purpose", "keyFunctions", "complexity", "codeQuality"]
-        },
-        zoomedOut: {
-          type: "object",
-          properties: {
-            role: { type: "string" },
-            importance: { type: "string", enum: ["critical", "important", "supporting", "utility"] },
-            architecturalLayer: { type: "string" }
-          },
-          required: ["role", "importance", "architecturalLayer"]
-        },
-        fileDependencies: { type: "array", items: { type: "string" } },
-        dependenciesOnFile: { type: "array", items: { type: "string" } }
-      },
-      required: ["zoomedIn", "zoomedOut", "fileDependencies", "dependenciesOnFile"]
-    };
+  // 4. PARALLELIZATION: Farm out unanalyzed repos to Worker AI Swarm
+  const evaluatedRepos = await Promise.all(newRepos.map(async (repo: any) => {
+    // Optionally fetch README here
+    const readmeRes = await fetch(`https://api.github.com/repos/${repo.full_name}/readme`, {
+       headers: { 'User-Agent': 'Cloudflare-Agent-Swarm', 'Accept': 'application/vnd.github.v3.raw', 'Authorization': `Bearer ${env.GITHUB_TOKEN}` }
+    });
+    const readme = readmeRes.ok ? await readmeRes.text() : "";
 
-    const userPrompt = `Analyze this code file from the repository.
-Filepath: ${filepath}
-Total Repository Files (for context): ${allFiles.length} files
+    const systemPrompt = `You are a GitHub Repository Evaluator. Evaluate this repo for a developer.
+Learn from their past feedback:
+${userPreferences || "No past feedback. Look for highly innovative, serverless projects."}
 
-Content (first 40,000 chars):
-${content.substring(0, 40000)}`;
+Repository: ${repo.full_name}
+Description: ${repo.description}
+Topics: ${repo.topics?.join(', ')}
+README Snippet: ${readme.substring(0, 1500)}
+
+Evaluate on a scale of 1-10. You MUST respond with ONLY valid JSON: {"score": <number>, "reasoning": "<1-2 sentences why>"}`;
 
     try {
-      // Calling the model with response_format set to json_schema
-      const response = await this.env.AI.run("@cf/meta/llama-4-scout-17b-16e-instruct", {
-        messages: [
-          { 
-            role: "system", 
-            content: "You are a code analysis expert. Provide a technical breakdown of the provided file based on the requested schema." 
-          },
-          { role: "user", content: userPrompt },
-        ],
-        response_format: {
-          type: "json_schema",
-          json_schema: analysisSchema
-        }
+      const aiResponse = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
+        messages: [{ role: 'user', content: systemPrompt }]
       });
 
-      // Workers AI returns the validated object under the 'response' key
-      return (response as any).response;
-    } catch (error) {
-      console.error(`[DeepResearchWorkflow] AI analysis failed for ${filepath}:`, error);
+      const jsonStr = (aiResponse as any).response.replace(/^```(?:json)?\n?/i, '').replace(/\n?```$/i, '').trim();
+      const judgment = JSON.parse(jsonStr);
       
-      // Return standard default structure on failure
-      return {
-        zoomedIn: {
-          purpose: "Analysis failed",
-          keyFunctions: [],
-          complexity: "medium",
-          codeQuality: "Unable to analyze",
-        },
-        zoomedOut: {
-          role: "Unknown",
-          importance: "supporting",
-          architecturalLayer: "Unknown",
-        },
-        fileDependencies: [],
-        dependenciesOnFile: [],
-      };
+      return { ...repo, aiScore: judgment.score, aiReasoning: judgment.reasoning };
+    } catch (e) {
+      console.error(`Failed AI judgment for ${repo.full_name}`, e);
+      return null;
     }
+  }));
+
+  const successfulEvaluations = evaluatedRepos.filter(r => r !== null && r.aiScore >= 6);
+
+  // 5. STORE IN D1
+  if (successfulEvaluations.length > 0) {
+    const inserts = successfulEvaluations.map(e => ({
+      id: e.full_name,
+      topic: topic,
+      repoName: e.full_name,
+      repoUrl: e.html_url,
+      description: e.description,
+      stars: e.stargazers_count,
+      aiScore: e.aiScore,
+      aiReasoning: e.aiReasoning
+    }));
+    await db.insert(researchRecommendations).values(inserts).onConflictDoNothing();
+
+    // 6. ALERT: Email Routing
+    if (env.SEND_EMAIL) {
+      try {
+        const { sendRepoDiscoveryEmail } = await import("@/utils/email/send/repo-discovery");
+        await sendRepoDiscoveryEmail(env, {
+          subject: `GitHub Trends Discovered: ${successfulEvaluations.length} new repos`,
+          title: `GitHub Trends Discovered: ${successfulEvaluations.length} new repos`,
+          dailyTrendsData: {
+            date: new Date().toLocaleDateString(),
+            trend_summary: `Found ${successfulEvaluations.length} highly relevant repositories for ${topic}. Log into the Command Center to rate these and train your AI!`,
+            top_picks: successfulEvaluations.map(c => ({
+              name: c.full_name,
+              url: c.html_url,
+              category: topic,
+              why_its_interesting: c.aiReasoning,
+              innovation_score: c.aiScore
+            }))
+          },
+          plainTextFallback: `GitHub Trends Discovered: ${successfulEvaluations.length} new repos. Check dashboard.`
+        });
+      } catch (e) {
+        console.error("Email send failed", e);
+      }
+    }
+  }
+
+  return { status: 'success', evaluated: newRepos.length, recommended: successfulEvaluations.length };
+}
+
+export type DeepResearchPayload = {
+  topic?: string;
+  repoUrl?: string;
+  repoOwner?: string;
+  repoName?: string;
+  mode?: string;
+};
+
+export class DeepResearchWorkflow extends WorkflowEntrypoint<any, DeepResearchPayload> {
+  async run(event: Readonly<WorkflowEvent<DeepResearchPayload>>, step: WorkflowStep) {
+    const topic = event.payload?.topic || "topic:cloudflare-worker OR topic:cloudflare-pages";
+    
+    const result = await step.do("run-research-swarm", async () => {
+      return await runDeepResearch(this.env, topic);
+    });
+
+    return result;
   }
 }

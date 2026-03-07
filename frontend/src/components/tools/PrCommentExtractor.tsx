@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Loader2, Copy, Check, ExternalLink, MessageSquare, AlertCircle, CheckCircle2 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface ExtractedComment {
     id: number;
@@ -24,19 +25,59 @@ interface ExtractedComment {
     html_url: string;
 }
 
-export function PrCommentExtractor() {
+interface PrCommentExtractorProps {
+    defaultOwner?: string;
+    defaultRepo?: string;
+    defaultPrNumber?: number | null;
+}
+
+export function PrCommentExtractor({ defaultOwner, defaultRepo, defaultPrNumber }: PrCommentExtractorProps) {
     const [url, setUrl] = useState("");
+    const [prs, setPrs] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [comments, setComments] = useState<ExtractedComment[]>([]);
     const [extractionId, setExtractionId] = useState<string | null>(null);
     const [status, setStatus] = useState<{ type: 'success' | 'error' | 'info', title: string, message: string } | null>(null);
     const [copied, setCopied] = useState(false);
 
-    const parsePrUrl = (url: string) => {
+    useEffect(() => {
+        if (defaultOwner && defaultRepo) {
+            const baseUrl = `https://github.com/${defaultOwner}/${defaultRepo}`;
+            
+            if (defaultPrNumber) {
+                const fullUrl = `${baseUrl}/pull/${defaultPrNumber}`;
+                setUrl(fullUrl);
+                // We must inline the extraction here because handleExtract relies on the 'url' state 
+                // which won't be updated yet on this render cycle.
+                const params = parsePrUrl(fullUrl);
+                if (params) {
+                    performExtraction(params);
+                }
+            } else {
+                setUrl(baseUrl);
+            }
+
+            fetch(`https://api.github.com/repos/${defaultOwner}/${defaultRepo}/pulls?state=open&sort=created&direction=desc`)
+              .then(res => (res.json() as any) as Promise<any[]>)
+              .then(data => {
+                  if (Array.isArray(data)) {
+                      setPrs(data);
+                  }
+              })
+              .catch(console.error);
+        }
+    }, [defaultOwner, defaultRepo, defaultPrNumber]);
+
+    const handlePrSelect = (prNumber: string) => {
+        if (defaultOwner && defaultRepo) {
+            setUrl(`https://github.com/${defaultOwner}/${defaultRepo}/pull/${prNumber}`);
+        }
+    };
+
+    const parsePrUrl = (urlStr: string) => {
         try {
-            const u = new URL(url);
+            const u = new URL(urlStr);
             const parts = u.pathname.split('/');
-            // https://github.com/owner/repo/pull/123
             if (parts.length >= 5 && parts[3] === 'pull') {
                 return {
                     owner: parts[1],
@@ -51,17 +92,20 @@ export function PrCommentExtractor() {
     };
 
     const handleExtract = async () => {
-        setStatus(null);
         const params = parsePrUrl(url);
         if (!params) {
             setStatus({
                 type: 'error',
                 title: "Invalid URL",
-                message: "Please provide a valid GitHub PR URL."
+                message: "Please provide a valid GitHub PR URL containing '/pull/123'."
             });
             return;
         }
+        await performExtraction(params);
+    };
 
+    const performExtraction = async (params: { owner: string; repo: string; pull_number: number }) => {
+        setStatus(null);
         setLoading(true);
         setComments([]);
         setExtractionId(null);
@@ -76,7 +120,7 @@ export function PrCommentExtractor() {
             
             if (!res.ok) throw new Error("Failed to extract comments");
             
-            const data = await res.json();
+            const data = ((await res.json()) as any) as any;
             
             if (data.success && data.extraction_id) {
                 setExtractionId(data.extraction_id);
@@ -85,7 +129,7 @@ export function PrCommentExtractor() {
                 const commentsRes = await fetch(`/api/tools/comments/${data.extraction_id}`);
                 if (!commentsRes.ok) throw new Error("Failed to fetch extracted comments");
                 
-                const commentsData = await commentsRes.json();
+                const commentsData = ((await commentsRes.json()) as any) as ExtractedComment[];
                 setComments(commentsData);
                 
                 setStatus({
@@ -162,9 +206,28 @@ export function PrCommentExtractor() {
                 </CardDescription>
             </CardHeader>
             <CardContent className="px-0 flex-1 flex flex-col gap-6">
-                <div className="flex gap-2">
-                    <div className="flex-1">
-                        <Label htmlFor="pr-url" className="sr-only">PR URL</Label>
+                
+                {prs.length > 0 && (
+                    <div className="flex flex-col gap-2">
+                        <Label>Active Pull Requests for {defaultOwner}/{defaultRepo}</Label>
+                        <Select onValueChange={handlePrSelect}>
+                            <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Select an active PR to analyze..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {prs.map(pr => (
+                                    <SelectItem key={pr.number} value={pr.number.toString()}>
+                                        #{pr.number} - {pr.title}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                )}
+
+                <div className="flex gap-2 items-end">
+                    <div className="flex-1 space-y-2">
+                        <Label htmlFor="pr-url" className="text-xs">PR URL</Label>
                         <Input 
                             id="pr-url" 
                             placeholder="https://github.com/owner/repo/pull/123" 
@@ -200,7 +263,7 @@ export function PrCommentExtractor() {
                                 {copied ? "Copied" : "Copy for AI"}
                             </Button>
                         </div>
-                        <ScrollArea className="flex-1 p-4">
+                        <ScrollArea className="flex-1 p-4 h-[400px]">
                             <div className="space-y-6">
                                 {Object.entries(
                                     comments.reduce((acc, c) => {

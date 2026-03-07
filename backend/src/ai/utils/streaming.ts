@@ -1,8 +1,17 @@
 /**
- * Server-Sent Events (SSE) utility for streaming progress updates
+ * AI Progress Streaming Utility (SSE)
+ * 
+ * Implements a lightweight Server-Sent Events (SSE) producer for 
+ * streaming asynchronous progress updates to the frontend.
+ * 
+ * @module AI/Utils/Streaming
  */
 
+/**
+ * Structure for a single SSE event.
+ */
 export interface StreamEvent {
+  /** The stage or status of the event. */
   type: 'progress' | 'data' | 'error' | 'complete' | 'plan' | 'pillar_start' | 'pillar_progress' | 'pillar_complete';
   message?: string;
   data?: any;
@@ -12,7 +21,9 @@ export interface StreamEvent {
 }
 
 /**
- * Create a Server-Sent Events stream
+ * Factory function to create a new Server-Sent Events stream.
+ * 
+ * @returns A stream controller with typed `send` methods.
  */
 export function createSSEStream() {
   let controller: ReadableStreamDefaultController;
@@ -77,7 +88,7 @@ export function getSSEHeaders(): Record<string, string> {
 }
 
 /**
- * Progress tracker for multi-step operations
+ * Orchestrates progress tracking for complex, multi-step AI operations.
  */
 export class ProgressTracker {
   private total: number;

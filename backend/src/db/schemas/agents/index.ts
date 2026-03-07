@@ -1,7 +1,9 @@
-/**
- * @file backend/src/db/schema-research-orchestrator.ts
- * @description D1 schema for Research Orchestrator workflow
- */
-
-import { sqliteTable, text, integer, real } from "drizzle-orm/sqlite-core";
-
+/** @file schemas/agents/index.ts — Barrel for all agent-related schemas */
+export * from './budget';
+export * from './chat';
+export * from './cloudflare-docs-interactions';
+export * from './events';
+export * from './pricing';
+export * from './prompt-revisions';
+export * from './research';
+// Note: stateful.ts and jules.ts are not exported here (jules has its own folder)
