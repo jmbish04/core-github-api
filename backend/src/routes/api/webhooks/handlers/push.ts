@@ -29,6 +29,26 @@ export async function handlePush({ c, payload, appId, privateKey, insertPayload 
         console.error('[Jules] Failed to start analysis:', err);
     }
 
+    // Trigger Code Indexing for Vectorize Kit
+    c.executionCtx.waitUntil(
+      (async () => {
+        try {
+          // Fire Deep Research Workflow for Indexing
+          const instance = await c.env.DEEP_RESEARCH_WORKFLOW.create({
+            params: {
+              repoUrl: payload.repository!.clone_url,
+              repoOwner: payload.repository!.owner.login,
+              repoName: payload.repository!.name,
+              mode: 'vectorize', // Indicate indexing mode
+            },
+          });
+          console.log(`[PushHook] Triggered Vectorize workflow for ${payload.repository!.full_name}: ${instance.id}`);
+        } catch (error) {
+          console.error(`[PushHook] Failed to trigger Vectorize workflow:`, error);
+        }
+      })()
+    );
+
     try {
       if (payload.installation?.id && appId && privateKey) {
         const app = new App({ appId: appId, privateKey: privateKey });

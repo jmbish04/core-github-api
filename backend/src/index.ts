@@ -1172,3 +1172,8 @@ export default {
 
 // Export all Durable Objects and Workflows
 export { ResearchOrchestrator } from '@/ai/agents/ResearchOrchestrator';
+
+// Fallback endpoints for required mandates
+app.get('/health', (c) => c.json({ status: 'healthy', timestamp: new Date().toISOString() }));
+app.get('/context', (c) => c.json({ app: 'core-github-api', runtime: 'cloudflare-workers', db: 'd1', orm: 'drizzle' }));
+app.get('/docs', (c) => c.redirect('/doc'));
