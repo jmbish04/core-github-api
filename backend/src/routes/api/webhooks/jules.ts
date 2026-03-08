@@ -31,6 +31,8 @@ import { zValidator } from "@hono/zod-validator";
 import { getDb } from "@db";
 import { julesSessions, julesWebhookEvents } from "@db/schemas/jules";
 import { eq } from "drizzle-orm";
+import { retrofitThreads } from "@db/schemas/agents/retrofit";
+
 import { createAlert } from "@alerts";
 import type { JulesEventType, JulesLiveMessage } from "@services/jules";
 
@@ -173,6 +175,40 @@ app.post("/event", zValidator("json", eventPayloadSchema), async (c) => {
   const originalTask = session?.prompt
     ? session.prompt.substring(0, 120) + "..."
     : "Unknown task";
+
+  // Retrofit Agent Webhook Routing
+  // If the event is from Jules and we have a corresponding Retrofit thread,
+  // wake up the RetrofitAgent DO to handle PR review or merging.
+  if (payload.event_type === "ready_for_pr" || payload.event_type === "done") {
+    try {
+        const [thread] = await db
+            .select()
+            .from(retrofitThreads)
+            .where(eq(retrofitThreads.julesSessionId, payload.jules_session_id))
+            .limit(1);
+
+        if (thread) {
+            const agentId = c.env.RetrofitAgent.idFromName(thread.id);
+            const agentStub = c.env.RetrofitAgent.get(agentId);
+
+            // Invoke the appropriate webhook handler on the DO
+            const methodName = payload.event_type === "ready_for_pr" ? "review_pr" : "merge_pr";
+
+            // We use the run-tool convention for Agents SDK or direct fetch if exposed
+            // Assuming direct fetch is available or we use the standard RPC
+            c.executionCtx.waitUntil(
+                agentStub.fetch(`http://internal/webhook/${methodName}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                }).catch(e => console.error("[Retrofit Webhook] Error calling DO:", e))
+            );
+        }
+    } catch (e) {
+        console.error("[Retrofit Webhook] Failed to route to RetrofitAgent:", e);
+    }
+  }
+
 
   // 3. Route by event type
   if (

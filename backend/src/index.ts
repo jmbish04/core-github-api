@@ -689,7 +689,7 @@ import { getOctokit } from "@/services/octokit/core";
 
 // Helper to re-export Durable Objects
 export { OrchestratorAgent } from "@/ai/agents/Orchestrator";
-export { RetrofitAgent } from "@/retrofit/RetrofitAgent";
+export { RetrofitAgent } from "@/ai/agents/RetrofitAgent";
 export { RoomDO } from "@/do/RoomDO";
 export { PlannerAgent } from "@/ai/agents/Planner";
 export { RepoAgent } from "@/ai/agents/github/Repo";
@@ -1172,3 +1172,17 @@ export default {
 
 // Export all Durable Objects and Workflows
 export { ResearchOrchestrator } from '@/ai/agents/ResearchOrchestrator';
+
+
+// Route for Retrofit Agent
+app.all("/api/agents/retrofit/*", (c) => {
+  const url = new URL(c.req.url);
+  // Default thread or pass via header
+  const idStr = c.req.header("x-agent-thread-id") || "default-retrofit-thread";
+  const id = c.env.RetrofitAgent.idFromName(idStr);
+  const stub = c.env.RetrofitAgent.get(id);
+
+  const newUrl = new URL(c.req.url);
+  newUrl.pathname = newUrl.pathname.replace("/api/agents/retrofit", "");
+  return stub.fetch(new Request(newUrl.toString(), c.req.raw));
+});

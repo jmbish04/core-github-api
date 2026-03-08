@@ -225,6 +225,13 @@
       "when": 1772862456180,
       "tag": "0031_colorful_mentallo",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "6",
+      "when": 1772987192259,
+      "tag": "0032_legal_magik",
+      "breakpoints": true
     }
   ]
 }
