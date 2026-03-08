@@ -760,7 +760,7 @@ export async function getLatestPricing(
       metadata: snapshot.metadata ? JSON.parse(snapshot.metadata) : undefined,
     };
   } catch (error) {
-    console.error('Failed to get latest pricing', { error });
+    console.error('Failed to get latest pricing', error);
     return null;
   }
 }
