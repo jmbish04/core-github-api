@@ -1,0 +1,131 @@
+{
+  "project_name": "Workshop Module Integration",
+  "generated_date": "2026-03-02T12:00:00Z",
+  "total_phases": 3,
+  "phases": [
+    {
+      "phase_number": 1,
+      "phase_title": "Backend: Workshop API & Agents",
+      "description": "Setup the database tables for projects and the AI agents to handle the consultation.",
+      "success_criteria": ["Project API endpoints working", "Specialist Agents responding"],
+      "implementation_plan": {
+        "title": "Workshop Backend",
+        "description": "API and DO implementation",
+        "architecture": {
+          "explanation": "Hono API routes handle project CRUD. A new WorkshopAgent DO orchestrates the specialist logic.",
+          "mermaid_diagram": "graph TD; A[API] --> B[D1 Projects]; A --> C[WorkshopAgent DO]; C --> D[Workers AI];"
+        },
+        "proposed_changes": [
+          {
+            "category": "Backend: Database",
+            "files": [
+              {
+                "action": "NEW",
+                "file_path": "src/backend/db/schemas/projects.ts",
+                "instructions": ["Define table 'projects' with columns: id, name, description, repo_url, status, created_at."]
+              }
+            ]
+          },
+          {
+            "category": "Backend: AI",
+            "files": [
+              {
+                "action": "NEW",
+                "file_path": "src/backend/ai/agents/by-usecase/chat/specialist-agent.ts",
+                "instructions": ["Create a reusable AIChatAgent that can be initialized with a specific 'persona' (Data, UX, etc.) via the constructor or init method."]
+              }
+            ]
+          }
+        ],
+        "verification_plan": {
+          "automated_tests": [],
+          "manual_verification": ["Curl POST /api/workshop/init", "Verify D1 record created"]
+        }
+      },
+      "tasks": [
+        {
+          "task_number": 1,
+          "status": "not_started",
+          "agent_assigned": "Architect Agent",
+          "task_title": "Database & API Setup",
+          "task_description": "Create the projects table and init endpoint.",
+          "task_dependencies": [],
+          "cloudflare_docs_queries": ["Drizzle D1 schema definition"],
+          "steps": [
+            {
+              "number": 1.1,
+              "title": "Create Project Schema",
+              "status": "not_started",
+              "technical_requirements": ["Use text type for UUID"],
+              "success_criteria": ["Schema file exists"]
+            }
+          ],
+          "requirements": ["Follow Drizzle patterns"],
+          "success_criteria": ["Migration generated"]
+        }
+      ]
+    },
+    {
+      "phase_number": 2,
+      "phase_title": "Frontend: Workshop Wizard",
+      "description": "Build the React interface for the shopping experience.",
+      "success_criteria": ["Wizard flow completes", "Chat works"],
+      "implementation_plan": {
+        "title": "Frontend Wizard",
+        "description": "React components for the wizard",
+        "architecture": {
+          "explanation": "Astro page hosts the WorkshopWizard React island.",
+          "mermaid_diagram": "graph TD; A[Astro Page] --> B[WorkshopWizard]; B --> C[Step 1: Init]; B --> D[Step 2: Shop]; B --> E[Step 3: Chat];"
+        },
+        "proposed_changes": [
+          {
+            "category": "Frontend: Pages",
+            "files": [
+              {
+                "action": "NEW",
+                "file_path": "src/frontend/pages/workshop.astro",
+                "instructions": ["Create Astro page using BaseLayout. Import WorkshopWizard."]
+              }
+            ]
+          },
+          {
+            "category": "Frontend: Components",
+            "files": [
+              {
+                "action": "NEW",
+                "file_path": "src/frontend/components/WorkshopWizard.tsx",
+                "instructions": ["Implement the multi-step wizard logic defined in the Stitch Prompt."]
+              }
+            ]
+          }
+        ],
+        "verification_plan": {
+          "automated_tests": [],
+          "manual_verification": ["Click through the wizard flow"]
+        }
+      },
+      "tasks": [
+        {
+          "task_number": 1,
+          "status": "not_started",
+          "agent_assigned": "Frontend Agent",
+          "task_title": "Scaffold Wizard",
+          "task_description": "Create the basic page and component structure.",
+          "task_dependencies": [],
+          "cloudflare_docs_queries": [],
+          "steps": [
+            {
+              "number": 1.1,
+              "title": "Create Astro Page",
+              "status": "not_started",
+              "technical_requirements": ["Use BaseLayout"],
+              "success_criteria": ["Page loads"]
+            }
+          ],
+          "requirements": ["Dark theme support"],
+          "success_criteria": ["Wizard renders"]
+        }
+      ]
+    }
+  ]
+}

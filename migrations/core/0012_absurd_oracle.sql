@@ -1,4 +1,4 @@
-CREATE TABLE `project_phases` (
+CREATE TABLE IF NOT EXISTS `project_phases` (
 	`id` text PRIMARY KEY NOT NULL,
 	`project_id` text NOT NULL,
 	`name` text NOT NULL,
@@ -14,7 +14,7 @@ CREATE TABLE `project_phases` (
 );
 --> statement-breakpoint
 CREATE INDEX `idx_phases_project` ON `project_phases` (`project_id`);--> statement-breakpoint
-CREATE TABLE `projects` (
+CREATE TABLE IF NOT EXISTS `projects` (
 	`id` text PRIMARY KEY NOT NULL,
 	`repo_id` text NOT NULL,
 	`name` text NOT NULL,

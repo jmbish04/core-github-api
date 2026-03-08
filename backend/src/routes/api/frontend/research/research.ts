@@ -120,7 +120,7 @@ app.post("/trigger-job", async (c) => {
 
 // Test Email (Manual test)
 app.post("/test-email", async (c) => {
-  if (!c.env.SEND_EMAIL) {
+  if (!c.env.SEND_EMAIL_NEWSLETTER) {
     return c.json({ error: "Email binding not configured" }, 500);
   }
   

@@ -1,4 +1,4 @@
-CREATE TABLE `pr_comments` (
+CREATE TABLE IF NOT EXISTS `pr_comments` (
 	`id` integer PRIMARY KEY NOT NULL,
 	`pr_number` integer NOT NULL,
 	`repo_owner` text NOT NULL,
@@ -15,7 +15,7 @@ CREATE TABLE `pr_comments` (
 );
 --> statement-breakpoint
 CREATE INDEX `pr_comments_pr_idx` ON `pr_comments` (`repo_owner`,`repo_name`,`pr_number`);--> statement-breakpoint
-CREATE TABLE `pull_requests` (
+CREATE TABLE IF NOT EXISTS `pull_requests` (
 	`id` integer PRIMARY KEY NOT NULL,
 	`number` integer NOT NULL,
 	`repo_owner` text NOT NULL,

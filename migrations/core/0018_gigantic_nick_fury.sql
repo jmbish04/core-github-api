@@ -1,4 +1,4 @@
-CREATE TABLE `system_logs` (
+CREATE TABLE IF NOT EXISTS `system_logs` (
 	`id` text PRIMARY KEY NOT NULL,
 	`level` text NOT NULL,
 	`message` text NOT NULL,

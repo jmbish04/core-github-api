@@ -1,5 +1,5 @@
 PRAGMA foreign_keys=OFF;--> statement-breakpoint
-CREATE TABLE `__new_repo_stats` (
+CREATE TABLE IF NOT EXISTS `__new_repo_stats` (
 	`repo_id` text PRIMARY KEY NOT NULL,
 	`health_score` integer,
 	`open_issues_count` integer,
@@ -12,7 +12,7 @@ INSERT INTO `__new_repo_stats`("repo_id", "health_score", "open_issues_count", "
 DROP TABLE `repo_stats`;--> statement-breakpoint
 ALTER TABLE `__new_repo_stats` RENAME TO `repo_stats`;--> statement-breakpoint
 PRAGMA foreign_keys=ON;--> statement-breakpoint
-CREATE TABLE `__new_tasks` (
+CREATE TABLE IF NOT EXISTS `__new_tasks` (
 	`id` text PRIMARY KEY NOT NULL,
 	`repo_id` text NOT NULL,
 	`title` text NOT NULL,

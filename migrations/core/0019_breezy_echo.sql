@@ -1,4 +1,4 @@
-CREATE TABLE `ai_cost_logs` (
+CREATE TABLE IF NOT EXISTS `ai_cost_logs` (
 	`id` text PRIMARY KEY NOT NULL,
 	`session_id` text,
 	`model` text NOT NULL,
@@ -12,7 +12,7 @@ CREATE TABLE `ai_cost_logs` (
 CREATE INDEX `ai_cost_logs_session_idx` ON `ai_cost_logs` (`session_id`);--> statement-breakpoint
 CREATE INDEX `ai_cost_logs_timestamp_idx` ON `ai_cost_logs` (`timestamp`);--> statement-breakpoint
 CREATE INDEX `ai_cost_logs_model_idx` ON `ai_cost_logs` (`model`);--> statement-breakpoint
-CREATE TABLE `budget_events` (
+CREATE TABLE IF NOT EXISTS `budget_events` (
 	`id` text PRIMARY KEY NOT NULL,
 	`event_type` text NOT NULL,
 	`threshold` real NOT NULL,

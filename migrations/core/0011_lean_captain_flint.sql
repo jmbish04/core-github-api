@@ -1,4 +1,4 @@
-CREATE TABLE `todo_ai_insights` (
+CREATE TABLE IF NOT EXISTS `todo_ai_insights` (
 	`id` text PRIMARY KEY NOT NULL,
 	`todo_id` text NOT NULL,
 	`insight` text NOT NULL,
@@ -9,7 +9,7 @@ CREATE TABLE `todo_ai_insights` (
 );
 --> statement-breakpoint
 CREATE INDEX `idx_insights_todo` ON `todo_ai_insights` (`todo_id`);--> statement-breakpoint
-CREATE TABLE `todo_links` (
+CREATE TABLE IF NOT EXISTS `todo_links` (
 	`id` text PRIMARY KEY NOT NULL,
 	`todo_id` text NOT NULL,
 	`href` text NOT NULL,
@@ -20,7 +20,7 @@ CREATE TABLE `todo_links` (
 );
 --> statement-breakpoint
 CREATE INDEX `idx_links_todo` ON `todo_links` (`todo_id`);--> statement-breakpoint
-CREATE TABLE `todo_tag_map` (
+CREATE TABLE IF NOT EXISTS `todo_tag_map` (
 	`todo_id` text NOT NULL,
 	`tag_id` text NOT NULL
 );
@@ -28,7 +28,7 @@ CREATE TABLE `todo_tag_map` (
 CREATE INDEX `pk_todo_tag_map` ON `todo_tag_map` (`todo_id`,`tag_id`);--> statement-breakpoint
 CREATE INDEX `idx_tag_map_todo` ON `todo_tag_map` (`todo_id`);--> statement-breakpoint
 CREATE INDEX `idx_tag_map_tag` ON `todo_tag_map` (`tag_id`);--> statement-breakpoint
-CREATE TABLE `todo_tags` (
+CREATE TABLE IF NOT EXISTS `todo_tags` (
 	`id` text PRIMARY KEY NOT NULL,
 	`name` text NOT NULL,
 	`color` text DEFAULT '#94a3b8',
@@ -37,7 +37,7 @@ CREATE TABLE `todo_tags` (
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `todo_tags_name_unique` ON `todo_tags` (`name`);--> statement-breakpoint
-CREATE TABLE `todos` (
+CREATE TABLE IF NOT EXISTS `todos` (
 	`id` text PRIMARY KEY NOT NULL,
 	`title` text,
 	`content` text,
@@ -52,7 +52,7 @@ CREATE TABLE `todos` (
 );
 --> statement-breakpoint
 PRAGMA foreign_keys=OFF;--> statement-breakpoint
-CREATE TABLE `__new_tasks` (
+CREATE TABLE IF NOT EXISTS `__new_tasks` (
 	`id` text PRIMARY KEY NOT NULL,
 	`repo_id` text NOT NULL,
 	`title` text NOT NULL,

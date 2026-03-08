@@ -1,4 +1,4 @@
-CREATE TABLE `applications` (
+CREATE TABLE IF NOT EXISTS `applications` (
 	`id` text PRIMARY KEY NOT NULL,
 	`name` text NOT NULL,
 	`type` text NOT NULL,
@@ -13,7 +13,7 @@ CREATE TABLE `applications` (
 	`updated_at` integer DEFAULT (unixepoch()) NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE `tags` (
+CREATE TABLE IF NOT EXISTS `tags` (
 	`id` text PRIMARY KEY NOT NULL,
 	`name` text NOT NULL,
 	`description` text,
@@ -23,8 +23,8 @@ CREATE TABLE `tags` (
 	`updated_at` integer DEFAULT (unixepoch()) NOT NULL
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX `tags_name_unique` ON `tags` (`name`);--> statement-breakpoint
-CREATE TABLE `tag_application_mapping` (
+CREATE UNIQUE INDEX IF NOT EXISTS `tags_name_unique` ON `tags` (`name`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `tag_application_mapping` (
 	`app_id` text NOT NULL,
 	`tag_id` text NOT NULL,
 	`created_at` integer DEFAULT '"2026-02-20T09:38:03.032Z"' NOT NULL,

@@ -1,5 +1,5 @@
 PRAGMA foreign_keys=OFF;--> statement-breakpoint
-CREATE TABLE `__new_workshop_project_tasks` (
+CREATE TABLE IF NOT EXISTS `__new_workshop_project_tasks` (
 	`id` text PRIMARY KEY NOT NULL,
 	`project_id` text NOT NULL,
 	`project_name` text NOT NULL,

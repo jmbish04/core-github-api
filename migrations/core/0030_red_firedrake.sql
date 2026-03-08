@@ -1,1 +1,2 @@
-ALTER TABLE `chat_threads` ADD `agent_id` text;
+-- agent_id already exists in preview DB
+SELECT 1;

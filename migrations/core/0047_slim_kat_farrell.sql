@@ -1,4 +1,4 @@
-CREATE TABLE `research_projects` (
+CREATE TABLE IF NOT EXISTS `research_projects` (
 	`id` text PRIMARY KEY NOT NULL,
 	`title` text DEFAULT '' NOT NULL,
 	`goal` text,
@@ -13,7 +13,7 @@ CREATE TABLE `research_projects` (
 	`updated_at` integer DEFAULT (strftime('%s', 'now'))
 );
 --> statement-breakpoint
-CREATE TABLE `research_reports` (
+CREATE TABLE IF NOT EXISTS `research_reports` (
 	`id` text PRIMARY KEY NOT NULL,
 	`project_id` text NOT NULL,
 	`findings` text,

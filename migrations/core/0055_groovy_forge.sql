@@ -1,4 +1,4 @@
-CREATE TABLE `container_logs` (
+CREATE TABLE IF NOT EXISTS `container_logs` (
 	`id` text PRIMARY KEY NOT NULL,
 	`repo_id` integer,
 	`command` text,
@@ -7,7 +7,7 @@ CREATE TABLE `container_logs` (
 	`created_at` text
 );
 --> statement-breakpoint
-CREATE TABLE `check_run` (
+CREATE TABLE IF NOT EXISTS `check_run` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -21,8 +21,8 @@ CREATE TABLE `check_run` (
 	FOREIGN KEY (`delivery_id`) REFERENCES `webhook_deliveries`(`delivery_id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE INDEX `check_run_delivery_idx` ON `check_run` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `code_scanning_alert` (
+CREATE INDEX IF NOT EXISTS `check_run_delivery_idx` ON `check_run` (`delivery_id`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `code_scanning_alert` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -37,8 +37,8 @@ CREATE TABLE `code_scanning_alert` (
 	FOREIGN KEY (`delivery_id`) REFERENCES `webhook_deliveries`(`delivery_id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE INDEX `code_scanning_alert_delivery_idx` ON `code_scanning_alert` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `commit_comment` (
+CREATE INDEX IF NOT EXISTS `code_scanning_alert_delivery_idx` ON `code_scanning_alert` (`delivery_id`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `commit_comment` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -52,8 +52,8 @@ CREATE TABLE `commit_comment` (
 	FOREIGN KEY (`delivery_id`) REFERENCES `webhook_deliveries`(`delivery_id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE INDEX `commit_comment_delivery_idx` ON `commit_comment` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `create` (
+CREATE INDEX IF NOT EXISTS `commit_comment_delivery_idx` ON `commit_comment` (`delivery_id`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `create` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -65,8 +65,8 @@ CREATE TABLE `create` (
 	FOREIGN KEY (`delivery_id`) REFERENCES `webhook_deliveries`(`delivery_id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE INDEX `create_delivery_idx` ON `create` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `custom_property` (
+CREATE INDEX IF NOT EXISTS `create_delivery_idx` ON `create` (`delivery_id`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `custom_property` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -78,8 +78,8 @@ CREATE TABLE `custom_property` (
 	FOREIGN KEY (`delivery_id`) REFERENCES `webhook_deliveries`(`delivery_id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE INDEX `custom_property_delivery_idx` ON `custom_property` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `custom_property_values` (
+CREATE INDEX IF NOT EXISTS `custom_property_delivery_idx` ON `custom_property` (`delivery_id`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `custom_property_values` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -90,8 +90,8 @@ CREATE TABLE `custom_property_values` (
 	FOREIGN KEY (`delivery_id`) REFERENCES `webhook_deliveries`(`delivery_id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE INDEX `custom_property_values_delivery_idx` ON `custom_property_values` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `daily_trends` (
+CREATE INDEX IF NOT EXISTS `custom_property_values_delivery_idx` ON `custom_property_values` (`delivery_id`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `daily_trends` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`date` text NOT NULL,
 	`trend_summary` text NOT NULL,
@@ -100,8 +100,8 @@ CREATE TABLE `daily_trends` (
 	`created_at` text NOT NULL
 );
 --> statement-breakpoint
-CREATE INDEX `daily_trends_date_idx` ON `daily_trends` (`date`);--> statement-breakpoint
-CREATE TABLE `delete` (
+CREATE INDEX IF NOT EXISTS `daily_trends_date_idx` ON `daily_trends` (`date`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `delete` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -111,8 +111,8 @@ CREATE TABLE `delete` (
 	FOREIGN KEY (`delivery_id`) REFERENCES `webhook_deliveries`(`delivery_id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE INDEX `delete_delivery_idx` ON `delete` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `dependabot_alert` (
+CREATE INDEX IF NOT EXISTS `delete_delivery_idx` ON `delete` (`delivery_id`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `dependabot_alert` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -126,8 +126,8 @@ CREATE TABLE `dependabot_alert` (
 	FOREIGN KEY (`delivery_id`) REFERENCES `webhook_deliveries`(`delivery_id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE INDEX `dependabot_alert_delivery_idx` ON `dependabot_alert` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `dismissal_request_code_scanning` (
+CREATE INDEX IF NOT EXISTS `dependabot_alert_delivery_idx` ON `dependabot_alert` (`delivery_id`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `dismissal_request_code_scanning` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -138,8 +138,8 @@ CREATE TABLE `dismissal_request_code_scanning` (
 	FOREIGN KEY (`delivery_id`) REFERENCES `webhook_deliveries`(`delivery_id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE INDEX `dismissal_request_code_scanning_delivery_idx` ON `dismissal_request_code_scanning` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `dismissal_request_secret_scanning` (
+CREATE INDEX IF NOT EXISTS `dismissal_request_code_scanning_delivery_idx` ON `dismissal_request_code_scanning` (`delivery_id`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `dismissal_request_secret_scanning` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -150,8 +150,8 @@ CREATE TABLE `dismissal_request_secret_scanning` (
 	FOREIGN KEY (`delivery_id`) REFERENCES `webhook_deliveries`(`delivery_id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE INDEX `dismissal_request_secret_scanning_delivery_idx` ON `dismissal_request_secret_scanning` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `exemption_request_push_ruleset` (
+CREATE INDEX IF NOT EXISTS `dismissal_request_secret_scanning_delivery_idx` ON `dismissal_request_secret_scanning` (`delivery_id`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `exemption_request_push_ruleset` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -163,8 +163,8 @@ CREATE TABLE `exemption_request_push_ruleset` (
 	FOREIGN KEY (`delivery_id`) REFERENCES `webhook_deliveries`(`delivery_id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE INDEX `exemption_request_push_ruleset_delivery_idx` ON `exemption_request_push_ruleset` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `exemption_request_secret_scanning` (
+CREATE INDEX IF NOT EXISTS `exemption_request_push_ruleset_delivery_idx` ON `exemption_request_push_ruleset` (`delivery_id`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `exemption_request_secret_scanning` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -175,8 +175,8 @@ CREATE TABLE `exemption_request_secret_scanning` (
 	FOREIGN KEY (`delivery_id`) REFERENCES `webhook_deliveries`(`delivery_id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE INDEX `exemption_request_secret_scanning_delivery_idx` ON `exemption_request_secret_scanning` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `fork` (
+CREATE INDEX IF NOT EXISTS `exemption_request_secret_scanning_delivery_idx` ON `exemption_request_secret_scanning` (`delivery_id`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `fork` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -187,8 +187,8 @@ CREATE TABLE `fork` (
 	FOREIGN KEY (`delivery_id`) REFERENCES `webhook_deliveries`(`delivery_id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE INDEX `fork_delivery_idx` ON `fork` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `issue_comment` (
+CREATE INDEX IF NOT EXISTS `fork_delivery_idx` ON `fork` (`delivery_id`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `issue_comment` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -200,8 +200,8 @@ CREATE TABLE `issue_comment` (
 	FOREIGN KEY (`delivery_id`) REFERENCES `webhook_deliveries`(`delivery_id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE INDEX `issue_comment_delivery_idx` ON `issue_comment` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `issues` (
+CREATE INDEX IF NOT EXISTS `issue_comment_delivery_idx` ON `issue_comment` (`delivery_id`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `issues` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -216,8 +216,8 @@ CREATE TABLE `issues` (
 	FOREIGN KEY (`delivery_id`) REFERENCES `webhook_deliveries`(`delivery_id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE INDEX `issues_delivery_idx` ON `issues` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `label` (
+CREATE INDEX IF NOT EXISTS `issues_delivery_idx` ON `issues` (`delivery_id`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `label` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -228,8 +228,8 @@ CREATE TABLE `label` (
 	FOREIGN KEY (`delivery_id`) REFERENCES `webhook_deliveries`(`delivery_id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE INDEX `label_delivery_idx` ON `label` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `merge_queue_entry` (
+CREATE INDEX IF NOT EXISTS `label_delivery_idx` ON `label` (`delivery_id`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `merge_queue_entry` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -240,8 +240,8 @@ CREATE TABLE `merge_queue_entry` (
 	FOREIGN KEY (`delivery_id`) REFERENCES `webhook_deliveries`(`delivery_id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE INDEX `merge_queue_entry_delivery_idx` ON `merge_queue_entry` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `milestone` (
+CREATE INDEX IF NOT EXISTS `merge_queue_entry_delivery_idx` ON `merge_queue_entry` (`delivery_id`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `milestone` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -253,8 +253,8 @@ CREATE TABLE `milestone` (
 	FOREIGN KEY (`delivery_id`) REFERENCES `webhook_deliveries`(`delivery_id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE INDEX `milestone_delivery_idx` ON `milestone` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `org_block` (
+CREATE INDEX IF NOT EXISTS `milestone_delivery_idx` ON `milestone` (`delivery_id`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `org_block` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -263,8 +263,8 @@ CREATE TABLE `org_block` (
 	FOREIGN KEY (`delivery_id`) REFERENCES `webhook_deliveries`(`delivery_id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE INDEX `org_block_delivery_idx` ON `org_block` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `organization_custom_property_values` (
+CREATE INDEX IF NOT EXISTS `org_block_delivery_idx` ON `org_block` (`delivery_id`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `organization_custom_property_values` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -275,8 +275,8 @@ CREATE TABLE `organization_custom_property_values` (
 	FOREIGN KEY (`delivery_id`) REFERENCES `webhook_deliveries`(`delivery_id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE INDEX `organization_custom_property_values_delivery_idx` ON `organization_custom_property_values` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `pull_request` (
+CREATE INDEX IF NOT EXISTS `organization_custom_property_values_delivery_idx` ON `organization_custom_property_values` (`delivery_id`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `pull_request` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -294,8 +294,8 @@ CREATE TABLE `pull_request` (
 	FOREIGN KEY (`delivery_id`) REFERENCES `webhook_deliveries`(`delivery_id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE INDEX `pull_request_delivery_idx` ON `pull_request` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `pull_request_review` (
+CREATE INDEX IF NOT EXISTS `pull_request_delivery_idx` ON `pull_request` (`delivery_id`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `pull_request_review` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -308,8 +308,8 @@ CREATE TABLE `pull_request_review` (
 	FOREIGN KEY (`delivery_id`) REFERENCES `webhook_deliveries`(`delivery_id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE INDEX `pull_request_review_delivery_idx` ON `pull_request_review` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `pull_request_review_comment` (
+CREATE INDEX IF NOT EXISTS `pull_request_review_delivery_idx` ON `pull_request_review` (`delivery_id`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `pull_request_review_comment` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -324,8 +324,8 @@ CREATE TABLE `pull_request_review_comment` (
 	FOREIGN KEY (`delivery_id`) REFERENCES `webhook_deliveries`(`delivery_id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE INDEX `pull_request_review_comment_delivery_idx` ON `pull_request_review_comment` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `pull_request_review_thread` (
+CREATE INDEX IF NOT EXISTS `pull_request_review_comment_delivery_idx` ON `pull_request_review_comment` (`delivery_id`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `pull_request_review_thread` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -336,8 +336,8 @@ CREATE TABLE `pull_request_review_thread` (
 	FOREIGN KEY (`delivery_id`) REFERENCES `webhook_deliveries`(`delivery_id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE INDEX `pull_request_review_thread_delivery_idx` ON `pull_request_review_thread` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `push` (
+CREATE INDEX IF NOT EXISTS `pull_request_review_thread_delivery_idx` ON `pull_request_review_thread` (`delivery_id`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `push` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -352,8 +352,8 @@ CREATE TABLE `push` (
 	FOREIGN KEY (`delivery_id`) REFERENCES `webhook_deliveries`(`delivery_id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE INDEX `push_delivery_idx` ON `push` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `repo_analysis` (
+CREATE INDEX IF NOT EXISTS `push_delivery_idx` ON `push` (`delivery_id`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `repo_analysis` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`search_id` integer NOT NULL,
 	`session_id` text NOT NULL,
@@ -366,7 +366,7 @@ CREATE TABLE `repo_analysis` (
 	FOREIGN KEY (`search_id`) REFERENCES `searches`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE TABLE `repository` (
+CREATE TABLE IF NOT EXISTS `repository` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -379,8 +379,8 @@ CREATE TABLE `repository` (
 	FOREIGN KEY (`delivery_id`) REFERENCES `webhook_deliveries`(`delivery_id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE INDEX `repository_delivery_idx` ON `repository` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `repository_advisory` (
+CREATE INDEX IF NOT EXISTS `repository_delivery_idx` ON `repository` (`delivery_id`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `repository_advisory` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -392,8 +392,8 @@ CREATE TABLE `repository_advisory` (
 	FOREIGN KEY (`delivery_id`) REFERENCES `webhook_deliveries`(`delivery_id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE INDEX `repository_advisory_delivery_idx` ON `repository_advisory` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `research_judge_logs` (
+CREATE INDEX IF NOT EXISTS `repository_advisory_delivery_idx` ON `repository_advisory` (`delivery_id`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `research_judge_logs` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`query` text NOT NULL,
 	`is_relevant` integer NOT NULL,
@@ -403,7 +403,7 @@ CREATE TABLE `research_judge_logs` (
 	`created_at` text NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE `searches` (
+CREATE TABLE IF NOT EXISTS `searches` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`session_id` text NOT NULL,
 	`search_term` text NOT NULL,
@@ -412,7 +412,7 @@ CREATE TABLE `searches` (
 	`updated_at` integer DEFAULT (strftime('%s', 'now'))
 );
 --> statement-breakpoint
-CREATE TABLE `secret_scanning_alert` (
+CREATE TABLE IF NOT EXISTS `secret_scanning_alert` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -425,8 +425,8 @@ CREATE TABLE `secret_scanning_alert` (
 	FOREIGN KEY (`delivery_id`) REFERENCES `webhook_deliveries`(`delivery_id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE INDEX `secret_scanning_alert_delivery_idx` ON `secret_scanning_alert` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `secret_scanning_alert_location` (
+CREATE INDEX IF NOT EXISTS `secret_scanning_alert_delivery_idx` ON `secret_scanning_alert` (`delivery_id`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `secret_scanning_alert_location` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -438,8 +438,8 @@ CREATE TABLE `secret_scanning_alert_location` (
 	FOREIGN KEY (`delivery_id`) REFERENCES `webhook_deliveries`(`delivery_id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE INDEX `secret_scanning_alert_location_delivery_idx` ON `secret_scanning_alert_location` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `secret_scanning_scan` (
+CREATE INDEX IF NOT EXISTS `secret_scanning_alert_location_delivery_idx` ON `secret_scanning_alert_location` (`delivery_id`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `secret_scanning_scan` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -450,8 +450,8 @@ CREATE TABLE `secret_scanning_scan` (
 	FOREIGN KEY (`delivery_id`) REFERENCES `webhook_deliveries`(`delivery_id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE INDEX `secret_scanning_scan_delivery_idx` ON `secret_scanning_scan` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `security_advisory` (
+CREATE INDEX IF NOT EXISTS `secret_scanning_scan_delivery_idx` ON `secret_scanning_scan` (`delivery_id`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `security_advisory` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -464,8 +464,8 @@ CREATE TABLE `security_advisory` (
 	FOREIGN KEY (`delivery_id`) REFERENCES `webhook_deliveries`(`delivery_id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE INDEX `security_advisory_delivery_idx` ON `security_advisory` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `security_and_analysis` (
+CREATE INDEX IF NOT EXISTS `security_advisory_delivery_idx` ON `security_advisory` (`delivery_id`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `security_and_analysis` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -474,8 +474,8 @@ CREATE TABLE `security_and_analysis` (
 	FOREIGN KEY (`delivery_id`) REFERENCES `webhook_deliveries`(`delivery_id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE INDEX `security_and_analysis_delivery_idx` ON `security_and_analysis` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `star` (
+CREATE INDEX IF NOT EXISTS `security_and_analysis_delivery_idx` ON `security_and_analysis` (`delivery_id`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `star` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -485,8 +485,8 @@ CREATE TABLE `star` (
 	FOREIGN KEY (`delivery_id`) REFERENCES `webhook_deliveries`(`delivery_id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE INDEX `star_delivery_idx` ON `star` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `status` (
+CREATE INDEX IF NOT EXISTS `star_delivery_idx` ON `star` (`delivery_id`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `status` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -499,8 +499,8 @@ CREATE TABLE `status` (
 	FOREIGN KEY (`delivery_id`) REFERENCES `webhook_deliveries`(`delivery_id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE INDEX `status_delivery_idx` ON `status` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `sub_issues` (
+CREATE INDEX IF NOT EXISTS `status_delivery_idx` ON `status` (`delivery_id`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `sub_issues` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -511,8 +511,8 @@ CREATE TABLE `sub_issues` (
 	FOREIGN KEY (`delivery_id`) REFERENCES `webhook_deliveries`(`delivery_id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE INDEX `sub_issues_delivery_idx` ON `sub_issues` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `trending_repos` (
+CREATE INDEX IF NOT EXISTS `sub_issues_delivery_idx` ON `sub_issues` (`delivery_id`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `trending_repos` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`session_uuid` text NOT NULL,
 	`owner` text NOT NULL,
@@ -523,10 +523,10 @@ CREATE TABLE `trending_repos` (
 	`created_at` integer DEFAULT (strftime('%s', 'now')) NOT NULL
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX `trending_repos_url_unique` ON `trending_repos` (`url`);--> statement-breakpoint
-CREATE INDEX `trending_repos_url_idx` ON `trending_repos` (`url`);--> statement-breakpoint
-CREATE INDEX `trending_repos_created_at_idx` ON `trending_repos` (`created_at`);--> statement-breakpoint
-CREATE TABLE `watch` (
+CREATE UNIQUE INDEX IF NOT EXISTS `trending_repos_url_unique` ON `trending_repos` (`url`);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `trending_repos_url_idx` ON `trending_repos` (`url`);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `trending_repos_created_at_idx` ON `trending_repos` (`created_at`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `watch` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -536,8 +536,8 @@ CREATE TABLE `watch` (
 	FOREIGN KEY (`delivery_id`) REFERENCES `webhook_deliveries`(`delivery_id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE INDEX `watch_delivery_idx` ON `watch` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `webhook_deliveries` (
+CREATE INDEX IF NOT EXISTS `watch_delivery_idx` ON `watch` (`delivery_id`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `webhook_deliveries` (
 	`id` text PRIMARY KEY NOT NULL,
 	`delivery_id` text NOT NULL,
 	`event` text NOT NULL,
@@ -554,12 +554,12 @@ CREATE TABLE `webhook_deliveries` (
 	`created_at` text NOT NULL
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX `webhook_deliveries_delivery_id_unique` ON `webhook_deliveries` (`delivery_id`);--> statement-breakpoint
-CREATE INDEX `delivery_idx` ON `webhook_deliveries` (`delivery_id`);--> statement-breakpoint
-CREATE INDEX `event_idx` ON `webhook_deliveries` (`event`);--> statement-breakpoint
-CREATE INDEX `created_at_idx` ON `webhook_deliveries` (`created_at`);--> statement-breakpoint
-CREATE INDEX `repo_full_name_idx` ON `webhook_deliveries` (`repo_full_name`);--> statement-breakpoint
-CREATE TABLE `workflow_dispatch` (
+CREATE UNIQUE INDEX IF NOT EXISTS `webhook_deliveries_delivery_id_unique` ON `webhook_deliveries` (`delivery_id`);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `delivery_idx` ON `webhook_deliveries` (`delivery_id`);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `event_idx` ON `webhook_deliveries` (`event`);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `created_at_idx` ON `webhook_deliveries` (`created_at`);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `repo_full_name_idx` ON `webhook_deliveries` (`repo_full_name`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `workflow_dispatch` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -570,8 +570,8 @@ CREATE TABLE `workflow_dispatch` (
 	FOREIGN KEY (`delivery_id`) REFERENCES `webhook_deliveries`(`delivery_id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE INDEX `workflow_dispatch_delivery_idx` ON `workflow_dispatch` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `workflow_job` (
+CREATE INDEX IF NOT EXISTS `workflow_dispatch_delivery_idx` ON `workflow_dispatch` (`delivery_id`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `workflow_job` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -586,8 +586,8 @@ CREATE TABLE `workflow_job` (
 	FOREIGN KEY (`delivery_id`) REFERENCES `webhook_deliveries`(`delivery_id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE INDEX `workflow_job_delivery_idx` ON `workflow_job` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `workflow_run` (
+CREATE INDEX IF NOT EXISTS `workflow_job_delivery_idx` ON `workflow_job` (`delivery_id`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `workflow_run` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -603,8 +603,8 @@ CREATE TABLE `workflow_run` (
 	FOREIGN KEY (`delivery_id`) REFERENCES `webhook_deliveries`(`delivery_id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE INDEX `workflow_run_delivery_idx` ON `workflow_run` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `jules_webhook_events` (
+CREATE INDEX IF NOT EXISTS `workflow_run_delivery_idx` ON `workflow_run` (`delivery_id`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `jules_webhook_events` (
 	`id` text PRIMARY KEY NOT NULL,
 	`jules_session_id` text NOT NULL,
 	`event_type` text NOT NULL,
@@ -617,10 +617,10 @@ CREATE TABLE `jules_webhook_events` (
 	`created_at` integer DEFAULT (strftime('%s', 'now')) NOT NULL
 );
 --> statement-breakpoint
-CREATE INDEX `jwh_session_idx` ON `jules_webhook_events` (`jules_session_id`);--> statement-breakpoint
-CREATE INDEX `jwh_event_type_idx` ON `jules_webhook_events` (`event_type`);--> statement-breakpoint
-CREATE INDEX `jwh_created_idx` ON `jules_webhook_events` (`created_at`);--> statement-breakpoint
-CREATE TABLE `workshop_agent_memory` (
+CREATE INDEX IF NOT EXISTS `jwh_session_idx` ON `jules_webhook_events` (`jules_session_id`);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `jwh_event_type_idx` ON `jules_webhook_events` (`event_type`);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `jwh_created_idx` ON `jules_webhook_events` (`created_at`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `workshop_agent_memory` (
 	`id` text PRIMARY KEY NOT NULL,
 	`project_id` text NOT NULL,
 	`content` text NOT NULL,
@@ -632,7 +632,7 @@ CREATE TABLE `workshop_agent_memory` (
 );
 --> statement-breakpoint
 PRAGMA foreign_keys=OFF;--> statement-breakpoint
-CREATE TABLE `__new_jules_sessions` (
+CREATE TABLE IF NOT EXISTS `jules_sessions` (
 	`id` text PRIMARY KEY NOT NULL,
 	`project_id` text,
 	`agent_id` text,
@@ -651,14 +651,11 @@ CREATE TABLE `__new_jules_sessions` (
 	`metadata_json` text
 );
 --> statement-breakpoint
-INSERT INTO `__new_jules_sessions`("id", "project_id", "agent_id", "specialist_class", "prompt", "status", "repo_owner", "repo_name", "branch", "created_at", "updated_at", "last_activity_at", "webhook_received_at", "assistance_count", "requires_user_attention", "metadata_json") SELECT "id", "project_id", "agent_id", "specialist_class", "prompt", "status", "repo_owner", "repo_name", "branch", "created_at", "updated_at", "last_activity_at", "webhook_received_at", "assistance_count", "requires_user_attention", "metadata_json" FROM `jules_sessions`;--> statement-breakpoint
-DROP TABLE `jules_sessions`;--> statement-breakpoint
-ALTER TABLE `__new_jules_sessions` RENAME TO `jules_sessions`;--> statement-breakpoint
 PRAGMA foreign_keys=ON;--> statement-breakpoint
-CREATE INDEX `jules_sessions_status_idx` ON `jules_sessions` (`status`);--> statement-breakpoint
-CREATE INDEX `jules_sessions_project_idx` ON `jules_sessions` (`project_id`);--> statement-breakpoint
-CREATE INDEX `jules_sessions_agent_idx` ON `jules_sessions` (`agent_id`);--> statement-breakpoint
-CREATE INDEX `jules_sessions_created_idx` ON `jules_sessions` (`created_at`);--> statement-breakpoint
-CREATE INDEX `jules_sessions_last_activity_idx` ON `jules_sessions` (`last_activity_at`);--> statement-breakpoint
-ALTER TABLE `workshop_projects` ADD `updated_at` text DEFAULT CURRENT_TIMESTAMP;--> statement-breakpoint
-ALTER TABLE `workshop_task_events` ADD `status` text DEFAULT 'pending';
+CREATE INDEX IF NOT EXISTS `jules_sessions_status_idx` ON `jules_sessions` (`status`);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `jules_sessions_project_idx` ON `jules_sessions` (`project_id`);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `jules_sessions_agent_idx` ON `jules_sessions` (`agent_id`);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `jules_sessions_created_idx` ON `jules_sessions` (`created_at`);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `jules_sessions_last_activity_idx` ON `jules_sessions` (`last_activity_at`);--> statement-breakpoint
+-- ALTER TABLE `workshop_projects` ADD `updated_at` text DEFAULT CURRENT_TIMESTAMP;--> statement-breakpoint
+-- ALTER TABLE `workshop_task_events` ADD `status` text DEFAULT 'pending';

@@ -1,5 +1,5 @@
 {
-	"name": "core-github-api-v2",
+	"name": "core-github-api",
 	"main": "backend/src/index.ts",
 	"compatibility_date": "2026-02-10",
 	"compatibility_flags": [

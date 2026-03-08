@@ -5,12 +5,12 @@ export default tseslint.config(
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    ignores: ['dist/', 'node_modules/', '.wrangler/', 'worker-configuration.d.ts'],
+    ignores: ['dist/', 'node_modules/', '.wrangler/', 'worker-configuration.d.ts', '**/*.mjs', '**/*.cjs'],
   },
   {
     languageOptions: {
         parserOptions: {
-            project: ['./tsconfig.json'],
+            project: ['./tsconfig.json', './frontend/tsconfig.json'],
             tsconfigRootDir: import.meta.dirname,
         },
     },

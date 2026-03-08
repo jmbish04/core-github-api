@@ -1,4 +1,4 @@
-CREATE TABLE `health_results` (
+CREATE TABLE IF NOT EXISTS `health_results` (
 	`id` text PRIMARY KEY NOT NULL,
 	`run_id` text NOT NULL,
 	`category` text NOT NULL,
@@ -11,7 +11,7 @@ CREATE TABLE `health_results` (
 	FOREIGN KEY (`run_id`) REFERENCES `health_runs`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
-CREATE TABLE `health_runs` (
+CREATE TABLE IF NOT EXISTS `health_runs` (
 	`id` text PRIMARY KEY NOT NULL,
 	`status` text NOT NULL,
 	`trigger` text DEFAULT 'manual',

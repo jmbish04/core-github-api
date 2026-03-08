@@ -1,0 +1,61 @@
+{
+  "project": "core-github-api",
+  "module": "Workshop (Stitch Retrofit Phase 3)",
+  "status": "completed",
+  "tasks": [
+    {
+      "phase": 1,
+      "title": "Advanced Routing & Overlays",
+      "status": "completed",
+      "screens": [
+        "Global Agent Command Center",
+        "Workshop Sidebar Entry & Full Takeover"
+      ]
+    },
+    {
+      "phase": 2,
+      "title": "Consultation & Hubs",
+      "status": "in_progress",
+      "screens": [
+        "Agent Consultation Split-Pane View",
+        "Agent Integration & Tool Hub",
+        "Specialist Menu Selection Wizard"
+      ]
+    },
+    {
+      "phase": 3,
+      "title": "Orchestration & Flow",
+      "status": "pending",
+      "screens": [
+        "Cross-Project Agent Hand-off Flow",
+        "Agent Factory Blueprint Editor"
+      ]
+    },
+    {
+      "phase": 4,
+      "title": "Execution & Analytics",
+      "status": "pending",
+      "screens": [
+        "AI Agent Bottleneck & Optimization Dashboard",
+        "Phased Agent Execution Kanban"
+      ]
+    }
+  ],
+  "dependencies": [
+    null,
+    null,
+    null,
+    {
+      "status": "completed"
+    },
+    {
+      "status": "completed"
+    },
+    {
+      "status": "completed"
+    },
+    {
+      "status": "completed"
+    }
+  ]
+}

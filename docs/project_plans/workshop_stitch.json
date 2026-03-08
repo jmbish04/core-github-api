@@ -1,0 +1,618 @@
+{
+  "project_name": "Workshop Module Integration",
+  "generated_date": "2026-03-05T10:00:00Z",
+  "total_phases": 4,
+  "phases": [
+    {
+      "phase_number": 1,
+      "phase_title": "Backend Foundation",
+      "description": "Establish the database schema, API endpoints, and basic agent infrastructure to support the Workshop module.",
+      "success_criteria": [
+        "D1 database has new tables for projects and events",
+        "Hono API endpoints for workshop initialization are reachable",
+        "WorkshopAgent Durable Object is configured"
+      ],
+      "implementation_plan": {
+        "title": "Backend Core",
+        "description": "Database and API layer implementation",
+        "architecture": {
+          "explanation": "Hono routes handle HTTP requests and delegate complex logic to the WorkshopAgent DO. Drizzle ORM manages the SQLite schema.",
+          "mermaid_diagram": "graph TD; API[Hono API] --> DO[WorkshopAgent]; API --> DB[D1 Database]; DO --> AI[Workers AI];"
+        },
+        "proposed_changes": [
+          {
+            "category": "Backend: Database Schema",
+            "files": [
+              {
+                "action": "NEW",
+                "file_path": "src/backend/db/schemas/projects.ts",
+                "instructions": [
+                  "Define 'projects' table with: id (uuid), name, description, repo_url, status, draft_data (json), created_at."
+                ]
+              },
+              {
+                "action": "NEW",
+                "file_path": "src/backend/db/schemas/task_events.ts",
+                "instructions": [
+                  "Define 'task_events' table with: id, project_id, task_id, type (prompt, webhook, review), actor, content (json), created_at."
+                ]
+              },
+              {
+                "action": "MODIFY",
+                "file_path": "src/backend/db/schemas/index.ts",
+                "instructions": [
+                  "Export new schemas."
+                ]
+              }
+            ]
+          },
+          {
+            "category": "Backend: API",
+            "files": [
+              {
+                "action": "NEW",
+                "file_path": "src/backend/routes/workshop.ts",
+                "instructions": [
+                  "Create POST /init endpoint for creating projects.",
+                  "Create POST /draft endpoint for auto-saving wizard state."
+                ]
+              },
+              {
+                "action": "MODIFY",
+                "file_path": "src/backend/index.ts",
+                "instructions": [
+                  "Register workshop routes."
+                ]
+              }
+            ]
+          },
+          {
+            "category": "Backend: Agents",
+            "files": [
+              {
+                "action": "NEW",
+                "file_path": "src/backend/ai/agents/by-usecase/workflow/workshop-agent.ts",
+                "instructions": [
+                  "Create WorkshopAgent class extending Agent.",
+                  "Implement logic to orchestrate task execution."
+                ]
+              }
+            ]
+          }
+        ],
+        "verification_plan": {
+          "automated_tests": [
+            {
+              "command": "pnpm test",
+              "expected_outcome": "All backend tests pass"
+            }
+          ],
+          "manual_verification": [
+            "Verify tables exist in D1 via wrangler d1 execute",
+            "Test API endpoints with curl"
+          ]
+        }
+      },
+      "tasks": [
+        {
+          "task_number": 1,
+          "status": "completed",
+          "agent_assigned": "Architect Agent",
+          "task_title": "Database Schema Implementation",
+          "task_description": "Create Drizzle schema files for projects and task events, and run migrations.",
+          "task_dependencies": [],
+          "cloudflare_docs_queries": [
+            "Drizzle D1 schema definition best practices"
+          ],
+          "steps": [
+            {
+              "number": 1.1,
+              "title": "Create Project Schema",
+              "status": "completed",
+              "technical_requirements": [
+                "Create src/backend/db/schemas/projects.ts"
+              ],
+              "success_criteria": [
+                "File created"
+              ]
+            },
+            {
+              "number": 1.2,
+              "title": "Create Event Schema",
+              "status": "completed",
+              "technical_requirements": [
+                "Create src/backend/db/schemas/task_events.ts"
+              ],
+              "success_criteria": [
+                "File created"
+              ]
+            },
+            {
+              "number": 1.3,
+              "title": "Generate Migrations",
+              "status": "completed",
+              "technical_requirements": [
+                "Run pnpm run db:generate"
+              ],
+              "success_criteria": [
+                "Migration file generated in drizzle/"
+              ]
+            }
+          ],
+          "requirements": [
+            "Use text for UUIDs",
+            "Use JSON mode for complex data"
+          ],
+          "success_criteria": [
+            "Migrations applied successfully"
+          ]
+        },
+        {
+          "task_number": 2,
+          "status": "completed",
+          "agent_assigned": "Architect Agent",
+          "task_title": "Workshop API Implementation",
+          "task_description": "Implement the Hono routes for the workshop module.",
+          "task_dependencies": [
+            "Phase 1 Task 1"
+          ],
+          "cloudflare_docs_queries": [
+            "Hono Zod OpenAPI validation"
+          ],
+          "steps": [
+            {
+              "number": 2.1,
+              "title": "Create Route File",
+              "status": "completed",
+              "technical_requirements": [
+                "Create src/backend/routes/workshop.ts"
+              ],
+              "success_criteria": [
+                "File created"
+              ]
+            },
+            {
+              "number": 2.2,
+              "title": "Register Routes",
+              "status": "completed",
+              "technical_requirements": [
+                "Update src/backend/index.ts"
+              ],
+              "success_criteria": [
+                "Routes registered"
+              ]
+            }
+          ],
+          "requirements": [
+            "All routes must have Zod validation"
+          ],
+          "success_criteria": [
+            "API endpoints return 200 OK on test"
+          ]
+        },
+        {
+          "task_number": 3,
+          "status": "not_started",
+          "agent_assigned": "AI Agent",
+          "task_title": "Workshop Agent Setup",
+          "task_description": "Create the Durable Object class for the Workshop Agent.",
+          "task_dependencies": [],
+          "cloudflare_docs_queries": [
+            "Cloudflare Agents SDK Workflow Agent"
+          ],
+          "steps": [
+            {
+              "number": 3.1,
+              "title": "Create Agent Class",
+              "status": "completed",
+              "technical_requirements": [
+                "Create src/backend/ai/agents/by-usecase/workflow/workshop-agent.ts"
+              ],
+              "success_criteria": [
+                "File created"
+              ]
+            },
+            {
+              "number": 3.2,
+              "title": "Update Wrangler Config",
+              "status": "completed",
+              "technical_requirements": [
+                "Add binding to wrangler.jsonc"
+              ],
+              "success_criteria": [
+                "Binding added"
+              ]
+            }
+          ],
+          "requirements": [
+            "Use SQLite storage for agent state"
+          ],
+          "success_criteria": [
+            "Agent class compiles"
+          ]
+        }
+      ]
+    },
+    {
+      "phase_number": 2,
+      "phase_title": "Frontend Implementation",
+      "description": "Build the Workshop Wizard and integrate it into the Astro application.",
+      "success_criteria": [
+        "Workshop page renders correctly",
+        "Wizard state is managed and auto-saved",
+        "Navigation is updated"
+      ],
+      "implementation_plan": {
+        "title": "Frontend UI",
+        "description": "React components and Astro pages",
+        "architecture": {
+          "explanation": "Astro handles routing and layout. React handles the interactive wizard state.",
+          "mermaid_diagram": "graph TD; Page[Astro Page] --> Wizard[React Wizard]; Wizard --> API[Hono API];"
+        },
+        "proposed_changes": [
+          {
+            "category": "Frontend: Components",
+            "files": [
+              {
+                "action": "NEW",
+                "file_path": "src/frontend/components/workshop/WorkshopWizard.tsx",
+                "instructions": [
+                  "Implement multi-step wizard using shadcn components."
+                ]
+              },
+              {
+                "action": "NEW",
+                "file_path": "src/frontend/components/workshop/SpecialistMenu.tsx",
+                "instructions": [
+                  "Implement the specialist selection grid."
+                ]
+              },
+              {
+                "action": "NEW",
+                "file_path": "src/frontend/components/workshop/ConsultationView.tsx",
+                "instructions": [
+                  "Implement split-pane view for chat and PRD."
+                ]
+              }
+            ]
+          },
+          {
+            "category": "Frontend: Pages",
+            "files": [
+              {
+                "action": "NEW",
+                "file_path": "src/frontend/pages/workshop.astro",
+                "instructions": [
+                  "Create the main workshop entry page."
+                ]
+              }
+            ]
+          },
+          {
+            "category": "Frontend: Navigation",
+            "files": [
+              {
+                "action": "MODIFY",
+                "file_path": "src/frontend/components/Sidebar.tsx",
+                "instructions": [
+                  "Add Workshop link to the sidebar."
+                ]
+              }
+            ]
+          }
+        ],
+        "verification_plan": {
+          "automated_tests": [],
+          "manual_verification": [
+            "Navigate to /workshop",
+            "Complete the wizard flow"
+          ]
+        }
+      },
+      "tasks": [
+        {
+          "task_number": 1,
+          "status": "completed",
+          "agent_assigned": "Frontend Agent",
+          "task_title": "Wizard Components",
+          "task_description": "Build the React components for the workshop wizard.",
+          "task_dependencies": [],
+          "cloudflare_docs_queries": [],
+          "steps": [
+            {
+              "number": 1.1,
+              "title": "Create Wizard Container",
+              "status": "completed",
+              "technical_requirements": [
+                "Create src/frontend/components/workshop/WorkshopWizard.tsx"
+              ],
+              "success_criteria": [
+                "Component renders"
+              ]
+            },
+            {
+              "number": 1.2,
+              "title": "Create Sub-components",
+              "status": "completed",
+              "technical_requirements": [
+                "Create SpecialistMenu and ConsultationView"
+              ],
+              "success_criteria": [
+                "Components render"
+              ]
+            }
+          ],
+          "requirements": [
+            "Use shadcn/ui components",
+            "Ensure dark mode compatibility"
+          ],
+          "success_criteria": [
+            "Wizard functions interactively"
+          ]
+        },
+        {
+          "task_number": 2,
+          "status": "completed",
+          "agent_assigned": "Frontend Agent",
+          "task_title": "Page Integration",
+          "task_description": "Create the Astro page and update navigation.",
+          "task_dependencies": [
+            "Phase 2 Task 1"
+          ],
+          "cloudflare_docs_queries": [],
+          "steps": [
+            {
+              "number": 2.1,
+              "title": "Create Astro Page",
+              "status": "completed",
+              "technical_requirements": [
+                "Create src/frontend/pages/workshop.astro"
+              ],
+              "success_criteria": [
+                "Page loads"
+              ]
+            },
+            {
+              "number": 2.2,
+              "title": "Update Sidebar",
+              "status": "completed",
+              "technical_requirements": [
+                "Modify src/frontend/components/Sidebar.tsx"
+              ],
+              "success_criteria": [
+                "Link appears"
+              ]
+            }
+          ],
+          "requirements": [
+            "Use BaseLayout"
+          ],
+          "success_criteria": [
+            "Navigation works"
+          ]
+        }
+      ]
+    },
+    {
+      "phase_number": 3,
+      "phase_title": "Mission Control & Orchestration",
+      "description": "Implement the Session Timeline and orchestration logic.",
+      "success_criteria": [
+        "Session Timeline visualizes events",
+        "Orchestrator can dispatch tasks",
+        "GitHub repo creation works"
+      ],
+      "implementation_plan": {
+        "title": "Mission Control",
+        "description": "Visualization and Logic",
+        "architecture": {
+          "explanation": "React component fetches event log from API. Backend triggers GitHub API.",
+          "mermaid_diagram": "graph TD; UI[Timeline] --> API[Event API]; API --> DB[Task Events]; Agent --> GitHub[GitHub API];"
+        },
+        "proposed_changes": [
+          {
+            "category": "Frontend: Components",
+            "files": [
+              {
+                "action": "NEW",
+                "file_path": "src/frontend/components/workshop/SessionTimeline.tsx",
+                "instructions": [
+                  "Implement the vertical audit log component."
+                ]
+              }
+            ]
+          },
+          {
+            "category": "Backend: Integration",
+            "files": [
+              {
+                "action": "MODIFY",
+                "file_path": "src/backend/ai/agents/by-usecase/workflow/workshop-agent.ts",
+                "instructions": [
+                  "Implement GitHub repo creation logic."
+                ]
+              }
+            ]
+          }
+        ],
+        "verification_plan": {
+          "automated_tests": [],
+          "manual_verification": [
+            "Verify events appear in timeline",
+            "Check GitHub for new repo"
+          ]
+        }
+      },
+      "tasks": [
+        {
+          "task_number": 1,
+          "status": "completed",
+          "agent_assigned": "Frontend Agent",
+          "task_title": "Session Timeline Component",
+          "task_description": "Build the React component to visualize task events.",
+          "task_dependencies": [],
+          "cloudflare_docs_queries": [],
+          "steps": [
+            {
+              "number": 1.1,
+              "title": "Create Timeline",
+              "status": "completed",
+              "technical_requirements": [
+                "Create src/frontend/components/workshop/SessionTimeline.tsx"
+              ],
+              "success_criteria": [
+                "Component renders"
+              ]
+            }
+          ],
+          "requirements": [
+            "Handle various event types"
+          ],
+          "success_criteria": [
+            "Timeline displays mock data correctly"
+          ]
+        },
+        {
+          "task_number": 2,
+          "status": "completed",
+          "agent_assigned": "Architect Agent",
+          "task_title": "GitHub Integration",
+          "task_description": "Implement the logic to create a GitHub repository.",
+          "task_dependencies": [
+            "Phase 1 Task 3"
+          ],
+          "cloudflare_docs_queries": [
+            "GitHub Octokit usage in Workers"
+          ],
+          "steps": [
+            {
+              "number": 2.1,
+              "title": "Implement Repo Creation",
+              "status": "completed",
+              "technical_requirements": [
+                "Update WorkshopAgent class"
+              ],
+              "success_criteria": [
+                "Repo created on GitHub"
+              ]
+            }
+          ],
+          "requirements": [
+            "Use Octokit",
+            "Handle API errors"
+          ],
+          "success_criteria": [
+            "Integration works end-to-end"
+          ]
+        }
+      ]
+    },
+    {
+      "phase_number": 4,
+      "phase_title": "Global Dashboards & Polish",
+      "description": "Update global views to reflect new workshop data.",
+      "success_criteria": [
+        "Global Kanban shows all project tasks",
+        "Dashboard shows workshop activity"
+      ],
+      "implementation_plan": {
+        "title": "Global Views",
+        "description": "Dashboard updates",
+        "architecture": {
+          "explanation": "Update existing dashboard components to query new tables.",
+          "mermaid_diagram": "graph TD; Dashboard --> Projects[Projects Table]; Kanban --> Tasks[Project Tasks];"
+        },
+        "proposed_changes": [
+          {
+            "category": "Frontend: Pages",
+            "files": [
+              {
+                "action": "MODIFY",
+                "file_path": "src/frontend/pages/planning.astro",
+                "instructions": [
+                  "Update to fetch from new project_tasks table."
+                ]
+              },
+              {
+                "action": "MODIFY",
+                "file_path": "src/frontend/components/Dashboard.tsx",
+                "instructions": [
+                  "Add Workshop Activity widget."
+                ]
+              }
+            ]
+          }
+        ],
+        "verification_plan": {
+          "automated_tests": [],
+          "manual_verification": [
+            "Check Global Kanban",
+            "Check Dashboard"
+          ]
+        }
+      },
+      "tasks": [
+        {
+          "task_number": 1,
+          "status": "completed",
+          "agent_assigned": "Frontend Agent",
+          "task_title": "Update Global Kanban",
+          "task_description": "Modify the planning page to aggregate tasks from all workshop projects.",
+          "task_dependencies": [
+            "Phase 1 Task 1"
+          ],
+          "cloudflare_docs_queries": [],
+          "steps": [
+            {
+              "number": 1.1,
+              "title": "Modify Planning Page",
+              "status": "completed",
+              "technical_requirements": [
+                "Update query logic"
+              ],
+              "success_criteria": [
+                "Tasks appear"
+              ]
+            }
+          ],
+          "requirements": [
+            "Support filtering by project"
+          ],
+          "success_criteria": [
+            "Kanban works globally"
+          ]
+        },
+        {
+          "task_number": 2,
+          "status": "completed",
+          "agent_assigned": "Frontend Agent",
+          "task_title": "Update Dashboard",
+          "task_description": "Add a widget to the main dashboard showing recent workshop activity.",
+          "task_dependencies": [
+            "Phase 1 Task 1"
+          ],
+          "cloudflare_docs_queries": [],
+          "steps": [
+            {
+              "number": 2.1,
+              "title": "Add Widget",
+              "status": "completed",
+              "technical_requirements": [
+                "Modify Dashboard.tsx"
+              ],
+              "success_criteria": [
+                "Widget appears"
+              ]
+            }
+          ],
+          "requirements": [
+            "Show active sessions count"
+          ],
+          "success_criteria": [
+            "Dashboard updates correctly"
+          ]
+        }
+      ]
+    }
+  ]
+}

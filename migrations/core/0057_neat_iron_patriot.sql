@@ -1,4 +1,4 @@
-CREATE TABLE `golden_path_config` (
+CREATE TABLE IF NOT EXISTS `golden_path_config` (
 	`id` text PRIMARY KEY NOT NULL,
 	`frontend` text NOT NULL,
 	`backend` text NOT NULL,

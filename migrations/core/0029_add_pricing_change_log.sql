@@ -2,7 +2,7 @@
 -- Created: 2026-03-02
 -- Description: Track pricing changes over time for AI models
 
-CREATE TABLE `pricing_change_log` (
+CREATE TABLE IF NOT EXISTS `pricing_change_log` (
 	`id` text PRIMARY KEY NOT NULL,
 	`provider` text NOT NULL,
 	`model_id` text NOT NULL,

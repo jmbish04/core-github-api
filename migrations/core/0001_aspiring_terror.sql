@@ -1,4 +1,4 @@
-CREATE TABLE `operation_logs` (
+CREATE TABLE IF NOT EXISTS `operation_logs` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`repo_id` text NOT NULL,
 	`action_type` text NOT NULL,

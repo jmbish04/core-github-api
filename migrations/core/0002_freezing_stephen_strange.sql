@@ -1,4 +1,4 @@
-CREATE TABLE `container_logs` (
+CREATE TABLE IF NOT EXISTS `container_logs` (
 	`id` text PRIMARY KEY NOT NULL,
 	`repo_id` integer,
 	`command` text,

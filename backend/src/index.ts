@@ -10,14 +10,12 @@ import { swaggerUI } from '@hono/swagger-ui'
 import { getAgentByName } from 'agents'
 import { generateUuid } from '@/utils/common'
 // 'app' is the Hono app that handles all our API routes
-import { app, Bindings } from "@utils/hono";
-import { logSecretStatus } from "@utils/debug-secrets";
+import { app } from "@utils/hono";
 import { getWorkerApiKey, getGithubToken } from "@utils/secrets";
-import { GitHubWorkerRPC } from "@/routes/rpc";
 import { convertOpenAPIToYAML, buildCompleteOpenAPIDocument } from "@utils/openapi";
 import { MCP_TOOLS, getToolStats, getTool, MCPExecuteRequest, TOOL_ROUTES, serializeTools } from "@/ai/mcp/tools";
 import { getDb, schema } from "@db";
-import { eq, and, desc, isNull } from 'drizzle-orm'
+import { isNull } from 'drizzle-orm'
 
 // --- Lazy loaded types for heavy routes ---
 import type octokitApi from "@/services/octokit";
@@ -65,6 +63,7 @@ app.use('*', async (c, next) => {
     maxAge: 600,
     credentials: true,
   });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return corsMiddleware(c as any, next);
 });
 
@@ -614,6 +613,7 @@ app.route('/auth', authApi)
 
 // Define full AppType for frontend RPC generation using a type-only approach
 // This prevents runtime crashes from Hono trying to read `.routes` off mock objects.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const eagerApi = new OpenAPIHono<{ Bindings: Env }>()
   .route('/ops', opsApi)
   .route('/tasks', tasksApi)
@@ -783,7 +783,7 @@ async function handleScheduled(event: ScheduledController, env: Env, ctx: Execut
                 const output = status.output as any;
                 const candidates = output.candidates || [];
                 
-                if (candidates.length > 0 && env.SEND_EMAIL) {
+                if (candidates.length > 0 && env.SEND_EMAIL_NEWSLETTER) {
                    await sendRepoDiscoveryEmail(env, {
                       subject: `Daily Trends - ${brief.title}`,
                       title: `Daily Trends - ${brief.title}`,
@@ -1073,6 +1073,7 @@ export default {
         return new Response('Not Found', { status: 404 });
       }
     } catch (e) {
+      console.error('Error serving asset:', JSON.stringify(e));
       return new Response('Error serving asset', { status: 500 });
     }
   },

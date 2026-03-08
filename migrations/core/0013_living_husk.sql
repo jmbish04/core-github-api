@@ -1,4 +1,4 @@
-CREATE TABLE `repo_drafts` (
+CREATE TABLE IF NOT EXISTS `repo_drafts` (
 	`id` text PRIMARY KEY NOT NULL,
 	`name` text NOT NULL,
 	`description` text,

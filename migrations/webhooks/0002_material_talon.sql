@@ -1,4 +1,4 @@
-CREATE TABLE `daily_trends` (
+CREATE TABLE IF NOT EXISTS `daily_trends` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`date` text NOT NULL,
 	`trend_summary` text NOT NULL,
@@ -8,7 +8,7 @@ CREATE TABLE `daily_trends` (
 );
 --> statement-breakpoint
 CREATE INDEX `daily_trends_date_idx` ON `daily_trends` (`date`);--> statement-breakpoint
-CREATE TABLE `research_judge_logs` (
+CREATE TABLE IF NOT EXISTS `research_judge_logs` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`query` text NOT NULL,
 	`is_relevant` integer NOT NULL,

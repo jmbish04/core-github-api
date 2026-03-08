@@ -1,4 +1,4 @@
-CREATE TABLE `check_run` (
+CREATE TABLE IF NOT EXISTS `check_run` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -13,7 +13,7 @@ CREATE TABLE `check_run` (
 );
 --> statement-breakpoint
 CREATE INDEX `check_run_delivery_idx` ON `check_run` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `code_scanning_alert` (
+CREATE TABLE IF NOT EXISTS `code_scanning_alert` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -29,7 +29,7 @@ CREATE TABLE `code_scanning_alert` (
 );
 --> statement-breakpoint
 CREATE INDEX `code_scanning_alert_delivery_idx` ON `code_scanning_alert` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `commit_comment` (
+CREATE TABLE IF NOT EXISTS `commit_comment` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -44,7 +44,7 @@ CREATE TABLE `commit_comment` (
 );
 --> statement-breakpoint
 CREATE INDEX `commit_comment_delivery_idx` ON `commit_comment` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `create` (
+CREATE TABLE IF NOT EXISTS `create` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -57,7 +57,7 @@ CREATE TABLE `create` (
 );
 --> statement-breakpoint
 CREATE INDEX `create_delivery_idx` ON `create` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `custom_property` (
+CREATE TABLE IF NOT EXISTS `custom_property` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -70,7 +70,7 @@ CREATE TABLE `custom_property` (
 );
 --> statement-breakpoint
 CREATE INDEX `custom_property_delivery_idx` ON `custom_property` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `custom_property_values` (
+CREATE TABLE IF NOT EXISTS `custom_property_values` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -82,7 +82,7 @@ CREATE TABLE `custom_property_values` (
 );
 --> statement-breakpoint
 CREATE INDEX `custom_property_values_delivery_idx` ON `custom_property_values` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `delete` (
+CREATE TABLE IF NOT EXISTS `delete` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -93,7 +93,7 @@ CREATE TABLE `delete` (
 );
 --> statement-breakpoint
 CREATE INDEX `delete_delivery_idx` ON `delete` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `dependabot_alert` (
+CREATE TABLE IF NOT EXISTS `dependabot_alert` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -108,7 +108,7 @@ CREATE TABLE `dependabot_alert` (
 );
 --> statement-breakpoint
 CREATE INDEX `dependabot_alert_delivery_idx` ON `dependabot_alert` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `dismissal_request_code_scanning` (
+CREATE TABLE IF NOT EXISTS `dismissal_request_code_scanning` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -120,7 +120,7 @@ CREATE TABLE `dismissal_request_code_scanning` (
 );
 --> statement-breakpoint
 CREATE INDEX `dismissal_request_code_scanning_delivery_idx` ON `dismissal_request_code_scanning` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `dismissal_request_secret_scanning` (
+CREATE TABLE IF NOT EXISTS `dismissal_request_secret_scanning` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -132,7 +132,7 @@ CREATE TABLE `dismissal_request_secret_scanning` (
 );
 --> statement-breakpoint
 CREATE INDEX `dismissal_request_secret_scanning_delivery_idx` ON `dismissal_request_secret_scanning` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `exemption_request_push_ruleset` (
+CREATE TABLE IF NOT EXISTS `exemption_request_push_ruleset` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -145,7 +145,7 @@ CREATE TABLE `exemption_request_push_ruleset` (
 );
 --> statement-breakpoint
 CREATE INDEX `exemption_request_push_ruleset_delivery_idx` ON `exemption_request_push_ruleset` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `exemption_request_secret_scanning` (
+CREATE TABLE IF NOT EXISTS `exemption_request_secret_scanning` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -157,7 +157,7 @@ CREATE TABLE `exemption_request_secret_scanning` (
 );
 --> statement-breakpoint
 CREATE INDEX `exemption_request_secret_scanning_delivery_idx` ON `exemption_request_secret_scanning` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `fork` (
+CREATE TABLE IF NOT EXISTS `fork` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -169,7 +169,7 @@ CREATE TABLE `fork` (
 );
 --> statement-breakpoint
 CREATE INDEX `fork_delivery_idx` ON `fork` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `issue_comment` (
+CREATE TABLE IF NOT EXISTS `issue_comment` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -182,7 +182,7 @@ CREATE TABLE `issue_comment` (
 );
 --> statement-breakpoint
 CREATE INDEX `issue_comment_delivery_idx` ON `issue_comment` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `issues` (
+CREATE TABLE IF NOT EXISTS `issues` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -198,7 +198,7 @@ CREATE TABLE `issues` (
 );
 --> statement-breakpoint
 CREATE INDEX `issues_delivery_idx` ON `issues` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `label` (
+CREATE TABLE IF NOT EXISTS `label` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -210,7 +210,7 @@ CREATE TABLE `label` (
 );
 --> statement-breakpoint
 CREATE INDEX `label_delivery_idx` ON `label` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `merge_queue_entry` (
+CREATE TABLE IF NOT EXISTS `merge_queue_entry` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -222,7 +222,7 @@ CREATE TABLE `merge_queue_entry` (
 );
 --> statement-breakpoint
 CREATE INDEX `merge_queue_entry_delivery_idx` ON `merge_queue_entry` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `milestone` (
+CREATE TABLE IF NOT EXISTS `milestone` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -235,7 +235,7 @@ CREATE TABLE `milestone` (
 );
 --> statement-breakpoint
 CREATE INDEX `milestone_delivery_idx` ON `milestone` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `org_block` (
+CREATE TABLE IF NOT EXISTS `org_block` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -245,7 +245,7 @@ CREATE TABLE `org_block` (
 );
 --> statement-breakpoint
 CREATE INDEX `org_block_delivery_idx` ON `org_block` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `organization_custom_property_values` (
+CREATE TABLE IF NOT EXISTS `organization_custom_property_values` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -257,7 +257,7 @@ CREATE TABLE `organization_custom_property_values` (
 );
 --> statement-breakpoint
 CREATE INDEX `organization_custom_property_values_delivery_idx` ON `organization_custom_property_values` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `pull_request` (
+CREATE TABLE IF NOT EXISTS `pull_request` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -276,7 +276,7 @@ CREATE TABLE `pull_request` (
 );
 --> statement-breakpoint
 CREATE INDEX `pull_request_delivery_idx` ON `pull_request` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `pull_request_review` (
+CREATE TABLE IF NOT EXISTS `pull_request_review` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -290,7 +290,7 @@ CREATE TABLE `pull_request_review` (
 );
 --> statement-breakpoint
 CREATE INDEX `pull_request_review_delivery_idx` ON `pull_request_review` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `pull_request_review_comment` (
+CREATE TABLE IF NOT EXISTS `pull_request_review_comment` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -306,7 +306,7 @@ CREATE TABLE `pull_request_review_comment` (
 );
 --> statement-breakpoint
 CREATE INDEX `pull_request_review_comment_delivery_idx` ON `pull_request_review_comment` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `pull_request_review_thread` (
+CREATE TABLE IF NOT EXISTS `pull_request_review_thread` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -318,7 +318,7 @@ CREATE TABLE `pull_request_review_thread` (
 );
 --> statement-breakpoint
 CREATE INDEX `pull_request_review_thread_delivery_idx` ON `pull_request_review_thread` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `push` (
+CREATE TABLE IF NOT EXISTS `push` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -334,7 +334,7 @@ CREATE TABLE `push` (
 );
 --> statement-breakpoint
 CREATE INDEX `push_delivery_idx` ON `push` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `repository` (
+CREATE TABLE IF NOT EXISTS `repository` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -348,7 +348,7 @@ CREATE TABLE `repository` (
 );
 --> statement-breakpoint
 CREATE INDEX `repository_delivery_idx` ON `repository` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `repository_advisory` (
+CREATE TABLE IF NOT EXISTS `repository_advisory` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -361,7 +361,7 @@ CREATE TABLE `repository_advisory` (
 );
 --> statement-breakpoint
 CREATE INDEX `repository_advisory_delivery_idx` ON `repository_advisory` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `secret_scanning_alert` (
+CREATE TABLE IF NOT EXISTS `secret_scanning_alert` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -375,7 +375,7 @@ CREATE TABLE `secret_scanning_alert` (
 );
 --> statement-breakpoint
 CREATE INDEX `secret_scanning_alert_delivery_idx` ON `secret_scanning_alert` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `secret_scanning_alert_location` (
+CREATE TABLE IF NOT EXISTS `secret_scanning_alert_location` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -388,7 +388,7 @@ CREATE TABLE `secret_scanning_alert_location` (
 );
 --> statement-breakpoint
 CREATE INDEX `secret_scanning_alert_location_delivery_idx` ON `secret_scanning_alert_location` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `secret_scanning_scan` (
+CREATE TABLE IF NOT EXISTS `secret_scanning_scan` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -400,7 +400,7 @@ CREATE TABLE `secret_scanning_scan` (
 );
 --> statement-breakpoint
 CREATE INDEX `secret_scanning_scan_delivery_idx` ON `secret_scanning_scan` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `security_advisory` (
+CREATE TABLE IF NOT EXISTS `security_advisory` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -414,7 +414,7 @@ CREATE TABLE `security_advisory` (
 );
 --> statement-breakpoint
 CREATE INDEX `security_advisory_delivery_idx` ON `security_advisory` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `security_and_analysis` (
+CREATE TABLE IF NOT EXISTS `security_and_analysis` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -424,7 +424,7 @@ CREATE TABLE `security_and_analysis` (
 );
 --> statement-breakpoint
 CREATE INDEX `security_and_analysis_delivery_idx` ON `security_and_analysis` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `star` (
+CREATE TABLE IF NOT EXISTS `star` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -435,7 +435,7 @@ CREATE TABLE `star` (
 );
 --> statement-breakpoint
 CREATE INDEX `star_delivery_idx` ON `star` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `status` (
+CREATE TABLE IF NOT EXISTS `status` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -449,7 +449,7 @@ CREATE TABLE `status` (
 );
 --> statement-breakpoint
 CREATE INDEX `status_delivery_idx` ON `status` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `sub_issues` (
+CREATE TABLE IF NOT EXISTS `sub_issues` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -461,7 +461,7 @@ CREATE TABLE `sub_issues` (
 );
 --> statement-breakpoint
 CREATE INDEX `sub_issues_delivery_idx` ON `sub_issues` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `watch` (
+CREATE TABLE IF NOT EXISTS `watch` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -472,7 +472,7 @@ CREATE TABLE `watch` (
 );
 --> statement-breakpoint
 CREATE INDEX `watch_delivery_idx` ON `watch` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `webhook_deliveries` (
+CREATE TABLE IF NOT EXISTS `webhook_deliveries` (
 	`id` text PRIMARY KEY NOT NULL,
 	`delivery_id` text NOT NULL,
 	`event` text NOT NULL,
@@ -491,7 +491,7 @@ CREATE UNIQUE INDEX `webhook_deliveries_delivery_id_unique` ON `webhook_deliveri
 CREATE INDEX `delivery_idx` ON `webhook_deliveries` (`delivery_id`);--> statement-breakpoint
 CREATE INDEX `event_idx` ON `webhook_deliveries` (`event`);--> statement-breakpoint
 CREATE INDEX `created_at_idx` ON `webhook_deliveries` (`created_at`);--> statement-breakpoint
-CREATE TABLE `workflow_dispatch` (
+CREATE TABLE IF NOT EXISTS `workflow_dispatch` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -503,7 +503,7 @@ CREATE TABLE `workflow_dispatch` (
 );
 --> statement-breakpoint
 CREATE INDEX `workflow_dispatch_delivery_idx` ON `workflow_dispatch` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `workflow_job` (
+CREATE TABLE IF NOT EXISTS `workflow_job` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,
@@ -519,7 +519,7 @@ CREATE TABLE `workflow_job` (
 );
 --> statement-breakpoint
 CREATE INDEX `workflow_job_delivery_idx` ON `workflow_job` (`delivery_id`);--> statement-breakpoint
-CREATE TABLE `workflow_run` (
+CREATE TABLE IF NOT EXISTS `workflow_run` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`delivery_id` text NOT NULL,
 	`payload` text NOT NULL,

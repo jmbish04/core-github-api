@@ -1,4 +1,4 @@
-CREATE TABLE `workshop_projects` (
+CREATE TABLE IF NOT EXISTS `workshop_projects` (
 	`id` text PRIMARY KEY NOT NULL,
 	`name` text NOT NULL,
 	`description` text,
@@ -8,7 +8,7 @@ CREATE TABLE `workshop_projects` (
 	`created_at` text DEFAULT CURRENT_TIMESTAMP
 );
 --> statement-breakpoint
-CREATE TABLE `workshop_project_tasks` (
+CREATE TABLE IF NOT EXISTS `workshop_project_tasks` (
 	`id` text PRIMARY KEY NOT NULL,
 	`project_id` text NOT NULL,
 	`phase_number` integer NOT NULL,
@@ -23,7 +23,7 @@ CREATE TABLE `workshop_project_tasks` (
 	FOREIGN KEY (`project_id`) REFERENCES `workshop_projects`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
-CREATE TABLE `workshop_task_events` (
+CREATE TABLE IF NOT EXISTS `workshop_task_events` (
 	`id` text PRIMARY KEY NOT NULL,
 	`project_id` text NOT NULL,
 	`task_id` text,

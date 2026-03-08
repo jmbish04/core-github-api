@@ -1,4 +1,4 @@
-CREATE TABLE `jules_jobs` (
+CREATE TABLE IF NOT EXISTS `jules_jobs` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`session_id` text NOT NULL,
 	`repo_full_name` text NOT NULL,

@@ -1,4 +1,4 @@
-CREATE TABLE `task_comments` (
+CREATE TABLE IF NOT EXISTS `task_comments` (
 	`id` text PRIMARY KEY NOT NULL,
 	`task_id` text NOT NULL,
 	`content` text NOT NULL,
@@ -9,7 +9,7 @@ CREATE TABLE `task_comments` (
 );
 --> statement-breakpoint
 CREATE INDEX `idx_comments_task` ON `task_comments` (`task_id`);--> statement-breakpoint
-CREATE TABLE `task_events` (
+CREATE TABLE IF NOT EXISTS `task_events` (
 	`id` text PRIMARY KEY NOT NULL,
 	`task_id` text,
 	`github_issue_id` integer,

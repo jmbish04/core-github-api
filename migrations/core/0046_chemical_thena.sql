@@ -1,4 +1,4 @@
-CREATE TABLE `research_recommendations` (
+CREATE TABLE IF NOT EXISTS `research_recommendations` (
 	`id` text PRIMARY KEY NOT NULL,
 	`topic` text NOT NULL,
 	`repo_name` text NOT NULL,

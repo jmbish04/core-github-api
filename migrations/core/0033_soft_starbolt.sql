@@ -1,4 +1,4 @@
-CREATE TABLE `standardization_rules` (
+CREATE TABLE IF NOT EXISTS `standardization_rules` (
 	`id` text PRIMARY KEY NOT NULL,
 	`source_repo` text DEFAULT 'jmbish04/core-github-standardization' NOT NULL,
 	`file_path` text NOT NULL,

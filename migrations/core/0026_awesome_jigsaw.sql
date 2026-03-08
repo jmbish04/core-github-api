@@ -1,4 +1,4 @@
-CREATE TABLE `events` (
+CREATE TABLE IF NOT EXISTS `events` (
 	`id` text PRIMARY KEY NOT NULL,
 	`type` text NOT NULL,
 	`action` text,
@@ -12,7 +12,7 @@ CREATE TABLE `events` (
 );
 --> statement-breakpoint
 CREATE INDEX `idx_events_timestamp` ON `events` (`timestamp`);--> statement-breakpoint
-CREATE TABLE `automation_runs` (
+CREATE TABLE IF NOT EXISTS `automation_runs` (
 	`id` text PRIMARY KEY NOT NULL,
 	`rule_id` text NOT NULL,
 	`rule_name` text NOT NULL,

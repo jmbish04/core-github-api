@@ -3,7 +3,7 @@ DROP TABLE IF EXISTS `repo_scores`;
 DROP TABLE IF EXISTS `research_sessions`;
 DROP TABLE IF EXISTS `research_files`;
 
-CREATE TABLE `research_files` (
+CREATE TABLE IF NOT EXISTS `research_files` (
 	`id` text PRIMARY KEY NOT NULL,
 	`owner` text NOT NULL,
 	`repo` text NOT NULL,
@@ -18,7 +18,7 @@ CREATE TABLE `research_files` (
 CREATE INDEX `research_owner_repo_idx` ON `research_files` (`owner`,`repo`);
 CREATE INDEX `research_filepath_idx` ON `research_files` (`filepath`);
 CREATE INDEX `research_created_at_idx` ON `research_files` (`created_at`);
-CREATE TABLE `analysis_artifacts` (
+CREATE TABLE IF NOT EXISTS `analysis_artifacts` (
 	`id` text PRIMARY KEY NOT NULL,
 	`session_id` text NOT NULL,
 	`repo_id` text NOT NULL,
@@ -27,7 +27,7 @@ CREATE TABLE `analysis_artifacts` (
 	`created_at` integer NOT NULL,
 	FOREIGN KEY (`session_id`) REFERENCES `research_sessions`(`id`) ON UPDATE no action ON DELETE no action
 );
-CREATE TABLE `repo_scores` (
+CREATE TABLE IF NOT EXISTS `repo_scores` (
 	`id` text PRIMARY KEY NOT NULL,
 	`session_id` text NOT NULL,
 	`owner` text NOT NULL,
@@ -49,7 +49,7 @@ CREATE TABLE `repo_scores` (
 	`created_at` integer NOT NULL,
 	FOREIGN KEY (`session_id`) REFERENCES `research_sessions`(`id`) ON UPDATE no action ON DELETE no action
 );
-CREATE TABLE `research_sessions` (
+CREATE TABLE IF NOT EXISTS `research_sessions` (
 	`id` text PRIMARY KEY NOT NULL,
 	`mode` text NOT NULL,
 	`query` text,

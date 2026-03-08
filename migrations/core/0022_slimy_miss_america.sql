@@ -1,4 +1,4 @@
-CREATE TABLE `daily_research_docs` (
+CREATE TABLE IF NOT EXISTS `daily_research_docs` (
 	`id` text PRIMARY KEY NOT NULL,
 	`date` text NOT NULL,
 	`prompt` text NOT NULL,

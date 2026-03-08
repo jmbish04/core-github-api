@@ -1,4 +1,4 @@
-CREATE TABLE `project_favorites` (
+CREATE TABLE IF NOT EXISTS `project_favorites` (
 	`user_id` text NOT NULL,
 	`repo_owner` text NOT NULL,
 	`repo_name` text NOT NULL,
@@ -7,7 +7,7 @@ CREATE TABLE `project_favorites` (
 );
 --> statement-breakpoint
 CREATE INDEX `idx_project_favorites_user` ON `project_favorites` (`user_id`);--> statement-breakpoint
-CREATE TABLE `project_plans` (
+CREATE TABLE IF NOT EXISTS `project_plans` (
 	`id` text PRIMARY KEY NOT NULL,
 	`project_id` text NOT NULL,
 	`parent_id` text,

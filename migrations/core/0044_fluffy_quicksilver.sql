@@ -1,4 +1,4 @@
-CREATE TABLE `pr_overviews` (
+CREATE TABLE IF NOT EXISTS `pr_overviews` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`repo_owner` text NOT NULL,
 	`repo_name` text NOT NULL,

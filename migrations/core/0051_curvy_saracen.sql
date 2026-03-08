@@ -1,4 +1,4 @@
-CREATE TABLE `prompt_revisions` (
+CREATE TABLE IF NOT EXISTS `prompt_revisions` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`timestamp` text DEFAULT CURRENT_TIMESTAMP NOT NULL,
 	`prior_config_prompt` text NOT NULL,
