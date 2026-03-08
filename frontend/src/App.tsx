@@ -47,6 +47,7 @@ import ProjectCloudflareDocsPage from "@/views/control/global/ProjectCloudflareD
 import AlertsPage from "@/views/control/global/Alerts";
 import { AlertsProvider } from "@/context/alerts-context";
 import { JulesLiveProvider } from "@/context/jules-live-context";
+import JulesSessionsPage from "@/views/control/global/JulesSessionsPage";
 import { Toaster } from "sonner";
 
 function guard(element: React.ReactElement) {
@@ -70,6 +71,7 @@ function App() {
             <Route path="/health" element={guard(<Health />)} />
             {/* Global Tools Route with Optional Tab Parameter */}
             <Route path="/tools/:tool_name?" element={guard(<ToolsPage />)} />
+            <Route path="/jules-sessions" element={guard(<JulesSessionsPage />)} />
             <Route path="/settings" element={<Navigate to="/settings/general" replace />} />
 
             <Route path="/workflows" element={<WorkflowsLanding />} />

@@ -1,0 +1,30 @@
+---
+import ClientApp from "@/components/client-app";
+
+export function getStaticPaths() {
+  return [
+    { params: { all: undefined } }, // Root route
+    { params: { all: 'login' } },
+    { params: { all: 'auth/callback' } },
+    { params: { all: 'docs' } },
+    { params: { all: 'sitemap' } },
+    { params: { all: 'health' } },
+    { params: { all: 'tools' } },
+    { params: { all: 'jules-sessions' } },
+  ];
+}
+---
+
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="shortcut icon" href="/favicon.svg" />
+    <title>Core GitHub API</title>
+  </head>
+  <body>
+    <ClientApp client:only="react" />
+  </body>
+</html>

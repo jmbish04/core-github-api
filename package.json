@@ -73,6 +73,7 @@
     "@types/libsodium-wrappers": "^0.8.2",
     "agents": "latest",
     "arktype": "^2.1.29",
+    "cloudflare": "^5.2.0",
     "drizzle-orm": "0.45.1",
     "drizzle-zod": "^0.8.3",
     "eventsource": "^4.1.0",
