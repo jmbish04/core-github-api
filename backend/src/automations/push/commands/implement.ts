@@ -1,4 +1,4 @@
-import { Implementer } from '@/ai/agents/implementer';
+import { Implementer } from '@/ai/agents/automations/push/implementer';
 import type { CommandResult, ISlashCommand, PushContext } from '../fixers/types';
 
 function createImplementer(env: Env): Implementer {

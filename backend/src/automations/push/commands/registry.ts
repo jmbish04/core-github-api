@@ -1,4 +1,4 @@
-import { ImplementCommand } from '../agents/implement';
+import { ImplementCommand } from './implement';
 import { FixAllCommand } from '../fixers/all';
 import { ResolveCommentsCommand } from '../fixers/comments';
 import { FixTypesCommand, type CommandResult, type ISlashCommand } from '../fixers/types';

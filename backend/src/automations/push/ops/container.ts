@@ -1,8 +1,10 @@
 /**
- * @file src/gardener/ops/container-manager.ts
- * @description Orchestrates Cloudflare Containers for heavy duty tasks.
+ * @file backend/src/automations/push/ops/container.ts
+ * @description Orchestrates Cloudflare Containers for push automation tasks.
  */
 
+import { createAppAuth } from '@octokit/auth-app';
+import { getGitHubAppId, getGitHubPrivateKey } from '@utils/secrets';
 import type { PushContext } from '../fixers/types';
 
 export class ContainerManager {
@@ -14,20 +16,20 @@ export class ContainerManager {
     async executeTask(ctx: PushContext, task: string, payload: any) {
         console.log(`[ContainerManager] Preparing to execute '${task}'...`);
 
-        // 1. Get Installation Token
-        // context should already have octokit, but we might need the raw token to embed in URL.
-        // The GardenerContext doesn't strictly carry the raw token string by default unless we add it.
-        // We can re-generate it using the App class if needed, or if ctx.octokit is an installation instance, 
-        // extracting the token is harder.
-        // Ideally we pass it in or fetch a fresh one.
+        if (!ctx.installationId) {
+            throw new Error("Container tasks require a GitHub installation id.");
+        }
 
         let token = "";
         try {
-            // Re-auth to get a raw token for the git URL
-            const { data } = await ctx.octokit.request('POST /app/installations/{installation_id}/access_tokens', {
-                installation_id: (ctx as any).installationId // We need to ensure we have this in context
+            const auth = createAppAuth({
+                appId: await getGitHubAppId(this.env),
+                privateKey: await getGitHubPrivateKey(this.env),
+                installationId: ctx.installationId,
             });
-            token = data.token;
+
+            const installationAuth = await auth({ type: 'installation' });
+            token = installationAuth.token;
         } catch (e) {
             console.error('Failed to get token for container', e);
             throw new Error("Could not authenticate for container ops");

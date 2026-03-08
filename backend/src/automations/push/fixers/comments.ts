@@ -22,5 +22,3 @@ export const ResolveCommentsCommand: ISlashCommand = {
     }
   },
 };
-
-export const ResolveConflictsCommand = ResolveCommentsCommand;

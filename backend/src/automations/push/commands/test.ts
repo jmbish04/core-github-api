@@ -1,4 +1,4 @@
-import { runImplementationTests } from '../agents/implement';
+import { runImplementationTests } from './implement';
 import type { CommandResult, ISlashCommand } from '../fixers/types';
 
 export const TestCommand: ISlashCommand = {

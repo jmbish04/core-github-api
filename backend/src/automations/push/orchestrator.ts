@@ -1,9 +1,6 @@
 /**
- * @file backend/src/routes/api/webhooks/workflows/gardener/index.ts
- * @description The highest-level orchestration entry point for the Gardener system. 
- *              Monitors git push events and triggers static analysis, dynamic file restitution routines, and secret rotations.
- *              Optimized for AI coding agents: maintains repository hygiene asynchronously without direct developer intervention ensuring agents have optimal workspace structure.
- * @module gardener
+ * @file backend/src/automations/push/orchestrator.ts
+ * @description Coordinates push-triggered repository hygiene, standardization sync, and repair workflows.
  */
 
 import type { Context } from 'hono'
@@ -61,7 +58,8 @@ export class GardenerOrchestrator {
                 name: repo.name,
                 defaultBranch: repo.default_branch
             },
-            octokit
+            octokit,
+            installationId: payload.installation?.id
         };
 
         // 0. Gardening / Infrastructure Check (Road Trip Maintenance)

@@ -7,9 +7,8 @@ export interface PushContext {
     defaultBranch: string;
   };
   octokit: any;
+  installationId?: number;
 }
-
-export type GardenerContext = PushContext;
 
 export interface RepoFingerprint {
   stack: 'cloudflare-worker' | 'nextjs' | 'python' | 'unknown';
@@ -220,8 +219,6 @@ Detected via push audit rule: \`no-explicit-worker-types\`.`;
     }
   }
 }
-
-export const WorkerTypeFixer = WorkerTypesFixer;
 
 export const FixTypesCommand: ISlashCommand = {
   name: 'fix-types',

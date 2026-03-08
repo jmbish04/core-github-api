@@ -22,6 +22,11 @@ const SlashCommandPayloadSchema = z.object({
       login: z.string(),
     }),
   }),
+  installation: z
+    .object({
+      id: z.number(),
+    })
+    .optional(),
 });
 
 type SlashCommandPayload = z.infer<typeof SlashCommandPayloadSchema>;
@@ -85,6 +90,7 @@ export class SlashCommand extends BaseAutomation<SlashCommandPayload> {
             defaultBranch: payload.repository.default_branch,
           },
           octokit,
+          installationId: payload.installation?.id,
         },
         {
           issueNumber,
