@@ -1,4 +1,4 @@
-import type { CommandResult, PushContext } from '@/automations/push/fixers/types';
+import type { CommandResult, PushContext } from '@/automations/push/fixers/worker_types';
 import { BaseAgent } from '@/ai/agents/base/BaseAgent';
 import { generateStructuredResponse } from '@/ai/providers';
 

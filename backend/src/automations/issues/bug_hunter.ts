@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { BaseAutomation, type AutomationMetadata } from '@/core/BaseAutomation';
-import { runBugHunterWorkflow, shouldRunBugHunter } from './bug-hunter-workflow';
+import { runBugHunterWorkflow, shouldRunBugHunter } from './bug_hunter/workflow';
 
 const BugHunterPayloadSchema = z.object({
   action: z.string(),

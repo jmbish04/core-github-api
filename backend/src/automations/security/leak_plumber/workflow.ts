@@ -13,7 +13,7 @@ import { alerts } from "@/db/schema";
 import { getSecretsStoreClient } from "@/utils/cloudflare/secret-store";
 import { generateUuid } from "@/utils/common";
 import { WranglerInspectorService } from "@/services/github/wrangler-inspector";
-import { execInSandbox, createGitHubApp, getInstallationToken, toShortLog } from "../shared/sandbox";
+import { execInSandbox, createGitHubApp, getInstallationToken, toShortLog } from "../../shared/sandbox";
 import { shellEscape } from "@/ai/mcp/tools/sandbox-sdk";
 import { 
   getWorkerApiKey,

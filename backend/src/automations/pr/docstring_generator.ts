@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { BaseAutomation, type AutomationMetadata } from '@/core/BaseAutomation';
-import { generateDocstringsForProject } from './docstrings';
+import { generateDocstringsForProject } from './docstring_generator/service';
 
 const DocstringGeneratorPayloadSchema = z.object({
   action: z.string(),

@@ -1,4 +1,4 @@
-import type { CommandResult, ISlashCommand } from '../fixers/types';
+import type { CommandResult, ISlashCommand } from '../fixers/worker_types';
 
 export const ExtractCommand: ISlashCommand = {
   name: 'extract',

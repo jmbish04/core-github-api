@@ -1,64 +1,4 @@
-export interface PushContext {
-  env: Env;
-  executionCtx: ExecutionContext;
-  repo: {
-    owner: string;
-    name: string;
-    defaultBranch: string;
-  };
-  octokit: any;
-  installationId?: number;
-}
-
-export interface RepoFingerprint {
-  stack: 'cloudflare-worker' | 'nextjs' | 'python' | 'unknown';
-  framework: 'hono' | 'react' | 'none' | 'unknown';
-  hasWranglerToml: boolean;
-  hasWranglerJson: boolean;
-  hasPublicDir: boolean;
-  hasTests: boolean;
-  bindings: {
-    d1: boolean;
-    kv: boolean;
-    r2: boolean;
-    ai: boolean;
-  };
-}
-
-export type AuditSeverity = 'low' | 'medium' | 'high' | 'critical';
-
-export interface AuditResult {
-  ruleId: string;
-  description: string;
-  severity: AuditSeverity;
-  filePath?: string;
-  line?: number;
-  context?: string;
-}
-
-export interface Fixer {
-  id: string;
-  name: string;
-  description: string;
-  canFix(audit: AuditResult): boolean;
-  execute(ctx: PushContext, audit: AuditResult): Promise<boolean>;
-}
-
-export interface CommandResult {
-  type: 'reply' | 'ignore';
-  body?: string;
-}
-
-export interface ISlashCommand {
-  name: string;
-  aliases?: string[];
-  description: string;
-  handle(
-    args: string,
-    ctx: PushContext,
-    metadata: { issueNumber?: number; issueBody?: string },
-  ): Promise<CommandResult | null>;
-}
+import type { AuditResult, Fixer, PushContext } from './contracts';
 
 export class WorkerTypesFixer implements Fixer {
   id = 'fix-worker-types';
@@ -97,9 +37,7 @@ export class WorkerTypesFixer implements Fixer {
 
       const branchName = `push/fix-types-${Date.now()}`;
       const prTitle = `fix: standardize worker types usage in ${audit.filePath}`;
-      const prBody = `This PR removes manual imports of \`@cloudflare/workers-types\` and adopts the global \`Env\` interface pattern.
-
-Detected via push audit rule: \`no-explicit-worker-types\`.`;
+      const prBody = `This PR removes manual imports of \`@cloudflare/workers-types\` and adopts the global \`Env\` interface pattern.\n\nDetected via push audit rule: \`no-explicit-worker-types\`.`;
 
       const { data: refData } = await ctx.octokit.git.getRef({
         owner: ctx.repo.owner,
@@ -219,13 +157,3 @@ Detected via push audit rule: \`no-explicit-worker-types\`.`;
     }
   }
 }
-
-export const FixTypesCommand: ISlashCommand = {
-  name: 'fix-types',
-  description: 'Remove manual @cloudflare/workers-types imports.',
-  async handle(_args, ctx): Promise<CommandResult | null> {
-    const fixer = new WorkerTypesFixer();
-    const result = await fixer.fixAll(ctx);
-    return { type: 'reply', body: result };
-  },
-};

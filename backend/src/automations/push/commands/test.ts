@@ -1,5 +1,5 @@
 import { runImplementationTests } from './implement';
-import type { CommandResult, ISlashCommand } from '../fixers/types';
+import type { CommandResult, ISlashCommand } from '../fixers/worker_types';
 
 export const TestCommand: ISlashCommand = {
   name: 'test',

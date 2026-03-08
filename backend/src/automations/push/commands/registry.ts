@@ -1,7 +1,7 @@
 import { ImplementCommand } from './implement';
-import { FixAllCommand } from '../fixers/all';
+import { FixAllCommand } from '../fixers/fix_all';
 import { ResolveCommentsCommand } from '../fixers/comments';
-import { FixTypesCommand, type CommandResult, type ISlashCommand } from '../fixers/types';
+import { FixTypesCommand, type CommandResult, type ISlashCommand } from '../fixers/worker_types';
 import { TestCommand } from './test';
 import { ExtractCommand } from './extract';
 import { StandardizeCommand } from './standardize';

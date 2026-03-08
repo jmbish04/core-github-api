@@ -1,13 +1,13 @@
 import { z } from 'zod';
 import { BaseAutomation, type AutomationMetadata } from '@/core/BaseAutomation';
 import { appendSignature } from '@/utils/github/signature';
-import { detectPRAuthorAgent } from './agent-tagging';
+import { detectPRAuthorAgent } from './agent_tagger/tagging';
 import {
   analyzeBuildFailure,
   fetchBuildLogs,
   formatBuildFailureComment,
   inferWorkerName,
-} from './build-analysis';
+} from './build_analyzer/analysis';
 
 const BuildAnalyzerPayloadSchema = z.object({
   action: z.string(),

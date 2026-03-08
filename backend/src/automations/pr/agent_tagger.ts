@@ -6,7 +6,7 @@ import {
   formatAgentFixComment,
   isCodeReviewBot,
   type ExtractedReviewComment,
-} from './agent-tagging';
+} from './agent_tagger/tagging';
 
 const AgentTaggerPayloadSchema = z.object({
   action: z.string(),

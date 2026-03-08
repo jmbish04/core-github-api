@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { BaseAutomation, type AutomationMetadata } from '@/core/BaseAutomation';
-import { runLeakPlumberWorkflow, shouldRunLeakPlumber } from './leak-plumber-workflow';
+import { runLeakPlumberWorkflow, shouldRunLeakPlumber } from './leak_plumber/workflow';
 
 const LeakPlumberPayloadSchema = z.object({
   action: z.string(),

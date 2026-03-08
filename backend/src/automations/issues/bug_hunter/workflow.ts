@@ -11,7 +11,7 @@
 import { z } from "zod";
 import { generateStructuredResponse } from "@/ai/providers";
 import { resolveDefaultAiModel, resolveDefaultAiProvider } from "@/ai/agents/base/agent-ai";
-import { execInSandbox, writeSandboxFile, createGitHubApp, getInstallationToken, toShortLog } from "../shared/sandbox";
+import { execInSandbox, writeSandboxFile, createGitHubApp, getInstallationToken, toShortLog } from "../../shared/sandbox";
 import { shellEscape, sanitizeForPath } from "@/ai/mcp/tools/sandbox-sdk";
 
 const BUG_CHECK_TIMEOUT_MS = 5 * 60 * 1000;

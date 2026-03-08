@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { BaseAutomation, type AutomationMetadata } from '@/core/BaseAutomation';
-import { SlashCommandRouter } from '@/automations/push/router';
+import { SlashCommandRouter } from '@/automations/push/command_router';
 
 const SlashCommandPayloadSchema = z.object({
   action: z.string(),

@@ -5,7 +5,7 @@
 
 import { createAppAuth } from '@octokit/auth-app';
 import { getGitHubAppId, getGitHubPrivateKey } from '@utils/secrets';
-import type { PushContext } from '../fixers/types';
+import type { PushContext } from '../fixers/worker_types';
 
 export class ContainerManager {
     constructor(private env: any) { } // using any for env momentarily to avoid type hassles with dynamic binding

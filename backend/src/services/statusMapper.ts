@@ -1,1 +1,1 @@
-export { StatusMapper } from '@/automations/shared/statusMapper';
+export { StatusMapper } from '@/automations/shared/status_mapper';

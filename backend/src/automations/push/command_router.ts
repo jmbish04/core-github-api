@@ -1,4 +1,4 @@
-import type { CommandResult, PushContext } from './fixers/types'
+import type { CommandResult, PushContext } from './fixers/worker_types'
 
 export class SlashCommandRouter {
 

@@ -1,5 +1,5 @@
 import { ContainerManager } from '../ops/container';
-import type { CommandResult, ISlashCommand } from './types';
+import type { CommandResult, ISlashCommand } from './worker_types';
 
 export const FixAllCommand: ISlashCommand = {
   name: 'fix-all',

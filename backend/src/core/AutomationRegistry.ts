@@ -6,23 +6,23 @@ import {
   type AutomationExecutionContext,
   type AutomationMetadata,
 } from './BaseAutomation';
-import { BugHunter } from '@/automations/issues/BugHunter';
-import { JulesAutoFix } from '@/automations/issues/JulesAutoFix';
-import { SlashCommand } from '@/automations/issues/SlashCommand';
-import { TaskSync } from '@/automations/issues/TaskSync';
-import { AgentTagger } from '@/automations/pr/AgentTagger';
-import { BuildAnalyzer } from '@/automations/pr/BuildAnalyzer';
-import { DocstringGenerator } from '@/automations/pr/DocstringGenerator';
-import { GeminiReview } from '@/automations/pr/GeminiReview';
-import { PRIngest } from '@/automations/pr/PRIngest';
-import { PRReviewExtraction } from '@/automations/pr/PRReviewExtraction';
-import { GardenerPush } from '@/automations/push/GardenerPush';
-import { JulesStandardsPush } from '@/automations/push/JulesStandardsPush';
-import { RepoStandardization } from '@/automations/repository/RepoStandardization';
-import { RepoSync } from '@/automations/repository/RepoSync';
-import { StatsUpdate } from '@/automations/repository/StatsUpdate';
-import { LeakPlumber } from '@/automations/security/LeakPlumber';
-import { TelemetryIngestion } from '@/automations/telemetry/TelemetryIngestion';
+import { BugHunter } from '@/automations/issues/bug_hunter';
+import { JulesAutoFix } from '@/automations/issues/jules_auto_fix';
+import { SlashCommand } from '@/automations/issues/slash_command';
+import { TaskSync } from '@/automations/issues/task_sync';
+import { AgentTagger } from '@/automations/pr/agent_tagger';
+import { BuildAnalyzer } from '@/automations/pr/build_analyzer';
+import { DocstringGenerator } from '@/automations/pr/docstring_generator';
+import { GeminiReview } from '@/automations/pr/gemini_review';
+import { PRIngest } from '@/automations/pr/ingest';
+import { PRReviewExtraction } from '@/automations/pr/review_extraction';
+import { GardenerPush } from '@/automations/push/gardener';
+import { JulesStandardsPush } from '@/automations/push/jules_standards';
+import { RepoStandardization } from '@/automations/repository/standardize';
+import { RepoSync } from '@/automations/repository/sync';
+import { StatsUpdate } from '@/automations/repository/stats_update';
+import { LeakPlumber } from '@/automations/security/leak_plumber';
+import { TelemetryIngestion } from '@/automations/telemetry/ingest';
 
 export type RegisteredAutomation = AutomationClass<any>;
 

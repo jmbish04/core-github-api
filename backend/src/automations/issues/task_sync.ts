@@ -4,7 +4,7 @@ import { BaseAutomation, type AutomationMetadata } from '@/core/BaseAutomation';
 import { getDb } from '@db';
 import { repos, tasks } from '@db/schema';
 import { generateUuid } from '@/utils/common';
-import { StatusMapper } from '@/automations/shared/statusMapper';
+import { StatusMapper } from '@/automations/shared/status_mapper';
 import { KanbanColumn, TaskStatus } from '@/types/project-management/enums';
 
 const TaskSyncPayloadSchema = z.object({

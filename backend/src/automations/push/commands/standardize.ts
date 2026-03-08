@@ -1,4 +1,4 @@
-import type { CommandResult, ISlashCommand } from '../fixers/types';
+import type { CommandResult, ISlashCommand } from '../fixers/worker_types';
 import { JulesService } from '@/services/jules/jules';
 import { generateUuid } from '@/utils/common';
 

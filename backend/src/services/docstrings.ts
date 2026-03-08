@@ -1,6 +1,6 @@
-import { generateDocstringsForProject } from "@/automations/pr/docstrings";
+import { generateDocstringsForProject } from "@/automations/pr/docstring_generator/service";
 
-export type { DocstringResult } from "@/automations/pr/docstrings";
+export type { DocstringResult } from "@/automations/pr/docstring_generator/service";
 
 export class DocstringsService {
   constructor(private readonly env: Env) {}

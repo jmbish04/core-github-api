@@ -4,7 +4,7 @@
  * @owner AI-Builder
  */
 
-import type { AuditResult } from './fixers/types'
+import type { AuditResult } from './fixers/worker_types'
 
 export class CodeAuditor {
 
