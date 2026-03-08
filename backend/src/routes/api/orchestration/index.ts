@@ -27,7 +27,7 @@ const vibeRoute = createRoute({
           schema: z.object({
             success: z.boolean(),
             message: z.string(),
-            data: z.any()
+            data: z.object({ taskId: z.string().optional(), status: z.string().optional(), result: z.string().optional() }).optional()
           })
         }
       }
@@ -48,11 +48,19 @@ app.openapi(vibeRoute, async (c) => {
   }));
 
   const text = await response.text();
-
+  let parsedData: any = { result: text };
+  try {
+    const json = JSON.parse(text);
+    if (json.taskId || json.status) {
+      parsedData = { taskId: json.taskId, status: json.status, result: JSON.stringify(json) };
+    }
+  } catch (e) {
+    // raw text
+  }
   return c.json({
     success: true,
     message: 'Vibe orchestration initiated',
-    data: text
+    data: parsedData
   });
 });
 

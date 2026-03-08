@@ -1,4 +1,3 @@
-// @ts-ignore
 import vibeRules from '../../../../.agent/rules/vibe-coding-orchestration.md';
 import { JulesService } from './jules';
 
