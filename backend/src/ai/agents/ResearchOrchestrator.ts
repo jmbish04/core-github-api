@@ -141,8 +141,9 @@ For each repository, provide:
     // Store candidates in D1
     await step.do("store-candidates", async () => {
       const db = getDb(this.env.DB_WEBHOOKS);
-      for (const candidate of candidates) {
-        await db.insert(schema.repoScores).values({
+
+      if (candidates.length > 0) {
+        const repoScoreValues = candidates.map(candidate => ({
           id: generateUuid(),
           sessionId,
           owner: candidate.owner,
@@ -150,17 +151,19 @@ For each repository, provide:
           repoId: `${candidate.owner}/${candidate.repo}`,
           sampleScore: candidate.sampleScore,
           sampleReasoning: candidate.reasoning,
-          status: "pending_approval",
-        });
+          status: "pending_approval" as const,
+        }));
 
-        // Store sampling artifact
-        await db.insert(schema.analysisArtifacts).values({
+        const artifactValues = candidates.map(candidate => ({
           id: generateUuid(),
           sessionId,
           repoId: `${candidate.owner}/${candidate.repo}`,
-          artifactType: "sample",
+          artifactType: "sample" as const,
           content: JSON.stringify(candidate),
-        });
+        }));
+
+        await db.insert(schema.repoScores).values(repoScoreValues);
+        await db.insert(schema.analysisArtifacts).values(artifactValues);
       }
     });
 
