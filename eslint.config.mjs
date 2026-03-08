@@ -5,7 +5,7 @@ export default tseslint.config(
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    ignores: ['dist/', 'node_modules/', '.wrangler/', 'worker-configuration.d.ts', '**/*.mjs', '**/*.cjs'],
+    ignores: ['dist/', 'node_modules/', '.wrangler/', 'worker-configuration.d.ts', '**/*.mjs', '**/*.cjs', 'frontend/'],
   },
   {
     languageOptions: {
