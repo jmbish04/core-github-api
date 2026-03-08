@@ -25,6 +25,7 @@ describe("AI Doc Generator service", () => {
     expect(fileMap.get(".agent/rules/repo-doc-gen-rules.md")).toBe("# Rules");
     expect(fileMap.get(IMPLEMENT_FEATURE_WORKFLOW_PATH)).toBe(IMPLEMENT_FEATURE_WORKFLOW_CONTENT.trim());
     expect(fileMap.get(DOC_GEN_STANDARDS_PATH)).toBe(DOC_GEN_STANDARDS_CONTENT.trim());
+    expect(DOC_GEN_STANDARDS_CONTENT).toContain("@cf/meta/llama-3.3-70b-instruct-fp8-fast");
   });
 
   it("exposes the doc-gen endpoint schema with custom instructions support", async () => {

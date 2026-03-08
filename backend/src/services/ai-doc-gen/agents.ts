@@ -1,11 +1,9 @@
-import { DurableObject } from "cloudflare:workers";
 import {
   createAgent,
   type ObservabilityConfig,
   routeToAgent,
 } from "honidev";
-import { resolveDefaultAiModel } from "../../ai/providers/config";
-import { getCloudflareAccountId, getOpenaiApiKey } from "../../utils/secrets";
+import { DEFAULT_WORKERS_AI_MODEL } from "../../ai/providers/config";
 import { AI_DOC_TOOLS } from "./tools";
 
 const ANALYZER_BINDING = "ANALYZER_DO";
@@ -74,37 +72,14 @@ const AGENT_CONFIG = {
   },
 } as const;
 
+const DOC_GEN_AGENT_MODEL = DEFAULT_WORKERS_AI_MODEL;
+
 function asAgentBindings(env: Env) {
   return env as unknown as Record<string, DurableObjectNamespace>;
 }
 
-async function buildRuntimeEnv(env: Env) {
+function buildObservability(agentName: string): ObservabilityConfig {
   return {
-    ...(env as unknown as Record<string, unknown>),
-    OPENAI_API_KEY: await getOpenaiApiKey(env),
-  };
-}
-
-type HoniGatewayObservability = ObservabilityConfig & {
-  enabled: boolean;
-  aiGatewaySlug: string;
-  collectEvents: boolean;
-};
-
-async function buildObservability(env: Env, agentName: string): Promise<HoniGatewayObservability> {
-  const accountId = await getCloudflareAccountId(env);
-  const gatewayId = env.AI_GATEWAY_SLUG || env.AI_GATEWAY_NAME;
-
-  return {
-    enabled: true,
-    aiGatewaySlug: gatewayId,
-    collectEvents: true,
-    aiGateway: accountId && gatewayId
-      ? {
-          accountId,
-          gatewayId,
-        }
-      : undefined,
     logLevel: "debug",
     onEvent: (event) => {
       console.log(`[ai-doc-gen:${agentName}]`, JSON.stringify(event));
@@ -112,57 +87,26 @@ async function buildObservability(env: Env, agentName: string): Promise<HoniGate
   };
 }
 
-async function createRuntimeAgent(env: Env, kind: AgentKind) {
+function createRuntimeAgent(kind: AgentKind) {
   const config = AGENT_CONFIG[kind];
-  const runtimeEnv = await buildRuntimeEnv(env);
-  const observability = await buildObservability(env, config.name);
-  const agent = createAgent({
+  return createAgent({
     name: config.name,
     binding: config.binding,
-    model: resolveDefaultAiModel(env, "openai"),
+    model: DOC_GEN_AGENT_MODEL,
     system: config.system,
     tools: AI_DOC_TOOLS,
     maxSteps: 12,
-    observability,
+    observability: buildObservability(config.name),
   });
-
-  return { agent, runtimeEnv };
 }
 
-abstract class RuntimeDelegatingAgent extends DurableObject {
-  constructor(
-    state: DurableObjectState,
-    env: Env,
-    private readonly kind: AgentKind,
-  ) {
-    super(state, env);
-  }
+const analyzerAgent = createRuntimeAgent("analyzer");
+const documenterAgent = createRuntimeAgent("documenter");
+const rulesGeneratorAgent = createRuntimeAgent("rules");
 
-  async fetch(request: Request): Promise<Response> {
-    const { agent, runtimeEnv } = await createRuntimeAgent(this.env, this.kind);
-    const Delegate = agent.DurableObject;
-    const delegate = new Delegate(this.ctx, runtimeEnv);
-    return delegate.fetch(request);
-  }
-}
-
-export class AnalyzerAgent extends RuntimeDelegatingAgent {
-  constructor(state: DurableObjectState, env: Env) {
-    super(state, env, "analyzer");
-  }
-}
-
-export class DocumenterAgent extends RuntimeDelegatingAgent {
-  constructor(state: DurableObjectState, env: Env) {
-    super(state, env, "documenter");
-  }
-}
-
-export class RulesGeneratorAgent extends RuntimeDelegatingAgent {
-  constructor(state: DurableObjectState, env: Env) {
-    super(state, env, "rules");
-  }
-}
+export const AnalyzerAgent = analyzerAgent.DurableObject;
+export const DocumenterAgent = documenterAgent.DurableObject;
+export const RulesGeneratorAgent = rulesGeneratorAgent.DurableObject;
 
 export async function runAnalyzerAgent(env: Env, threadId: string, prompt: string) {
   const result = await routeToAgent(asAgentBindings(env), {

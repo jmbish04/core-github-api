@@ -101,7 +101,13 @@ export const readFileContentTool = tool({
   },
 });
 
-export const AI_DOC_TOOLS = [
+type AiDocTool = typeof readRepoTreeTool | typeof readFileContentTool;
+
+const aiDocTools = [
   readRepoTreeTool,
   readFileContentTool,
-] satisfies ToolDefinition[];
+] satisfies AiDocTool[];
+
+// Honi's ToolDefinition generic is invariant in 0.5.x, so the concrete tool schemas need a
+// one-time bridge cast before they can be supplied to createAgent's non-specific ToolDefinition[].
+export const AI_DOC_TOOLS = aiDocTools as unknown as ToolDefinition[];

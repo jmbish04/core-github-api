@@ -29,8 +29,9 @@ export const IMPLEMENT_FEATURE_WORKFLOW_CONTENT = `# Implementation Plan: Agenti
 `;
 
 export const DOC_GEN_STANDARDS_CONTENT = `# AI Document Generation Standards
-- **Framework**: AI Agents must be built strictly using the \`honidev\` framework leveraging Cloudflare Durable Objects.
-- **Observability**: All Honi agents must include the \`observability\` config object to map to Cloudflare AI Gateway.
+- **Framework**: AI Agents must be built strictly using the \`honidev\` framework as a wrapper around the Cloudflare Agents SDK Durable Object runtime.
+- **Modeling**: Prefer Cloudflare Workers AI for Honi agents when the task needs tool calling plus structured JSON output. The default doc generator model is \`@cf/meta/llama-3.3-70b-instruct-fp8-fast\`.
+- **Observability**: All Honi agents must include the \`observability\` config object so agent execution is logged consistently.
 - **File Output Paths**: Architectural docs must go to \`.ai/docs/\` and agent instructions must go to \`.agent/rules/\`.
 - **Identity**: Pull Requests containing generated docs MUST use the PAT (\`usePat: true\` or direct env injection) so the PR does not get flagged as \`[bot]\`.
 - **Chaining**: The Documenter and Rules Generator agents must wait for the Analyzer's output to use as their primary system context.
