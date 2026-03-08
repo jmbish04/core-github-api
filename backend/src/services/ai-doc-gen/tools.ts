@@ -104,4 +104,4 @@ export const readFileContentTool = tool({
 export const AI_DOC_TOOLS = [
   readRepoTreeTool,
   readFileContentTool,
-] as unknown as ToolDefinition[];
+] satisfies ToolDefinition[];

@@ -4,6 +4,7 @@ import {
   type ObservabilityConfig,
   routeToAgent,
 } from "honidev";
+import { resolveDefaultAiModel } from "../../ai/providers/config";
 import { getCloudflareAccountId, getOpenaiApiKey } from "../../utils/secrets";
 import { AI_DOC_TOOLS } from "./tools";
 
@@ -118,7 +119,7 @@ async function createRuntimeAgent(env: Env, kind: AgentKind) {
   const agent = createAgent({
     name: config.name,
     binding: config.binding,
-    model: "gpt-4o",
+    model: resolveDefaultAiModel(env, "openai"),
     system: config.system,
     tools: AI_DOC_TOOLS,
     maxSteps: 12,

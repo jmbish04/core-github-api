@@ -143,6 +143,16 @@ When integrating tools:
 
 1.  Use `src/lib/mcp.ts` to connect to Cloudflare Docs or other MCP servers.
 
+## Frontend Implementation Protocol
+
+When a task touches `frontend/`, you **MUST** evaluate the existing Astro island implementation before writing or changing UI code.
+
+1. **Read Existing Frontend Patterns First**: Inspect the surrounding view/component files and the shared Shadcn primitives under `frontend/src/components/ui`.
+2. **Match the Default Dark Theme**: Reuse the repository's current Tailwind/Shadcn dark theme tokens (`bg-background`, `bg-muted`, `text-foreground`, `border-border`, etc.) instead of inventing parallel palettes or light-theme styling.
+3. **Respect Astro + React Island Boundaries**: Keep interactive UI in React components that fit the existing Astro-hosted frontend structure.
+4. **Prefer Existing Patterns Over New Ones**: Follow the spacing, dialog, dropdown, card, badge, and form patterns already used in nearby frontend code before introducing new visual treatments.
+5. **Verify Visually**: After frontend changes, run the relevant existing frontend build/check flow and inspect the rendered result so the final UI matches the current application conventions.
+
 ## Container / Sandbox Protocol
 
 When modifying the Cloudflare Sandbox SDK (`@cloudflare/sandbox` or containers), you **MUST** ensure the Docker base images exactly match the installed SDK version.

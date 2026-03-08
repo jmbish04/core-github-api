@@ -22,6 +22,10 @@ Rule Enforcement
 
 Dark Theme: The <html> tag MUST have class="dark" by default. No light mode toggles unless explicitly requested.
 
+Frontend Evaluation: Before implementing or changing any UI in `frontend/`, you MUST inspect the existing Astro-hosted React islands, nearby feature components, and shared Shadcn primitives so new work matches the repository's established dark-theme patterns.
+
+Pattern Matching: Reuse the current app's spacing, dialog, dropdown, card, badge, and form treatments plus the standard theme tokens (`bg-background`, `bg-muted`, `text-foreground`, `border-border`, `text-muted-foreground`) instead of introducing parallel styling conventions.
+
 Hydration: All interactive components (Forms, Buttons, Modals, Nav) must be React components used as Astro islands with client:load or client:visible.
 
 No Raw HTML: Do not use raw HTML/Tailwind mockups for final output. Retrofit all plain mockups into Shadcn components (e.g., <div class="rounded-lg border..."> -> <Card>).

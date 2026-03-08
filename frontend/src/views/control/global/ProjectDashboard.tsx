@@ -732,15 +732,15 @@ export default function ProjectDashboard() {
                 repo={overview.repository.name}
                 branch={overview.repository.defaultBranch}
                 trigger={(
-                  <DropdownMenuItem
-                    onSelect={(event) => event.preventDefault()}
-                    className="gap-2"
-                  >
-                    <Sparkles className="h-4 w-4 text-amber-400" />
-                    ✨ Generate AI Docs
-                  </DropdownMenuItem>
-                )}
-              />
+                    <DropdownMenuItem
+                      onSelect={(event) => event.preventDefault()}
+                      className="gap-2"
+                    >
+                      <Sparkles className="h-4 w-4 text-amber-400" />
+                      Generate AI Docs
+                    </DropdownMenuItem>
+                  )}
+                />
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 disabled={!projectId}
