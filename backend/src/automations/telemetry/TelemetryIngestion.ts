@@ -83,6 +83,21 @@ type TelemetryPayload = {
   };
 };
 
+type TelemetryInsertFields =
+  | Partial<typeof eventTables.pullRequest.$inferInsert>
+  | Partial<typeof eventTables.pullRequestReview.$inferInsert>
+  | Partial<typeof eventTables.issues.$inferInsert>
+  | Partial<typeof eventTables.issueComment.$inferInsert>
+  | Partial<typeof eventTables.push.$inferInsert>
+  | Partial<typeof eventTables.repository.$inferInsert>
+  | Partial<typeof eventTables.checkRun.$inferInsert>
+  | Partial<typeof eventTables.securityAdvisory.$inferInsert>
+  | Partial<typeof eventTables.codeScanningAlert.$inferInsert>
+  | Partial<typeof eventTables.dependabotAlert.$inferInsert>
+  | Partial<typeof eventTables.secretScanningAlert.$inferInsert>;
+
+type DrizzleTable = Parameters<ReturnType<typeof getWebhooksDb>['insert']>[0];
+
 export class TelemetryIngestion extends BaseAutomation<TelemetryPayload> {
   private eventName: string;
   private action: string | null;
@@ -102,7 +117,7 @@ export class TelemetryIngestion extends BaseAutomation<TelemetryPayload> {
   async execute(): Promise<void> {
     const db = getWebhooksDb(this.env.DB_WEBHOOKS);
     
-    const insertPayload = async (table: Parameters<typeof db.insert>[0], specificFields: Record<string, unknown>) => {
+    const insertPayload = async (table: DrizzleTable, specificFields: TelemetryInsertFields) => {
       await db.insert(table).values({
         delivery_id: this.deliveryId,
         payload: this.payload,

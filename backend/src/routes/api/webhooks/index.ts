@@ -170,7 +170,7 @@ export async function webhookHandler(c: Context<{ Bindings: Env }>): Promise<Res
     // 1. Run Essential System Automations (Telemetry, Tasks, Sync) 
     const { AutomationRegistry, SystemAutomations } = await import('@/core/AutomationRegistry');
     for (const automationKey of SystemAutomations) {
-      const AutomationClass = AutomationRegistry[automationKey] as new (env: Env, payload: unknown, instId: number | undefined, usePat: boolean, deliveryId: string, eventName: string, action: string | null) => { shouldExecute: () => Promise<boolean>, execute: () => Promise<void> };
+      const AutomationClass = AutomationRegistry[automationKey] as unknown as new (env: Env, payload: unknown, instId: number | undefined, usePat: boolean, deliveryId: string, eventName: string, action: string | null) => { shouldExecute: () => Promise<boolean>, execute: () => Promise<void> };
       if (AutomationClass) {
          const instance = new AutomationClass(c.env, payload, instId, false, deliveryId, eventName, action || null);
          const shouldRun = await instance.shouldExecute();
@@ -187,7 +187,7 @@ export async function webhookHandler(c: Context<{ Bindings: Env }>): Promise<Res
     for (const config of activeConfigs) {
       if (SystemAutomations.includes(config.automationClass)) continue; // Handled above 
 
-      const AutomationClass = AutomationRegistry[config.automationClass] as new (env: Env, payload: unknown, instId: number | undefined, usePat: boolean, deliveryId: string, c: Context) => { shouldExecute: () => Promise<boolean>, execute: () => Promise<void> };
+      const AutomationClass = AutomationRegistry[config.automationClass] as unknown as new (env: Env, payload: unknown, instId: number | undefined, usePat: boolean, deliveryId: string, c: Context) => { shouldExecute: () => Promise<boolean>, execute: () => Promise<void> };
       if (AutomationClass) {
          // Some specific classes technically expect `c` context in current legacy mode, others don't.
          // In JS we can just pass extra args safely.

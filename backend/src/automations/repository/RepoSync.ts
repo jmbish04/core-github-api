@@ -20,10 +20,7 @@ export class RepoSync extends BaseAutomation<RepoSyncPayload> {
       }
 
       await ensureRepositoryFromWebhook(this.env, repository);
-      await StandardizationService.enforce(this.env, {
-        owner: { login: repository.owner.login },
-        name: repository.name,
-      });
+      await StandardizationService.enforce(this.env, repository as { owner: { login: string }; name: string; default_branch?: string });
       await this.logExecution('success', 'Repo sync and standards enforced');
     } catch (e: unknown) {
       console.error('[RepoSync] failed', e);

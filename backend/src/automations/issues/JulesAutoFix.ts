@@ -15,10 +15,13 @@ function isJulesPayload(payload: unknown): payload is JulesPayload {
   }
 
   const candidate = payload as Record<string, unknown>;
-  return candidate.comment !== undefined || candidate.issue !== undefined || candidate.repository !== undefined;
+  const hasIssue = typeof candidate.issue === 'object' && candidate.issue !== null;
+  const hasComment = typeof candidate.comment === 'object' && candidate.comment !== null;
+  const hasRepository = typeof candidate.repository === 'object' && candidate.repository !== null;
+  return hasIssue || hasComment || hasRepository;
 }
 
-export class JulesAutoFix extends BaseAutomation {
+export class JulesAutoFix extends BaseAutomation<JulesPayload> {
   async shouldExecute(): Promise<boolean> {
     if (!isJulesPayload(this.payload)) {
       return false;

@@ -14,7 +14,7 @@ import { PRReviewExtraction } from '../automations/pr/PRReviewExtraction';
 import { AgentTagger } from '../automations/pr/AgentTagger';
 import { BuildAnalyzer } from '../automations/pr/BuildAnalyzer';
 
-export type AutomationClass = new (...args: any[]) => BaseAutomation<any>;
+export type AutomationClass = new (...args: never[]) => BaseAutomation<unknown>;
 
 export const AutomationRegistry: Record<string, AutomationClass> = {
   TelemetryIngestion,

@@ -42,7 +42,7 @@ export class GeminiAgent extends BaseAgent<Env, GeminiState> {
   async chat(prompt: string, history?: GeminiMessage[], customInstructions?: string) {
     try {
       await this.setState({ ...this.state, status: "running" });
-      const priorMessages = history ?? this.state.messages;
+      const messageHistory = history ?? this.state.messages;
 
       const fullResponse = await this.runTextWithModel({
         provider: "gemini",
@@ -56,7 +56,7 @@ export class GeminiAgent extends BaseAgent<Env, GeminiState> {
       await this.setState({
         ...this.state,
         messages: [
-          ...priorMessages,
+          ...messageHistory,
           { role: "user", content: prompt },
           { role: "assistant", content: fullResponse }
         ],
