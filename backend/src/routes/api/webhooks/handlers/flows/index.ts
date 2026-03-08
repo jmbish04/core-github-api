@@ -431,14 +431,12 @@ flows.openapi(createNewRepoRoute, async (c) => {
         status: result.status,
         message: result.message,
       })
-      console.log(`[flows/create-new-repo] Secret ${secret.name}: ${result.status}`)
     } else {
       secretResults.push({
         name: secret.name,
         status: 'skipped',
         message: 'Environment variable not set',
       })
-      console.log(`[flows/create-new-repo] Secret ${secret.name}: skipped (env var not set)`)
     }
   }
 
