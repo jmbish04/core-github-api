@@ -14,6 +14,7 @@ import { aiCostLogs, budgetEvents, sessions } from '@db/schema';
 import { generateUuid } from '@/utils/common';
 import { sql, desc, eq, gt, and } from 'drizzle-orm';
 import { z } from 'zod';
+// @ts-ignore
 import Cloudflare from 'cloudflare';
 import { PRICING_CATALOG, guardCheck, type ModelPricing } from './pricing-registry';
 

@@ -70,6 +70,13 @@
 				"**/*.hbs"
 			],
 			"fallthrough": true
+		},
+		{
+			"type": "Text",
+			"globs": [
+				"**/*.md"
+			],
+			"fallthrough": true
 		}
 	],
 	"assets": {
@@ -231,7 +238,7 @@
 			},
 			{
 				"name": "JULES_OVERSEER",
-				"class_name": "JulesOverseer"
+				"class_name": "JulesOverseerDO"
 			},
 			{
 				"name": "TOPIC_ORCHESTRATOR",
@@ -276,6 +283,10 @@
 			{
 				"name": "CF_WORKSHOP_AGENTS_SDK",
 				"class_name": "CfWorkshop_AgentsSdk"
+			},
+			{
+				"name": "VIBE_ORCHESTRATOR_DO",
+				"class_name": "VibeOrchestratorDO"
 			}
 		]
 	},
@@ -308,7 +319,7 @@
 				// Research Agent for gathering information
 				"ResearchAgent",
 				// Jules Overseer for session management
-				"JulesOverseer",
+				"JulesOverseerDO",
 				// Topic Research Orchestrator
 				"TopicOrchestratorAgent",
 				// Web Search Agent
@@ -346,6 +357,12 @@
 				"WorkshopAgent",
 				"CfWorkshop_AgentsSdk",
 				"JulesWebhookBroadcaster"
+			]
+		},
+		{
+			"tag": "v6",
+			"new_sqlite_classes": [
+				"VibeOrchestratorDO"
 			]
 		}
 	],

@@ -527,6 +527,7 @@ app.get('/ws', async (c) => {
 
 import todosApi from "@/routes/api/frontend/planner/todos";
 import projectsApi from "@/routes/api/frontend/projects";
+import orchestrationApi from "@/routes/api/orchestration/index";
 import prOverviewApi from "@/routes/api/services/github/pr-overview";
 
 // Optional: Add swagger UI (points to the new 3.1.0 JSON spec)
@@ -583,6 +584,7 @@ sharedApi.use('/landing-generator/*', lazyRoute(bases, '/landing-generator', () 
 sharedApi.use('/landing-generator', lazyRoute(bases, '/landing-generator', () => import("@/routes/api/agents/landing-generator")));
 
 // Eagerly load lean routes
+sharedApi.route('/orchestration', orchestrationApi)
 sharedApi.route('/ops', opsApi)
 sharedApi.route('/tasks', tasksApi)
 sharedApi.route('/todos', todosApi)
@@ -708,7 +710,7 @@ export { ReportingAgent } from "./ai/agents/Reporting";
 
 // Existing Exports
 export { ResearchAgent } from "@/ai/agents/Research";
-export { JulesOverseer } from "@/ai/agents/JulesOverseer";
+export { JulesOverseerDO as JulesOverseer } from "@/ai/agents/JulesOverseer";
 export { CloudflareDocsAgent } from "@/ai/agents/CloudflareDocs";
 export { DeepResearchChatAgent } from "@/ai/agents/DeepResearchChat";
 export { HealthDiagnostician } from "@/ai/agents/HealthDiagnostician";
@@ -1172,3 +1174,6 @@ export default {
 
 // Export all Durable Objects and Workflows
 export { ResearchOrchestrator } from '@/ai/agents/ResearchOrchestrator';
+
+export { VibeOrchestratorDO } from '@/ai/agents/VibeOrchestrator';
+export { JulesOverseerDO } from '@/ai/agents/JulesOverseer';

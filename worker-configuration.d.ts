@@ -7,6 +7,8 @@ declare namespace Cloudflare {
 		durableNamespaces: "OrchestratorAgent" | "RetrofitAgent" | "RoomDO" | "GeminiAgent" | "PlannerAgent" | "Supervisor" | "DeepReasoningAgent" | "RepoAgent" | "Sandbox" | "OwnerAgent" | "ResearchAgent" | "JulesOverseer" | "TopicOrchestratorAgent" | "WebSearchAgent" | "JudgeAgent" | "ReportingAgent" | "LandingPageAgent" | "CloudflareDocsAgent" | "HealthDiagnostician" | "DeepResearchChatAgent" | "WorkshopAgent" | "CfWorkshop_AgentsSdk" | "JulesWebhookBroadcaster";
 	}
 	interface Env {
+	VIBE_ORCHESTRATOR_DO: DurableObjectNamespace /* VibeOrchestratorDO */;
+	JULES_OVERSEER: DurableObjectNamespace /* JulesOverseerDO */;
 		ETAG_KV: KVNamespace;
 		COMMENTS_KV: KVNamespace;
 		AGENT_CACHE: KVNamespace;

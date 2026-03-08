@@ -1,4 +1,5 @@
 
+// @ts-ignore
 import Cloudflare from 'cloudflare';
 
 /**
