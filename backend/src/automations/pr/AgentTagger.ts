@@ -1,74 +1,131 @@
-import { BaseAutomation } from '@/core/BaseAutomation';
-import { withCompatOctokit } from "@/services/octokit/compat";
-import { appendSignature } from "@/utils/github/signature";
+import { z } from 'zod';
+import { BaseAutomation, type AutomationMetadata } from '@/core/BaseAutomation';
+import { appendSignature } from '@/utils/github/signature';
 import {
-  isCodeReviewBot,
-  formatAgentFixComment,
   detectPRAuthorAgent,
+  formatAgentFixComment,
+  isCodeReviewBot,
   type ExtractedReviewComment,
-} from "@/routes/api/webhooks/workflows/pr-agent-tagger";
+} from './agent-tagging';
 
-export class AgentTagger extends BaseAutomation {
-  async shouldExecute(): Promise<boolean> {
-    if (this.payload.action !== 'submitted' || !this.payload.review?.user?.login) return false;
-    return isCodeReviewBot(this.payload.review.user.login);
+const AgentTaggerPayloadSchema = z.object({
+  action: z.string(),
+  repository: z.object({
+    name: z.string(),
+    owner: z.object({
+      login: z.string(),
+    }),
+  }),
+  pull_request: z.object({
+    number: z.number(),
+    body: z.string().nullable().optional(),
+    head: z.object({
+      ref: z.string().optional(),
+    }),
+    user: z
+      .object({
+        login: z.string().optional(),
+        html_url: z.string().optional(),
+      })
+      .optional(),
+  }),
+  review: z.object({
+    user: z.object({
+      login: z.string(),
+    }),
+  }),
+});
+
+type AgentTaggerPayload = z.infer<typeof AgentTaggerPayloadSchema>;
+
+export class AgentTagger extends BaseAutomation<AgentTaggerPayload> {
+  static readonly metadata: AutomationMetadata = {
+    key: 'agent-tagger',
+    domain: 'pr',
+    description: 'Transforms automated review comments into agent-targeted fix requests.',
+    events: ['pull_request_review'],
+    alwaysOn: false,
+    authPolicy: 'pat',
+  };
+
+  async shouldRun(): Promise<boolean> {
+    if (this.eventName !== 'pull_request_review' || this.action !== 'submitted') {
+      return false;
+    }
+
+    const parsed = AgentTaggerPayloadSchema.safeParse(this.payload);
+    return parsed.success && isCodeReviewBot(parsed.data.review.user.login);
   }
 
-  async execute(): Promise<void> {
-    try {
-      const prData = this.payload.pull_request;
-      const reviewerLogin = this.payload.review.user.login;
-      if (!prData || !this.payload.repository) return;
+  async run(): Promise<void> {
+    const payload = AgentTaggerPayloadSchema.parse(this.payload);
+    const prNumber = payload.pull_request.number;
 
-      const octokit = withCompatOctokit(await this.getGitHubClient());
-      
-      const issueCommentsRes = await octokit.rest.issues.listComments({
-        owner: this.payload.repository.owner?.login,
-        repo: this.payload.repository.name,
-        issue_number: prData.number,
+    try {
+      const octokit = await this.getGitHubClient();
+
+      const issueComments = await octokit.rest.issues.listComments({
+        owner: payload.repository.owner.login,
+        repo: payload.repository.name,
+        issue_number: prNumber,
         per_page: 100,
       });
 
       const agentInfo = detectPRAuthorAgent({
-        headRef: prData.head?.ref,
-        body: prData.body,
-        authorLogin: prData.user?.login,
-        authorHtmlUrl: prData.user?.html_url,
-        issueComments: issueCommentsRes.data.map((c: Record<string, unknown>) => ({ body: (c.body as string) || "" })),
+        headRef: payload.pull_request.head.ref,
+        body: payload.pull_request.body || null,
+        authorLogin: payload.pull_request.user?.login,
+        authorHtmlUrl: payload.pull_request.user?.html_url,
+        issueComments: issueComments.data.map((comment) => ({
+          body: comment.body || '',
+        })),
       });
 
-      if (!agentInfo) return;
+      if (!agentInfo) {
+        await this.logExecution('skipped', 'Unable to detect target coding agent.', prNumber);
+        return;
+      }
 
-      const reviewCommentsRes = await octokit.rest.pulls.listReviewComments({
-        owner: this.payload.repository.owner?.login,
-        repo: this.payload.repository.name,
-        pull_number: prData.number,
+      const reviewComments = await octokit.rest.pulls.listReviewComments({
+        owner: payload.repository.owner.login,
+        repo: payload.repository.name,
+        pull_number: prNumber,
         per_page: 100,
       });
 
-      const botComments: ExtractedReviewComment[] = reviewCommentsRes.data
-        .filter((c: Record<string, unknown>) => (c.user as { login?: string })?.login === reviewerLogin)
-        .map((c: Record<string, unknown>) => ({
-          path: c.path || '',
-          line: c.line || c.original_line || null,
-          body: c.body || '',
-          diff_hunk: c.diff_hunk,
-          suggestion: c.body?.match(/```suggestion\n([\s\S]*?)\n```/)?.[1] || undefined,
-        }));
+      const botComments: ExtractedReviewComment[] = reviewComments.data
+        .filter((comment) => comment.user?.login === payload.review.user.login)
+        .map((comment) => ({
+          path: comment.path || '',
+          line: comment.line ?? comment.original_line ?? null,
+          body: comment.body || '',
+          diff_hunk: comment.diff_hunk || undefined,
+          suggestion:
+            comment.body?.match(/```suggestion\n([\s\S]*?)\n```/)?.[1] || undefined,
+        }))
+        .filter((comment) => Boolean(comment.path && comment.body));
 
-      if (botComments.length === 0) return;
+      if (!botComments.length) {
+        await this.logExecution('skipped', 'No automated review comments to transform.', prNumber);
+        return;
+      }
 
-      const commentBody = appendSignature(formatAgentFixComment(agentInfo.tag, prData.number, botComments));
+      const body = appendSignature(formatAgentFixComment(agentInfo.tag, prNumber, botComments));
       await octokit.rest.issues.createComment({
-        owner: this.payload.repository.owner?.login,
-        repo: this.payload.repository.name,
-        issue_number: prData.number,
-        body: commentBody,
+        owner: payload.repository.owner.login,
+        repo: payload.repository.name,
+        issue_number: prNumber,
+        body,
       });
-      await this.logExecution('success', 'Agent fix comment tagged', prData.number);
-    } catch (e: unknown) {
-      console.error('[AgentTagger] failed:', e);
-      await this.logExecution('failure', `AgentTagger failed: ${e.message}`, this.payload.pull_request?.number);
+
+      await this.logExecution('success', 'Posted agent-tagged review summary via PAT identity.', prNumber);
+    } catch (error) {
+      await this.logExecution(
+        'failure',
+        `Agent tagger failed: ${error instanceof Error ? error.message : String(error)}`,
+        prNumber,
+      );
+      throw error;
     }
   }
 }

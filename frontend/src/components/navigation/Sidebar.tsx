@@ -15,7 +15,8 @@ import {
     GitPullRequest,
     FolderGit2,
     Star,
-    Wand2
+    Wand2,
+    DollarSign
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
@@ -100,6 +101,7 @@ export function Sidebar({ className }: SidebarProps) {
         { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
         { name: "Projects", href: "/projects", icon: FolderGit2 },
         { name: "Chat", href: "/chat", icon: MessageSquare },
+        { name: "Costs & Billing", href: "/costs", icon: DollarSign },
         { name: "Kanban", href: "/kanban", icon: Trello },
         { name: "Roadmap", href: "/roadmap", icon: Trello },
         { name: "PR Command Center", href: "/pr-center", icon: GitPullRequest },

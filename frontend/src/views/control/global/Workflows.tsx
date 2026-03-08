@@ -8,7 +8,8 @@ import {
   ShieldCheck, 
   Search,
   FileCode2,
-  GitPullRequest
+  GitPullRequest,
+  Workflow,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,19 +27,25 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import axios from "axios";
 import { toast } from "sonner";
-import { AutomationRegistry, SystemAutomations } from "@api/core/AutomationRegistry";
 
 // Types
 type WebhookConfig = {
-  id?: string;
   automationClass: string;
+  key: string;
+  domain: "pr" | "issues" | "push" | "repository" | "security" | "telemetry";
+  description: string;
+  events: string[];
+  authPolicy: "app" | "pat";
+  alwaysOn: boolean;
+  canToggle: boolean;
   isActive: boolean;
-  usePat: boolean;
 };
 
 type AutomationLog = {
   id: string;
-  deliveryId: string;
+  repo: string;
+  deliveryId: string | null;
+  eventName: string | null;
   automationClass: string;
   status: "success" | "failure" | "skipped";
   message: string;
@@ -69,7 +76,10 @@ export default function Workflows() {
 
   const updateConfigMutation = useMutation({
     mutationFn: async (config: WebhookConfig) => {
-      await axios.post("/api/ops/workflows/configs", config);
+      await axios.post("/api/ops/workflows/configs", {
+        automationClass: config.automationClass,
+        isActive: config.isActive,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["webhook-configs"] });
@@ -80,38 +90,23 @@ export default function Workflows() {
     }
   });
 
-  const handleToggleActive = (className: string, currentIsActive: boolean, currentUsePat: boolean) => {
+  const handleToggleActive = (config: WebhookConfig) => {
+    if (!config.canToggle) {
+      return;
+    }
+
     updateConfigMutation.mutate({
-      automationClass: className,
-      isActive: !currentIsActive,
-      usePat: currentUsePat
+      ...config,
+      isActive: !config.isActive,
     });
   };
-
-  const handleToggleAuth = (className: string, currentIsActive: boolean, currentUsePat: boolean) => {
-    updateConfigMutation.mutate({
-      automationClass: className,
-      isActive: currentIsActive,
-      usePat: !currentUsePat
-    });
-  };
-
-  // Compile list of all available automations (System + DB state + Unconfigured available in Registry)
-  const availableClasses = Object.keys(AutomationRegistry).filter(k => !SystemAutomations.includes(k));
-  
-  const mergedConfigs = availableClasses.map(clsName => {
-    const dbConfig = configsData?.find(c => c.automationClass === clsName);
-    return {
-      automationClass: clsName,
-      isActive: dbConfig ? dbConfig.isActive : false,
-      usePat: dbConfig ? dbConfig.usePat : false, // Default to App Installation
-    };
-  });
 
   const filteredLogs = (logsData || []).filter(log => 
     log.automationClass.toLowerCase().includes(searchLogs.toLowerCase()) || 
     log.message.toLowerCase().includes(searchLogs.toLowerCase()) ||
-    (log.contextId && log.contextId.includes(searchLogs))
+    (log.contextId && log.contextId.includes(searchLogs)) ||
+    log.repo.toLowerCase().includes(searchLogs.toLowerCase()) ||
+    (log.eventName && log.eventName.toLowerCase().includes(searchLogs.toLowerCase()))
   );
 
   // ------------- Agentic Chat State -------------
@@ -194,13 +189,13 @@ export default function Workflows() {
 
             <TabsContent value="configs">
               <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-                {mergedConfigs.map((config) => (
+                {(configsData || []).map((config) => (
                   <Card key={config.automationClass} className={`bg-zinc-900/40 border-zinc-800/60 transition-all ${config.isActive ? 'border-indigo-800/50 shadow-[0_0_15px_rgba(79,70,229,0.05)]' : 'opacity-70 grayscale-[0.2]'}`}>
                     <CardHeader className="pb-3 border-b border-zinc-800/50">
                       <div className="flex items-start justify-between">
                         <div className="space-y-1 pr-4">
                           <CardTitle className="text-base font-semibold text-zinc-200">
-                            {config.automationClass}
+                            {config.key}
                           </CardTitle>
                           <CardDescription className="text-xs text-zinc-500 font-mono">
                             {config.automationClass}
@@ -208,26 +203,41 @@ export default function Workflows() {
                         </div>
                         <Switch 
                           checked={config.isActive} 
-                          onCheckedChange={() => handleToggleActive(config.automationClass, config.isActive, config.usePat)}
+                          disabled={!config.canToggle}
+                          onCheckedChange={() => handleToggleActive(config)}
                           className={config.isActive ? 'data-[state=checked]:bg-indigo-500' : ''}
                         />
                       </div>
                     </CardHeader>
                     <CardContent className="pt-4 space-y-4">
+                      <p className="text-sm text-zinc-400 leading-relaxed">{config.description}</p>
+
+                      <div className="flex flex-wrap gap-2">
+                        <Badge variant="outline" className="bg-zinc-950/50 text-zinc-300 border-zinc-800 text-[10px] uppercase">
+                          {config.domain}
+                        </Badge>
+                        {config.alwaysOn ? (
+                          <Badge variant="outline" className="bg-indigo-950/40 text-indigo-300 border-indigo-800/40 text-[10px] uppercase">
+                            Always On
+                          </Badge>
+                        ) : null}
+                        {config.events.map((eventName) => (
+                          <Badge key={`${config.automationClass}-${eventName}`} variant="outline" className="bg-zinc-950/50 text-zinc-400 border-zinc-800 text-[10px]">
+                            <Workflow className="w-3 h-3 mr-1" />
+                            {eventName}
+                          </Badge>
+                        ))}
+                      </div>
                       
                       <div className="flex items-center justify-between text-sm bg-zinc-950/50 p-3 rounded-md border border-zinc-800/50">
                         <div className="flex items-center gap-2">
-                          <ShieldCheck className={`w-4 h-4 ${config.usePat ? 'text-amber-400' : 'text-emerald-400'}`} />
+                          <ShieldCheck className={`w-4 h-4 ${config.authPolicy === 'pat' ? 'text-amber-400' : 'text-emerald-400'}`} />
                           <span className="text-zinc-300 font-medium">Auth Identity</span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className={`text-xs ${!config.usePat ? 'text-emerald-400 font-bold' : 'text-zinc-500'}`}>App</span>
-                          <Switch 
-                            checked={config.usePat}
-                            onCheckedChange={() => handleToggleAuth(config.automationClass, config.isActive, config.usePat)}
-                            className="scale-75 data-[state=checked]:bg-amber-500"
-                          />
-                          <span className={`text-xs ${config.usePat ? 'text-amber-400 font-bold' : 'text-zinc-500'}`}>PAT</span>
+                          <span className={`text-xs ${config.authPolicy === 'app' ? 'text-emerald-400 font-bold' : 'text-zinc-500'}`}>App</span>
+                          <span className="text-zinc-600">/</span>
+                          <span className={`text-xs ${config.authPolicy === 'pat' ? 'text-amber-400 font-bold' : 'text-zinc-500'}`}>PAT</span>
                         </div>
                       </div>
 
@@ -261,19 +271,20 @@ export default function Workflows() {
                         <TableHead className="text-xs font-semibold">Automation</TableHead>
                         <TableHead className="text-xs font-semibold">Status</TableHead>
                         <TableHead className="text-xs font-semibold">Context</TableHead>
+                        <TableHead className="text-xs font-semibold">Event</TableHead>
                         <TableHead className="w-[400px] text-xs font-semibold">Message</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {loadingLogs ? (
                          <TableRow>
-                           <TableCell colSpan={5} className="h-24 text-center text-zinc-500">
+                           <TableCell colSpan={6} className="h-24 text-center text-zinc-500">
                              Loading logs...
                            </TableCell>
                          </TableRow>
                       ) : filteredLogs.length === 0 ? (
                          <TableRow>
-                           <TableCell colSpan={5} className="h-24 text-center text-zinc-500">
+                           <TableCell colSpan={6} className="h-24 text-center text-zinc-500">
                              No execution logs found.
                            </TableCell>
                          </TableRow>
@@ -297,6 +308,9 @@ export default function Workflows() {
                             </TableCell>
                             <TableCell className="text-xs font-mono text-zinc-500">
                                 {log.contextId || '-'}
+                            </TableCell>
+                            <TableCell className="text-xs font-mono text-zinc-500">
+                                {log.eventName || '-'}
                             </TableCell>
                             <TableCell className="text-xs text-zinc-300 truncate max-w-[400px]">
                                 {log.message}

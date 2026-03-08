@@ -9,6 +9,7 @@ import { DEFAULT_GITHUB_OWNER, DEFAULT_TEMPLATE_REPO } from "@github-utils";
 import { getWebhooksDb } from "@db";
 import { webhookConfigs, automationLogs } from "@/db/schemas/webhooks/automations";
 import { desc } from "drizzle-orm";
+import { AutomationRegistry } from "@/core/AutomationRegistry";
 const TranscriptMessageSchema = z.object({
   id: z.string().optional(),
   role: z.enum(["assistant", "user"]),
@@ -205,25 +206,59 @@ workflowsApi.delete("/rules/:id", async (c) => {
 const WebhookConfigBody = z.object({
   automationClass: z.string(),
   isActive: z.boolean(),
-  usePat: z.boolean(),
+  usePat: z.boolean().optional(),
 });
 
 workflowsApi.get("/configs", async (c) => {
   const db = getWebhooksDb(c.env.DB_WEBHOOKS);
-  const configs = await db.select().from(webhookConfigs).all();
+  const storedConfigs = await db.select().from(webhookConfigs).all();
+  const storedByClass = new Map(storedConfigs.map((config) => [config.automationClass, config]));
+
+  const configs = AutomationRegistry.definitions().map(({ automationClass, metadata }) => {
+    const stored = storedByClass.get(automationClass);
+    return {
+      automationClass,
+      key: metadata.key,
+      domain: metadata.domain,
+      description: metadata.description,
+      events: metadata.events,
+      alwaysOn: metadata.alwaysOn,
+      authPolicy: metadata.authPolicy,
+      canToggle: !metadata.alwaysOn,
+      isActive: metadata.alwaysOn ? true : stored?.isActive ?? false,
+    };
+  });
+
   return c.json({ success: true, configs });
 });
 
 workflowsApi.post("/configs", zValidator("json", WebhookConfigBody), async (c) => {
   const db = getWebhooksDb(c.env.DB_WEBHOOKS);
   const body = c.req.valid("json");
+  const automation = AutomationRegistry.find(body.automationClass);
+
+  if (!automation) {
+    return c.json({ success: false, error: `Unknown automation: ${body.automationClass}` }, 404);
+  }
+
+  if (automation.metadata.alwaysOn) {
+    if (!body.isActive) {
+      return c.json(
+        { success: false, error: `${body.automationClass} is always-on and cannot be disabled.` },
+        400,
+      );
+    }
+
+    return c.json({ success: true, alwaysOn: true });
+  }
   
   const existing = await db.select().from(webhookConfigs).where(eq(webhookConfigs.automationClass, body.automationClass)).get();
+  const persistedUsePat = automation.metadata.authPolicy === "pat";
   
   if (existing) {
     await db.update(webhookConfigs).set({
       isActive: body.isActive,
-      usePat: body.usePat,
+      usePat: persistedUsePat,
       updatedAt: new Date().toISOString()
     }).where(eq(webhookConfigs.id, existing.id));
   } else {
@@ -231,7 +266,7 @@ workflowsApi.post("/configs", zValidator("json", WebhookConfigBody), async (c) =
       id: generateUuid(),
       automationClass: body.automationClass,
       isActive: body.isActive,
-      usePat: body.usePat,
+      usePat: persistedUsePat,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     });
@@ -251,8 +286,21 @@ workflowsApi.get("/logs", async (c) => {
     .orderBy(desc(automationLogs.createdAt))
     .limit(100)
     .all();
-  return c.json({ success: true, logs });
+
+  return c.json({
+    success: true,
+    logs: logs.map((log) => ({
+      id: log.id,
+      repo: log.repo,
+      automationClass: log.automationClass,
+      status: log.status,
+      message: log.details || "",
+      contextId: log.prOrIssueNumber ? String(log.prOrIssueNumber) : null,
+      deliveryId: log.deliveryId || null,
+      eventName: log.eventName || null,
+      createdAt: log.createdAt,
+    })),
+  });
 });
 
 export default workflowsApi;
-

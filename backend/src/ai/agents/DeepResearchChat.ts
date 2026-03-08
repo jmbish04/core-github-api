@@ -7,10 +7,10 @@
 import { HonoBaseAgent, HonoBaseAgentState, BASE_RESPONSE_SCHEMA } from "./base/HonoBaseAgent";
 
 export interface DeepResearchChatState extends HonoBaseAgentState {
-  currentDataset?: any;
+  currentDataset?: unknown;
 }
 
-export class DeepResearchChatAgent extends HonoBaseAgent<Env, DeepResearchChatState> {
+export class DeepResearchChatAgent extends HonoBaseAgent {
   protected get agentName(): string {
     return "DeepResearchChatAgent";
   }

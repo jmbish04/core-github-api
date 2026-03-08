@@ -3,15 +3,13 @@
  * @description Generates AI insights for Todos based on their content and crawled links.
  */
 
+import { z } from "zod";
 import { todoAiInsights, todoLinks, todos } from "@db/schema";
 import { getDb } from "@db";
 import { generateUuid } from "@/utils/common";
 import { eq, and, desc, isNull } from "drizzle-orm";
 import { BrowserService } from "./browser_render";
-import type { Agent } from "@openai/agents";
-import { z } from "zod";
-
-import { createRunner, resolveDefaultAiModel, resolveDefaultAiProvider } from "@/ai/agents/base/agent-ai";
+import { resolveDefaultAiModel, resolveDefaultAiProvider } from "@/ai/agents/base/agent-ai";
 
 const TodoInsightItemSchema = z.object({
     type: z.enum(["offer_to_help", "enrich_todo", "research"]).default("enrich_todo"),
@@ -125,17 +123,18 @@ export class TodoInsightService {
         try {
             const provider = resolveDefaultAiProvider(env as Env);
             const model = resolveDefaultAiModel(env as Env, provider);
-            const runner = await createRunner(env as Env, provider, model);
-            const { Agent: OpenAIAgent } = await import("@openai/agents");
-            const agent = new OpenAIAgent({
-                name: "TodoInsightAgent",
+            
+            const { runStructuredResponseWithModelFallback } = await import("@/ai/utils/gateway-client");
+            
+            const result = await runStructuredResponseWithModelFallback(
+                env,
+                provider,
                 model,
-                outputType: TodoInsightsSchema,
-                instructions:
-                    "You are an intelligent productivity assistant. Return only structured JSON with an `insights` array.",
-            });
-            const result = await runner.run(agent, prompt);
-            const insights = TodoInsightsSchema.parse(result.finalOutput ?? { insights: [] }).insights;
+                "You are an intelligent productivity assistant. Return only structured JSON with an `insights` array.",
+                prompt
+            );
+            
+            const insights = TodoInsightsSchema.parse(result ?? { insights: [] }).insights;
 
             if (Array.isArray(insights)) {
                 for (const item of insights) {

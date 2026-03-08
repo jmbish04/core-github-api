@@ -13,3 +13,27 @@ export const standardizationRules = sqliteTable("standardization_rules", {
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
+
+export const standardizationItems = sqliteTable('standardization_items', {
+    id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+    title: text('title').notNull(),
+    rule: text('rule').notNull(),
+    timestampCreated: text('timestamp_created').notNull().default(sql`CURRENT_TIMESTAMP`),
+    timestampModified: text('timestamp_modified').notNull().default(sql`CURRENT_TIMESTAMP`),
+    isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+    timestampInactive: text('timestamp_inactive'),
+});
+
+export const standardizationTagDefinitions = sqliteTable('standardization_tag_definitions', {
+    id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+    name: text('name').notNull(),
+    description: text('description'),
+    hexColor: text('hex_color').notNull(),
+    isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+});
+
+export const standardizationTagMappings = sqliteTable('standardization_tag_mappings', {
+    id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+    tagId: text('tag_id').notNull().references(() => standardizationTagDefinitions.id),
+    standardizationItemId: text('standardization_item_id').notNull().references(() => standardizationItems.id)
+});

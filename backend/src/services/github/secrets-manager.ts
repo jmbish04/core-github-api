@@ -63,16 +63,17 @@ export async function syncRepoSecrets(
   env: Env,
   owner: string,
   repo: string,
-  secrets: SecretDefinition[]
+  secrets: SecretDefinition[],
+  octokit?: any
 ) {
-  const octokit = await getOctokit(env);
+  const github = octokit ?? await getOctokit(env);
   const _sodium: any = {}; // Mock
   await _sodium.ready;
   const sodium = _sodium;
 
   // 1. Get the repository public key
   // https://docs.github.com/en/rest/actions/secrets?apiVersion=2022-11-28#get-a-repository-public-key
-  const { data: publicKey } = await octokit.rest.actions.getRepoPublicKey({
+  const { data: publicKey } = await github.rest.actions.getRepoPublicKey({
     owner,
     repo,
   });
@@ -85,10 +86,10 @@ export async function syncRepoSecrets(
   // 2. Encrypt and set each secret
   for (const secret of secrets) {
     try {
-      const encryptedValue = await encryptSecret(sodium, key, secret.value);
+      const encryptedValue = await encryptSecret(key, secret.value, sodium);
       
       // https://docs.github.com/en/rest/actions/secrets?apiVersion=2022-11-28#create-or-update-a-repository-secret
-      await octokit.rest.actions.createOrUpdateRepoSecret({
+      await github.rest.actions.createOrUpdateRepoSecret({
         owner,
         repo,
         secret_name: secret.name,

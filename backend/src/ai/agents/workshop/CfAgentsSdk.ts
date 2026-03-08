@@ -38,10 +38,7 @@ export interface WorkshopAgentState extends HonoBaseAgentState {
  * MCP query, D1 logging) is inherited from HonoBaseAgent.
  * This class only supplies identity + the specialized expert system prompt.
  */
-export class CfWorkshop_AgentsSdk extends HonoBaseAgent<
-  Env,
-  WorkshopAgentState
-> {
+export class CfWorkshop_AgentsSdk extends HonoBaseAgent {
   protected get agentName(): string {
     return "CfWorkshop_AgentsSdk";
   }

@@ -1,5 +1,4 @@
 import { HonoBaseAgent, HonoBaseAgentState } from "@/ai/agents/base/HonoBaseAgent";
-import { callable } from "agents";
 import { getDb, workshopProjects, workshopProjectTasks } from "@db";
 import type { Phase } from "@db/schemas/workshop/project_tasks";
 import { eq } from "drizzle-orm";
@@ -33,7 +32,6 @@ Your responsibilities:
 Always respond with structured, actionable output that can be rendered in the Workshop Wizard UI.`;
   }
 
-  @callable()
   healthProbe() {
     return {
       status: "ok",
@@ -46,7 +44,6 @@ Always respond with structured, actionable output that can be rendered in the Wo
    * Dispatches tasks to the appropriate specialist agents 
    * and tracks their completion.
    */
-  @callable()
   async orchestrateTasks(projectId: string) {
     this.logger.info(`Orchestrating tasks for project ${projectId}`);
     return { success: true, message: "Tasks orchestrated" };
@@ -55,7 +52,6 @@ Always respond with structured, actionable output that can be rendered in the Wo
   /**
    * Phase 3: Initializes the GitHub repository for the project.
    */
-  @callable()
   async initializeRepository(projectId: string, params: { owner?: string, description?: string, visibility?: "public" | "private" }) {
     this.logger.info(`Initializing repository for project ${projectId}`);
     
@@ -87,10 +83,8 @@ Always respond with structured, actionable output that can be rendered in the Wo
     return { success: true, repoUrl };
   }
 
-  @callable()
   async ingestProjectPlan(projectId: string, jsonPayload: string) {
-    const { generateStructuredResponse } = await import("@/ai/providers/index");
-
+    // Dynamically query gateway
     const prompt = `
       You are a strict JSON parser for specialist workshop agents. Validate and extract the exact fields required by the Project Tasks Schema.
       Ensure project_name, generated_date, total_phases, and the deeply nested phases array are perfectly formatted.
@@ -210,14 +204,14 @@ Always respond with structured, actionable output that can be rendered in the Wo
       additionalProperties: false
     };
 
-    const parsedData = await generateStructuredResponse<{ project_name: string; generated_date?: string; total_phases: number; phases: Phase[] }>(
-      this.env as Env,
-      prompt,
-      schema,
-      "You are a strict JSON parser for specialist workshop agents.",
-      { effort: "low" },
-      "gemini"
-    );
+    const res = await super.fetch(new Request("http://agent/chat", {
+       method: "POST", headers: { "Content-Type": "application/json" },
+       body: JSON.stringify({ message: prompt })
+    }));
+    const data: any = await res.json();
+    let jsonString = data.reply || data.response || "{}";
+    jsonString = jsonString.replace(/```json\\n/g, "").replace(/```/g, "").trim();
+    const parsedData = JSON.parse(jsonString) as any;
     
     // Process and insert into D1
     const db = getDb(this.env.DB);

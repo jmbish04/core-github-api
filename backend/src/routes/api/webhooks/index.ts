@@ -8,7 +8,15 @@ import { drizzle } from 'drizzle-orm/d1';
 // Internal schema & database imports
 import { getGitHubPrivateKey, getGitHubAppId, getGitHubWebhookSecret } from "@utils/secrets";
 import { generateUuid } from "@/utils/common";
-import { getAgentByName } from 'agents';
+interface DONamespace {
+  idFromName(name: string): unknown;
+  get(id: unknown): unknown;
+}
+function getAgentByName(namespace: unknown, name: string) {
+  const ns = namespace as DONamespace;
+  const id = ns.idFromName(name);
+  return ns.get(id);
+}
 import { getWebhooksDb } from '@db';
 import { webhookDeliveries } from '@/db/schemas/github/webhooks';
 
@@ -16,7 +24,7 @@ import { webhookDeliveries } from '@/db/schemas/github/webhooks';
 import type { GitHubWebhookPayload } from '@/types/github/webhooks';
 import { App } from 'octokit';
 import { sanitizeRepoName } from '@/ai/mcp/tools/sandbox-sdk';
-// Handlers are dynamically resolved via Registry
+import { AutomationRegistry } from '@/core/AutomationRegistry';
 
 const webhooksApi = new Hono<{ Bindings: Env }>();
 
@@ -70,13 +78,14 @@ export async function webhookHandler(c: Context<{ Bindings: Env }>): Promise<Res
 
   const payload = JSON.parse(rawBody) as GitHubWebhookPayload & {
     repository?: { full_name?: string; owner?: { login?: string }; name?: string };
-    installation?: { account?: { login?: string } };
+    installation?: { id?: number; account?: { login?: string } };
     pull_request?: { number?: number };
     issue?: { number?: number };
     action?: string;
   } & Record<string, unknown>;
-  const action = payload.action;
+  const action = payload.action || null;
   const repoFullName = payload.repository?.full_name;
+  const installationId = payload.installation?.id || (installationTargetId ? parseInt(installationTargetId) : undefined);
 
   // Agent Dispatching (Kept isolated as per earlier design)
   if (repoFullName && c.env.REPO_AGENT) {
@@ -159,47 +168,27 @@ export async function webhookHandler(c: Context<{ Bindings: Env }>): Promise<Res
       payload: payload as Record<string, unknown>,
       summary_payload: 'Replaced by Automation Log in D1.', 
       hook_id: hookId ? parseInt(hookId) : null,
-      installation_id: installationTargetId ? parseInt(installationTargetId) : null,
+      installation_id: installationId || null,
       installation_type: installationTargetType || null,
       created_at: new Date().toISOString()
     });
 
-    const activeInstances: Promise<void>[] = [];
-    const instId = installationTargetId ? parseInt(installationTargetId) : undefined;
-
-    // 1. Run Essential System Automations (Telemetry, Tasks, Sync) 
-    const { AutomationRegistry, SystemAutomations } = await import('@/core/AutomationRegistry');
-    for (const automationKey of SystemAutomations) {
-      const AutomationClass = AutomationRegistry[automationKey] as new (env: Env, payload: unknown, instId: number | undefined, usePat: boolean, deliveryId: string, eventName: string, action: string | null) => { shouldExecute: () => Promise<boolean>, execute: () => Promise<void> };
-      if (AutomationClass) {
-         const instance = new AutomationClass(c.env, payload, instId, false, deliveryId, eventName, action || null);
-         const shouldRun = await instance.shouldExecute();
-         if (shouldRun) {
-            activeInstances.push((instance as { execute: () => Promise<void> }).execute().catch((e: unknown) => console.error(`System Automation ${automationKey} failed:`, e)));
-         }
-      }
-    }
-
-    // 2. Fetch configured global automations and dispatch
-    const { webhookConfigs } = await import('@/db/schemas/webhooks/automations');
-    const activeConfigs = await dbWebhooks.select().from(webhookConfigs).where(eq(webhookConfigs.isActive, true)).all();
-    
-    for (const config of activeConfigs) {
-      if (SystemAutomations.includes(config.automationClass)) continue; // Handled above 
-
-      const AutomationClass = AutomationRegistry[config.automationClass] as new (env: Env, payload: unknown, instId: number | undefined, usePat: boolean, deliveryId: string, c: Context) => { shouldExecute: () => Promise<boolean>, execute: () => Promise<void> };
-      if (AutomationClass) {
-         // Some specific classes technically expect `c` context in current legacy mode, others don't.
-         // In JS we can just pass extra args safely.
-         const instance = new AutomationClass(c.env, payload, instId, !!config.usePat, deliveryId, c);
-         const shouldRun = await instance.shouldExecute();
-         if (shouldRun) {
-            activeInstances.push((instance as { execute: () => Promise<void> }).execute().catch((e: unknown) => console.error(`Automation ${config.automationClass} failed:`, e)));
-         }
-      }
-    }
-
-    c.executionCtx.waitUntil(Promise.allSettled(activeInstances));
+    c.executionCtx.waitUntil(
+      AutomationRegistry.dispatch({
+        env: c.env,
+        payload,
+        deliveryId,
+        eventName,
+        action,
+        installationId,
+        requestContext: c,
+      }).then((results) => {
+        const failures = results.filter((result) => result.status === 'rejected').length;
+        if (failures > 0) {
+          console.error(`[Webhook] ${failures} automations failed for delivery ${deliveryId}`);
+        }
+      })
+    );
     return c.json({ success: true, delivery_id: deliveryId });
 
   } catch (error: unknown) {

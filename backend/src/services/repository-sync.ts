@@ -8,7 +8,7 @@ import { getGithubConfigs } from "@github-utils";
 import { getOctokit } from "@services/octokit/core";
 import type { Bindings } from "@utils/hono";
 import { generateUuid } from "@/utils/common";
-import { ConsoleSpanExporter } from "@openai/agents";
+// Removed @openai/agents import
 
 type RepoVisibility = "public" | "private" | "internal";
 

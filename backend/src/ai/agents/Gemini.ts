@@ -1,70 +1,30 @@
-/**
- * Gemini Agent (Google ADK Integration)
- * 
- * A Durable Object Agent that leverages the Google Autonomous Development Kit (ADK).
- * Implements a "hijack" strategy by routing ADK's native inference calls 
- * through the Cloudflare AI Gateway to use Workers AI or other providers.
- * 
- * @module AI/Agents/Gemini
- */
-import { callable } from "agents";
-import { BaseAgent, BaseAgentState } from "@/ai/agents/base/BaseAgent";
+import { createAgent, tool } from 'honidev';
+import { z } from 'zod';
+import { Hono } from 'hono';
 
-interface GeminiState extends BaseAgentState {
-  status: "idle" | "running" | "error";
-  messages: Array<{ role: string; content: string }>;
-}
+export const agentExports = createAgent({
+  name: "gemini",
+  model: "google-ai-studio/gemini-2.5-flash",
+  system: "You are an elite autonomous agent powered by Cloudflare AI Gateway. Provide structured, highly accurate responses.",
+  binding: "GEMINI_AGENT",
+  tools: [],
+  memory: {
+     episodic: { enabled: true, dbBinding: 'DB' }
+  },
+  observability: { enabled: true, aiGatewaySlug: 'core-github-api', collectEvents: true }
+});
 
-export class GeminiAgent extends BaseAgent<Env, GeminiState> {
-  initialState: GeminiState = {
-    status: "idle",
-    messages: [],
-    history: [], // BaseAgentState requires history
-  };
+const app = new Hono<{ Bindings: Env }>();
 
-  private doId: string;
+app.get('/health', (c) => c.json({ status: 'ok', agent: 'GeminiAgent' }));
+app.get('/docs', (c) => c.text('Gemini Agent API Documentation'));
+app.get('/context', (c) => c.json({ environment: 'Cloudflare Workers', agent: 'GeminiAgent' }));
+app.get('/openapi.json', (c) => c.json({ openapi: '3.1.0', info: { title: 'GeminiAgent', version: '1.0.0' }, paths: {} }));
 
-  constructor(state: DurableObjectState, env: Env) {
-    super(state, env);
-    this.doId = state.id.toString();
-  }
+app.all('/*', (c) => agentExports.fetch(c.req.raw, c.env, c.executionCtx));
 
-/**
- * Executes a stateful chat session using OpenAI Agents SDK mapped via AI Gateway.
- * 
- * @param prompt - The user's input message.
- * @param history - Optional message history.
- * @returns The agent's response and updated history.
- */
-  @callable()
-  async chat(prompt: string, history?: any[], customInstructions?: string) {
-    try {
-      await this.setState({ ...this.state, status: "running" });
+export default app;
 
-      const fullResponse = await this.runTextWithModel({
-        provider: "gemini",
-        model: "google-ai-studio/gemini-2.5-flash",
-        name: "cf_gateway_agent",
-        instructions: customInstructions || "You are an elite autonomous agent powered by Cloudflare AI Gateway. Provide structured, highly accurate responses.",
-        prompt: prompt,
-      });
+const AgentDurableObject = agentExports.DurableObject as any;
 
-      // Persist the state durably
-      await this.setState({
-        ...this.state,
-        messages: [
-          ...this.state.messages,
-          { role: "user", content: prompt },
-          { role: "assistant", content: fullResponse }
-        ],
-        status: "idle"
-      });
-
-      return { response: fullResponse };
-
-    } catch (error: any) {
-      await this.setState({ ...this.state, status: "error" });
-      return { response: `[Agent Error]: ${error.message}` };
-    }
-  }
-}
+export class GeminiAgent extends AgentDurableObject {}

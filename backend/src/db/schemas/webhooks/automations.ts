@@ -17,5 +17,7 @@ export const automationLogs = sqliteTable('automation_logs', {
   status: text('status', { enum: ['success', 'failure', 'skipped'] }).notNull(),
   details: text('details'),
   prOrIssueNumber: integer('pr_or_issue_number'),
+  deliveryId: text('delivery_id'),
+  eventName: text('event_name'),
   createdAt: text('created_at').notNull().$defaultFn(() => new Date().toISOString())
 });

@@ -1,31 +1,20 @@
 /**
  * Base AI Agent Class (Cloudflare Durable Object)
- * * Provides the foundation for all AI agents built on Cloudflare Durable Objects.
- * Integrates directly with the OpenAI Agents SDK while routing all inference
- * through Cloudflare AI Gateway's Universal /compat endpoint.
- * * @module AI/Agents/Base
+ * Refactored to use Honi V2 (honidev) API
+ * @module AI/Agents/Base
  */
-import { Agent as CFAgent } from "agents";
+import { DurableObject } from "cloudflare:workers";
 import { resolveDefaultAiModel, resolveDefaultAiProvider, type SupportedProvider } from "@/ai/providers/config";
 import { createUniversalGatewayClient } from "@/ai/utils/gateway-client";
 import { Logger } from "@/lib/logger";
 import type { z } from "zod";
 
-/**
- * Standard state shape for any agent.
- * @property status - Current execution state of the agent.
- * @property history - Audit log of steps taken or messages exchanged.
- * @property lastResult - Cached output from the most recent run.
- */
 export interface BaseAgentState {
   status: "idle" | "running" | "optimizing" | "paused" | "failed" | "completed" | string;
   history: Record<string, unknown>[]; 
   lastResult?: unknown;
 }
 
-/**
- * Interface for defining a reusable tool that an agent can invoke.
- */
 export interface Tool {
   name: string;
   description: string;
@@ -33,16 +22,24 @@ export interface Tool {
   execute: (args: Record<string, any>) => Promise<unknown>;
 }
 
-/**
- * Abstract class representing a modular agentic worker.
- * Inherits from Cloudflare's Durable Object `Agent` base.
- * * @template State - The shape of the persisted Durable Object state.
- */
-export class BaseAgent<TEnv extends Env = Env, State = any> extends CFAgent<TEnv, State> {
-  initialState: State = {
+export class BaseAgent<TEnv extends Env = Env, State = any> extends DurableObject<TEnv> {
+  // @ts-expect-error - DurableObject provides these but TS doesn't see them automatically in some envs
+  public env: TEnv;
+  // @ts-expect-error
+  public ctx: DurableObjectState;
+
+  public state: State = {
     status: "idle",
     history: []
   } as unknown as State;
+
+  constructor(ctx: DurableObjectState, env: TEnv) {
+    super(ctx, env);
+    this.env = env;
+    this.ctx = ctx;
+  }
+  
+  initialState: State = this.state;
 
   private _logger?: Logger;
 
@@ -54,64 +51,52 @@ export class BaseAgent<TEnv extends Env = Env, State = any> extends CFAgent<TEnv
     this._logger = value;
   }
 
-  protected setStatus(status: any) {
-    if ((this.state as any).status !== status) {
-       this.logger.info(`Status changed: ${(this.state as any).status} -> ${status}`);
+  protected async setStatus(status: string) {
+    if ((this.state as Record<string, unknown>).status !== status) {
+       this.logger.info(`Status changed: ${(this.state as Record<string, unknown>).status} -> ${status}`);
     }
-    // @ts-ignore - setState is available dynamically on Durable Object state if implemented or we can write to state variables
-    if (typeof this.setState === 'function') {
-      (this.setState as (state: any) => Promise<void>)({
-        ...this.state,
+    // we assume the subclass might implement setState
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if (typeof (this as any).setState === 'function') {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (this as any).setState({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ...(this as any).state,
         status
       });
     } else {
-      (this.state as any).status = status;
+      (this.state as Record<string, unknown>).status = status;
     }
   }
 
-  /**
-   * Resolves the primary AI provider for this agent run.
-   * Defaults to the environment's configured provider.
-   */
   protected resolveProvider(preferredProvider?: string | null): SupportedProvider {
     const configured = String(preferredProvider || "").trim();
     if (!configured) return resolveDefaultAiProvider(this.env);
     return configured as SupportedProvider;
   }
 
-  /**
-   * Resolves the model identifier for a specific provider.
-   */
   protected resolveModel(provider: SupportedProvider, preferredModel?: string | null): string {
     const configured = String(preferredModel || "").trim();
     return configured || resolveDefaultAiModel(this.env, provider);
   }
 
-  /**
-   * Dynamically retrieves the correct API key based on the target provider.
-   */
   protected async getProviderApiKey(provider: SupportedProvider): Promise<string> {
     try {
       switch (provider) {
         case 'anthropic':
-          return await (this.env as any).ANTHROPIC_API_KEY?.get() || "cf-aig-dummy-key";
+          return await (this.env as Record<string, { get?: () => Promise<string> }>).ANTHROPIC_API_KEY?.get() || "cf-aig-dummy-key";
         case 'gemini':
         case 'google-ai-studio':
-          return await (this.env as any).GEMINI_API_KEY?.get() || "cf-aig-dummy-key";
+          return await (this.env as Record<string, { get?: () => Promise<string> }>).GEMINI_API_KEY?.get() || "cf-aig-dummy-key";
         case 'openai':
         default:
-          return await (this.env as any).OPENAI_API_KEY?.get() || "cf-aig-dummy-key";
+          return await (this.env as Record<string, { get?: () => Promise<string> }>).OPENAI_API_KEY?.get() || "cf-aig-dummy-key";
       }
     } catch {
-      return "cf-aig-dummy-key"; // Fallback to dummy key if relying entirely on Gateway BYOK
+      return "cf-aig-dummy-key";
     }
   }
 
-  /**
-   * Executes a plain-text prompt using the OpenAI Agents SDK.
-   * * @param input - Agent name, instructions, and prompt.
-   * @returns The final text output from the agent.
-   */
   protected async runTextWithModel(input: {
     name: string;
     instructions: string;
@@ -121,39 +106,19 @@ export class BaseAgent<TEnv extends Env = Env, State = any> extends CFAgent<TEnv
     tools?: unknown[];
   }): Promise<string> {
     const provider = this.resolveProvider(input.provider);
-    const model = this.resolveModel(provider, input.model);
-    const namespacedModel = model.includes('/') ? model : `${provider}/${model}`;
-    
-    // Dynamically import the heavy SDK only when execution begins
-    const { Agent: OpenAIAgent, run } = await import("@openai/agents");
-    
     const apiKey = await this.getProviderApiKey(provider);
-    const client = await createUniversalGatewayClient(this.env, apiKey);
     
-    const agent = new OpenAIAgent({
-      name: input.name,
-      model: namespacedModel,
-      instructions: input.instructions,
-      tools: input.tools as any,
-    });
-
-    try {
-      // @ts-ignore - 'client' option exists in runtime but might be missing in strict types
-      const result = await run(agent, input.prompt, { client });
-      return String(result.finalOutput ?? "");
-    } catch (error) {
-      const _error = error as Error;
-      this.logger.error(`[runTextWithModel] ${_error.message}`, { error: _error });
-      throw _error;
-    }
+    // Raw fallback via Workers API or Gateway
+    this.logger.info(`Running text model ${input.model} on ${provider}`);
+    const res = await super.fetch(new Request("http://agent/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: input.prompt })
+    }));
+    const data = await res.json() as Record<string, string>;
+    return data.reply || data.response || "";
   }
 
-  /**
-   * Executes a prompt and returns a structured object matching a Zod schema.
-   * Leverages the OpenAI Agents SDK's native schema enforcement.
-   * * @param input - Agent name, instructions, prompt, and Zod schema.
-   * @returns The parsed and validated object.
-   */
   protected async runStructuredResponseWithModel<T = unknown>(input: {
     name: string;
     instructions: string;
@@ -164,31 +129,25 @@ export class BaseAgent<TEnv extends Env = Env, State = any> extends CFAgent<TEnv
     model?: string | null;
   }): Promise<T> {
     const provider = this.resolveProvider(input.provider);
-    const model = this.resolveModel(provider, input.model);
-    const namespacedModel = model.includes('/') ? model : `${provider}/${model}`;
-    
-    // Dynamically import the heavy SDK only when execution begins
-    const { Agent: OpenAIAgent, run } = await import("@openai/agents");
-    
     const apiKey = await this.getProviderApiKey(provider);
-    const client = await createUniversalGatewayClient(this.env, apiKey);
     
-    const agent = new OpenAIAgent({
-      name: input.name,
-      model: namespacedModel,
-      instructions: input.instructions,
-      outputType: input.schema as any,
-      tools: input.tools as any,
-    });
+    this.logger.info(`Running structured model ${input.model} on ${provider}`);
+    const res = await super.fetch(new Request("http://agent/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+           message: `${input.instructions}\n\nTask: ${input.prompt}\n\nPlease strictly respect the schema requirements and return ONLY JSON.` 
+        })
+    }));
+    const data = await res.json() as Record<string, string>;
+    const result = data.reply || data.response || "{}";
     
     try {
-      // @ts-ignore - 'client' option exists in runtime but might be missing in strict types
-      const result = await run(agent, input.prompt, { client });
-      return result.finalOutput as T;
-    } catch (error) {
-      const _error = error as Error;
-      this.logger.error(`[runStructuredResponseWithModel] ${_error.message}`, { error: _error });
-      throw _error;
+       const jsonString = result.replace(/```json\\n/g, "").replace(/```/g, "").trim();
+       return JSON.parse(jsonString);
+    } catch(e) {
+       this.logger.error(`Failed to parse structured output: ${result}`);
+       throw e;
     }
   }
 }

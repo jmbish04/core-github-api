@@ -9,6 +9,16 @@ export const GitHubConditionals = {
   },
 
   /**
+   * Checks whether code review has been submitted back to the pr yet
+   */
+  hasCodeReview(comments: { body?: string | null; [key: string]: unknown }[]): boolean {
+    return comments.some(c => c.body?.includes('/gemini review'))
+        
+
+  },
+
+
+  /**
    * Checks if a specific slash command (like '/gemini review') is already present in a list of comments.
    */
   hasCommentCommand(comments: { body?: string | null; [key: string]: unknown }[], command: string = '/gemini review'): boolean {

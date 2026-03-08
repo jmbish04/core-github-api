@@ -21,7 +21,7 @@
 
 import { getOctokit } from '@services/octokit/core'
 import { encode } from '@utils/base64'
-import { getAgentByName } from 'agents'
+import { getAgentByName } from '@/ai/agents/utils'
 import type {
   UpsertFileRequest,
   UpsertFileResponse,

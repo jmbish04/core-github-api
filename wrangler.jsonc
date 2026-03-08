@@ -164,6 +164,11 @@
 			"secret_name": "CLOUDFLARE_BROWSER_RENDER_TOKEN"
 		},
 		{
+			"binding": "STITCH_API_KEY",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "STITCH_API_KEY"
+		},		
+		{
 			"binding": "JULES_API_KEY",
 			"store_id": "8c42fa70938644e0a8a109744467375f",
 			"secret_name": "JULES_API_KEY"
@@ -281,6 +286,10 @@
 			{
 				"name": "CF_WORKSHOP_AGENTS_SDK",
 				"class_name": "CfWorkshop_AgentsSdk"
+			},
+			{
+				"name": "STANDARDIZATION_AGENT",
+				"class_name": "StandardizationAgent"
 			}
 		]
 	},
@@ -351,6 +360,12 @@
 				"WorkshopAgent",
 				"CfWorkshop_AgentsSdk",
 				"JulesWebhookBroadcaster"
+			]
+		},
+		{
+			"tag": "v6",
+			"new_sqlite_classes": [
+				"StandardizationAgent"
 			]
 		}
 	],

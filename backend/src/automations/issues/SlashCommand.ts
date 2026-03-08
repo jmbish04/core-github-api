@@ -1,54 +1,105 @@
-import { BaseAutomation } from '@/core/BaseAutomation';
-import { SlashCommandRouter } from "@/routes/api/webhooks/workflows/gardener/router";
-import { withCompatOctokit } from "@/services/octokit/compat";
+import { z } from 'zod';
+import { BaseAutomation, type AutomationMetadata } from '@/core/BaseAutomation';
+import { SlashCommandRouter } from '@/automations/push/router';
 
-export class SlashCommand extends BaseAutomation {
-  private c: unknown;
+const SlashCommandPayloadSchema = z.object({
+  action: z.string(),
+  issue: z
+    .object({
+      number: z.number(),
+      body: z.string().nullable().optional(),
+    })
+    .optional(),
+  comment: z
+    .object({
+      body: z.string().optional(),
+    })
+    .optional(),
+  repository: z.object({
+    name: z.string(),
+    default_branch: z.string(),
+    owner: z.object({
+      login: z.string(),
+    }),
+  }),
+});
 
-  constructor(env: Env, payload: unknown, installationId: number | undefined, usePat: boolean, c: unknown) {
-    super(env, payload, installationId, usePat);
-    this.c = c;
-  }
+type SlashCommandPayload = z.infer<typeof SlashCommandPayloadSchema>;
 
-  async shouldExecute(): Promise<boolean> {
-    const isIssue = !!this.payload.issue && !this.payload.comment;
-    const isIssueComment = !!this.payload.comment;
-    
-    if (isIssue) {
-      if (this.payload.action === 'opened' || this.payload.action === 'edited') {
-          return this.payload.issue?.body?.includes('/colby') || false;
-      }
-    } else if (isIssueComment) {
-      if (this.payload.action === 'created') {
-          return this.payload.comment?.body?.includes('/colby') || false;
-      }
+export class SlashCommand extends BaseAutomation<SlashCommandPayload> {
+  static readonly metadata: AutomationMetadata = {
+    key: 'slash-command',
+    domain: 'issues',
+    description: 'Routes /colby slash commands from issues and issue comments.',
+    events: ['issues', 'issue_comment'],
+    alwaysOn: false,
+    authPolicy: 'pat',
+  };
+
+  async shouldRun(): Promise<boolean> {
+    if (this.eventName !== 'issues' && this.eventName !== 'issue_comment') {
+      return false;
     }
-    return false;
+
+    const parsed = SlashCommandPayloadSchema.safeParse(this.payload);
+    if (!parsed.success) {
+      return false;
+    }
+
+    const body = parsed.data.comment?.body || parsed.data.issue?.body || '';
+    if (!body.includes('/colby')) {
+      return false;
+    }
+
+    if (this.eventName === 'issues') {
+      return this.action === 'opened' || this.action === 'edited';
+    }
+
+    return this.action === 'created';
   }
 
-  async execute(): Promise<void> {
-    try {
-      const octokit = withCompatOctokit(await this.getGitHubClient());
-      const body = this.payload.comment ? this.payload.comment.body : this.payload.issue?.body;
+  async run(): Promise<void> {
+    const payload = SlashCommandPayloadSchema.parse(this.payload);
+    const body = payload.comment?.body || payload.issue?.body || '';
+    const issueNumber = payload.issue?.number;
 
+    if (!issueNumber) {
+      await this.logExecution('skipped', 'Slash command payload missing issue number.');
+      return;
+    }
+
+    try {
+      const octokit = await this.getGitHubClient();
+      const requestContext = this.octokitRequestContext;
       await SlashCommandRouter.handleAndReply(
         body,
         {
           env: this.env,
-          executionCtx: { ...(this.c as { executionCtx: unknown }).executionCtx, exports: {} as Record<string, unknown> },
-          repo: { 
-            owner: this.payload.repository?.owner?.login, 
-            name: this.payload.repository?.name, 
-            defaultBranch: this.payload.repository?.default_branch 
+          executionCtx: {
+            ...requestContext.executionCtx,
+            exports: {} as Record<string, unknown>,
+          } as ExecutionContext,
+          repo: {
+            owner: payload.repository.owner.login,
+            name: payload.repository.name,
+            defaultBranch: payload.repository.default_branch,
           },
-          octokit
+          octokit,
         },
-        { issueNumber: this.payload.issue?.number, issueBody: this.payload.issue?.body }
+        {
+          issueNumber,
+          issueBody: payload.issue?.body || undefined,
+        },
       );
-      await this.logExecution('success', 'Slash command processed');
-    } catch (err: unknown) {
-      console.error('[SlashCommand] Failed:', err);
-      await this.logExecution('failure', `Slash command failed: ${err.message}`);
+
+      await this.logExecution('success', 'Processed /colby command via PAT identity.', issueNumber);
+    } catch (error) {
+      await this.logExecution(
+        'failure',
+        `Slash command failed: ${error instanceof Error ? error.message : String(error)}`,
+        issueNumber,
+      );
+      throw error;
     }
   }
 }

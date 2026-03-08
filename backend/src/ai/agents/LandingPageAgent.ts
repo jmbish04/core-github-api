@@ -1,16 +1,14 @@
+import { createAgent, tool } from 'honidev';
+import { z } from 'zod';
+import { Hono } from 'hono';
 
-import { BaseAgent } from "./base/BaseAgent";
-import { callable } from "agents";
-import { z } from "zod";
-
-// Schema for refinement output - stricter than `any` to ensure quality
 const LandingPageRefinementSchema = z.object({
     purpose: z.object({
         headline: z.string().optional(),
         tagline: z.string().optional(),
         valueStatement: z.string().optional(),
     }).optional(),
-    branding: z.any().optional(), // Can be object with color properties
+    branding: z.any().optional(),
     painPoints: z.array(z.object({
         title: z.string(),
         description: z.string(),
@@ -25,43 +23,32 @@ const LandingPageRefinementSchema = z.object({
 
 export type LandingPageRefinementResponse = z.infer<typeof LandingPageRefinementSchema>;
 
-type RefinementInput = {
-    currentConfig: any;
-    prompt: string;
-    preferredProvider?: string | null;
-    preferredModel?: string | null;
-};
+export const { Agent, handler } = createAgent<Env>({
+  name: "landing-page",
+  model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+  system: [
+      "You are a Landing Page Refinement Agent.",
+      "Your goal is to update the landing page configuration based on user feedback.",
+      "Output ONLY a JSON object representing the *changes* or *new state* for 'customAnalysis'.",
+      "Focus on: 'purpose' (headline, tagline), 'branding' (colors), 'painPoints', 'metrics'.",
+      "Maintain existing structure where possible unless asked to change."
+  ].join(" "),
+  binding: "LANDING_PAGE_AGENT",
+  tools: [],
+  memory: {
+     working: true
+  },
+  observability: { enabled: true, aiGatewaySlug: 'core-github-api', collectEvents: true }
+});
 
-export class LandingPageAgent extends BaseAgent<any> {
-  @callable()
-  async refineConfig(input: RefinementInput): Promise<any> {
-    const currentCustom = JSON.stringify(input.currentConfig || {});
-    
-    // Construct the prompt for the AI
-    const userPrompt = [
-      `Current Custom Config: ${currentCustom}`,
-      `User Prompt: "${input.prompt}"`,
-      "",
-      "Generate the JSON update.",
-    ].join("\n");
+const app = new Hono<{ Bindings: Env }>();
 
-    // Use the BaseAgent's helper to run the model natively with schema
-    const parsedObj = await this.runStructuredResponseWithModel({
-        name: "LandingPageRefinementAgent",
-        instructions: [
-            "You are a Landing Page Refinement Agent.",
-            "Your goal is to update the landing page configuration based on user feedback.",
-            "Output ONLY a JSON object representing the *changes* or *new state* for 'customAnalysis'.",
-            "Focus on: 'purpose' (headline, tagline), 'branding' (colors), 'painPoints', 'metrics'.",
-            "Maintain existing structure where possible unless asked to change.",
-        ].join(" "),
-        prompt: userPrompt,
-        schema: LandingPageRefinementSchema,
-        provider: input.preferredProvider,
-        model: input.preferredModel
-    });
+app.get('/health', (c) => c.json({ status: 'ok', agent: 'LandingPageAgent' }));
+app.get('/docs', (c) => c.text('LandingPage Agent API Documentation'));
+app.get('/context', (c) => c.json({ environment: 'Cloudflare Workers', agent: 'LandingPageAgent' }));
+app.get('/openapi.json', (c) => c.json({ openapi: '3.1.0', info: { title: 'LandingPageAgent', version: '1.0.0' }, paths: {} }));
 
-    // Parse output safely
-    return LandingPageRefinementSchema.parse(parsedObj);
-  }
-}
+app.all('/*', (c) => handler.fetch(c.req.raw, c.env, c.executionCtx));
+
+export default app;
+export class LandingPageAgent extends Agent {}

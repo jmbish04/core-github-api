@@ -2,10 +2,11 @@ import React from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Cloud, GitMerge, FileCode2, Terminal, Settings } from "lucide-react";
+import { Cloud, GitMerge, FileCode2, Terminal, Settings, DollarSign } from "lucide-react";
 import { BindingsTable } from "./BindingsTable";
 import { DeploymentsList } from "./DeploymentsList";
 import { LogStreamer } from "./LogStreamer";
+import { CloudflareWorkerCosts } from "./CloudflareWorkerCosts";
 
 type OverviewResponse = {
   success: boolean;
@@ -147,6 +148,13 @@ export function CloudflareSdkDashboard({
                 Logs
               </TabsTrigger>
               <TabsTrigger 
+                value="costs" 
+                className="data-[state=active]:bg-background data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none rounded-none px-4 pb-2 pt-2 -mb-[1px]"
+              >
+                <DollarSign className="h-4 w-4 mr-2" />
+                Costs
+              </TabsTrigger>
+              <TabsTrigger 
                 value="settings" 
                 className="data-[state=active]:bg-background data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none rounded-none px-4 pb-2 pt-2 -mb-[1px]"
               >
@@ -212,6 +220,14 @@ export function CloudflareSdkDashboard({
 
             <TabsContent value="logs" className="m-0 mt-0 h-full">
                <LogStreamer projectId={projectId} />
+            </TabsContent>
+
+            <TabsContent value="costs" className="m-0 mt-0 h-full">
+              {overview.cloudflare.workerName ? (
+                <CloudflareWorkerCosts workerName={overview.cloudflare.workerName} />
+              ) : (
+                 <p className="text-sm text-muted-foreground">Worker name required to view costs.</p>
+              )}
             </TabsContent>
             
             <TabsContent value="settings" className="m-0 mt-0 h-full">

@@ -22,6 +22,7 @@ import CloudflareDocsInfo from "@/views/public/CloudflareDocsInfo";
 import Standardization from "@/views/control/global/Standardization";
 import AppStore from "@/views/control/global/AppStore";
 import AgentWorkshop from "@/views/control/global/AgentWorkshop";
+import { CloudflareCosts } from "@/views/control/global/CloudflareCosts";
 
 // New Phase 3 components
 import { GlobalCommandCenter } from "@/components/workshop/GlobalCommandCenter";
@@ -68,6 +69,7 @@ function App() {
             <Route path="/docs" element={<Docs />} />
             <Route path="/sitemap" element={<Sitemap />} />
             <Route path="/health" element={guard(<Health />)} />
+            <Route path="/costs" element={guard(<CloudflareCosts />)} />
             {/* Global Tools Route with Optional Tab Parameter */}
             <Route path="/tools/:tool_name?" element={guard(<ToolsPage />)} />
             <Route path="/settings" element={<Navigate to="/settings/general" replace />} />

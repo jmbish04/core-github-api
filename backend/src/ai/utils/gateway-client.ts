@@ -1,33 +1,12 @@
-import { OpenAIProvider, Runner, ModelProvider } from "@openai/agents";
+import { getAiGatewayUrlForOpenAI } from "@/ai/utils/ai-gateway";
 
-/**
- * Universal Client Factory
- * Configures the raw OpenAI SDK to route through Cloudflare AI Gateway's 
- * universal translation endpoint (/compat). Useful for connection verification
- * and fallback loops.
- */
-export async function createUniversalGatewayClient(
-    env: any,
-    apiKey: string
-): Promise<any> {
-    const gatewayName = env.AI_GATEWAY_NAME || `core-github-api` || `default-gateway`;
+export async function createUniversalGatewayClient(env: any, apiKey: string): Promise<any> {
+    const gatewayName = env.AI_GATEWAY_NAME || `core-github-api`;
     const aigToken = typeof env.AI_GATEWAY_TOKEN === 'object' && env.AI_GATEWAY_TOKEN?.get 
         ? await (env.AI_GATEWAY_TOKEN as any).get() 
         : env.AI_GATEWAY_TOKEN as string;
-
     const baseURL = env.AI.gateway(gatewayName).url('compat');
 
-    // Hijack the global process environment to reroute the underlying fetcher
-    // This allows the @openai/agents SDK to initialize without needing the raw manual 'openai' instantiation
-    (globalThis as any).process = { 
-      env: { 
-        ...((globalThis as any).process?.env || {}),
-        OPENAI_API_KEY: apiKey || "cf-aig-dummy-key",
-        OPENAI_BASE_URL: baseURL,
-      } 
-    };
-
-// Default dummy client that uses fetch for raw gateway requests
     return {
         chat: {
             completions: {
@@ -59,23 +38,76 @@ export async function createUniversalGatewayClient(
                 return await res.json();
             }
         }
-    } as any;
+    };
 }
 
-/**
- * Universal Runner Factory
- * Configures the OpenAI Agents SDK Runner to route through Cloudflare AI Gateway's
- * /compat endpoint.
- */
-export async function createUniversalGatewayRunner(
+export async function runTextWithModelFallback(
     env: any,
-    apiKey: string,
-    model: string
-): Promise<Runner> {
+    provider: string,
+    model: string,
+    instructions: string,
+    prompt: string
+): Promise<string> {
+    const client = await createUniversalGatewayClient(env, await getApiKeyForProvider(env, provider));
+    const response = await client.chat.completions.create({
+        model,
+        messages: [
+            { role: "system", content: instructions },
+            { role: "user", content: prompt }
+        ]
+    });
+    return response.choices?.[0]?.message?.content || "";
+}
 
-    await createUniversalGatewayClient(env, apiKey);
+export async function runStructuredResponseWithModelFallback(
+    env: any,
+    provider: string,
+    model: string,
+    instructions: string,
+    prompt: string
+): Promise<any> {
+    const gatewayName = env.AI_GATEWAY_NAME || `core-github-api`;
+    const aigToken = typeof env.AI_GATEWAY_TOKEN === 'object' && env.AI_GATEWAY_TOKEN?.get 
+        ? await (env.AI_GATEWAY_TOKEN as any).get() 
+        : env.AI_GATEWAY_TOKEN as string;
 
-    const modelProvider: ModelProvider = new (OpenAIProvider as any)();
+    const apiKey = await getApiKeyForProvider(env, provider);
+    const baseURL = env.AI.gateway(gatewayName).url('compat');
 
-    return new Runner({ modelProvider, model });
+    const res = await fetch(baseURL + '/chat/completions', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey || "dummy-key"}`,
+            'cf-aig-authorization': `Bearer ${aigToken}`
+        },
+        body: JSON.stringify({ 
+           model,
+           messages: [
+               { role: "system", content: instructions },
+               { role: "user", content: prompt }
+           ]
+        })
+    });
+    
+    if (!res.ok) throw new Error(`Gateway Error: ${await res.text()}`);
+    const json: any = await res.json();
+    const result = json.choices?.[0]?.message?.content || "{}";
+    
+    try {
+        const jsonString = result.replace(/```json\\n/g, "").replace(/```/g, "").trim();
+        return JSON.parse(jsonString);
+    } catch(e) {
+        return { reply: result };
+    }
+}
+
+async function getApiKeyForProvider(env: any, provider: string): Promise<string> {
+    try {
+        if (provider.includes('anthropic')) return await env.ANTHROPIC_API_KEY?.get();
+        if (provider.includes('gemini') || provider.includes('google')) return await env.GEMINI_API_KEY?.get();
+        return await env.OPENAI_API_KEY?.get() || "dummy";
+    } catch {
+        return "dummy";
+    }
 }

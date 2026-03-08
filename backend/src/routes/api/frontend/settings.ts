@@ -18,7 +18,7 @@ import { sanitizeForAudit } from "@lib/masking";
 import { PostConfigSchema } from "@lib/config-schemas";
 import { CreateSecretSchema } from "@db/schemas/ops/secrets";
 import { isUuid } from "@/utils/common";
-import { REQUIRED_REPO_SECRETS } from "@/routes/api/webhooks/workflows/gardener";
+import { REQUIRED_REPO_SECRETS } from "@/automations/repository/constants";
 import { GOLDEN_PATH_DEFAULTS, GOLDEN_PATH_SYSTEM_PROMPT } from "@/config/goldenPath";
 
 const settingsApi = new Hono<{ Bindings: Env }>();

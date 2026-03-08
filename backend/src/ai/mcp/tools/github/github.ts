@@ -7,7 +7,7 @@
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
 import { getOctokit } from '@services/octokit/core'
 
-import { DEFAULT_WORKFLOWS, shouldIncludeCloudflareWorkflow } from '@/routes/api/webhooks/handlers/flows/workflowTemplates'
+import { DEFAULT_WORKFLOWS, shouldIncludeCloudflareWorkflow } from '@/services/github/workflow-templates'
 import { encode } from '@utils/base64'
 import { getDb, schema } from '@db'
 import { projects } from '@db/schemas/projects/roadmap'

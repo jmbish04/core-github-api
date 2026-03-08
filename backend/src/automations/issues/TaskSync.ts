@@ -1,99 +1,147 @@
-import { BaseAutomation } from '@/core/BaseAutomation';
+import { z } from 'zod';
+import { and, eq } from 'drizzle-orm';
+import { BaseAutomation, type AutomationMetadata } from '@/core/BaseAutomation';
 import { getDb } from '@db';
-import { tasks, repos } from '@db/schema';
-import { eq, and } from 'drizzle-orm';
-import { generateUuid } from "@/utils/common";
+import { repos, tasks } from '@db/schema';
+import { generateUuid } from '@/utils/common';
+import { StatusMapper } from '@/automations/shared/statusMapper';
+import { KanbanColumn, TaskStatus } from '@/types/project-management/enums';
 
-export class TaskSync extends BaseAutomation {
-  async shouldExecute(): Promise<boolean> {
-    return !!this.payload.issue && !this.payload.comment;
+const TaskSyncPayloadSchema = z.object({
+  action: z.string(),
+  repository: z.object({
+    name: z.string(),
+    owner: z.object({
+      login: z.string(),
+    }),
+  }),
+  issue: z.object({
+    number: z.number(),
+    title: z.string(),
+    body: z.string().nullable().optional(),
+    state: z.string(),
+    html_url: z.string(),
+    created_at: z.string(),
+    updated_at: z.string(),
+    assignee: z
+      .object({
+        login: z.string(),
+      })
+      .nullable()
+      .optional(),
+  }),
+});
+
+type TaskSyncPayload = z.infer<typeof TaskSyncPayloadSchema>;
+
+export class TaskSync extends BaseAutomation<TaskSyncPayload> {
+  static readonly metadata: AutomationMetadata = {
+    key: 'task-sync',
+    domain: 'issues',
+    description: 'Synchronizes GitHub issues into the internal task board.',
+    events: ['issues'],
+    alwaysOn: true,
+    authPolicy: 'app',
+  };
+
+  async shouldRun(): Promise<boolean> {
+    return this.eventName === 'issues' && TaskSyncPayloadSchema.safeParse(this.payload).success;
   }
 
-  async execute(): Promise<void> {
-    const issuesPayload = this.payload;
-    const dbCore = getDb(this.env.DB);
-    const { TaskStatus, KanbanColumn } = await import('@/types/project-management/enums');
-    const { StatusMapper } = await import('@services/statusMapper');
+  async run(): Promise<void> {
+    const payload = TaskSyncPayloadSchema.parse(this.payload);
+    const db = getDb(this.env.DB);
+    const issueNumber = payload.issue.number;
 
     try {
-        const repoRecord = await dbCore.select()
-            .from(repos)
-            .where(and(eq(repos.owner, issuesPayload.repository.owner.login), eq(repos.name, issuesPayload.repository.name)))
-            .limit(1);
+      const repoRecord = await db
+        .select()
+        .from(repos)
+        .where(
+          and(
+            eq(repos.owner, payload.repository.owner.login),
+            eq(repos.name, payload.repository.name),
+          ),
+        )
+        .limit(1);
 
-        if (repoRecord.length) {
-            const internalRepoId = repoRecord[0].id;
-            let assignee = issuesPayload.issue.assignee ? issuesPayload.issue.assignee.login : null;
-            if (issuesPayload.issue.body && issuesPayload.issue.body.includes('/colby')) {
-                assignee = 'system';
-            }
+      if (!repoRecord.length) {
+        await this.logExecution('skipped', 'Repository is not tracked internally.', issueNumber);
+        return;
+      }
 
-            let status = TaskStatus.BACKLOG;
-            let kanbanColumn = KanbanColumn.BACKLOG;
-            if (issuesPayload.issue.state === 'closed') {
-                status = TaskStatus.DONE;
-                kanbanColumn = KanbanColumn.DONE;
-            } else {
-                if (assignee) {
-                    status = TaskStatus.TODO;
-                    kanbanColumn = StatusMapper.mapStatusToColumn(status);
-                }
-                const actionName = (issuesPayload as Record<string, unknown>).action;
-                if (actionName === 'assigned' || actionName === 'unassigned') {
-                    kanbanColumn = assignee ? KanbanColumn.PLANNED : KanbanColumn.BACKLOG;
-                    status = StatusMapper.mapColumnToStatus(kanbanColumn);
-                } else if (issuesPayload.action === 'edited' && kanbanColumn !== KanbanColumn.DONE) {
-                    if (kanbanColumn !== KanbanColumn.BACKLOG) {
-                        status = TaskStatus.IN_PROGRESS;
-                        kanbanColumn = KanbanColumn.IN_PROGRESS;
-                    }
-                }
-            }
+      const repoId = repoRecord[0].id;
+      let assignee = payload.issue.assignee?.login || null;
+      if ((payload.issue.body || '').includes('/colby')) {
+        assignee = 'system';
+      }
 
-            let endAt: string | undefined;
-            if (status === TaskStatus.DONE || kanbanColumn === KanbanColumn.DONE) {
-                endAt = new Date().toISOString();
-            }
+      let status = TaskStatus.BACKLOG;
+      let kanbanColumn = KanbanColumn.BACKLOG;
 
-            if (issuesPayload.action === 'opened') {
-                await dbCore.insert(tasks).values({
-                    id: generateUuid(),
-                    repoId: internalRepoId,
-                    title: issuesPayload.issue.title,
-                    description: issuesPayload.issue.body,
-                    status: status,
-                    kanbanColumn: kanbanColumn,
-                    assignee: assignee,
-                    githubIssueId: issuesPayload.issue.number,
-                    githubHtmlUrl: issuesPayload.issue.html_url,
-                    createdAt: issuesPayload.issue.created_at,
-                    updatedAt: issuesPayload.issue.updated_at,
-                    endAt: endAt
-                });
-            } else if (['edited', 'closed', 'reopened'].includes(issuesPayload.action!)) {
-                const updatePayload: Record<string, unknown> = {
-                    title: issuesPayload.issue.title,
-                    description: issuesPayload.issue.body,
-                    status: status,
-                    kanbanColumn: kanbanColumn,
-                    assignee: assignee,
-                    updatedAt: new Date().toISOString(),
-                    endAt: endAt
-                };
-                if (status !== TaskStatus.DONE && kanbanColumn !== KanbanColumn.DONE) {
-                    updatePayload.endAt = null;
-                }
-                await dbCore.update(tasks)
-                    .set(updatePayload)
-                    .where(and(eq(tasks.repoId, internalRepoId), eq(tasks.githubIssueId, issuesPayload.issue.number)));
-            }
-            await this.logExecution('success', 'Task synced to DB', issuesPayload.issue.number);
-        } else {
-             await this.logExecution('skipped', 'Repo not tracked internally', issuesPayload.issue.number);
+      if (payload.issue.state === 'closed') {
+        status = TaskStatus.DONE;
+        kanbanColumn = KanbanColumn.DONE;
+      } else {
+        if (assignee) {
+          status = TaskStatus.TODO;
+          kanbanColumn = StatusMapper.mapStatusToColumn(status);
         }
-    } catch (err: unknown) {
-        console.error('[TaskSync] failed', err);
-        await this.logExecution('failure', `Update failed: ${err.message}`, issuesPayload.issue?.number);
+
+        if (payload.action === 'assigned' || payload.action === 'unassigned') {
+          kanbanColumn = assignee ? KanbanColumn.PLANNED : KanbanColumn.BACKLOG;
+          status = StatusMapper.mapColumnToStatus(kanbanColumn);
+        } else if (payload.action === 'edited' && kanbanColumn !== KanbanColumn.DONE) {
+          if (kanbanColumn !== KanbanColumn.BACKLOG) {
+            status = TaskStatus.IN_PROGRESS;
+            kanbanColumn = KanbanColumn.IN_PROGRESS;
+          }
+        }
+      }
+
+      const endAt =
+        status === TaskStatus.DONE || kanbanColumn === KanbanColumn.DONE
+          ? new Date().toISOString()
+          : null;
+
+      if (payload.action === 'opened') {
+        await db.insert(tasks).values({
+          id: generateUuid(),
+          repoId,
+          title: payload.issue.title,
+          description: payload.issue.body || null,
+          status,
+          kanbanColumn,
+          assignee,
+          githubIssueId: issueNumber,
+          githubHtmlUrl: payload.issue.html_url,
+          createdAt: payload.issue.created_at,
+          updatedAt: payload.issue.updated_at,
+          endAt,
+        });
+      } else if (['edited', 'closed', 'reopened', 'assigned', 'unassigned'].includes(payload.action)) {
+        await db
+          .update(tasks)
+          .set({
+            title: payload.issue.title,
+            description: payload.issue.body || null,
+            status,
+            kanbanColumn,
+            assignee,
+            updatedAt: new Date().toISOString(),
+            endAt,
+          })
+          .where(and(eq(tasks.repoId, repoId), eq(tasks.githubIssueId, issueNumber)));
+      }
+
+      await this.logExecution('success', 'Synchronized GitHub issue to internal task board.', issueNumber);
+    } catch (error) {
+      await this.logExecution(
+        'failure',
+        `Task sync failed: ${error instanceof Error ? error.message : String(error)}`,
+        issueNumber,
+      );
+      throw error;
     }
   }
 }

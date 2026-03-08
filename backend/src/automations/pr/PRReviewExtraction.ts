@@ -1,32 +1,70 @@
-import { BaseAutomation } from '@/core/BaseAutomation';
+import { z } from 'zod';
+import { BaseAutomation, type AutomationMetadata } from '@/core/BaseAutomation';
+import { extractReviewCommentsAndPostReply } from '@/services/github/pr-ingestion';
 
-export class PRReviewExtraction extends BaseAutomation {
-  private c: unknown;
+const PRReviewExtractionPayloadSchema = z.object({
+  action: z.string(),
+  repository: z.object({
+    name: z.string(),
+    owner: z.object({
+      login: z.string(),
+    }),
+  }),
+  pull_request: z.object({
+    number: z.number(),
+  }),
+  review: z.object({
+    state: z.string().optional(),
+  }),
+});
 
-  constructor(env: Env, payload: unknown, installationId: number | undefined, usePat: boolean, deliveryId: string, c: unknown) {
-    super(env, payload, installationId, usePat);
-    this.c = c;
+type PRReviewExtractionPayload = z.infer<typeof PRReviewExtractionPayloadSchema>;
+
+export class PRReviewExtraction extends BaseAutomation<PRReviewExtractionPayload> {
+  static readonly metadata: AutomationMetadata = {
+    key: 'pr-review-extraction',
+    domain: 'pr',
+    description: 'Extracts submitted review comments into a triage-friendly summary link.',
+    events: ['pull_request_review'],
+    alwaysOn: false,
+    authPolicy: 'app',
+  };
+
+  async shouldRun(): Promise<boolean> {
+    if (this.eventName !== 'pull_request_review' || this.action !== 'submitted') {
+      return false;
+    }
+
+    const parsed = PRReviewExtractionPayloadSchema.safeParse(this.payload);
+    return parsed.success && parsed.data.review.state !== 'approved';
   }
 
-  async shouldExecute(): Promise<boolean> {
-    return this.payload.action === 'submitted' && this.payload.review?.state !== 'approved';
-  }
+  async run(): Promise<void> {
+    const payload = PRReviewExtractionPayloadSchema.parse(this.payload);
+    const origin = new URL(this.octokitRequestContext.req.url).origin;
 
-  async execute(): Promise<void> {
     try {
-      const origin = new URL(this.c.req.url).origin;
-      const m = await import('@services/github/pr-ingestion');
-      await m.extractReviewCommentsAndPostReply(
-        this.env, 
-        this.payload.repository.owner.login, 
-        this.payload.repository.name, 
-        this.payload.pull_request.number, 
-        origin
+      await extractReviewCommentsAndPostReply(
+        this.env,
+        payload.repository.owner.login,
+        payload.repository.name,
+        payload.pull_request.number,
+        origin,
+        await this.getGitHubClient(),
       );
-      await this.logExecution('success', 'Review comments extracted and queued for bot intervention', this.payload.pull_request.number);
-    } catch (e: unknown) {
-      console.error('[PRReviewExtraction] failed:', e);
-      await this.logExecution('failure', `Extraction failed: ${e.message}`, this.payload.pull_request?.number);
+
+      await this.logExecution(
+        'success',
+        'Extracted review comments and posted summary link.',
+        payload.pull_request.number,
+      );
+    } catch (error) {
+      await this.logExecution(
+        'failure',
+        `PR review extraction failed: ${error instanceof Error ? error.message : String(error)}`,
+        payload.pull_request.number,
+      );
+      throw error;
     }
   }
 }

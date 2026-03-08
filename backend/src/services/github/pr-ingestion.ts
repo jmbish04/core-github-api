@@ -98,14 +98,15 @@ export async function extractReviewCommentsAndPostReply(
     owner: string,
     repo: string,
     pull_number: number,
-    origin: string
+    origin: string,
+    octokit?: any
 ): Promise<{ success: boolean; count: number; view_url: string; extraction_id: string; error?: string }> {
-    const octokit = await import('@services/octokit/core').then(m => m.getOctokit(env));
+    const github = octokit ?? await import('@services/octokit/core').then(m => m.getOctokit(env));
 
     // 1. Fetch Review Comments
     let reviewComments;
     try {
-        const result = await octokit.pulls.listReviewComments({
+        const result = await github.pulls.listReviewComments({
             owner,
             repo,
             pull_number,
@@ -169,7 +170,7 @@ export async function extractReviewCommentsAndPostReply(
 
     // 5. Post URL to PR
     try {
-        await octokit.issues.createComment({
+        await github.issues.createComment({
             owner,
             repo,
             issue_number: pull_number,

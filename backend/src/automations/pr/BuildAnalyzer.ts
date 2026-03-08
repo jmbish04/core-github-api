@@ -1,84 +1,147 @@
-import { BaseAutomation } from '@/core/BaseAutomation';
-import { withCompatOctokit } from "@/services/octokit/compat";
-import { appendSignature } from "@/utils/github/signature";
+import { z } from 'zod';
+import { BaseAutomation, type AutomationMetadata } from '@/core/BaseAutomation';
+import { appendSignature } from '@/utils/github/signature';
+import { detectPRAuthorAgent } from './agent-tagging';
 import {
-  fetchBuildLogs,
-  inferWorkerName,
   analyzeBuildFailure,
+  fetchBuildLogs,
   formatBuildFailureComment,
-} from "@/routes/api/webhooks/workflows/build-analyzer";
-import { detectPRAuthorAgent } from "@/routes/api/webhooks/workflows/pr-agent-tagger";
+  inferWorkerName,
+} from './build-analysis';
 
-export class BuildAnalyzer extends BaseAutomation {
-  async shouldExecute(): Promise<boolean> {
-    if (this.payload.action !== 'completed' || this.payload.check_run?.conclusion !== 'failure') return false;
+const BuildAnalyzerPayloadSchema = z.object({
+  action: z.string(),
+  repository: z.object({
+    name: z.string(),
+    full_name: z.string().optional(),
+    owner: z.object({
+      login: z.string(),
+    }),
+  }),
+  check_run: z.object({
+    name: z.string().optional(),
+    conclusion: z.string().nullable().optional(),
+    app: z
+      .object({
+        name: z.string().optional(),
+      })
+      .optional(),
+    pull_requests: z
+      .array(
+        z.object({
+          number: z.number().optional(),
+        }),
+      )
+      .default([]),
+  }),
+});
 
-    const checkRun = this.payload.check_run;
-    const prList = checkRun?.pull_requests || [];
-    if (prList.length === 0 || !this.payload.repository) return false;
+type BuildAnalyzerPayload = z.infer<typeof BuildAnalyzerPayloadSchema>;
 
-    const checkName = (checkRun?.name || '').toLowerCase();
-    const appName = (checkRun?.app?.name || '').toLowerCase();
-    return checkName.includes('cloudflare') ||
-           checkName.includes('deploy') ||
-           checkName.includes('wrangler') ||
-           appName.includes('cloudflare') ||
-           appName.includes('workers');
+export class BuildAnalyzer extends BaseAutomation<BuildAnalyzerPayload> {
+  static readonly metadata: AutomationMetadata = {
+    key: 'build-analyzer',
+    domain: 'pr',
+    description: 'Posts an agent-targeted fix prompt when a Cloudflare build check fails.',
+    events: ['check_run'],
+    alwaysOn: false,
+    authPolicy: 'pat',
+  };
+
+  async shouldRun(): Promise<boolean> {
+    if (this.eventName !== 'check_run' || this.action !== 'completed') {
+      return false;
+    }
+
+    const parsed = BuildAnalyzerPayloadSchema.safeParse(this.payload);
+    if (!parsed.success || parsed.data.check_run.conclusion !== 'failure') {
+      return false;
+    }
+
+    const checkName = (parsed.data.check_run.name || '').toLowerCase();
+    const appName = (parsed.data.check_run.app?.name || '').toLowerCase();
+    return (
+      checkName.includes('cloudflare') ||
+      checkName.includes('deploy') ||
+      checkName.includes('wrangler') ||
+      appName.includes('cloudflare') ||
+      appName.includes('workers')
+    );
   }
 
-  async execute(): Promise<void> {
+  async run(): Promise<void> {
+    const payload = BuildAnalyzerPayloadSchema.parse(this.payload);
+    const prNumber = payload.check_run.pull_requests[0]?.number;
+
+    if (!prNumber) {
+      await this.logExecution('skipped', 'Failed check run is not attached to a pull request.');
+      return;
+    }
+
     try {
-      const prList = this.payload.check_run.pull_requests;
-      const prNumber = prList[0]?.number;
-      if (!prNumber) return;
+      const octokit = await this.getGitHubClient();
 
-      const octokit = withCompatOctokit(await this.getGitHubClient());
-
-      const prRes = await octokit.rest.pulls.get({
-        owner: this.payload.repository.owner?.login,
-        repo: this.payload.repository.name,
+      const pr = await octokit.rest.pulls.get({
+        owner: payload.repository.owner.login,
+        repo: payload.repository.name,
         pull_number: prNumber,
       });
 
-      const issueCommentsRes = await octokit.rest.issues.listComments({
-        owner: this.payload.repository.owner?.login,
-        repo: this.payload.repository.name,
+      const issueComments = await octokit.rest.issues.listComments({
+        owner: payload.repository.owner.login,
+        repo: payload.repository.name,
         issue_number: prNumber,
         per_page: 100,
       });
 
       const agentInfo = detectPRAuthorAgent({
-        headRef: prRes.data.head?.ref,
-        body: prRes.data.body,
-        authorLogin: prRes.data.user?.login,
-        authorHtmlUrl: prRes.data.user?.html_url,
-        issueComments: issueCommentsRes.data.map((c: Record<string, unknown>) => ({ body: (c.body as string) || "" })),
+        headRef: pr.data.head?.ref,
+        body: pr.data.body,
+        authorLogin: pr.data.user?.login,
+        authorHtmlUrl: pr.data.user?.html_url,
+        issueComments: issueComments.data.map((comment) => ({
+          body: comment.body || '',
+        })),
       });
 
-      if (!agentInfo) return;
+      if (!agentInfo) {
+        await this.logExecution('skipped', 'Unable to determine target coding agent.', prNumber);
+        return;
+      }
 
-      const workerName = inferWorkerName(this.payload.repository.full_name || this.payload.repository.name);
+      const workerName = inferWorkerName(
+        payload.repository.full_name || `${payload.repository.owner.login}/${payload.repository.name}`,
+      );
       const logs = await fetchBuildLogs(this.env, workerName);
-      if (!logs) return;
+      if (!logs) {
+        await this.logExecution('skipped', 'No Cloudflare deployment logs were available.', prNumber);
+        return;
+      }
 
       const analysis = await analyzeBuildFailure(this.env, logs, {
         prNumber,
-        prTitle: prRes.data.title,
-        headRef: prRes.data.head?.ref || '',
-        repoFullName: this.payload.repository.full_name || `${this.payload.repository.owner?.login}/${this.payload.repository.name}`,
+        prTitle: pr.data.title,
+        headRef: pr.data.head?.ref || '',
+        repoFullName:
+          payload.repository.full_name ||
+          `${payload.repository.owner.login}/${payload.repository.name}`,
       });
 
-      const commentBody = appendSignature(formatBuildFailureComment(agentInfo.tag, prNumber, analysis));
       await octokit.rest.issues.createComment({
-        owner: this.payload.repository.owner?.login,
-        repo: this.payload.repository.name,
+        owner: payload.repository.owner.login,
+        repo: payload.repository.name,
         issue_number: prNumber,
-        body: commentBody,
+        body: appendSignature(formatBuildFailureComment(agentInfo.tag, prNumber, analysis)),
       });
-      await this.logExecution('success', 'Analyzed build failure and posted comment', prNumber);
-    } catch (error: unknown) {
-      console.error('[BuildAnalyzer] Failed to analyze build failure:', error);
-      await this.logExecution('failure', `BuildAnalyzer failed: ${error.message}`);
+
+      await this.logExecution('success', 'Posted build failure analysis via PAT identity.', prNumber);
+    } catch (error) {
+      await this.logExecution(
+        'failure',
+        `Build analysis failed: ${error instanceof Error ? error.message : String(error)}`,
+        prNumber,
+      );
+      throw error;
     }
   }
 }

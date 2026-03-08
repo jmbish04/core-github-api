@@ -5,7 +5,6 @@
 
 import { OpenAPIHono, createRoute } from "@hono/zod-openapi";
 import { z } from "zod";
-import { getAgentByName } from "agents";
 import { generateUuid } from "@/utils/common";
 
 const workshopChatApi = new OpenAPIHono<{ Bindings: Env }>({
@@ -94,8 +93,8 @@ workshopChatApi.openapi(route, async (c) => {
       c.req.valid("json");
 
     const sessionId = providedSessionId || generateUuid();
-    const getByName = getAgentByName as any;
-    const stub = await getByName(c.env.WORKSHOP_AGENT, sessionId);
+    const id = c.env.WORKSHOP_AGENT.idFromName(sessionId);
+    const stub = c.env.WORKSHOP_AGENT.get(id);
 
     interface ChatResult {
       blocks?: Array<{ type: string; text: string; language?: string }>;

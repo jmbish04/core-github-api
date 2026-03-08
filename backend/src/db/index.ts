@@ -8,7 +8,9 @@ import { drizzle } from 'drizzle-orm/d1'
 import * as schema from './schema'
 export * from './schema'
 import * as webhooksSchema from './schemas/github/webhooks'
+import * as webhookAutomationSchema from './schemas/webhooks/automations'
 export * from './schemas/github/webhooks'
+export * from './schemas/webhooks/automations'
 
 /**
  * Get a Drizzle client instance for the D1 database
@@ -20,7 +22,7 @@ export function getDb(d1: D1Database) {
 }
 
 export function getWebhooksDb(d1: D1Database) {
-    return drizzle(d1, { schema: webhooksSchema })
+    return drizzle(d1, { schema: { ...webhooksSchema, ...webhookAutomationSchema } })
 }
 
 // Re-export the schema for convenience

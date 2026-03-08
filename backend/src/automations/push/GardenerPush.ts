@@ -1,27 +1,62 @@
-import { BaseAutomation } from '@/core/BaseAutomation';
-import { GardenerOrchestrator } from "@/routes/api/webhooks/workflows/gardener";
-import { withCompatOctokit } from "@/services/octokit/compat";
+import { z } from 'zod';
+import { BaseAutomation, type AutomationMetadata } from '@/core/BaseAutomation';
+import { GardenerOrchestrator } from '@/automations/push/orchestrator';
 
-export class GardenerPush extends BaseAutomation {
-  private c: unknown; // We need context for Gardener until it's fully decoupled.
+const GardenerPushPayloadSchema = z.object({
+  ref: z.string(),
+  repository: z.object({
+    default_branch: z.string(),
+    full_name: z.string(),
+    name: z.string(),
+    owner: z.object({
+      login: z.string(),
+    }),
+  }),
+  installation: z.object({
+    id: z.number(),
+  }),
+});
 
-  constructor(env: Env, payload: unknown, installationId: number | undefined, usePat: boolean, deliveryId: string, c: unknown) {
-    super(env, payload, installationId, usePat);
-    this.c = c;
+type GardenerPushPayload = z.infer<typeof GardenerPushPayloadSchema>;
+
+export class GardenerPush extends BaseAutomation<GardenerPushPayload> {
+  static readonly metadata: AutomationMetadata = {
+    key: 'gardener-push',
+    domain: 'push',
+    description: 'Runs repository hygiene checks and standardization tasks on default-branch pushes.',
+    events: ['push'],
+    alwaysOn: false,
+    authPolicy: 'app',
+  };
+
+  async shouldRun(): Promise<boolean> {
+    if (this.eventName !== 'push') {
+      return false;
+    }
+
+    const parsed = GardenerPushPayloadSchema.safeParse(this.payload);
+    return (
+      parsed.success &&
+      parsed.data.ref === `refs/heads/${parsed.data.repository.default_branch}`
+    );
   }
 
-  async shouldExecute(): Promise<boolean> {
-    return this.payload.ref === `refs/heads/${this.payload.repository?.default_branch}`;
-  }
+  async run(): Promise<void> {
+    const payload = GardenerPushPayloadSchema.parse(this.payload);
 
-  async execute(): Promise<void> {
     try {
-      const octokit = withCompatOctokit(await this.getGitHubClient());
-      await GardenerOrchestrator.handlePushEvent(this.c, octokit, this.payload);
-      await this.logExecution('success', 'Gardener auto-formatting launched');
-    } catch (err: unknown) {
-      console.error('[Gardener] Failed to launch:', err);
-      await this.logExecution('failure', `Gardener failed: ${err.message}`);
+      await GardenerOrchestrator.handlePushEvent(
+        this.octokitRequestContext,
+        await this.getGitHubClient(),
+        payload,
+      );
+      await this.logExecution('success', 'Completed Gardener push orchestration.');
+    } catch (error) {
+      await this.logExecution(
+        'failure',
+        `Gardener push failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw error;
     }
   }
 }
