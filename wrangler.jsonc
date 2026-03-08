@@ -182,6 +182,18 @@
 	"durable_objects": {
 		"bindings": [
 			{
+				"name": "PR_SUPERVISOR_DO",
+				"class_name": "PRSupervisorDO"
+			},
+			{
+				"name": "PR_REVIEW_DO",
+				"class_name": "PRReviewDO"
+			},
+			{
+				"name": "PR_SUMMARY_DO",
+				"class_name": "PRSummaryDO"
+			},
+			{
 				"name": "ORCHESTRATOR",
 				"class_name": "OrchestratorAgent"
 			},
@@ -346,6 +358,14 @@
 				"WorkshopAgent",
 				"CfWorkshop_AgentsSdk",
 				"JulesWebhookBroadcaster"
+			]
+		},
+		{
+			"tag": "v6",
+			"new_sqlite_classes": [
+				"PRSupervisorDO",
+				"PRReviewDO",
+				"PRSummaryDO"
 			]
 		}
 	],
