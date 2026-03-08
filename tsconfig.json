@@ -37,7 +37,9 @@
       "@research-logger": ["backend/src/lib/research-logger.ts"],
       "@lib/*": ["backend/src/lib/*"],
       "@/config-settings": ["backend/src/lib/config.ts"],
-      "@ai-agents/*": ["backend/src/ai/agents/*"]
+      "@ai-agents/*": ["backend/src/ai/agents/*"],
+      "@alerts": ["backend/src/alerts/index.ts"],
+      "@alerts/*": ["backend/src/alerts/*"]
     },
     "types": [
       "node",

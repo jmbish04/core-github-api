@@ -1,4 +1,4 @@
-CREATE TABLE `research_files` (
+CREATE TABLE IF NOT EXISTS `research_files` (
 	`id` text PRIMARY KEY NOT NULL,
 	`owner` text NOT NULL,
 	`repo` text NOT NULL,
@@ -14,7 +14,7 @@ CREATE TABLE `research_files` (
 CREATE INDEX `owner_repo_idx` ON `research_files` (`owner`,`repo`);--> statement-breakpoint
 CREATE INDEX `filepath_idx` ON `research_files` (`filepath`);--> statement-breakpoint
 CREATE INDEX `created_at_idx` ON `research_files` (`created_at`);--> statement-breakpoint
-CREATE TABLE `analysis_artifacts` (
+CREATE TABLE IF NOT EXISTS `analysis_artifacts` (
 	`id` text PRIMARY KEY NOT NULL,
 	`session_id` text NOT NULL,
 	`repo_id` text NOT NULL,
@@ -24,7 +24,7 @@ CREATE TABLE `analysis_artifacts` (
 	FOREIGN KEY (`session_id`) REFERENCES `research_sessions`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE TABLE `repo_scores` (
+CREATE TABLE IF NOT EXISTS `repo_scores` (
 	`id` text PRIMARY KEY NOT NULL,
 	`session_id` text NOT NULL,
 	`owner` text NOT NULL,
@@ -47,7 +47,7 @@ CREATE TABLE `repo_scores` (
 	FOREIGN KEY (`session_id`) REFERENCES `research_sessions`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE TABLE `research_sessions` (
+CREATE TABLE IF NOT EXISTS `research_sessions` (
 	`id` text PRIMARY KEY NOT NULL,
 	`mode` text NOT NULL,
 	`query` text,

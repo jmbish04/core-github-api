@@ -1,4 +1,4 @@
-CREATE TABLE `jules_sessions` (
+CREATE TABLE IF NOT EXISTS `jules_sessions` (
 	`id` text PRIMARY KEY NOT NULL,
 	`project_id` text,
 	`prompt` text NOT NULL,

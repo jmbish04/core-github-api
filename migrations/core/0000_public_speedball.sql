@@ -1,4 +1,4 @@
-CREATE TABLE `repo_ai_context` (
+CREATE TABLE IF NOT EXISTS `repo_ai_context` (
 	`repo_id` text PRIMARY KEY NOT NULL,
 	`embedding_id` text,
 	`tokens_estimate` integer,
@@ -7,7 +7,7 @@ CREATE TABLE `repo_ai_context` (
 	FOREIGN KEY (`repo_id`) REFERENCES `repositories`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
-CREATE TABLE `repo_infra` (
+CREATE TABLE IF NOT EXISTS `repo_infra` (
 	`repo_id` text PRIMARY KEY NOT NULL,
 	`provider` text,
 	`uses_workers` integer DEFAULT false,
@@ -22,7 +22,7 @@ CREATE TABLE `repo_infra` (
 	FOREIGN KEY (`repo_id`) REFERENCES `repositories`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
-CREATE TABLE `repo_metrics` (
+CREATE TABLE IF NOT EXISTS `repo_metrics` (
 	`repo_id` text PRIMARY KEY NOT NULL,
 	`default_branch` text,
 	`open_issues` integer,
@@ -43,14 +43,14 @@ CREATE TABLE `repo_metrics` (
 	FOREIGN KEY (`repo_id`) REFERENCES `repositories`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
-CREATE TABLE `repo_tags` (
+CREATE TABLE IF NOT EXISTS `repo_tags` (
 	`repo_id` text NOT NULL,
 	`tag` text NOT NULL,
 	PRIMARY KEY(`repo_id`, `tag`),
 	FOREIGN KEY (`repo_id`) REFERENCES `repositories`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
-CREATE TABLE `repo_tech_stack` (
+CREATE TABLE IF NOT EXISTS `repo_tech_stack` (
 	`repo_id` text NOT NULL,
 	`domain` text NOT NULL,
 	`key` text NOT NULL,
@@ -60,7 +60,7 @@ CREATE TABLE `repo_tech_stack` (
 	FOREIGN KEY (`repo_id`) REFERENCES `repositories`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
-CREATE TABLE `repositories` (
+CREATE TABLE IF NOT EXISTS `repositories` (
 	`id` text PRIMARY KEY NOT NULL,
 	`provider` text NOT NULL,
 	`owner` text NOT NULL,
@@ -83,7 +83,7 @@ CREATE TABLE `repositories` (
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `repositories_slug_unique` ON `repositories` (`slug`);--> statement-breakpoint
-CREATE TABLE `code_review_comment_enrichments` (
+CREATE TABLE IF NOT EXISTS `code_review_comment_enrichments` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`comment_id` integer NOT NULL,
 	`source` text NOT NULL,
@@ -99,7 +99,7 @@ CREATE TABLE `code_review_comment_enrichments` (
 --> statement-breakpoint
 CREATE INDEX `idx_enrichments_comment` ON `code_review_comment_enrichments` (`comment_id`);--> statement-breakpoint
 CREATE INDEX `idx_enrichments_source` ON `code_review_comment_enrichments` (`source`);--> statement-breakpoint
-CREATE TABLE `code_review_comments` (
+CREATE TABLE IF NOT EXISTS `code_review_comments` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`run_id` integer NOT NULL,
 	`provider` text NOT NULL,
@@ -138,7 +138,7 @@ CREATE TABLE `code_review_comments` (
 CREATE INDEX `idx_code_review_comments_run` ON `code_review_comments` (`run_id`);--> statement-breakpoint
 CREATE INDEX `idx_code_review_comments_repo_pr` ON `code_review_comments` (`repo_owner`,`repo_name`,`pr_number`);--> statement-breakpoint
 CREATE INDEX `idx_code_review_comments_external_id` ON `code_review_comments` (`external_id`);--> statement-breakpoint
-CREATE TABLE `code_review_runs` (
+CREATE TABLE IF NOT EXISTS `code_review_runs` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`provider` text NOT NULL,
 	`repo_owner` text NOT NULL,

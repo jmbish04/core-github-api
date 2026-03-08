@@ -373,7 +373,7 @@ async function scrapeGooglePricing(env: Env): Promise<PricingData[]> {
 /**
  * Main function to scrape all provider pricing and store in D1
  */
-export async function scrapePricing(env: Env, ctx: ExecutionContext): Promise<void> {
+export async function scrapePricing(env: Env, _ctx: ExecutionContext): Promise<void> {
   const logger = new Logger(env, 'PricingScraper');
   const { getDb } = await import("@db");
   const db = getDb(env.DB);
@@ -599,9 +599,9 @@ async function createStalePricingIssue(env: Env, lastUpdate: Date | null, priceC
       changesTable += '|----------|-------|-------------|-----------|-----------|------------|------------|--------|\n';
 
       for (const change of priceChanges) {
-        const oldInput = change.oldInputCostPerM !== null ? `$${change.oldInputCostPerM.toFixed(2)}` : '--';
+        const oldInput = change.oldInputCostPerM != null ? `$${change.oldInputCostPerM.toFixed(2)}` : '--';
         const newInput = `$${change.newInputCostPerM.toFixed(2)}`;
-        const oldOutput = change.oldOutputCostPerM !== null ? `$${change.oldOutputCostPerM.toFixed(2)}` : '--';
+        const oldOutput = change.oldOutputCostPerM != null ? `$${change.oldOutputCostPerM.toFixed(2)}` : '--';
         const newOutput = `$${change.newOutputCostPerM.toFixed(2)}`;
 
         let changeEmoji = '';
@@ -619,20 +619,20 @@ async function createStalePricingIssue(env: Env, lastUpdate: Date | null, priceC
         changesTable += `- **Source URL**: ${change.sourceUrl}\n`;
         changesTable += `- **Change Type**: ${change.changeType.replace('_', ' ')}\n`;
         changesTable += `- **Standard Context Pricing**:\n`;
-        changesTable += `  - Input: ${change.oldInputCostPerM !== null ? `$${change.oldInputCostPerM.toFixed(2)}` : '--'} → $${change.newInputCostPerM.toFixed(2)} per 1M tokens\n`;
-        changesTable += `  - Output: ${change.oldOutputCostPerM !== null ? `$${change.oldOutputCostPerM.toFixed(2)}` : '--'} → $${change.newOutputCostPerM.toFixed(2)} per 1M tokens\n`;
+        changesTable += `  - Input: ${change.oldInputCostPerM != null ? `$${change.oldInputCostPerM.toFixed(2)}` : '--'} → $${change.newInputCostPerM.toFixed(2)} per 1M tokens\n`;
+        changesTable += `  - Output: ${change.oldOutputCostPerM != null ? `$${change.oldOutputCostPerM.toFixed(2)}` : '--'} → $${change.newOutputCostPerM.toFixed(2)} per 1M tokens\n`;
 
         if (change.newInputLongCostPerM || change.oldInputLongCostPerM) {
           changesTable += `- **Long Context (>200k) Pricing**:\n`;
-          changesTable += `  - Input: ${change.oldInputLongCostPerM !== null ? `$${change.oldInputLongCostPerM.toFixed(2)}` : '--'} → ${change.newInputLongCostPerM !== null ? `$${change.newInputLongCostPerM.toFixed(2)}` : '--'} per 1M tokens\n`;
-          changesTable += `  - Output: ${change.oldOutputLongCostPerM !== null ? `$${change.oldOutputLongCostPerM.toFixed(2)}` : '--'} → ${change.newOutputLongCostPerM !== null ? `$${change.newOutputLongCostPerM.toFixed(2)}` : '--'} per 1M tokens\n`;
+          changesTable += `  - Input: ${change.oldInputLongCostPerM != null ? `$${change.oldInputLongCostPerM.toFixed(2)}` : '--'} → ${change.newInputLongCostPerM != null ? `$${change.newInputLongCostPerM.toFixed(2)}` : '--'} per 1M tokens\n`;
+          changesTable += `  - Output: ${change.oldOutputLongCostPerM != null ? `$${change.oldOutputLongCostPerM.toFixed(2)}` : '--'} → ${change.newOutputLongCostPerM != null ? `$${change.newOutputLongCostPerM.toFixed(2)}` : '--'} per 1M tokens\n`;
         }
 
         if (change.newCacheReadCostPerM || change.oldCacheReadCostPerM) {
           changesTable += `- **Cache Pricing**:\n`;
-          changesTable += `  - Read: ${change.oldCacheReadCostPerM !== null ? `$${change.oldCacheReadCostPerM.toFixed(2)}` : '--'} → ${change.newCacheReadCostPerM !== null ? `$${change.newCacheReadCostPerM.toFixed(2)}` : '--'} per 1M tokens\n`;
+          changesTable += `  - Read: ${change.oldCacheReadCostPerM != null ? `$${change.oldCacheReadCostPerM.toFixed(2)}` : '--'} → ${change.newCacheReadCostPerM != null ? `$${change.newCacheReadCostPerM.toFixed(2)}` : '--'} per 1M tokens\n`;
           if (change.newCacheWriteCostPerM || change.oldCacheWriteCostPerM) {
-            changesTable += `  - Write: ${change.oldCacheWriteCostPerM !== null ? `$${change.oldCacheWriteCostPerM.toFixed(2)}` : '--'} → ${change.newCacheWriteCostPerM !== null ? `$${change.newCacheWriteCostPerM.toFixed(2)}` : '--'} per 1M tokens\n`;
+            changesTable += `  - Write: ${change.oldCacheWriteCostPerM != null ? `$${change.oldCacheWriteCostPerM.toFixed(2)}` : '--'} → ${change.newCacheWriteCostPerM != null ? `$${change.newCacheWriteCostPerM.toFixed(2)}` : '--'} per 1M tokens\n`;
           }
         }
 
@@ -760,6 +760,7 @@ export async function getLatestPricing(
       metadata: snapshot.metadata ? JSON.parse(snapshot.metadata) : undefined,
     };
   } catch (error) {
+    console.error('Failed to get latest pricing', error);
     return null;
   }
 }

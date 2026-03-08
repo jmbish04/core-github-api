@@ -1,4 +1,4 @@
-CREATE TABLE `starred_repos` (
+CREATE TABLE IF NOT EXISTS `starred_repos` (
 	`user_id` text NOT NULL,
 	`repo_id` text NOT NULL,
 	`starred_at` text DEFAULT CURRENT_TIMESTAMP,

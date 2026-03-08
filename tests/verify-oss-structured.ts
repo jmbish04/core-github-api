@@ -11,6 +11,7 @@
  *   CF_API_TOKEN=your_token npx tsx tests/verify-oss-structured.ts
  */
 
+// @ts-ignore: This requires openai to be installed, suppressing for now.
 import OpenAI from "openai";
 import * as fs from "node:fs";
 import path from "node:path";

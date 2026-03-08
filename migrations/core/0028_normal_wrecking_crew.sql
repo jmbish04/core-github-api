@@ -1,4 +1,4 @@
-CREATE TABLE `health_test_definitions` (
+CREATE TABLE IF NOT EXISTS `health_test_definitions` (
 	`id` text PRIMARY KEY NOT NULL,
 	`name` text NOT NULL,
 	`target` text NOT NULL,

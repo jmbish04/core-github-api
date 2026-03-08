@@ -1,4 +1,4 @@
-CREATE TABLE `repo_analysis` (
+CREATE TABLE IF NOT EXISTS `repo_analysis` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`search_id` integer NOT NULL,
 	`session_id` text NOT NULL,
@@ -11,7 +11,7 @@ CREATE TABLE `repo_analysis` (
 	FOREIGN KEY (`search_id`) REFERENCES `searches`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE TABLE `searches` (
+CREATE TABLE IF NOT EXISTS `searches` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`session_id` text NOT NULL,
 	`search_term` text NOT NULL,

@@ -1,4 +1,4 @@
-CREATE TABLE `audit_logs` (
+CREATE TABLE IF NOT EXISTS `audit_logs` (
 	`id` text PRIMARY KEY NOT NULL,
 	`delivery_id` text NOT NULL,
 	`repo_full_name` text NOT NULL,
@@ -10,6 +10,6 @@ CREATE TABLE `audit_logs` (
 	`created_at` text NOT NULL
 );
 --> statement-breakpoint
-CREATE INDEX `audit_delivery_idx` ON `audit_logs` (`delivery_id`);--> statement-breakpoint
-CREATE INDEX `audit_repo_idx` ON `audit_logs` (`repo_full_name`);--> statement-breakpoint
-CREATE INDEX `audit_event_idx` ON `audit_logs` (`trigger_event`);
+CREATE INDEX IF NOT EXISTS `audit_delivery_idx` ON `audit_logs` (`delivery_id`);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `audit_repo_idx` ON `audit_logs` (`repo_full_name`);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `audit_event_idx` ON `audit_logs` (`trigger_event`);

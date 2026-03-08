@@ -1,4 +1,4 @@
-CREATE TABLE `pricing_snapshots` (
+CREATE TABLE IF NOT EXISTS `pricing_snapshots` (
 	`id` text PRIMARY KEY NOT NULL,
 	`provider` text NOT NULL,
 	`model_id` text NOT NULL,

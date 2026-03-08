@@ -1,4 +1,4 @@
-CREATE TABLE `audit_logs` (
+CREATE TABLE IF NOT EXISTS `audit_logs` (
 	`id` text PRIMARY KEY NOT NULL,
 	`delivery_id` text NOT NULL,
 	`repo_full_name` text NOT NULL,

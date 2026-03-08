@@ -1,4 +1,4 @@
-CREATE TABLE `automation_rules` (
+CREATE TABLE IF NOT EXISTS `automation_rules` (
 	`id` text PRIMARY KEY NOT NULL,
 	`name` text NOT NULL,
 	`description` text NOT NULL,

@@ -1,4 +1,4 @@
-CREATE TABLE `trending_repos` (
+CREATE TABLE IF NOT EXISTS `trending_repos` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`session_uuid` text NOT NULL,
 	`owner` text NOT NULL,

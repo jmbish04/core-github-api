@@ -1,4 +1,4 @@
-CREATE TABLE `agent_activities` (
+CREATE TABLE IF NOT EXISTS `agent_activities` (
 	`id` text PRIMARY KEY NOT NULL,
 	`operation_id` text NOT NULL,
 	`step_name` text NOT NULL,
@@ -9,7 +9,7 @@ CREATE TABLE `agent_activities` (
 );
 --> statement-breakpoint
 CREATE INDEX `idx_agent_activities_op` ON `agent_activities` (`operation_id`);--> statement-breakpoint
-CREATE TABLE `repo_stats` (
+CREATE TABLE IF NOT EXISTS `repo_stats` (
 	`repo_id` integer PRIMARY KEY NOT NULL,
 	`health_score` integer,
 	`open_issues_count` integer,
@@ -18,7 +18,7 @@ CREATE TABLE `repo_stats` (
 	CONSTRAINT "health_score_check" CHECK("repo_stats"."health_score" BETWEEN 0 AND 100)
 );
 --> statement-breakpoint
-CREATE TABLE `tasks` (
+CREATE TABLE IF NOT EXISTS `tasks` (
 	`id` text PRIMARY KEY NOT NULL,
 	`repo_id` integer NOT NULL,
 	`title` text NOT NULL,
@@ -34,7 +34,7 @@ CREATE TABLE `tasks` (
 );
 --> statement-breakpoint
 CREATE INDEX `idx_tasks_repo` ON `tasks` (`repo_id`);--> statement-breakpoint
-CREATE TABLE `chat_messages` (
+CREATE TABLE IF NOT EXISTS `chat_messages` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`thread_id` text NOT NULL,
 	`timestamp` text NOT NULL,
@@ -43,7 +43,7 @@ CREATE TABLE `chat_messages` (
 	FOREIGN KEY (`thread_id`) REFERENCES `chat_threads`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
-CREATE TABLE `chat_tags` (
+CREATE TABLE IF NOT EXISTS `chat_tags` (
 	`thread_id` text NOT NULL,
 	`chat_id` integer NOT NULL,
 	`tag` text NOT NULL,
@@ -53,7 +53,7 @@ CREATE TABLE `chat_tags` (
 	FOREIGN KEY (`chat_id`) REFERENCES `chat_messages`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
-CREATE TABLE `chat_threads` (
+CREATE TABLE IF NOT EXISTS `chat_threads` (
 	`id` text PRIMARY KEY NOT NULL,
 	`subject` text,
 	`repo_id` text,
@@ -61,7 +61,7 @@ CREATE TABLE `chat_threads` (
 	FOREIGN KEY (`repo_id`) REFERENCES `repositories`(`id`) ON UPDATE no action ON DELETE set null
 );
 --> statement-breakpoint
-CREATE TABLE `request_logs` (
+CREATE TABLE IF NOT EXISTS `request_logs` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`timestamp` text NOT NULL,
 	`level` text NOT NULL,

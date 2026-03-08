@@ -1,4 +1,4 @@
-CREATE TABLE `gh_management_config` (
+CREATE TABLE IF NOT EXISTS `gh_management_config` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`timestamp` text DEFAULT 'CURRENT_TIMESTAMP' NOT NULL,
 	`repo_name` text NOT NULL,
@@ -12,7 +12,7 @@ CREATE INDEX `idx_gh_management_config_timestamp` ON `gh_management_config` (`ti
 CREATE INDEX `idx_gh_management_config_repo_name` ON `gh_management_config` (`repo_name`);--> statement-breakpoint
 CREATE INDEX `idx_gh_management_config_action` ON `gh_management_config` (`action`);--> statement-breakpoint
 CREATE INDEX `idx_gh_management_config_status` ON `gh_management_config` (`status`);--> statement-breakpoint
-CREATE TABLE `repo_analysis` (
+CREATE TABLE IF NOT EXISTS `repo_analysis` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`session_id` text,
 	`search_id` integer,
@@ -26,7 +26,7 @@ CREATE TABLE `repo_analysis` (
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `repo_analysis_session_id_repo_full_name_unique` ON `repo_analysis` (`session_id`,`repo_full_name`);--> statement-breakpoint
-CREATE TABLE `request_logs` (
+CREATE TABLE IF NOT EXISTS `request_logs` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`timestamp` text NOT NULL,
 	`level` text NOT NULL,
@@ -42,7 +42,7 @@ CREATE TABLE `request_logs` (
 --> statement-breakpoint
 CREATE INDEX `idx_request_logs_timestamp` ON `request_logs` (`timestamp`);--> statement-breakpoint
 CREATE INDEX `idx_request_logs_correlation_id` ON `request_logs` (`correlation_id`);--> statement-breakpoint
-CREATE TABLE `searches` (
+CREATE TABLE IF NOT EXISTS `searches` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`session_id` text,
 	`search_term` text,
@@ -51,7 +51,7 @@ CREATE TABLE `searches` (
 	FOREIGN KEY (`session_id`) REFERENCES `sessions`(`session_id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE TABLE `sessions` (
+CREATE TABLE IF NOT EXISTS `sessions` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`session_id` text,
 	`prompt` text,

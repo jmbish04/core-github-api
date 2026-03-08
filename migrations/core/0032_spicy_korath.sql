@@ -1,4 +1,4 @@
-CREATE TABLE `alerts` (
+CREATE TABLE IF NOT EXISTS `alerts` (
 	`id` text PRIMARY KEY NOT NULL,
 	`timestamp` integer DEFAULT (unixepoch()) NOT NULL,
 	`title` text NOT NULL,
@@ -13,5 +13,5 @@ CREATE TABLE `alerts` (
 	`resolved_by` text
 );
 --> statement-breakpoint
-CREATE INDEX `alerts_timestamp_idx` ON `alerts` (`timestamp`);--> statement-breakpoint
-CREATE INDEX `alerts_resolved_idx` ON `alerts` (`is_resolved`);
+-- CREATE INDEX `alerts_timestamp_idx` ON `alerts` (`timestamp`);--> statement-breakpoint
+-- CREATE INDEX `alerts_resolved_idx` ON `alerts` (`is_resolved`);

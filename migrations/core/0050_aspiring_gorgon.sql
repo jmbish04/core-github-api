@@ -1,5 +1,5 @@
 PRAGMA foreign_keys=OFF;--> statement-breakpoint
-CREATE TABLE `__new_alerts` (
+CREATE TABLE IF NOT EXISTS `__new_alerts` (
 	`id` text PRIMARY KEY NOT NULL,
 	`type` text DEFAULT 'info' NOT NULL,
 	`severity` text DEFAULT 'info' NOT NULL,

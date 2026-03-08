@@ -1,4 +1,4 @@
-CREATE TABLE `cloudflare_docs_interactions` (
+CREATE TABLE IF NOT EXISTS `cloudflare_docs_interactions` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`session_id` text NOT NULL,
 	`source` text NOT NULL,

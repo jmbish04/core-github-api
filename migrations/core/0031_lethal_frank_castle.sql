@@ -1,4 +1,4 @@
-CREATE TABLE `config_audit_logs` (
+CREATE TABLE IF NOT EXISTS `config_audit_logs` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`key` text NOT NULL,
 	`old_value` text,

@@ -1,5 +1,5 @@
 PRAGMA foreign_keys=OFF;--> statement-breakpoint
-CREATE TABLE `__new_tag_application_mapping` (
+CREATE TABLE IF NOT EXISTS `__new_tag_application_mapping` (
 	`app_id` text NOT NULL,
 	`tag_id` text NOT NULL,
 	`created_at` integer DEFAULT '"2026-02-20T11:10:00.704Z"' NOT NULL,

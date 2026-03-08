@@ -96,7 +96,7 @@ Evaluate on a scale of 1-10. You MUST respond with ONLY valid JSON: {"score": <n
     await db.insert(researchRecommendations).values(inserts).onConflictDoNothing();
 
     // 6. ALERT: Email Routing
-    if (env.SEND_EMAIL) {
+    if (env.SEND_EMAIL_NEWSLETTER) {
       try {
         const { sendRepoDiscoveryEmail } = await import("@/utils/email/send/repo-discovery");
         await sendRepoDiscoveryEmail(env, {
