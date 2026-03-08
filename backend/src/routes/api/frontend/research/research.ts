@@ -6,7 +6,7 @@
 import { Hono } from "hono";
 import { getDb } from "@db";
 import { researchBriefs, researchCandidates, researchExecutionLogs } from "@/db/schemas/github/research";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, inArray } from "drizzle-orm";
 import { sendRepoDiscoveryEmail } from "@/utils/email/send/repo-discovery";
 
 const app = new Hono<{ Bindings: Env }>();
@@ -85,10 +85,10 @@ app.post("/:id/approve", async (c) => {
   }
 
   // Update candidates
-  for (const cid of candidateIds) {
+  if (candidateIds.length > 0) {
       await db.update(researchCandidates)
         .set({ userRating: "keep" })
-        .where(eq(researchCandidates.id, cid));
+        .where(inArray(researchCandidates.id, candidateIds));
   }
   
   // Trigger Deep Dive or Resume
