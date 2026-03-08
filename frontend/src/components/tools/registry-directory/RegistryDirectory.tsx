@@ -208,7 +208,7 @@ export const RegistryDirectory = () => {
 
               return (
                 <div
-                  key={index}
+                  key={registry.title}
                   className={`group relative bg-card text-card-foreground border rounded-xl p-6 shadow-sm hover:shadow-md transition-all flex flex-col
                     ${isSelected ? 'border-primary ring-1 ring-primary' : 'border-border hover:border-accent'}
                   `}

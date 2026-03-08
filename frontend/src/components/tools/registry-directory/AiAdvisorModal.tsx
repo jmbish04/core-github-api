@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { Sparkles, Bot, Send, Loader2, X } from 'lucide-react';
 import { client } from '@/lib/api-client';
+import { RegistryItem } from './data';
 
 interface AiAdvisorModalProps {
   isOpen: boolean;
   onClose: () => void;
-  registries: any[];
+  registries: RegistryItem[];
 }
 
 export const AiAdvisorModal = ({ isOpen, onClose, registries }: AiAdvisorModalProps) => {

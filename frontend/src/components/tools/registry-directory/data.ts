@@ -50,6 +50,17 @@ export const inferRating = (title: string, desc: string) => {
   return (baseRating + variance).toFixed(1);
 };
 
+export interface RegistryItem {
+  title: string;
+  category: string;
+  count: string;
+  license: string;
+  rating: string;
+  description: string;
+  url: string;
+  featured: boolean;
+}
+
 export const rawData = [
     {
         "svg_link": "inline-svg",
@@ -629,7 +640,7 @@ export const rawData = [
     }
 ];
 
-export const registriesList = rawData.map(item => ({
+export const registriesList: RegistryItem[] = rawData.map(item => ({
   title: item.item_title,
   category: inferCategory(item.item_title, item.item_description),
   count: inferCount(item.item_description),

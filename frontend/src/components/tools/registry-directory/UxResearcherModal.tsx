@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
+import { toast } from 'sonner';
 import { Microscope, Github, FileCode, X } from 'lucide-react';
 import { client } from '@/lib/api-client';
+import { RegistryItem } from './data';
 
 interface UxResearcherModalProps {
   isOpen: boolean;
   onClose: () => void;
-  registries: any[];
+  registries: RegistryItem[];
   initialRepoUrl?: string;
   initialContext?: string;
 }
@@ -41,7 +43,7 @@ export const UxResearcherModal = ({ isOpen, onClose, registries, initialRepoUrl,
       }
     } catch (e) {
       console.error(e);
-      alert("Analysis failed. Please try with less text or check your connection.");
+      toast.error("Analysis failed. Please try with less text or check your connection.");
       setStep(0);
     } finally {
       setLoading(false);
@@ -142,7 +144,7 @@ export const UxResearcherModal = ({ isOpen, onClose, registries, initialRepoUrl,
                    Start Over
                  </button>
                  <button
-                   onClick={() => { navigator.clipboard.writeText(report); alert('Report copied to clipboard!'); }}
+                   onClick={() => { navigator.clipboard.writeText(report); toast.success('Report copied to clipboard!'); }}
                    className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
                  >
                    Copy Report

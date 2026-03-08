@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowRightLeft, Loader2, X } from 'lucide-react';
 import { client } from '@/lib/api-client';
+import { RegistryItem } from './data';
 
 interface CompareModalProps {
   isOpen: boolean;
   onClose: () => void;
-  selectedItems: any[];
+  selectedItems: RegistryItem[];
 }
 
 export const CompareModal = ({ isOpen, onClose, selectedItems }: CompareModalProps) => {
