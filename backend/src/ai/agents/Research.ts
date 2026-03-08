@@ -16,6 +16,8 @@ import { Logger } from "@logging";
 import { getAgentModelName } from "@/ai/utils/model-config";
 import { getOctokit } from "@services/octokit/core";
 import { z } from "zod";
+import { createBaseAgent } from "@/ai/agents/base/honidev";
+import { tool } from "honidev";
 
 interface ResearchState extends BaseAgentState {
   currentPlan: string | null;
@@ -24,9 +26,6 @@ interface ResearchState extends BaseAgentState {
   findings: any | null;
   approvalRequired: boolean;
 }
-
-// Define the search tool manually to match @openai/agents FunctionTool interface
-// Moved inside onStart to access this.env
 
 /**
  * The ResearchAgent coordinates multi-stage repository analysis.
@@ -66,11 +65,10 @@ export class ResearchAgent extends BaseAgent<Env, ResearchState> {
       // Update state to planning
       await this.setState({ ...this.state, researchStatus: "planning" });
 
-      // Generate research plan using AI
-      const plan = await this.runTextWithModel({
-        name: "ResearchAgent",
-        model: getAgentModelName('ResearchAgent'),
-        instructions: `You are a senior research analyst specializing in GitHub repository analysis.
+      const honiAgent = createBaseAgent(
+        this.env,
+        "ResearchAgent",
+        `You are a senior research analyst specializing in GitHub repository analysis.
         
 Your capabilities:
 - Search and analyze GitHub repositories
@@ -90,7 +88,16 @@ Querying Code (Base Population Search):
 - Example: To find all "wrangler.jsonc" files in org "cloudflare", use query: "org:cloudflare filename:wrangler.jsonc".
 - Use 'regex_filter' parameter to refine the returned list of paths locally.
 
-Always be thorough but concise. Focus on practical insights that developers can use.`,
+Always be thorough but concise. Focus on practical insights that developers can use.`
+      );
+
+      // We still fall back to runTextWithModel to reuse the provider/gateway logic in BaseAgent
+      // but conceptually we'd route this via honidev logic eventually.
+      // For now, keep the robust execution:
+      const plan = await this.runTextWithModel({
+        name: "ResearchAgent",
+        model: getAgentModelName('ResearchAgent'),
+        instructions: "You are a senior research analyst specializing in GitHub repository analysis.",
         prompt: messageText,
         tools: [this.getSearchTool()],
       });
