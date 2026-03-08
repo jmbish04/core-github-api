@@ -239,9 +239,6 @@ def run_frontend_tests():
                         # just proceed if we have content
                         pass
                     
-                    title = page.title()
-                    # print_status(f"    Title: {title}", "INFO")
-                    
                     filename = route.replace('/', '_').strip('_') or 'home'
                     screenshot_path = f"tests/e2e/screenshots/{filename}.png"
                     page.screenshot(path=screenshot_path)
