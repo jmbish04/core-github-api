@@ -52,6 +52,7 @@ import { UxWorkshopTab } from "@/components/project-dashboard/tabs/UxWorkshopTab
 import { PlanTab } from "@/components/project-dashboard/tabs/PlanTab";
 import { PRCommandCenterTab } from "@/components/project-dashboard/tabs/PRCommandCenterTab";
 import { CloudflareSdkDashboard } from "@/components/cloudflaresdk/CloudflareSdkDashboard";
+import { ComponentIdentifierTab } from "@/components/project-dashboard/tabs/ComponentIdentifierTab";
 import { CloudflareDocsTool } from "@/components/tools/CloudflareDocsTool";
 import { getControlCenterUserId } from "@/lib/control-user";
 import { pushRecentProject, removeRecentProject } from "@/lib/project-recents";
@@ -731,6 +732,7 @@ export default function ProjectDashboard() {
           <TabsTrigger value="cloudflaresdk">CloudflareSDK</TabsTrigger>
           <TabsTrigger value="vibesdk">VibeSDK</TabsTrigger>
           <TabsTrigger value="ux-workshop">UX Workshop</TabsTrigger>
+          <TabsTrigger value="component-identifier">Shadcn Components</TabsTrigger>
           <TabsTrigger value="plan">Plan</TabsTrigger>
           <TabsTrigger value="prs">PRs</TabsTrigger>
           <TabsTrigger value="tools">Tools</TabsTrigger>
@@ -922,6 +924,12 @@ export default function ProjectDashboard() {
             projectName={overview.project.name}
             repoOwner={overview.repository.owner}
             repoName={overview.repository.name}
+          />
+        </TabsContent>
+
+        <TabsContent value="component-identifier" className="space-y-4">
+          <ComponentIdentifierTab
+            repoFullName={`${overview.repository.owner}/${overview.repository.name}`}
           />
         </TabsContent>
 

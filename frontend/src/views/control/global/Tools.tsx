@@ -5,8 +5,17 @@ import PrWebhookExtractorPage from "@/components/tools/toolbox/PrWebhookExtracto
 import CloudflareDocsPage from "@/components/tools/toolbox/CloudflareDocsPage";
 import CloudflareDocsBetaPage from "@/components/tools/toolbox/CloudflareDocsBetaPage";
 import AgentWorkshop from "@/views/control/global/AgentWorkshop";
+import { RegistryDirectory } from "@/components/tools/registry-directory";
 
 const TOOLS = [
+    {
+        id: "shadcn-registry",
+        label: "Shadcn Registry Directory",
+        description: "Discover community registries for shadcn/ui components.",
+        icon: Wrench,
+        color: "text-indigo-400",
+        bg: "bg-indigo-500/10 border-indigo-500/20",
+    },
     {
         id: "pr-extractor",
         label: "PR Comment Extractor",
@@ -110,6 +119,10 @@ export default function ToolsPage() {
     }
     if (tool_name === "pr-webhook") {
         return <PrWebhookExtractorPage />;
+    }
+
+    if (tool_name === "shadcn-registry") {
+        return <RegistryDirectory />;
     }
 
     if (tool_name === "agent-factory") {

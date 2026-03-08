@@ -25,6 +25,7 @@ import type retrofitApi from "@/retrofit";
 import type flowsApi from "@/routes/api/webhooks/handlers/flows";
 import type landingGeneratorApi from "@/routes/api/agents/landing-generator";
 import type research from "@/routes/api/frontend/research/research";
+import frontendToolsApi from "@/routes/api/frontend/tools";
 
 // --- Eagerly loaded lean routes ---
 import webhooksApi from "@/routes/api/webhooks";
@@ -587,6 +588,7 @@ sharedApi.route('/ops', opsApi)
 sharedApi.route('/tasks', tasksApi)
 sharedApi.route('/todos', todosApi)
 sharedApi.route('/projects', projectsApi)
+  .route('/tools', frontendToolsApi)
 sharedApi.route('/stats', statsApi)
 sharedApi.route('/timeline', timelineApi)
 sharedApi.route('/health', healthApi)
@@ -619,6 +621,7 @@ const eagerApi = new OpenAPIHono<{ Bindings: Env }>()
   .route('/tasks', tasksApi)
   .route('/todos', todosApi)
   .route('/projects', projectsApi)
+  .route('/tools', frontendToolsApi)
   .route('/stats', statsApi)
   .route('/timeline', timelineApi)
   .route('/health', healthApi)
