@@ -36,6 +36,7 @@
 		"DEFAULT_MODEL_RERANKER": "@cf/baai/bge-reranker-base",
 		"HEALTH_SANDBOX_TIMEOUT_MS": 60000,
 		"AI_GATEWAY_NAME": "core-github-api",
+		"AI_GATEWAY_SLUG": "core-github-api",
 		"CLOUDFLARE_WORKER_NAME": "core-github-api",
 		"GITHUB_OWNER": "jmbish04",
 		"TEMPLATES_REPO_NAME": "core-repo-templates",
@@ -102,6 +103,11 @@
 			"binding": "GITHUB_TOKEN",
 			"store_id": "8c42fa70938644e0a8a109744467375f",
 			"secret_name": "GITHUB_TOKEN"
+		},
+		{
+			"binding": "GITHUB_PERSONAL_ACCESS_TOKEN",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "GITHUB_PERSONAL_ACCESS_TOKEN"
 		},
 		{
 			"binding": "CLOUDFLARE_API_TOKEN",
@@ -276,6 +282,18 @@
 			{
 				"name": "CF_WORKSHOP_AGENTS_SDK",
 				"class_name": "CfWorkshop_AgentsSdk"
+			},
+			{
+				"name": "ANALYZER_DO",
+				"class_name": "AnalyzerAgent"
+			},
+			{
+				"name": "DOCUMENTER_DO",
+				"class_name": "DocumenterAgent"
+			},
+			{
+				"name": "RULES_GEN_DO",
+				"class_name": "RulesGeneratorAgent"
 			}
 		]
 	},
@@ -346,6 +364,14 @@
 				"WorkshopAgent",
 				"CfWorkshop_AgentsSdk",
 				"JulesWebhookBroadcaster"
+			]
+		},
+		{
+			"tag": "v6",
+			"new_sqlite_classes": [
+				"AnalyzerAgent",
+				"DocumenterAgent",
+				"RulesGeneratorAgent"
 			]
 		}
 	],

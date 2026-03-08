@@ -53,9 +53,19 @@ import { PlanTab } from "@/components/project-dashboard/tabs/PlanTab";
 import { PRCommandCenterTab } from "@/components/project-dashboard/tabs/PRCommandCenterTab";
 import { CloudflareSdkDashboard } from "@/components/cloudflaresdk/CloudflareSdkDashboard";
 import { CloudflareDocsTool } from "@/components/tools/CloudflareDocsTool";
+import { AiDocGenModal } from "@/components/projects/AiDocGenModal";
 import { getControlCenterUserId } from "@/lib/control-user";
 import { pushRecentProject, removeRecentProject } from "@/lib/project-recents";
 import { cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuShortcut,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 type ProjectLookupResponse = {
   success: boolean;
@@ -697,17 +707,53 @@ export default function ProjectDashboard() {
             <Star className={cn("mr-2 h-4 w-4", isFavorite ? "fill-current text-amber-400" : "")} />
             {isFavorite ? "Starred" : "Star"}
           </Button>
-          <Button 
-            variant="outline" 
-            onClick={() => setCommandOpen(true)}
-            className="border-blue-500/30 bg-blue-500/5 hover:bg-blue-500/10 text-blue-400 hover:text-blue-300"
-          >
-            <Wand2 className="mr-2 h-4 w-4" />
-            Repo Actions
-            <span className="ml-2 rounded border border-blue-500/20 px-1.5 py-0.5 text-[10px] text-blue-400/60">
-              Cmd+K
-            </span>
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                className="border-blue-500/30 bg-blue-500/5 hover:bg-blue-500/10 text-blue-400 hover:text-blue-300"
+              >
+                <Wand2 className="mr-2 h-4 w-4" />
+                Repo Tools
+                <span className="ml-2 rounded border border-blue-500/20 px-1.5 py-0.5 text-[10px] text-blue-400/60">
+                  Cmd+K
+                </span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-72">
+              <DropdownMenuLabel>Repo Tools</DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => setCommandOpen(true)}>
+                <Wand2 className="mr-2 h-4 w-4" />
+                Open Repo Actions
+                <DropdownMenuShortcut>⌘K</DropdownMenuShortcut>
+              </DropdownMenuItem>
+              <AiDocGenModal
+                owner={overview.repository.owner}
+                repo={overview.repository.name}
+                branch={overview.repository.defaultBranch}
+                trigger={(
+                  <DropdownMenuItem
+                    onSelect={(event) => event.preventDefault()}
+                    className="gap-2"
+                  >
+                    <Sparkles className="h-4 w-4 text-amber-400" />
+                    ✨ Generate AI Docs
+                  </DropdownMenuItem>
+                )}
+              />
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                disabled={!projectId}
+                onClick={() => {
+                  if (!projectId) return;
+                  generateDocstrings.mutate();
+                }}
+              >
+                <Sparkles className={cn("mr-2 h-4 w-4", !projectId ? "text-muted-foreground/30" : "text-orange-400")} />
+                Generate Docstrings PR
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button onClick={() => generateSummary.mutate()} disabled={generateSummary.isPending}>
             {generateSummary.isPending ? (
               <>

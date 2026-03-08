@@ -4,7 +4,7 @@
 declare namespace Cloudflare {
 	interface GlobalProps {
 		mainModule: typeof import("./backend/src/index");
-		durableNamespaces: "OrchestratorAgent" | "RetrofitAgent" | "RoomDO" | "GeminiAgent" | "PlannerAgent" | "Supervisor" | "DeepReasoningAgent" | "RepoAgent" | "Sandbox" | "OwnerAgent" | "ResearchAgent" | "JulesOverseer" | "TopicOrchestratorAgent" | "WebSearchAgent" | "JudgeAgent" | "ReportingAgent" | "LandingPageAgent" | "CloudflareDocsAgent" | "HealthDiagnostician" | "DeepResearchChatAgent" | "WorkshopAgent" | "CfWorkshop_AgentsSdk" | "JulesWebhookBroadcaster";
+		durableNamespaces: "OrchestratorAgent" | "RetrofitAgent" | "RoomDO" | "GeminiAgent" | "PlannerAgent" | "Supervisor" | "DeepReasoningAgent" | "RepoAgent" | "Sandbox" | "OwnerAgent" | "ResearchAgent" | "JulesOverseer" | "TopicOrchestratorAgent" | "WebSearchAgent" | "JudgeAgent" | "ReportingAgent" | "LandingPageAgent" | "CloudflareDocsAgent" | "HealthDiagnostician" | "DeepResearchChatAgent" | "WorkshopAgent" | "CfWorkshop_AgentsSdk" | "JulesWebhookBroadcaster" | "AnalyzerAgent" | "DocumenterAgent" | "RulesGeneratorAgent";
 	}
 	interface Env {
 		ETAG_KV: KVNamespace;
@@ -22,6 +22,7 @@ declare namespace Cloudflare {
 		DEFAULT_MODEL_RERANKER: "@cf/baai/bge-reranker-base";
 		HEALTH_SANDBOX_TIMEOUT_MS: 60000;
 		AI_GATEWAY_NAME: "core-github-api";
+		AI_GATEWAY_SLUG: "core-github-api";
 		CLOUDFLARE_WORKER_NAME: "core-github-api";
 		GITHUB_OWNER: "jmbish04";
 		TEMPLATES_REPO_NAME: "core-repo-templates";
@@ -55,12 +56,16 @@ declare namespace Cloudflare {
 		JULES_WEBHOOK_BROADCASTER: DurableObjectNamespace<import("./backend/src/index").JulesWebhookBroadcaster>;
 		WORKSHOP_AGENT: DurableObjectNamespace<import("./backend/src/index").WorkshopAgent>;
 		CF_WORKSHOP_AGENTS_SDK: DurableObjectNamespace<import("./backend/src/index").CfWorkshop_AgentsSdk>;
+		ANALYZER_DO: DurableObjectNamespace<import("./backend/src/index").AnalyzerAgent>;
+		DOCUMENTER_DO: DurableObjectNamespace<import("./backend/src/index").DocumenterAgent>;
+		RULES_GEN_DO: DurableObjectNamespace<import("./backend/src/index").RulesGeneratorAgent>;
 		DB: D1Database;
 		DB_WEBHOOKS: D1Database;
 		GITHUB_CLIENT_ID: SecretsStoreSecret;
 		GITHUB_CLIENT_SECRET: SecretsStoreSecret;
 		GITHUB_APP_ID: SecretsStoreSecret;
 		GITHUB_TOKEN: SecretsStoreSecret;
+		GITHUB_PERSONAL_ACCESS_TOKEN: SecretsStoreSecret;
 		CLOUDFLARE_API_TOKEN: SecretsStoreSecret;
 		OPENAI_API_KEY: SecretsStoreSecret;
 		CLOUDFLARE_ACCOUNT_ID: SecretsStoreSecret;
@@ -96,7 +101,7 @@ type StringifyValues<EnvType extends Record<string, unknown>> = {
 	[Binding in keyof EnvType]: EnvType[Binding] extends string ? EnvType[Binding] : string;
 };
 declare namespace NodeJS {
-	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "LOG_LEVEL" | "AI_DEFAULT_PROVIDER" | "AI_DEFAULT_MODEL" | "GEMINI_MODEL" | "OPENAI_MODEL" | "DEFAULT_MODEL_REASONING" | "DEFAULT_MODEL_STRUCTURED_RESPONSE" | "DEFAULT_MODEL_EMBEDDING" | "DEFAULT_MODEL_RERANKER" | "HEALTH_SANDBOX_TIMEOUT_MS" | "AI_GATEWAY_NAME" | "CLOUDFLARE_WORKER_NAME" | "GITHUB_OWNER" | "TEMPLATES_REPO_NAME" | "STANDARDIZATION_REPO_NAME" | "HEALTH_TEST_REPO_NAME" | "BASE_URL" | "MAX_AI_BUDGET" | "USE_OPENAI_MODELS" | "MCP_API_URL" | "GITHUB_APP_PRIVATE_KEY">> {}
+	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "LOG_LEVEL" | "AI_DEFAULT_PROVIDER" | "AI_DEFAULT_MODEL" | "GEMINI_MODEL" | "OPENAI_MODEL" | "DEFAULT_MODEL_REASONING" | "DEFAULT_MODEL_STRUCTURED_RESPONSE" | "DEFAULT_MODEL_EMBEDDING" | "DEFAULT_MODEL_RERANKER" | "HEALTH_SANDBOX_TIMEOUT_MS" | "AI_GATEWAY_NAME" | "AI_GATEWAY_SLUG" | "CLOUDFLARE_WORKER_NAME" | "GITHUB_OWNER" | "TEMPLATES_REPO_NAME" | "STANDARDIZATION_REPO_NAME" | "HEALTH_TEST_REPO_NAME" | "BASE_URL" | "MAX_AI_BUDGET" | "USE_OPENAI_MODELS" | "MCP_API_URL" | "GITHUB_APP_PRIVATE_KEY">> {}
 }
 declare module "*.hbs" {
 	const value: string;

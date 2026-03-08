@@ -12,6 +12,7 @@ import github from './github'
 import kv from './kv'
 import comments from './comments'
 import healthCheck from './health'
+import docGen from './doc-gen'
 
 
 const toolsApi = new OpenAPIHono<{ Bindings: Env }>()
@@ -23,6 +24,7 @@ toolsApi.route('/', github)
 toolsApi.route('/', kv)
 toolsApi.route('/', comments)
 toolsApi.route('/', healthCheck)
+toolsApi.route('/', docGen)
 
 export const GITHUB_TOOLS = [];
 

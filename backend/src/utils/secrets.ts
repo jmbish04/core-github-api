@@ -109,6 +109,14 @@ export async function getGithubToken(env: Env): Promise<string | undefined> {
     return getSecret(env, "GITHUB_TOKEN");
 }
 
+export async function getGithubPersonalAccessToken(env: Env): Promise<string | undefined> {
+    if ((env as any).GITHUB_PERSONAL_ACCESS_TOKEN) {
+        const token = (env as any).GITHUB_PERSONAL_ACCESS_TOKEN;
+        return typeof token === "string" ? token : await token.get();
+    }
+    return getSecret(env, "GITHUB_PERSONAL_ACCESS_TOKEN");
+}
+
 export async function getOpenaiApiKey(env: Env): Promise<string | undefined> {
     if (env.OPENAI_API_KEY) {
         return typeof env.OPENAI_API_KEY === 'string'

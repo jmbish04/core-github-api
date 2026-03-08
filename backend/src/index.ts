@@ -716,6 +716,7 @@ export { LandingPageAgent } from "@/ai/agents/LandingPageAgent";
 export { CfWorkshop_AgentsSdk } from "@/ai/agents/workshop/CfAgentsSdk";
 export { WorkshopAgent } from "@/ai/agents/workshop/WorkshopAgent";
 export { JulesWebhookBroadcaster } from "@/do/JulesWebhookBroadcaster";
+export { AnalyzerAgent, DocumenterAgent, RulesGeneratorAgent } from "@services/ai-doc-gen/agents";
 
 
 // Sandbox SDK — the Sandbox Durable Object class is provided by the SDK
