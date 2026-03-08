@@ -369,6 +369,14 @@
 			"name": "topic-research-workflow",
 			"binding": "TOPIC_RESEARCH_WORKFLOW",
 			"class_name": "TopicResearchWorkflow"
+		},
+		{
+			// Incremental Discord channel scanner — ingests messages from the
+			// Cloudflare Developers Discord, analyses them with AI, and surfaces
+			// highlights in the daily newsletter.
+			"name": "discord-research-workflow",
+			"binding": "DISCORD_RESEARCH_WORKFLOW",
+			"class_name": "DiscordResearchWorkflow"
 		}
 	],
 	"browser": {

@@ -63,25 +63,22 @@ export async function sendRepoDiscoveryEmail(env: Env, params: SendEmailParams):
     });
   }
 
-  // Import new fallback template if needed
-  let finalContentHtml = params.contentHtml || "";
-  
-  if (params.dailyTrendsData) {
-    const digestTemplate = Handlebars.compile(fallbackEmailRaw);
-    
-    // Map the external data property to the Handlebars variables
-    finalContentHtml = digestTemplate({
-      title: params.title,
-      summary: params.dailyTrendsData.trend_summary,
-      repos: params.dailyTrendsData.top_picks
-    });
-  }
-
-  // Compile and append the standard HTML fallback
+  // Compile the fallback template once and pass all data in a single pass.
+  // When dailyTrendsData is provided, the template renders the structured
+  // {{#each repos}} digest. contentHtml (if set) is rendered via {{{contentHtml}}}.
   const fallbackTemplate = Handlebars.compile(fallbackEmailRaw);
+  const templateContext: Record<string, unknown> = {
+    subject: params.subject,
+    title: params.title,
+    contentHtml: params.contentHtml || "",
+  };
+  if (params.dailyTrendsData) {
+    templateContext.summary = params.dailyTrendsData.trend_summary;
+    templateContext.repos = params.dailyTrendsData.top_picks;
+  }
   msg.addMessage({
     contentType: "text/html",
-    data: fallbackTemplate({ subject: params.subject, contentHtml: finalContentHtml }),
+    data: fallbackTemplate(templateContext),
   });
 
   // If AMP data is provided, compile and append the interactive layer
