@@ -37,11 +37,13 @@ export const DOC_GEN_STANDARDS_CONTENT = `# AI Document Generation Standards
 `;
 
 function stripCodeFences(value: string) {
-  return value
-    .trim()
-    .replace(/^```(?:json|markdown)?\s*/i, "")
-    .replace(/\s*```$/, "")
-    .trim();
+  const trimmed = value.trim();
+  const fencedMatch = trimmed.match(/^```(?:json|markdown)?\s*([\s\S]*?)\s*```$/i);
+  return (fencedMatch?.[1] ?? trimmed).trim();
+}
+
+function toDebugMarkdownBlock(value: string) {
+  return ["```text", stripCodeFences(value), "```"].join("\n");
 }
 
 function parseJsonObject(value: string): Record<string, unknown> {
@@ -55,6 +57,13 @@ function sanitizeMarkdownFilename(filename: string) {
     throw new Error(`Unsafe generated markdown filename: ${filename}`);
   }
   return normalized;
+}
+
+function hasStatus(error: unknown, status: number) {
+  return typeof error === "object"
+    && error !== null
+    && "status" in error
+    && (error as { status?: unknown }).status === status;
 }
 
 function normalizeMarkdownRecord(
@@ -117,8 +126,8 @@ async function getExistingFileSha(
     const { data } = await octokit.repos.getContent({ owner, repo, path, ref: branch });
     if (Array.isArray(data) || data.type !== "file") return undefined;
     return data.sha;
-  } catch (error: any) {
-    if (error?.status === 404) {
+  } catch (error: unknown) {
+    if (hasStatus(error, 404)) {
       return undefined;
     }
     throw error;
@@ -215,7 +224,15 @@ export class AiDocGenService {
     } catch {
       documenterFiles = {
         "structure_analysis.md": `# Structure Analysis\n\n${stripCodeFences(analyzerResponse)}`,
-        "api_analysis.md": "# API Analysis\n\nThe documenter agent returned an invalid payload, so the analyzer summary was preserved for manual review.",
+        "api_analysis.md": [
+          "# API Analysis",
+          "",
+          "The documenter agent returned non-JSON output, so manual review is required.",
+          "",
+          "## Raw agent response",
+          "",
+          toDebugMarkdownBlock(documenterResponse),
+        ].join("\n"),
       };
     }
 
@@ -223,7 +240,19 @@ export class AiDocGenService {
       rulesFiles = parseJsonObject(rulesResponse);
     } catch {
       rulesFiles = {
-        "repo-doc-gen-rules.md": `# Repository Doc Generation Rules\n\n${stripCodeFences(analyzerResponse)}`,
+        "repo-doc-gen-rules.md": [
+          "# Repository Doc Generation Rules",
+          "",
+          "The rules agent returned non-JSON output, so the analyzer summary has been preserved for manual follow-up.",
+          "",
+          "## Analyzer summary",
+          "",
+          stripCodeFences(analyzerResponse),
+          "",
+          "## Raw agent response",
+          "",
+          toDebugMarkdownBlock(rulesResponse),
+        ].join("\n"),
       };
     }
 

@@ -1,4 +1,4 @@
-import { tool, z } from "honidev";
+import { tool, type ToolDefinition, z } from "honidev";
 import { getOctokit } from "../octokit/core";
 
 const RepoLocatorSchema = z.object({
@@ -101,4 +101,7 @@ export const readFileContentTool = tool({
   },
 });
 
-export const AI_DOC_TOOLS = [readRepoTreeTool, readFileContentTool];
+export const AI_DOC_TOOLS = [
+  readRepoTreeTool,
+  readFileContentTool,
+] as unknown as ToolDefinition[];

@@ -3,7 +3,6 @@ import {
   createAgent,
   type ObservabilityConfig,
   routeToAgent,
-  type ToolDefinition,
 } from "honidev";
 import { getCloudflareAccountId, getOpenaiApiKey } from "../../utils/secrets";
 import { AI_DOC_TOOLS } from "./tools";
@@ -74,6 +73,10 @@ const AGENT_CONFIG = {
   },
 } as const;
 
+function asAgentBindings(env: Env) {
+  return env as unknown as Record<string, DurableObjectNamespace>;
+}
+
 async function buildRuntimeEnv(env: Env) {
   return {
     ...(env as unknown as Record<string, unknown>),
@@ -81,11 +84,20 @@ async function buildRuntimeEnv(env: Env) {
   };
 }
 
-async function buildObservability(env: Env, agentName: string): Promise<ObservabilityConfig> {
+type HoniGatewayObservability = ObservabilityConfig & {
+  enabled: boolean;
+  aiGatewaySlug: string;
+  collectEvents: boolean;
+};
+
+async function buildObservability(env: Env, agentName: string): Promise<HoniGatewayObservability> {
   const accountId = await getCloudflareAccountId(env);
   const gatewayId = env.AI_GATEWAY_SLUG || env.AI_GATEWAY_NAME;
 
   return {
+    enabled: true,
+    aiGatewaySlug: gatewayId,
+    collectEvents: true,
     aiGateway: accountId && gatewayId
       ? {
           accountId,
@@ -108,18 +120,9 @@ async function createRuntimeAgent(env: Env, kind: AgentKind) {
     binding: config.binding,
     model: "gpt-4o",
     system: config.system,
-    tools: AI_DOC_TOOLS as unknown as ToolDefinition[],
+    tools: AI_DOC_TOOLS,
     maxSteps: 12,
-    observability: {
-      enabled: true,
-      aiGatewaySlug: env.AI_GATEWAY_SLUG || env.AI_GATEWAY_NAME,
-      collectEvents: true,
-      ...observability,
-    } as ObservabilityConfig & {
-      enabled: boolean;
-      aiGatewaySlug: string;
-      collectEvents: boolean;
-    },
+    observability,
   });
 
   return { agent, runtimeEnv };
@@ -161,7 +164,7 @@ export class RulesGeneratorAgent extends RuntimeDelegatingAgent {
 }
 
 export async function runAnalyzerAgent(env: Env, threadId: string, prompt: string) {
-  const result = await routeToAgent(env as unknown as Record<string, DurableObjectNamespace>, {
+  const result = await routeToAgent(asAgentBindings(env), {
     binding: ANALYZER_BINDING,
     threadId,
   }, prompt);
@@ -169,7 +172,7 @@ export async function runAnalyzerAgent(env: Env, threadId: string, prompt: strin
 }
 
 export async function runDocumenterAgent(env: Env, threadId: string, prompt: string) {
-  const result = await routeToAgent(env as unknown as Record<string, DurableObjectNamespace>, {
+  const result = await routeToAgent(asAgentBindings(env), {
     binding: DOCUMENTER_BINDING,
     threadId,
   }, prompt);
@@ -177,7 +180,7 @@ export async function runDocumenterAgent(env: Env, threadId: string, prompt: str
 }
 
 export async function runRulesGeneratorAgent(env: Env, threadId: string, prompt: string) {
-  const result = await routeToAgent(env as unknown as Record<string, DurableObjectNamespace>, {
+  const result = await routeToAgent(asAgentBindings(env), {
     binding: RULES_BINDING,
     threadId,
   }, prompt);

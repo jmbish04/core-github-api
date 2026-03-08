@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2, Sparkles, Wand2 } from "lucide-react";
+import { Loader2, Sparkles } from "lucide-react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { useAuth } from "@/context/auth-context";
@@ -40,6 +40,14 @@ interface AiDocGenResponse {
   success: boolean;
   prUrl: string;
   generatedPaths: string[];
+}
+
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return "Failed to generate AI docs.";
 }
 
 export function AiDocGenModal({ owner, repo, branch, trigger }: AiDocGenModalProps) {
@@ -93,8 +101,8 @@ export function AiDocGenModal({ owner, repo, branch, trigger }: AiDocGenModalPro
       }
 
       setResult(data);
-    } catch (submissionError: any) {
-      setError(submissionError?.message || "Failed to generate AI docs.");
+    } catch (submissionError: unknown) {
+      setError(getErrorMessage(submissionError));
     } finally {
       setIsLoading(false);
     }
@@ -190,7 +198,7 @@ export function AiDocGenModal({ owner, repo, branch, trigger }: AiDocGenModalPro
                     </>
                   ) : (
                     <>
-                      <Wand2 className="h-4 w-4" />
+                      <Sparkles className="h-4 w-4" />
                       Generate AI Docs
                     </>
                   )}

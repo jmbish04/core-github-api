@@ -18,6 +18,15 @@ export const AiDocGenResponseSchema = z.object({
   generatedPaths: z.array(z.string()),
 });
 
+const AiDocGenErrorResponseSchema = z.object({
+  success: z.literal(false),
+  branchName: z.string(),
+  prNumber: z.number(),
+  prUrl: z.string(),
+  generatedPaths: z.array(z.string()),
+  error: z.string(),
+});
+
 export const docGenRoute = createRoute({
   method: "post",
   path: "/github/repos/doc-gen",
@@ -44,6 +53,11 @@ export const docGenRoute = createRoute({
       description: "AI docs generated and pull request created successfully.",
     },
     500: {
+      content: {
+        "application/json": {
+          schema: AiDocGenErrorResponseSchema,
+        },
+      },
       description: "Failed to generate AI docs.",
     },
   },
@@ -51,6 +65,14 @@ export const docGenRoute = createRoute({
 });
 
 const docGenApi = new OpenAPIHono<{ Bindings: Env }>();
+
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return "Failed to generate AI docs.";
+}
 
 docGenApi.openapi(docGenRoute, async (c) => {
   const payload = c.req.valid("json");
@@ -61,16 +83,16 @@ docGenApi.openapi(docGenRoute, async (c) => {
       success: true,
       ...result,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("[ai-doc-gen] failed to create PR", error);
     return c.json({
       success: false,
       branchName: "",
       prNumber: 0,
-      prUrl: "https://github.com",
+      prUrl: "",
       generatedPaths: [],
-      error: error?.message ?? "Failed to generate AI docs.",
-    } as any, 500);
+      error: getErrorMessage(error),
+    }, 500);
   }
 });
 
