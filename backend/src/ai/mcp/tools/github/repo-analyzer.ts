@@ -462,11 +462,15 @@ export function deduplicateQuestions(
   newQuestions: DetailedQuestion[]
 ): DetailedQuestion[] {
   const merged = [...existingQuestions];
-  const existingQueries = new Set(existingQuestions.map((q) => q.query.toLowerCase()));
+  const existingQueries = new Set<string>();
+  for (const q of existingQuestions) {
+    existingQueries.add(q.query.toLowerCase());
+  }
   for (const newQ of newQuestions) {
-    if (!existingQueries.has(newQ.query.toLowerCase())) {
+    const queryLower = newQ.query.toLowerCase();
+    if (!existingQueries.has(queryLower)) {
       merged.push(newQ);
-      existingQueries.add(newQ.query.toLowerCase());
+      existingQueries.add(queryLower);
     }
   }
   return merged;
