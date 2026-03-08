@@ -1,9 +1,17 @@
 import { BaseAutomation } from '@/core/BaseAutomation';
+import type { Context } from 'hono';
 
-export class PRReviewExtraction extends BaseAutomation {
-  private c: unknown;
+type PullRequestReviewPayload = {
+  action?: string;
+  review?: { state?: string };
+  repository: { owner: { login: string }; name: string };
+  pull_request: { number: number };
+};
 
-  constructor(env: Env, payload: unknown, installationId: number | undefined, usePat: boolean, deliveryId: string, c: unknown) {
+export class PRReviewExtraction extends BaseAutomation<PullRequestReviewPayload> {
+  private c: Context<{ Bindings: Env }>;
+
+  constructor(env: Env, payload: PullRequestReviewPayload, installationId: number | undefined, usePat: boolean, deliveryId: string, c: Context<{ Bindings: Env }>) {
     super(env, payload, installationId, usePat);
     this.c = c;
   }
@@ -26,7 +34,7 @@ export class PRReviewExtraction extends BaseAutomation {
       await this.logExecution('success', 'Review comments extracted and queued for bot intervention', this.payload.pull_request.number);
     } catch (e: unknown) {
       console.error('[PRReviewExtraction] failed:', e);
-      await this.logExecution('failure', `Extraction failed: ${e.message}`, this.payload.pull_request?.number);
+      await this.logExecution('failure', `Extraction failed: ${this.getErrorMessage(e)}`, this.payload.pull_request?.number);
     }
   }
 }

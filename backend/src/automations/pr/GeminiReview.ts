@@ -1,9 +1,10 @@
 import { BaseAutomation } from '@/core/BaseAutomation';
+import type { GitHubPullRequestPayload } from '@/types/github/webhooks';
 import { appendSignature } from "@/utils/github/signature";
 import { withCompatOctokit } from "@/services/octokit/compat";
 import { GitHubConditionals } from '@/utils/github/conditionals';
 
-export class GeminiReview extends BaseAutomation {
+export class GeminiReview extends BaseAutomation<GitHubPullRequestPayload> {
   async shouldExecute(): Promise<boolean> {
     const action = this.payload.action;
     return (action === 'synchronize' || action === 'ready_for_review') && !!this.payload.pull_request;
@@ -43,7 +44,7 @@ export class GeminiReview extends BaseAutomation {
       
       await this.logExecution('success', 'Added /gemini review comment', prNumber);
     } catch (err: unknown) {
-      await this.logExecution('failure', `Failed to request review: ${err.message}`, prNumber);
+      await this.logExecution('failure', `Failed to request review: ${this.getErrorMessage(err)}`, prNumber);
     }
   }
 }

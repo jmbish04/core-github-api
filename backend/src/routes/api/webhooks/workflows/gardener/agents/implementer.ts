@@ -7,10 +7,15 @@
 import type { GardenerContext } from '../types';
 import type { CommandResult } from '../router';
 import { CodeAuditor } from '../auditor';
-import { BaseAgent } from '@/ai/agents/base/BaseAgent';
 import { generateStructuredResponse } from '@/ai/providers';
+import { Logger } from '@/lib/logger';
 
-export class Implementer extends BaseAgent {
+export class Implementer {
+    private readonly logger: Logger;
+
+    constructor(private readonly env: Env) {
+        this.logger = new Logger(env, 'Implementer');
+    }
 
     /**
      * Triggered by "/colby implement" in an Issue.

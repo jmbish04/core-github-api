@@ -9,9 +9,22 @@ interface JulesPayload {
   repository?: { name?: string; owner?: { login?: string; } };
 }
 
+function isJulesPayload(payload: unknown): payload is JulesPayload {
+  if (!payload || typeof payload !== 'object') {
+    return false;
+  }
+
+  const candidate = payload as Record<string, unknown>;
+  return candidate.comment !== undefined || candidate.issue !== undefined || candidate.repository !== undefined;
+}
+
 export class JulesAutoFix extends BaseAutomation {
   async shouldExecute(): Promise<boolean> {
-    const payload = this.payload as JulesPayload;
+    if (!isJulesPayload(this.payload)) {
+      return false;
+    }
+
+    const payload = this.payload;
     if (!payload.comment) return false;
 
     const isGemini = GitHubConditionals.isBotOrAgentUser(payload.comment?.user);
@@ -20,7 +33,12 @@ export class JulesAutoFix extends BaseAutomation {
   }
 
   async execute(): Promise<void> {
-    const payload = this.payload as JulesPayload;
+    if (!isJulesPayload(this.payload)) {
+      await this.logExecution('skipped', 'Unsupported payload shape for Jules auto-fix');
+      return;
+    }
+
+    const payload = this.payload;
     const feedback = payload.comment?.body;
     const prNumber = payload.issue?.number;
 

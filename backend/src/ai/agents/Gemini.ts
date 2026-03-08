@@ -10,9 +10,11 @@
 import { callable } from "agents";
 import { BaseAgent, BaseAgentState } from "@/ai/agents/base/BaseAgent";
 
+type GeminiMessage = { role: string; content: string };
+
 interface GeminiState extends BaseAgentState {
   status: "idle" | "running" | "error";
-  messages: Array<{ role: string; content: string }>;
+  messages: GeminiMessage[];
 }
 
 export class GeminiAgent extends BaseAgent<Env, GeminiState> {
@@ -34,12 +36,13 @@ export class GeminiAgent extends BaseAgent<Env, GeminiState> {
  * 
  * @param prompt - The user's input message.
  * @param history - Optional message history.
- * @returns The agent's response and updated history.
- */
+  * @returns The agent's response and updated history.
+  */
   @callable()
-  async chat(prompt: string, history?: any[], customInstructions?: string) {
+  async chat(prompt: string, history?: GeminiMessage[], customInstructions?: string) {
     try {
       await this.setState({ ...this.state, status: "running" });
+      const priorMessages = history ?? this.state.messages;
 
       const fullResponse = await this.runTextWithModel({
         provider: "gemini",
@@ -53,7 +56,7 @@ export class GeminiAgent extends BaseAgent<Env, GeminiState> {
       await this.setState({
         ...this.state,
         messages: [
-          ...this.state.messages,
+          ...priorMessages,
           { role: "user", content: prompt },
           { role: "assistant", content: fullResponse }
         ],
@@ -62,9 +65,9 @@ export class GeminiAgent extends BaseAgent<Env, GeminiState> {
 
       return { response: fullResponse };
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       await this.setState({ ...this.state, status: "error" });
-      return { response: `[Agent Error]: ${error.message}` };
+      return { response: `[Agent Error]: ${error instanceof Error ? error.message : String(error)}` };
     }
   }
 }

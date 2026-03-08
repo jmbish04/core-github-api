@@ -1,11 +1,21 @@
 import { BaseAutomation } from '@/core/BaseAutomation';
+import type { GitHubIssueCommentPayload, GitHubIssuesPayload } from '@/types/github/webhooks';
 import { SlashCommandRouter } from "@/routes/api/webhooks/workflows/gardener/router";
+import type { GardenerContext } from "@/routes/api/webhooks/workflows/gardener/types";
 import { withCompatOctokit } from "@/services/octokit/compat";
+import type { Context } from 'hono';
 
-export class SlashCommand extends BaseAutomation {
-  private c: unknown;
+type SlashCommandPayload = {
+  action?: GitHubIssuesPayload['action'] | GitHubIssueCommentPayload['action'];
+  issue?: GitHubIssuesPayload['issue'];
+  comment?: GitHubIssueCommentPayload['comment'];
+  repository?: GitHubIssuesPayload['repository'];
+};
 
-  constructor(env: Env, payload: unknown, installationId: number | undefined, usePat: boolean, c: unknown) {
+export class SlashCommand extends BaseAutomation<SlashCommandPayload> {
+  private c: Context<{ Bindings: Env }>;
+
+  constructor(env: Env, payload: SlashCommandPayload, installationId: number | undefined, usePat: boolean, c: Context<{ Bindings: Env }>) {
     super(env, payload, installationId, usePat);
     this.c = c;
   }
@@ -30,25 +40,32 @@ export class SlashCommand extends BaseAutomation {
     try {
       const octokit = withCompatOctokit(await this.getGitHubClient());
       const body = this.payload.comment ? this.payload.comment.body : this.payload.issue?.body;
+      const repository = this.payload.repository;
+      const issueNumber = this.payload.issue?.number;
+
+      if (!body || !repository?.owner?.login || !repository.name || !repository.default_branch || !issueNumber) {
+        await this.logExecution('skipped', 'Slash command payload was missing issue or repository context');
+        return;
+      }
 
       await SlashCommandRouter.handleAndReply(
         body,
         {
           env: this.env,
-          executionCtx: { ...(this.c as { executionCtx: unknown }).executionCtx, exports: {} as Record<string, unknown> },
+          executionCtx: this.c.executionCtx as GardenerContext['executionCtx'],
           repo: { 
-            owner: this.payload.repository?.owner?.login, 
-            name: this.payload.repository?.name, 
-            defaultBranch: this.payload.repository?.default_branch 
+            owner: repository.owner.login, 
+            name: repository.name, 
+            defaultBranch: repository.default_branch,
           },
-          octokit
+          octokit,
         },
-        { issueNumber: this.payload.issue?.number, issueBody: this.payload.issue?.body }
+        { issueNumber, issueBody: this.payload.issue?.body ?? undefined }
       );
       await this.logExecution('success', 'Slash command processed');
     } catch (err: unknown) {
       console.error('[SlashCommand] Failed:', err);
-      await this.logExecution('failure', `Slash command failed: ${err.message}`);
+      await this.logExecution('failure', `Slash command failed: ${this.getErrorMessage(err)}`);
     }
   }
 }

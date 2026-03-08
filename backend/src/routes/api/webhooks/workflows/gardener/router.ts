@@ -23,6 +23,9 @@ export class SlashCommandRouter {
         // Regex to find "/colby <command> <args>"
         const commandRegex = /^\/colby\s+([a-z-]+)(?:\s+(.*))?$/m;
         const match = text.match(commandRegex);
+        if (!match) {
+            return null;
+        }
 
         const commandName = match[1];
         const args = match[2] || '';

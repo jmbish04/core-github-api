@@ -26,7 +26,6 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import axios from "axios";
 import { toast } from "sonner";
-import { AutomationRegistry, SystemAutomations } from "@api/core/AutomationRegistry";
 
 // Types
 type WebhookConfig = {
@@ -45,6 +44,33 @@ type AutomationLog = {
   contextId: string | null;
   createdAt: string;
 };
+
+const AUTOMATION_REGISTRY_KEYS = [
+  "TelemetryIngestion",
+  "RepoSync",
+  "StatsUpdate",
+  "GeminiReview",
+  "BugHunter",
+  "JulesAutoFix",
+  "SlashCommand",
+  "TaskSync",
+  "JulesStandardsPush",
+  "GardenerPush",
+  "PRIngest",
+  "PRReviewExtraction",
+  "AgentTagger",
+  "BuildAnalyzer",
+] as const;
+
+const SYSTEM_AUTOMATIONS = [
+  "TelemetryIngestion",
+  "RepoSync",
+  "StatsUpdate",
+  "TaskSync",
+  "PRIngest",
+] as const;
+
+const getErrorMessage = (error: unknown) => error instanceof Error ? error.message : String(error);
 
 export default function Workflows() {
   const queryClient = useQueryClient();
@@ -75,8 +101,8 @@ export default function Workflows() {
       queryClient.invalidateQueries({ queryKey: ["webhook-configs"] });
       toast.success("Configuration updated successfully.");
     },
-    onError: (err: Error) => {
-      toast.error(`Failed to update config: ${err.message}`);
+    onError: (err: unknown) => {
+      toast.error(`Failed to update config: ${getErrorMessage(err)}`);
     }
   });
 
@@ -97,7 +123,7 @@ export default function Workflows() {
   };
 
   // Compile list of all available automations (System + DB state + Unconfigured available in Registry)
-  const availableClasses = Object.keys(AutomationRegistry).filter(k => !SystemAutomations.includes(k));
+  const availableClasses = AUTOMATION_REGISTRY_KEYS.filter(k => !SYSTEM_AUTOMATIONS.includes(k));
   
   const mergedConfigs = availableClasses.map(clsName => {
     const dbConfig = configsData?.find(c => c.automationClass === clsName);
@@ -153,8 +179,7 @@ export default function Workflows() {
         }
       }
     } catch (err: unknown) {
-      const error = err as Error;
-      toast.error("Chat error: " + error.message);
+      toast.error("Chat error: " + getErrorMessage(err));
     } finally {
       setIsChatLoading(false);
     }

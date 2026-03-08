@@ -1,4 +1,4 @@
-
+import type { BaseAutomation } from './BaseAutomation';
 import { GeminiReview } from '../automations/pr/GeminiReview';
 import { BugHunter } from '../automations/issues/BugHunter';
 import { JulesAutoFix } from '../automations/issues/JulesAutoFix';
@@ -14,7 +14,9 @@ import { PRReviewExtraction } from '../automations/pr/PRReviewExtraction';
 import { AgentTagger } from '../automations/pr/AgentTagger';
 import { BuildAnalyzer } from '../automations/pr/BuildAnalyzer';
 
-export const AutomationRegistry: Record<string, unknown> = {
+export type AutomationClass = new (...args: any[]) => BaseAutomation<any>;
+
+export const AutomationRegistry: Record<string, AutomationClass> = {
   TelemetryIngestion,
   RepoSync,
   StatsUpdate,

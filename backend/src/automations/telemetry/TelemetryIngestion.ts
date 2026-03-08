@@ -2,12 +2,93 @@ import { BaseAutomation } from '@/core/BaseAutomation';
 import { getWebhooksDb } from '@db';
 import * as eventTables from "@/db/schemas/github/webhooks";
 
-export class TelemetryIngestion extends BaseAutomation {
+type TelemetryPayload = {
+  pull_request?: {
+    number?: number;
+    title?: string;
+    state?: string;
+    head?: { ref?: string; sha?: string };
+    base?: { ref?: string; sha?: string };
+    merged?: boolean;
+    merged_at?: string | null;
+    user?: { login?: string };
+    assignee?: { login?: string } | null;
+  };
+  review?: {
+    id?: number;
+    state?: string;
+    user?: { login?: string };
+    body?: string | null;
+  };
+  comment?: {
+    id?: number;
+    body?: string;
+    user?: { login?: string };
+  };
+  issue?: {
+    number?: number;
+    title?: string;
+    state?: string;
+    user?: { login?: string };
+    assignee?: { login?: string } | null;
+    milestone?: { id?: number } | null;
+    created_at?: string;
+    closed_at?: string | null;
+  };
+  ref?: string;
+  before?: string;
+  after?: string;
+  pusher?: { name?: string };
+  head_commit?: { id?: string; message?: string };
+  size?: number;
+  distinct_size?: number | null;
+  repository?: {
+    id?: number;
+    name?: string;
+    full_name?: string;
+    owner?: { login?: string };
+    private?: boolean;
+  };
+  check_run?: {
+    id?: number;
+    name?: string;
+    status?: string;
+    conclusion?: string | null;
+    started_at?: string;
+    completed_at?: string;
+    head_sha?: string;
+  };
+  security_advisory?: {
+    ghsa_id?: string;
+    summary?: string;
+    severity?: string;
+    published_at?: string;
+    updated_at?: string;
+    withdrawn_at?: string | null;
+  };
+  alert?: {
+    number?: number;
+    url?: string;
+    state?: string;
+    dismissed_reason?: string | null;
+    dismissed_at?: string | null;
+    created_at?: string;
+    resolution?: string | null;
+    secret_type?: string;
+    resolved_at?: string | null;
+    rule?: { severity?: string; id?: string };
+    tool?: { name?: string };
+    dependency?: { package?: { name?: string } };
+    security_advisory?: { ghsa_id?: string; severity?: string };
+  };
+};
+
+export class TelemetryIngestion extends BaseAutomation<TelemetryPayload> {
   private eventName: string;
   private action: string | null;
   private deliveryId: string;
 
-  constructor(env: Env, payload: unknown, installationId: number | undefined, usePat: boolean, deliveryId: string, eventName: string, action: string | null) {
+  constructor(env: Env, payload: TelemetryPayload, installationId: number | undefined, usePat: boolean, deliveryId: string, eventName: string, action: string | null) {
     super(env, payload, installationId, usePat);
     this.deliveryId = deliveryId;
     this.eventName = eventName;
@@ -21,7 +102,7 @@ export class TelemetryIngestion extends BaseAutomation {
   async execute(): Promise<void> {
     const db = getWebhooksDb(this.env.DB_WEBHOOKS);
     
-    const insertPayload = async (table: unknown, specificFields: Record<string, unknown>) => {
+    const insertPayload = async (table: Parameters<typeof db.insert>[0], specificFields: Record<string, unknown>) => {
       await db.insert(table).values({
         delivery_id: this.deliveryId,
         payload: this.payload,
@@ -30,127 +111,149 @@ export class TelemetryIngestion extends BaseAutomation {
     };
 
     switch (this.eventName) {
-      case 'pull_request':
+      case 'pull_request': {
+        const prPayload = this.payload;
         await insertPayload(eventTables.pullRequest, {
-          pr_number: this.payload.pull_request?.number,
-          title: this.payload.pull_request?.title,
-          state: this.payload.pull_request?.state,
-          head_ref: this.payload.pull_request?.head?.ref,
-          head_sha: this.payload.pull_request?.head?.sha,
-          base_ref: this.payload.pull_request?.base?.ref,
-          base_sha: this.payload.pull_request?.base?.sha,
-          merged: this.payload.pull_request?.merged,
-          merged_at: this.payload.pull_request?.merged_at,
-          author_login: this.payload.pull_request?.user?.login,
-          assignee_login: this.payload.pull_request?.assignee?.login,
+          pr_number: prPayload.pull_request?.number,
+          title: prPayload.pull_request?.title,
+          state: prPayload.pull_request?.state,
+          head_ref: prPayload.pull_request?.head?.ref,
+          head_sha: prPayload.pull_request?.head?.sha,
+          base_ref: prPayload.pull_request?.base?.ref,
+          base_sha: prPayload.pull_request?.base?.sha,
+          merged: prPayload.pull_request?.merged,
+          merged_at: prPayload.pull_request?.merged_at,
+          author_login: prPayload.pull_request?.user?.login,
+          assignee_login: prPayload.pull_request?.assignee?.login,
         });
         break;
+      }
       case 'pull_request_review':
-      case 'pull_request_review_comment':
+      case 'pull_request_review_comment': {
+        const reviewPayload = this.payload;
         await insertPayload(eventTables.pullRequestReview, {
-          pr_number: this.payload.pull_request?.number,
-          review_id: this.payload.review?.id,
-          state: this.payload.review?.state,
-          author_login: this.payload.review?.user?.login,
-          body: this.payload.review?.body || this.payload.comment?.body,
+          pr_number: reviewPayload.pull_request?.number,
+          review_id: reviewPayload.review?.id,
+          state: reviewPayload.review?.state,
+          author_login: reviewPayload.review?.user?.login,
+          body: reviewPayload.review?.body || reviewPayload.comment?.body,
         });
         break;
-      case 'issues':
+      }
+      case 'issues': {
+        const issuesPayload = this.payload;
         await insertPayload(eventTables.issues, {
-          issue_number: this.payload.issue?.number,
-          title: this.payload.issue?.title,
-          state: this.payload.issue?.state,
-          author_login: this.payload.issue?.user?.login,
-          assignee_login: this.payload.issue?.assignee?.login,
-          milestone_id: this.payload.issue?.milestone?.id,
-          created_at: this.payload.issue?.created_at,
-          closed_at: this.payload.issue?.closed_at,
+          issue_number: issuesPayload.issue?.number,
+          title: issuesPayload.issue?.title,
+          state: issuesPayload.issue?.state,
+          author_login: issuesPayload.issue?.user?.login,
+          assignee_login: issuesPayload.issue?.assignee?.login,
+          milestone_id: issuesPayload.issue?.milestone?.id,
+          created_at: issuesPayload.issue?.created_at,
+          closed_at: issuesPayload.issue?.closed_at,
         });
         break;
-      case 'issue_comment':
+      }
+      case 'issue_comment': {
+        const issueCommentPayload = this.payload;
         await insertPayload(eventTables.issueComment, {
-          issue_number: this.payload.issue?.number,
-          comment_id: this.payload.comment?.id,
+          issue_number: issueCommentPayload.issue?.number,
+          comment_id: issueCommentPayload.comment?.id,
           action: this.action,
-          author_login: this.payload.comment?.user?.login,
-          body: this.payload.comment?.body,
+          author_login: issueCommentPayload.comment?.user?.login,
+          body: issueCommentPayload.comment?.body,
         });
         break;
-      case 'push':
+      }
+      case 'push': {
+        const pushPayload = this.payload;
         await insertPayload(eventTables.push, {
-          ref: this.payload.ref,
-          before_sha: this.payload.before,
-          after_sha: this.payload.after,
-          pusher_name: this.payload.pusher?.name,
-          head_commit_id: this.payload.head_commit?.id,
-          head_commit_message: this.payload.head_commit?.message,
-          size: this.payload.size,
-          distinct_size: this.payload.distinct_size || null,
+          ref: pushPayload.ref,
+          before_sha: pushPayload.before,
+          after_sha: pushPayload.after,
+          pusher_name: pushPayload.pusher?.name,
+          head_commit_id: pushPayload.head_commit?.id,
+          head_commit_message: pushPayload.head_commit?.message,
+          size: pushPayload.size,
+          distinct_size: pushPayload.distinct_size || null,
         });
         break;
-      case 'repository':
+      }
+      case 'repository': {
+        const repositoryPayload = this.payload;
         await insertPayload(eventTables.repository, {
-          repo_id: this.payload.repository?.id,
-          name: this.payload.repository?.name,
-          full_name: this.payload.repository?.full_name,
-          owner_login: this.payload.repository?.owner?.login,
-          is_private: this.payload.repository?.private,
+          repo_id: repositoryPayload.repository?.id,
+          name: repositoryPayload.repository?.name,
+          full_name: repositoryPayload.repository?.full_name,
+          owner_login: repositoryPayload.repository?.owner?.login,
+          is_private: repositoryPayload.repository?.private,
         });
         break;
-      case 'check_run':
+      }
+      case 'check_run': {
+        const checkRunPayload = this.payload;
         await insertPayload(eventTables.checkRun, {
-          check_run_id: this.payload.check_run?.id,
-          name: this.payload.check_run?.name,
-          status: this.payload.check_run?.status,
-          conclusion: this.payload.check_run?.conclusion,
-          started_at: this.payload.check_run?.started_at,
-          completed_at: this.payload.check_run?.completed_at,
-          head_sha: this.payload.check_run?.head_sha,
+          check_run_id: checkRunPayload.check_run?.id,
+          name: checkRunPayload.check_run?.name,
+          status: checkRunPayload.check_run?.status,
+          conclusion: checkRunPayload.check_run?.conclusion,
+          started_at: checkRunPayload.check_run?.started_at,
+          completed_at: checkRunPayload.check_run?.completed_at,
+          head_sha: checkRunPayload.check_run?.head_sha,
         });
         break;
-      case 'security_advisory':
+      }
+      case 'security_advisory': {
+        const securityAdvisoryPayload = this.payload;
         await insertPayload(eventTables.securityAdvisory, {
-          ghsa_id: this.payload.security_advisory?.ghsa_id,
-          summary: this.payload.security_advisory?.summary,
-          severity: this.payload.security_advisory?.severity,
-          published_at: this.payload.security_advisory?.published_at,
-          updated_at: this.payload.security_advisory?.updated_at,
-          withdrawn_at: this.payload.security_advisory?.withdrawn_at,
+          ghsa_id: securityAdvisoryPayload.security_advisory?.ghsa_id,
+          summary: securityAdvisoryPayload.security_advisory?.summary,
+          severity: securityAdvisoryPayload.security_advisory?.severity,
+          published_at: securityAdvisoryPayload.security_advisory?.published_at,
+          updated_at: securityAdvisoryPayload.security_advisory?.updated_at,
+          withdrawn_at: securityAdvisoryPayload.security_advisory?.withdrawn_at,
         });
         break;
-      case 'code_scanning_alert':
+      }
+      case 'code_scanning_alert': {
+        const codeScanningPayload = this.payload;
         await insertPayload(eventTables.codeScanningAlert, {
-          alert_number: this.payload.alert?.number,
-          alert_url: this.payload.alert?.url,
-          state: this.payload.alert?.state,
-          resolution: this.payload.alert?.dismissed_reason || null,
-          severity: this.payload.alert?.rule?.severity,
-          rule_id: this.payload.alert?.rule?.id,
-          tool_name: this.payload.alert?.tool?.name,
-          created_at: this.payload.alert?.created_at,
+          alert_number: codeScanningPayload.alert?.number,
+          alert_url: codeScanningPayload.alert?.url,
+          state: codeScanningPayload.alert?.state,
+          resolution: codeScanningPayload.alert?.dismissed_reason || null,
+          severity: codeScanningPayload.alert?.rule?.severity,
+          rule_id: codeScanningPayload.alert?.rule?.id,
+          tool_name: codeScanningPayload.alert?.tool?.name,
+          created_at: codeScanningPayload.alert?.created_at,
         });
         break;
-      case 'dependabot_alert':
+      }
+      case 'dependabot_alert': {
+        const dependabotPayload = this.payload;
         await insertPayload(eventTables.dependabotAlert, {
-          alert_number: this.payload.alert?.number,
-          state: this.payload.alert?.state,
-          dependency_package: this.payload.alert?.dependency?.package?.name,
-          security_advisory_id: this.payload.alert?.security_advisory?.ghsa_id,
-          severity: this.payload.alert?.security_advisory?.severity,
-          dismissed_reason: this.payload.alert?.dismissed_reason,
-          dismissed_at: this.payload.alert?.dismissed_at,
+          alert_number: dependabotPayload.alert?.number,
+          state: dependabotPayload.alert?.state,
+          dependency_package: dependabotPayload.alert?.dependency?.package?.name,
+          security_advisory_id: dependabotPayload.alert?.security_advisory?.ghsa_id,
+          severity: dependabotPayload.alert?.security_advisory?.severity,
+          dismissed_reason: dependabotPayload.alert?.dismissed_reason,
+          dismissed_at: dependabotPayload.alert?.dismissed_at,
         });
         break;
-      case 'secret_scanning_alert':
+      }
+      case 'secret_scanning_alert': {
+        const secretScanningPayload = this.payload;
         await insertPayload(eventTables.secretScanningAlert, {
-          alert_number: this.payload.alert?.number,
-          secret_type: this.payload.alert?.secret_type,
-          resolution: this.payload.alert?.resolution,
-          state: this.payload.alert?.state,
-          created_at: this.payload.alert?.created_at,
-          resolved_at: this.payload.alert?.resolved_at,
+          alert_number: secretScanningPayload.alert?.number,
+          secret_type: secretScanningPayload.alert?.secret_type,
+          resolution: secretScanningPayload.alert?.resolution,
+          state: secretScanningPayload.alert?.state,
+          created_at: secretScanningPayload.alert?.created_at,
+          resolved_at: secretScanningPayload.alert?.resolved_at,
         });
         break;
+      }
     }
   }
 }

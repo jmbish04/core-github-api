@@ -1,11 +1,13 @@
 import { BaseAutomation } from '@/core/BaseAutomation';
+import type { GitHubPushPayload } from '@/types/github/webhooks';
 import { GardenerOrchestrator } from "@/routes/api/webhooks/workflows/gardener";
 import { withCompatOctokit } from "@/services/octokit/compat";
+import type { Context } from 'hono';
 
-export class GardenerPush extends BaseAutomation {
-  private c: unknown; // We need context for Gardener until it's fully decoupled.
+export class GardenerPush extends BaseAutomation<GitHubPushPayload> {
+  private c: Context<{ Bindings: Env }>; // We need context for Gardener until it's fully decoupled.
 
-  constructor(env: Env, payload: unknown, installationId: number | undefined, usePat: boolean, deliveryId: string, c: unknown) {
+  constructor(env: Env, payload: GitHubPushPayload, installationId: number | undefined, usePat: boolean, deliveryId: string, c: Context<{ Bindings: Env }>) {
     super(env, payload, installationId, usePat);
     this.c = c;
   }
@@ -21,7 +23,7 @@ export class GardenerPush extends BaseAutomation {
       await this.logExecution('success', 'Gardener auto-formatting launched');
     } catch (err: unknown) {
       console.error('[Gardener] Failed to launch:', err);
-      await this.logExecution('failure', `Gardener failed: ${err.message}`);
+      await this.logExecution('failure', `Gardener failed: ${this.getErrorMessage(err)}`);
     }
   }
 }

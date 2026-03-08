@@ -1,10 +1,13 @@
 import { BaseAutomation } from '@/core/BaseAutomation';
+import type { GitHubIssuesPayload } from '@/types/github/webhooks';
 import { getDb } from '@db';
 import { tasks, repos } from '@db/schema';
 import { eq, and } from 'drizzle-orm';
 import { generateUuid } from "@/utils/common";
 
-export class TaskSync extends BaseAutomation {
+type TaskSyncPayload = GitHubIssuesPayload & { comment?: unknown };
+
+export class TaskSync extends BaseAutomation<TaskSyncPayload> {
   async shouldExecute(): Promise<boolean> {
     return !!this.payload.issue && !this.payload.comment;
   }
@@ -38,7 +41,7 @@ export class TaskSync extends BaseAutomation {
                     status = TaskStatus.TODO;
                     kanbanColumn = StatusMapper.mapStatusToColumn(status);
                 }
-                const actionName = (issuesPayload as Record<string, unknown>).action;
+                const actionName = issuesPayload.action;
                 if (actionName === 'assigned' || actionName === 'unassigned') {
                     kanbanColumn = assignee ? KanbanColumn.PLANNED : KanbanColumn.BACKLOG;
                     status = StatusMapper.mapColumnToStatus(kanbanColumn);
@@ -93,7 +96,7 @@ export class TaskSync extends BaseAutomation {
         }
     } catch (err: unknown) {
         console.error('[TaskSync] failed', err);
-        await this.logExecution('failure', `Update failed: ${err.message}`, issuesPayload.issue?.number);
+        await this.logExecution('failure', `Update failed: ${this.getErrorMessage(err)}`, issuesPayload.issue?.number);
     }
   }
 }

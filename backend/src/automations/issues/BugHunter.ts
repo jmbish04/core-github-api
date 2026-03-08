@@ -23,7 +23,7 @@ export class BugHunter extends BaseAutomation {
       await this.logExecution('success', 'BugHunter workflow dispatched');
     } catch (error: unknown) {
       console.error('[BugHunter] Workflow failed:', error);
-      await this.logExecution('failure', `BugHunter failed: ${error.message}`);
+      await this.logExecution('failure', `BugHunter failed: ${this.getErrorMessage(error)}`);
     }
   }
 }

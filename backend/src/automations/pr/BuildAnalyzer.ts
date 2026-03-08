@@ -9,7 +9,22 @@ import {
 } from "@/routes/api/webhooks/workflows/build-analyzer";
 import { detectPRAuthorAgent } from "@/routes/api/webhooks/workflows/pr-agent-tagger";
 
-export class BuildAnalyzer extends BaseAutomation {
+type CheckRunPayload = {
+  action?: string;
+  check_run?: {
+    conclusion?: string | null;
+    name?: string;
+    app?: { name?: string };
+    pull_requests?: Array<{ number?: number }>;
+  };
+  repository?: {
+    owner?: { login?: string };
+    name?: string;
+    full_name?: string;
+  };
+};
+
+export class BuildAnalyzer extends BaseAutomation<CheckRunPayload> {
   async shouldExecute(): Promise<boolean> {
     if (this.payload.action !== 'completed' || this.payload.check_run?.conclusion !== 'failure') return false;
 
@@ -28,21 +43,26 @@ export class BuildAnalyzer extends BaseAutomation {
 
   async execute(): Promise<void> {
     try {
-      const prList = this.payload.check_run.pull_requests;
-      const prNumber = prList[0]?.number;
-      if (!prNumber) return;
+      const checkRun = this.payload.check_run;
+      const repository = this.payload.repository;
+      const prList = checkRun?.pull_requests;
+      const prNumber = prList?.[0]?.number;
+      const repoOwner = repository?.owner?.login;
+      const repoName = repository?.name;
+      const repoFullName = repository?.full_name;
+      if (!checkRun || !prList || !prNumber || !repoOwner || !repoName) return;
 
       const octokit = withCompatOctokit(await this.getGitHubClient());
 
       const prRes = await octokit.rest.pulls.get({
-        owner: this.payload.repository.owner?.login,
-        repo: this.payload.repository.name,
+        owner: repoOwner,
+        repo: repoName,
         pull_number: prNumber,
       });
 
       const issueCommentsRes = await octokit.rest.issues.listComments({
-        owner: this.payload.repository.owner?.login,
-        repo: this.payload.repository.name,
+        owner: repoOwner,
+        repo: repoName,
         issue_number: prNumber,
         per_page: 100,
       });
@@ -57,7 +77,7 @@ export class BuildAnalyzer extends BaseAutomation {
 
       if (!agentInfo) return;
 
-      const workerName = inferWorkerName(this.payload.repository.full_name || this.payload.repository.name);
+      const workerName = inferWorkerName(repoFullName || repoName);
       const logs = await fetchBuildLogs(this.env, workerName);
       if (!logs) return;
 
@@ -65,20 +85,20 @@ export class BuildAnalyzer extends BaseAutomation {
         prNumber,
         prTitle: prRes.data.title,
         headRef: prRes.data.head?.ref || '',
-        repoFullName: this.payload.repository.full_name || `${this.payload.repository.owner?.login}/${this.payload.repository.name}`,
+        repoFullName: repoFullName || `${repoOwner}/${repoName}`,
       });
 
       const commentBody = appendSignature(formatBuildFailureComment(agentInfo.tag, prNumber, analysis));
       await octokit.rest.issues.createComment({
-        owner: this.payload.repository.owner?.login,
-        repo: this.payload.repository.name,
+        owner: repoOwner,
+        repo: repoName,
         issue_number: prNumber,
         body: commentBody,
       });
       await this.logExecution('success', 'Analyzed build failure and posted comment', prNumber);
     } catch (error: unknown) {
       console.error('[BuildAnalyzer] Failed to analyze build failure:', error);
-      await this.logExecution('failure', `BuildAnalyzer failed: ${error.message}`);
+      await this.logExecution('failure', `BuildAnalyzer failed: ${this.getErrorMessage(error)}`);
     }
   }
 }

@@ -1,8 +1,9 @@
 import { BaseAutomation } from '@/core/BaseAutomation';
+import type { GitHubPushPayload } from '@/types/github/webhooks';
 import { JulesService } from "@/services/jules/jules";
 import { JULES_STANDARDS } from "@/config/jules-standards";
 
-export class JulesStandardsPush extends BaseAutomation {
+export class JulesStandardsPush extends BaseAutomation<GitHubPushPayload> {
   async shouldExecute(): Promise<boolean> {
     return this.payload.ref === `refs/heads/${this.payload.repository?.default_branch}`;
   }
@@ -21,7 +22,7 @@ export class JulesStandardsPush extends BaseAutomation {
         await this.logExecution('success', 'Jules standards analysis dispatched');
     } catch (err: unknown) {
         console.error('[Jules] Failed to start analysis:', err);
-        await this.logExecution('failure', `Jules analysis failed: ${err.message}`);
+        await this.logExecution('failure', `Jules analysis failed: ${this.getErrorMessage(err)}`);
     }
   }
 }

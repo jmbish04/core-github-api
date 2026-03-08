@@ -9,7 +9,6 @@ export const ImplementCommand: ISlashCommand = {
     if (!metadata.issueNumber || !metadata.issueBody) {
         return { type: 'reply', body: "❌ `/colby implement` must be used in a valid Issue context." };
     }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return new Implementer({} as any, ctx.env).scaffoldFromIssue(ctx, args, metadata.issueNumber, metadata.issueBody);
+    return new Implementer(ctx.env).scaffoldFromIssue(ctx, args, metadata.issueNumber, metadata.issueBody);
   }
 };

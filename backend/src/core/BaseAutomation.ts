@@ -2,13 +2,13 @@ import { Octokit } from '@octokit/rest';
 import { createAppAuth } from '@octokit/auth-app';
 import { getDb, schema } from '@db';
 
-export abstract class BaseAutomation {
+export abstract class BaseAutomation<P = unknown> {
   protected env: Env;
-  protected payload: unknown;
+  protected payload: P;
   protected installationId?: number;
   protected usePat: boolean;
 
-  constructor(env: Env, payload: unknown, installationId: number | undefined, usePat: boolean) {
+  constructor(env: Env, payload: P, installationId: number | undefined, usePat: boolean) {
     this.env = env;
     this.payload = payload;
     this.installationId = installationId;
@@ -53,6 +53,10 @@ export abstract class BaseAutomation {
    * Run the actual core automation logic.
    */
   abstract execute(): Promise<void>;
+
+  protected getErrorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
+  }
 
   /**
    * Log the execution result to the D1 automationLogs table.

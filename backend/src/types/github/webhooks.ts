@@ -73,6 +73,7 @@ export interface GitHubPullRequest {
   title: string;
   body: string | null;
   state: "open" | "closed";
+  draft?: boolean;
   html_url: string;
   user: GitHubUser;
   created_at: string;
@@ -92,7 +93,8 @@ export interface GitHubPullRequestPayload {
     | "reopened"
     | "synchronize"
     | "edited"
-    | "review_requested";
+    | "review_requested"
+    | "ready_for_review";
   number: number;
   pull_request: GitHubPullRequest;
   repository: GitHubRepository;
@@ -116,7 +118,7 @@ export interface GitHubIssue {
 }
 
 export interface GitHubIssuesPayload {
-  action: "opened" | "closed" | "reopened" | "edited" | "labeled" | "unlabeled";
+  action: "opened" | "closed" | "reopened" | "edited" | "labeled" | "unlabeled" | "assigned" | "unassigned";
   issue: GitHubIssue;
   repository: GitHubRepository;
   sender: GitHubUser;
