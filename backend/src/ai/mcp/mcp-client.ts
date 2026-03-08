@@ -1,5 +1,7 @@
 import { MCPRequest, MCPResponse, MCPToolCallParams } from "./types";
 
+export const MCP_ACCEPT_HEADER = "text/event-stream, application/json";
+
 /**
  * Query the Cloudflare Docs MCP API
  */
@@ -25,7 +27,7 @@ export async function queryMCP(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Accept": "text/event-stream, application/json",
+        "Accept": MCP_ACCEPT_HEADER,
       },
       body: JSON.stringify(request),
     });
@@ -113,8 +115,7 @@ export async function queryMCPStream(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      // FIX: The server requires both types to be present in the Accept header
-      "Accept": "text/event-stream, application/json",
+      "Accept": MCP_ACCEPT_HEADER,
     },
     body: JSON.stringify(request),
   });
