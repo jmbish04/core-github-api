@@ -37,7 +37,7 @@ export class GeminiAgent extends BaseAgent<Env, GeminiState> {
  * @returns The agent's response and updated history.
  */
   @callable()
-  async chat(prompt: string, history?: any[]) {
+  async chat(prompt: string, history?: any[], customInstructions?: string) {
     try {
       await this.setState({ ...this.state, status: "running" });
 
@@ -45,7 +45,7 @@ export class GeminiAgent extends BaseAgent<Env, GeminiState> {
         provider: "gemini",
         model: "google-ai-studio/gemini-2.5-flash",
         name: "cf_gateway_agent",
-        instructions: "You are an elite autonomous agent powered by Cloudflare AI Gateway. Provide structured, highly accurate responses.",
+        instructions: customInstructions || "You are an elite autonomous agent powered by Cloudflare AI Gateway. Provide structured, highly accurate responses.",
         prompt: prompt,
       });
 

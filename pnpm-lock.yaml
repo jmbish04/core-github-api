@@ -44,6 +44,9 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: ^1.26.0
         version: 1.27.1(@cfworker/json-schema@4.1.1)(zod@4.3.6)
+      '@octokit/auth-app':
+        specifier: ^8.2.0
+        version: 8.2.0
       '@octokit/graphql':
         specifier: ^7.1.1
         version: 7.1.1

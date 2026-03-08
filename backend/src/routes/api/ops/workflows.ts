@@ -1,9 +1,14 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
-import { Bindings } from "@utils/hono";
+import { getDb } from "@db";
+import { automationRules } from "@/db/schemas/app/automation_rules";
+import { eq } from "drizzle-orm";
+import { generateUuid } from "@/utils/common";
 import { DEFAULT_GITHUB_OWNER, DEFAULT_TEMPLATE_REPO } from "@github-utils";
-
+import { getWebhooksDb } from "@db";
+import { webhookConfigs, automationLogs } from "@/db/schemas/webhooks/automations";
+import { desc } from "drizzle-orm";
 const TranscriptMessageSchema = z.object({
   id: z.string().optional(),
   role: z.enum(["assistant", "user"]),
@@ -74,8 +79,8 @@ workflowsApi.post("/jules", zValidator("json", JulesTaskSchema), async (c) => {
     canvas: payload.canvas || { nodes: [], edges: [] },
   };
 
-  const julesApiUrl = (c.env as any).JULES_API_URL as string | undefined;
-  const julesApiToken = (c.env as any).JULES_API_TOKEN as string | undefined;
+  const julesApiUrl = (c.env as unknown as Record<string, unknown>).JULES_API_URL as string | undefined;
+  const julesApiToken = (c.env as unknown as Record<string, unknown>).JULES_API_TOKEN as string | undefined;
 
   if (!julesApiUrl) {
     return c.json({
@@ -126,10 +131,7 @@ workflowsApi.post("/jules", zValidator("json", JulesTaskSchema), async (c) => {
 // Automation Rules CRUD
 // ==========================================
 
-import { getDb } from "@db";
-import { automationRules } from "@/db/schemas/app/automation_rules";
-import { eq } from "drizzle-orm";
-import { generateUuid } from "@/utils/common";
+// Removed redeclared imports
 
 const AutomationRuleBody = z.object({
   name: z.string(),
@@ -173,7 +175,7 @@ workflowsApi.put("/rules/:id", zValidator("json", AutomationRuleBody.partial()),
   const id = c.req.param("id");
   const body = c.req.valid("json");
   
-  const setClause: any = { updatedAt: new Date().toISOString() };
+  const setClause: Partial<typeof automationRules.$inferInsert> = { updatedAt: new Date().toISOString() };
   if (body.name !== undefined) setClause.name = body.name;
   if (body.description !== undefined) setClause.description = body.description;
   if (body.triggerEvent !== undefined) setClause.triggerEvent = body.triggerEvent;
@@ -192,6 +194,64 @@ workflowsApi.delete("/rules/:id", async (c) => {
   const id = c.req.param("id");
   await db.delete(automationRules).where(eq(automationRules.id, id));
   return c.json({ success: true });
+});
+
+// ==========================================
+// Webhook Configs (Global Automations)
+// ==========================================
+
+// Removed redeclared imports
+
+const WebhookConfigBody = z.object({
+  automationClass: z.string(),
+  isActive: z.boolean(),
+  usePat: z.boolean(),
+});
+
+workflowsApi.get("/configs", async (c) => {
+  const db = getWebhooksDb(c.env.DB_WEBHOOKS);
+  const configs = await db.select().from(webhookConfigs).all();
+  return c.json({ success: true, configs });
+});
+
+workflowsApi.post("/configs", zValidator("json", WebhookConfigBody), async (c) => {
+  const db = getWebhooksDb(c.env.DB_WEBHOOKS);
+  const body = c.req.valid("json");
+  
+  const existing = await db.select().from(webhookConfigs).where(eq(webhookConfigs.automationClass, body.automationClass)).get();
+  
+  if (existing) {
+    await db.update(webhookConfigs).set({
+      isActive: body.isActive,
+      usePat: body.usePat,
+      updatedAt: new Date().toISOString()
+    }).where(eq(webhookConfigs.id, existing.id));
+  } else {
+    await db.insert(webhookConfigs).values({
+      id: generateUuid(),
+      automationClass: body.automationClass,
+      isActive: body.isActive,
+      usePat: body.usePat,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    });
+  }
+  
+  return c.json({ success: true });
+});
+
+// ==========================================
+// Automation Logs
+// ==========================================
+
+workflowsApi.get("/logs", async (c) => {
+  const db = getWebhooksDb(c.env.DB_WEBHOOKS);
+  const logs = await db.select()
+    .from(automationLogs)
+    .orderBy(desc(automationLogs.createdAt))
+    .limit(100)
+    .all();
+  return c.json({ success: true, logs });
 });
 
 export default workflowsApi;

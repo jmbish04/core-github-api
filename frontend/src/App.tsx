@@ -6,7 +6,7 @@ import Chat from "@/views/control/global/Chat";
 import Docs from "@/views/public/Docs";
 import Health from "@/views/public/Health";
 import CommentsViewer from "@/views/control/global/CommentsViewer";
-import WorkflowsLanding from "@/views/public/WorkflowsLanding";
+import Workflows from "@/views/control/global/Workflows";
 import WorkflowEditor from "@/views/public/WorkflowEditor";
 import WorkflowNew from "@/views/public/WorkflowNew";
 import SparkLanding from "@/views/public/SparkLanding";
@@ -72,7 +72,7 @@ function App() {
             <Route path="/tools/:tool_name?" element={guard(<ToolsPage />)} />
             <Route path="/settings" element={<Navigate to="/settings/general" replace />} />
 
-            <Route path="/workflows" element={<WorkflowsLanding />} />
+            <Route path="/workflows" element={guard(<Workflows />)} />
             <Route path="/workflows/new" element={<WorkflowNew />} />
             <Route path="/workflows/:workflowId" element={<WorkflowEditor />} />
             <Route path="/spark" element={<SparkLanding />} />
@@ -101,7 +101,7 @@ function App() {
             <Route path="/projects/:projectId" element={guard(<ProjectView />)} />
             <Route path="/task/:taskId" element={guard(<TaskDetails />)} />
             <Route path="/chat" element={guard(<Chat />)} />
-            <Route path="/workflows" element={guard(<WorkflowsLanding />)} />
+            {/* Duplicate workflows route removed */}
             <Route path="/workflows/new" element={guard(<WorkflowNew />)} />
             <Route path="/workflows/:workflowId" element={guard(<WorkflowEditor />)} />
             <Route path="/view-comments/:id" element={guard(<CommentsViewer />)} />

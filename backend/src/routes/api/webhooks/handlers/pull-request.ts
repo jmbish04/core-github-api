@@ -1,6 +1,8 @@
 import { App } from 'octokit';
 import { withCompatOctokit } from "@/services/octokit/compat";
+import { detectPRAuthorAgent } from "../workflows/pr-agent-tagger/index";
 import { appendSignature } from "@/utils/github/signature";
+import { GitHubConditionals } from "@/utils/github/conditionals";
 import * as eventTables from "@/db/schemas/github/webhooks";
 import type { WebhookHandlerContext } from '../types';
 
@@ -27,9 +29,7 @@ export async function handlePullRequest({ c, payload, appId, privateKey, insertP
           if (payload.pull_request?.draft && payload.action !== 'ready_for_review') return;
 
           const existingComments = await octokit.rest.issues.listComments({ owner, repo, issue_number: prNumber, per_page: 50 });
-          const alreadyRequested = existingComments.data.some((c: any) =>
-            c.body?.includes('/gemini review')
-          );
+          const alreadyRequested = GitHubConditionals.hasCommentCommand(existingComments.data, '/gemini review');
           if (alreadyRequested) return;
 
           await octokit.rest.issues.createComment({

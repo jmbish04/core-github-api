@@ -104,6 +104,11 @@
 			"secret_name": "GITHUB_TOKEN"
 		},
 		{
+			"binding": "GITHUB_PERSONAL_ACCESS_TOKEN",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "GH_TOKEN"
+		},
+		{
 			"binding": "CLOUDFLARE_API_TOKEN",
 			"store_id": "8c42fa70938644e0a8a109744467375f",
 			"secret_name": "CLOUDFLARE_API_TOKEN"

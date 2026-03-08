@@ -6,6 +6,9 @@ import { eq, desc, like, sql, and, inArray, gte, lte, or } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/d1';
 
 // Internal schema & database imports
+import { getGitHubPrivateKey, getGitHubAppId, getGitHubWebhookSecret } from "@utils/secrets";
+import { generateUuid } from "@/utils/common";
+import { getAgentByName } from 'agents';
 import { getWebhooksDb } from '@db';
 import { webhookDeliveries } from '@/db/schemas/github/webhooks';
 
@@ -13,24 +16,7 @@ import { webhookDeliveries } from '@/db/schemas/github/webhooks';
 import type { GitHubWebhookPayload } from '@/types/github/webhooks';
 import { App } from 'octokit';
 import { sanitizeRepoName } from '@/ai/mcp/tools/sandbox-sdk';
-import { matchAutomations, DEFAULT_AUTOMATION_RULES } from "@/config/webhook-conditionals";
-import { ensureRepositoryFromWebhook } from "@services/repository-sync";
-import { getGitHubPrivateKey, getGitHubAppId, getGitHubWebhookSecret } from "@utils/secrets";
-import { StandardizationService } from "@/services/standardization";
-import { generateUuid } from "@/utils/common";
-import { summarizeWebhookPayload } from "@/utils/webhook-summary";
-import { getAgentByName } from 'agents';
-
-// Handlers
-import { handlePullRequest } from './handlers/pull-request';
-import { handlePullRequestReview } from './handlers/pull-request-review';
-import { handleIssues } from './handlers/issues';
-import { handlePush } from './handlers/push';
-import { handleRepository } from './handlers/repository';
-import { handleCheckRun } from './handlers/check-run';
-import { handleAlerts } from './handlers/alerts';
-import { handleMiscellaneous } from './handlers/miscellaneous';
-import type { WebhookHandlerContext } from './types';
+// Handlers are dynamically resolved via Registry
 
 const webhooksApi = new Hono<{ Bindings: Env }>();
 
@@ -73,7 +59,7 @@ export async function webhookHandler(c: Context<{ Bindings: Env }>): Promise<Res
 
     await app.webhooks.verifyAndReceive({
       id: deliveryId,
-      name: eventName as any,
+      name: eventName as never, // Avoid union complexity here
       payload: rawBody,
       signature: signature,
     });
@@ -82,33 +68,24 @@ export async function webhookHandler(c: Context<{ Bindings: Env }>): Promise<Res
     return c.json({ error: 'Invalid signature' }, 401);
   }
 
-  const payload = JSON.parse(rawBody) as GitHubWebhookPayload & Record<string, any>;
+  const payload = JSON.parse(rawBody) as GitHubWebhookPayload & {
+    repository?: { full_name?: string; owner?: { login?: string }; name?: string };
+    installation?: { account?: { login?: string } };
+    pull_request?: { number?: number };
+    issue?: { number?: number };
+    action?: string;
+  } & Record<string, unknown>;
   const action = payload.action;
   const repoFullName = payload.repository?.full_name;
 
-  // Background Syncs
-  if (payload.repository) {
-    c.executionCtx.waitUntil(
-      ensureRepositoryFromWebhook(c.env, payload.repository).catch((error) => {
-        console.error('[RepositorySync] Failed to upsert repository from webhook:', error);
-      })
-    );
-
-    c.executionCtx.waitUntil(
-        StandardizationService.enforce(c.env, payload.repository).catch((error) => {
-            console.error('[Standardization] Failed to enforce standards:', error);
-        })
-    );
-  }
-
-  // Agent Dispatching
+  // Agent Dispatching (Kept isolated as per earlier design)
   if (repoFullName && c.env.REPO_AGENT) {
     c.executionCtx.waitUntil(
       (async () => {
         try {
-          const getByName = getAgentByName as any;
+          const getByName = getAgentByName as unknown as (className: string, name: string) => Promise<{ fetch: (url: string, init: unknown) => Promise<Response> }>;
           const repoAgent = await getByName(
-            c.env.REPO_AGENT,
+            c.env.REPO_AGENT as unknown as string,
             sanitizeRepoName(repoFullName)
           );
           await repoAgent.fetch("http://repo-agent/webhook", {
@@ -133,12 +110,12 @@ export async function webhookHandler(c: Context<{ Bindings: Env }>): Promise<Res
         try {
           const ownerKey =
             payload.repository?.owner?.login ||
-            (payload as any).installation?.account?.login ||
-            (c.env as any).GITHUB_OWNER ||
+            (payload as { installation?: { account?: { login?: string } } }).installation?.account?.login ||
+            (c.env as { GITHUB_OWNER?: string }).GITHUB_OWNER ||
             'default-owner';
-          const getByName = getAgentByName as any;
+          const getByName = getAgentByName as unknown as (className: string, name: string) => Promise<{ fetch: (url: string, init: unknown) => Promise<Response> }>;
           const ownerAgent = await getByName(
-            c.env.OWNER_AGENT,
+            c.env.OWNER_AGENT as unknown as string,
             sanitizeRepoName(ownerKey)
           );
           await ownerAgent.fetch('http://owner-agent/webhook', {
@@ -154,62 +131,11 @@ export async function webhookHandler(c: Context<{ Bindings: Env }>): Promise<Res
         }
       })()
     );
-
-    c.executionCtx.waitUntil(
-      (async () => {
-        try {
-          const dbMain = getWebhooksDb(c.env.DB_WEBHOOKS as any); // Or getDb(env.DB), wait, automationRules requires getDb(c.env.DB). I need to import getDb
-          
-          // Let's use getDb(c.env.DB) to fetch rules
-          // Since getDb is imported at line 9 wait, is it?
-          // `import { getWebhooksDb } from '@db';` is imported. I will use getDb.
-          // Wait, actually `import { getDb, getWebhooksDb } from '@db';`
-          const { getDb } = await import('@db');
-          const { automationRules } = await import('@/db/schemas/app/automation_rules');
-          const activeRules = await getDb(c.env.DB).select().from(automationRules).where(eq(automationRules.isActive, true)).all();
-          
-          const dbRules = activeRules.map(r => ({
-            id: r.id,
-            name: r.name,
-            description: r.description,
-            trigger: {
-              event: r.triggerEvent,
-              action: r.triggerAction || undefined,
-              branch: r.triggerBranch || undefined
-            },
-            workflow: r.workflow
-          }));
-
-          const automationEventId = deliveryId;
-          const runs = matchAutomations([...dbRules, ...DEFAULT_AUTOMATION_RULES], eventName, automationEventId, payload);
-          if (runs.length > 0) {
-            const ownerKey =
-              payload.repository?.owner?.login ||
-              (c.env as any).GITHUB_OWNER ||
-              'default-owner';
-            const getByName = getAgentByName as any;
-            const ownerAgent = await getByName(
-              c.env.OWNER_AGENT,
-              sanitizeRepoName(ownerKey)
-            );
-            for (const run of runs) {
-              await ownerAgent.fetch('http://owner-agent/store-automation', {
-                method: 'POST',
-                headers: { 'content-type': 'application/json' },
-                body: JSON.stringify(run),
-              });
-            }
-          }
-        } catch (error) {
-          console.error('[AutomationRegistry] Failed to check automations:', error);
-        }
-      })()
-    );
   }
 
-  // Idempotency & DB Storage
-  const db = getWebhooksDb(c.env.DB_WEBHOOKS);
-  const existing = await db.select({ id: webhookDeliveries.id })
+  // Idempotency & DB Storage check
+  const dbWebhooks = getWebhooksDb(c.env.DB_WEBHOOKS);
+  const existing = await dbWebhooks.select({ id: webhookDeliveries.id })
     .from(webhookDeliveries)
     .where(sql`${webhookDeliveries.delivery_id} = ${deliveryId}`)
     .get();
@@ -220,22 +146,8 @@ export async function webhookHandler(c: Context<{ Bindings: Env }>): Promise<Res
   }
 
   try {
-    const { getDb } = await import('@db');
-    const { automationRules } = await import('@/db/schemas/app/automation_rules');
-    const activeRules = await getDb(c.env.DB).select().from(automationRules).where(eq(automationRules.isActive, true)).all();
-    const dbRules = activeRules.map(r => ({
-        id: r.id,
-        name: r.name,
-        description: r.description,
-        trigger: {
-          event: r.triggerEvent,
-          action: r.triggerAction || undefined,
-          branch: r.triggerBranch || undefined
-        },
-        workflow: r.workflow
-    }));
-
-    await db.insert(webhookDeliveries).values({
+    // Basic unconfigured insertion of the delivery hook log
+    await dbWebhooks.insert(webhookDeliveries).values({
       id: generateUuid(),
       delivery_id: deliveryId,
       event: eventName,
@@ -244,82 +156,55 @@ export async function webhookHandler(c: Context<{ Bindings: Env }>): Promise<Res
       signature_sha256: signature,
       user_agent: userAgent || null,
       content_type: contentType || null,
-      payload: payload,
-      summary_payload: summarizeWebhookPayload(payload, eventName, [...dbRules, ...DEFAULT_AUTOMATION_RULES]),
+      payload: payload as Record<string, unknown>,
+      summary_payload: 'Replaced by Automation Log in D1.', 
       hook_id: hookId ? parseInt(hookId) : null,
       installation_id: installationTargetId ? parseInt(installationTargetId) : null,
       installation_type: installationTargetType || null,
       created_at: new Date().toISOString()
     });
 
-    const insertPayload = async (table: any, specificFields: any) => {
-      await db.insert(table).values({
-        delivery_id: deliveryId,
-        payload: payload,
-        ...specificFields
-      });
-    };
+    const activeInstances: Promise<void>[] = [];
+    const instId = installationTargetId ? parseInt(installationTargetId) : undefined;
 
-    const handlerContext: WebhookHandlerContext = {
-      c,
-      payload,
-      eventName,
-      action,
-      deliveryId,
-      repoFullName,
-      appId,
-      privateKey,
-      insertPayload
-    };
-
-    switch (eventName) {
-      case 'pull_request':
-        await handlePullRequest(handlerContext);
-        break;
-      case 'pull_request_review':
-      case 'pull_request_review_comment':
-        await handlePullRequestReview(handlerContext);
-        break;
-      case 'issues':
-      case 'issue_comment':
-        await handleIssues(handlerContext);
-        break;
-      case 'push':
-        await handlePush(handlerContext);
-        break;
-      case 'repository':
-        await handleRepository(handlerContext);
-        break;
-      case 'check_run':
-        await handleCheckRun(handlerContext);
-        break;
-      case 'security_advisory':
-      case 'code_scanning_alert':
-      case 'dependabot_alert':
-      case 'secret_scanning_alert':
-        await handleAlerts(handlerContext);
-        break;
-      case 'commit_comment':
-      case 'create':
-      case 'custom_property':
-      case 'custom_property_values':
-      case 'delete':
-      case 'fork':
-      case 'label':
-      case 'milestone':
-      case 'star':
-      case 'workflow_run':
-        await handleMiscellaneous(handlerContext);
-        break;
-      default:
-        console.log(`Unhandled event type: ${eventName}`);
+    // 1. Run Essential System Automations (Telemetry, Tasks, Sync) 
+    const { AutomationRegistry, SystemAutomations } = await import('@/core/AutomationRegistry');
+    for (const automationKey of SystemAutomations) {
+      const AutomationClass = AutomationRegistry[automationKey] as new (env: Env, payload: unknown, instId: number | undefined, usePat: boolean, deliveryId: string, eventName: string, action: string | null) => { shouldExecute: () => Promise<boolean>, execute: () => Promise<void> };
+      if (AutomationClass) {
+         const instance = new AutomationClass(c.env, payload, instId, false, deliveryId, eventName, action || null);
+         const shouldRun = await instance.shouldExecute();
+         if (shouldRun) {
+            activeInstances.push((instance as { execute: () => Promise<void> }).execute().catch((e: unknown) => console.error(`System Automation ${automationKey} failed:`, e)));
+         }
+      }
     }
 
+    // 2. Fetch configured global automations and dispatch
+    const { webhookConfigs } = await import('@/db/schemas/webhooks/automations');
+    const activeConfigs = await dbWebhooks.select().from(webhookConfigs).where(eq(webhookConfigs.isActive, true)).all();
+    
+    for (const config of activeConfigs) {
+      if (SystemAutomations.includes(config.automationClass)) continue; // Handled above 
+
+      const AutomationClass = AutomationRegistry[config.automationClass] as new (env: Env, payload: unknown, instId: number | undefined, usePat: boolean, deliveryId: string, c: Context) => { shouldExecute: () => Promise<boolean>, execute: () => Promise<void> };
+      if (AutomationClass) {
+         // Some specific classes technically expect `c` context in current legacy mode, others don't.
+         // In JS we can just pass extra args safely.
+         const instance = new AutomationClass(c.env, payload, instId, !!config.usePat, deliveryId, c);
+         const shouldRun = await instance.shouldExecute();
+         if (shouldRun) {
+            activeInstances.push((instance as { execute: () => Promise<void> }).execute().catch((e: unknown) => console.error(`Automation ${config.automationClass} failed:`, e)));
+         }
+      }
+    }
+
+    c.executionCtx.waitUntil(Promise.allSettled(activeInstances));
     return c.json({ success: true, delivery_id: deliveryId });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Failed to process webhook', error);
-    return c.json({ error: 'Processing error', details: error.message }, 500);
+    return c.json({ error: 'Processing error', details: error instanceof Error ? error.message : 'Unknown error' }, 500);
   }
 }
 
@@ -350,13 +235,16 @@ webhooksApi.get('/', zValidator('query', QuerySchema), async (c) => {
     const limitNum = parseInt(limit);
     const offset = (pageNum - 1) * limitNum;
 
-    const conditions: any[] = [];
+    const conditions: import('drizzle-orm').SQL[] = [];
 
     if (search) {
-        conditions.push(or(
+        const searchCondition = or(
             like(webhookDeliveries.payload, `%${search}%`),
             like(webhookDeliveries.summary_payload, `%${search}%`)
-        ));
+        );
+        if (searchCondition) {
+            conditions.push(searchCondition);
+        }
     }
 
     if (type && type !== 'all') {
@@ -371,14 +259,17 @@ webhooksApi.get('/', zValidator('query', QuerySchema), async (c) => {
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-    const totalResult = await db.select({ count: sql<number>`count(*)` }).from(webhookDeliveries).where(whereClause).get();
+    const totalQuery = db.select({ count: sql<number>`count(*)` }).from(webhookDeliveries);
+    const totalResult = await (whereClause ? totalQuery.where(whereClause!) : totalQuery).get();
     const total = totalResult?.count || 0;
 
     let results: typeof webhookDeliveries.$inferSelect[] = [];
     if (total > 0) {
-        results = await db.select()
-            .from(webhookDeliveries)
-            .where(whereClause)
+        let listQuery = db.select().from(webhookDeliveries).$dynamic();
+        if (whereClause) {
+            listQuery = listQuery.where(whereClause!);
+        }
+        results = await listQuery
             .orderBy(desc(webhookDeliveries.created_at))
             .limit(limitNum)
             .offset(offset)

@@ -176,25 +176,20 @@ chatApi.openapi(createRoute({
 
         if (targetAgentId === 'cloudflare-docs') {
              stub = await getByName(c.env.CLOUDFLARE_DOCS_AGENT, threadId);
-             // Pass repoContext if available from the request or thread
-             // For now, we pass it from request if provided (e.g. fresh from UI context)
-             // But optimally we should store repoId in thread and look it up.
-             
              let context = repoContext;
              if (!context && thread?.repoId) {
-                 // If thread has repoId, we might want to look up repo details? 
-                 // Or we just pass null and let the agent rely on what it has or tool usage.
-                 // For now, we rely on the specific `repoContext` passed in the body for rich context,
-                 // or simplified usage.
-                 
-                 // If we have a repoId "owner/name", we can split it.
                  if (thread.repoId.includes('/')) {
                      const [owner, repo] = thread.repoId.split('/');
                      context = { owner, repo };
                  }
              }
-             
              result = await stub.chat(content, history, context);
+        } else if (targetAgentId === 'automation-architect') {
+             stub = await getByName(c.env.GEMINI_AGENT, threadId);
+             const architectPrompt = `You are the Automation Architect for the core-github-api. 
+             You help engineers scaffold new webhook automations by creating classes that extend BaseAutomation. 
+             All new automations must implement a .shouldExecute() hook. Output patch-ready code in Markdown blocks.`;
+             result = await stub.chat(content, history, architectPrompt);
         } else {
              // Default: GeminiAgent
              stub = await getByName(c.env.GEMINI_AGENT, threadId);

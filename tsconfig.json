@@ -52,7 +52,8 @@
     "worker-configuration.d.ts",
     "tests",
     "scripts/github/extract_pr_code_comments.ts",
-    "landing-generator"
+    "landing-generator",
+    "backend/drizzle.config.webhooks.ts"
   ],
   "exclude": [
     "node_modules",

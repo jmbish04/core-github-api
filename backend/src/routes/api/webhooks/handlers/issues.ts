@@ -7,6 +7,7 @@ import { tasks, repos } from '@db/schema';
 import { eq, and } from 'drizzle-orm';
 import { generateUuid } from "@/utils/common";
 import { SlashCommandRouter } from "../workflows/gardener/router";
+import { GitHubConditionals } from "@/utils/github/conditionals";
 import {
   runBugHunterWorkflow,
   shouldRunBugHunter,
@@ -136,9 +137,7 @@ export async function handleIssues({ c, payload, appId, privateKey, deliveryId, 
       });
   } else if (payload.comment) {
       // Issue Comment
-      const isGemini = payload.comment?.user?.login?.toLowerCase().includes('gemini') || 
-                       payload.comment?.user?.login === 'google-code-assist' || 
-                       payload.comment?.user?.type === 'Bot'; 
+      const isGemini = GitHubConditionals.isBotOrAgentUser(payload.comment?.user as { login?: string; type?: string }); 
       
       if (isGemini && payload.action === 'created') {
            const feedback = payload.comment.body;

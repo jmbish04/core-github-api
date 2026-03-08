@@ -1,21 +1,26 @@
-# .agent/workflows/implement-feature.md
+---
+description: How to implement a new Global Automation Workflow for GitHub events
+---
 
-# Implement BaseAgent-Powered Jules Overseer & Tiered Triage
+# Workflow: Implementing a New Automation Workflow
 
-## Context
+To add a new GitHub webhook automation to the repository, follow these standards:
 
-We are refactoring the `JulesOverseer` to inherit from the newly established `BaseAgent` class. This provides the Overseer with immediate, native access to the `@cloudflare/mcp-server-cloudflare` without writing custom HTTP fetch loops. We are also formalizing the Tier 1 / Tier 2 delegation strategy in the SRE prompts.
+1. **Domain Class Creation**:
+   - Create a new TypeScript file in `backend/src/automations/[domain]/[WorkflowName]Automation.ts`.
+   - Ensure the new class extends `BaseAutomation` from `@/core/BaseAutomation`.
 
-## Execution Steps
+2. **Lifecycle Hooks**:
+   - Implement the mandatory `shouldExecute()` function containing all conditional logic (checking the payload, identifying the target repo, checking if specific files exist contextually, etc.). The router will bypass execution if this returns `false`.
+   - Implement the `execute()` function containing the main action. Include detailed structured logging. Dual-authentication will automatically provide `this.octokit` (App Installation by default, fallback to PAT if configured in D1).
 
-1. **Update Prompts**
-   - Inject the updated `HealthDiagnostician` prompt into the agent's definition, establishing the hard logic branch between SMALL fixes (execute internally via Octokit) and COMPLEX fixes (delegate to `JulesService`).
+3. **Automation Registry**:
+   - Add your class name into `backend/src/core/AutomationRegistry.ts` under the registry object mapping the class name to its exported module.
+   - If the automation must run for every user invariably without opt-in (e.g. system telemetry), add it to the `SystemAutomations` array within the registry.
 
-2. **Refactor `JulesOverseer.ts`**
-   - Replace the file contents with the provided code.
-   - Note the simplified `evaluateStuckJules` method. It now calls `await this.runTextWithModel({...})`, letting `BaseAgent` handle the model routing, the ReAct loop, and the Cloudflare MCP queries.
-   - The method writes to the `alerts` table when `status === 'ready_for_pr'`.
+4. **Frontend Activation**:
+   - The UI Dashboard (`/workflows`) dynamically discovers missing configured classes via the registry and will populate the new automation in gray.
+   - An admin must visit the Workflows tab and toggle it "Active" with the correct Identity pattern (App / PAT) to provision it globally.
 
-3. **Verify Execution**
-   - Ensure the `delegate_to_jules` tool in `HealthDiagnostician` sets `autoPr: false` so the job lands in the Overseer's queue.
-   - When the chron triggers `/schedule/check`, verify via `wrangler tail` that the Overseer successfully pulls the stuck context, invokes `runTextWithModel`, and sends the generated strategy back to Jules via `julesService.sendMessage`.
+5. **Agentic Workflows**:
+   - Users can now use the **Automation Architect** agent in the `/workflows` sidebar to generate these class files automagically based on natural language prompts.

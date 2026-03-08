@@ -5,3 +5,4 @@
  * jules webhook-events) as the project grows.
  */
 export * from './task_events';
+export * from './automations';
