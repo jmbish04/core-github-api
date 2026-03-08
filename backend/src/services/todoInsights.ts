@@ -137,16 +137,15 @@ export class TodoInsightService {
             const result = await runner.run(agent, prompt);
             const insights = TodoInsightsSchema.parse(result.finalOutput ?? { insights: [] }).insights;
 
-            if (Array.isArray(insights)) {
-                for (const item of insights) {
-                    await db.insert(todoAiInsights).values({
-                        id: generateUuid(),
-                        todoId: todo.id,
-                        insight: item.insight,
-                        type: item.type || 'enrich_todo',
-                        status: 'pending_hil'
-                    });
-                }
+            if (Array.isArray(insights) && insights.length > 0) {
+                const valuesToInsert = insights.map(item => ({
+                    id: generateUuid(),
+                    todoId: todo.id,
+                    insight: item.insight,
+                    type: item.type || 'enrich_todo',
+                    status: 'pending_hil'
+                }));
+                await db.insert(todoAiInsights).values(valuesToInsert);
             }
 
         } catch (e) {
