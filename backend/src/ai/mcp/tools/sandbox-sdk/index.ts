@@ -3,15 +3,11 @@
  * @description Barrel export for the shared Sandbox SDK tools.
  *
  * Import via the tsconfig path alias:
- *   import { SandboxClient, SandboxSessionManager, sanitizeRepoName } from "@sandbox-sdk-tools";
+ *   import { SandboxClient, sanitizeRepoName } from "@sandbox-sdk-tools";
  */
 
 // Client (wraps @cloudflare/sandbox getSandbox)
 export { SandboxClient } from "./client";
-
-// Session manager (repo-scoped sandboxes)
-export { SandboxSessionManager } from "./session-manager";
-export type { RepoSession, RepoSessionOptions } from "./session-manager";
 
 // Types
 export type {
