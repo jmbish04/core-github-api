@@ -10,7 +10,6 @@ import { getDb } from '@db';
 import { standardizationRules, standardizationItems, standardizationTagDefinitions, standardizationTagMappings } from '@db/schemas/app/standardization';
 import { eq } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
-import { getOctokit } from '@/services/octokit/core';
 import { McpSync } from "@/automations/repository/standardization/mcp";
 import { SecretSync } from "@/automations/repository/standardization/secrets";
 import { zValidator } from "@hono/zod-validator";

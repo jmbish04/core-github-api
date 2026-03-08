@@ -1,5 +1,3 @@
-import type { D1Database } from '@cloudflare/workers-types';
-
 export interface PushContext {
   env: Env;
   executionCtx: ExecutionContext;

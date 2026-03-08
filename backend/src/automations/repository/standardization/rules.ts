@@ -1,5 +1,4 @@
 import { getOctokit } from "@/services/octokit/core";
-import { getGithubConfigs } from "@utils/github/configs";
 import { getDb } from "@db";
 import { standardizationRules } from "@db/schemas/app/standardization";
 import { resolveDefaultAiModel, resolveDefaultAiProvider } from "@/ai/agents/base/agent-ai";
@@ -18,7 +17,6 @@ export class RulesStandardization {
         console.log(`[Standardization] Enforcing standards on ${targetRepo.owner.login}/${targetRepo.name}`);
         
         const github = octokit ?? await getOctokit(env);
-        const config = getGithubConfigs(env);
         const db = getDb(env.DB);
 
         // 1. Infer Infrastructure Tags for Target Repo
@@ -44,7 +42,7 @@ export class RulesStandardization {
 
         // 3. Apply Rules
         for (const rule of rules) {
-             await this.applyRule(env, github, config, rule, targetRepo, infraTags);
+             await this.applyRule(env, github, rule, targetRepo, infraTags);
         }
 
         console.log(`[Standardization] Completed enforcement for ${targetRepo.owner.login}/${targetRepo.name}`);
@@ -56,7 +54,6 @@ export class RulesStandardization {
     private static async applyRule(
         env: Env,
         octokit: any, 
-        config: any, 
         rule: typeof standardizationRules.$inferSelect, 
         targetRepo: { owner: { login: string }, name: string, default_branch?: string },
         targetTags: string[]

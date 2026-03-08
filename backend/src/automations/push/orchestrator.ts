@@ -77,18 +77,8 @@ export class GardenerOrchestrator {
 
         // 0b. Cloudflare LLM Docs Enrichment (Auto-Docs)
         // Check if it's a Worker/Pages repo by looking for wrangler.toml/json
-        const { data: contents } = await reposApi.getContent({
-            owner: ctx.repo.owner,
-            repo: ctx.repo.name,
-            path: ''
-        }).catch(() => ({ data: [] }));
-
-        const isWorker = Array.isArray(contents) && contents.some((f: any) =>
-            f.name === 'wrangler.toml' || f.name === 'wrangler.json' || f.name === 'wrangler.jsonc'
-        );
-
         // Run universally for all repositories
-        await this.syncMcpAndSecrets(ctx, db);
+        await this.syncMcpAndSecrets(ctx);
         await this.syncStandardizationFilesPR(ctx);
 
         // 2. Fetch modified files (simple version: just check the commit)
@@ -176,8 +166,7 @@ export class GardenerOrchestrator {
      * @param ctx - Gardener state tracking.
      * @param db - Open D1 connections tracking global configuration state variables.
      */
-    private static async syncMcpAndSecrets(ctx: PushContext, db: any) {
-        const reposApi = getReposApi(ctx.octokit);
+    private static async syncMcpAndSecrets(ctx: PushContext) {
         const octokit = ctx.octokit;
         const owner = ctx.repo.owner;
         const repo = ctx.repo.name;
@@ -274,7 +263,7 @@ export class GardenerOrchestrator {
      * @param ctx - Primary gardening processing engine object.
      * @returns Void promise after asynchronous completion logs.
      */
-    private static async syncStandardizationFilesPR(ctx: GardenerContext) {
+    private static async syncStandardizationFilesPR(ctx: PushContext) {
         const octokit = ctx.octokit;
         const targetOwner = ctx.repo.owner;
         const targetRepo = ctx.repo.name;

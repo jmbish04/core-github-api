@@ -5,7 +5,7 @@ import { generateUuid } from '@/utils/common';
 export const StandardizeCommand: ISlashCommand = {
   name: 'standardize',
   description: 'Full repo audit & fix using explicit active standardizations.',
-  async handle(args, ctx, metadata): Promise<CommandResult | null> {
+  async handle(_args, ctx, metadata): Promise<CommandResult | null> {
     if (!metadata.issueNumber) {
       return { type: 'reply', body: "❌ Error: Cannot run standardize outside of an issue or PR context." };
     }
