@@ -25,7 +25,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ role, content }) =
     // Parse tool call in assistant message
     const hasToolCall = !isUser && content.includes('```json');
     let textContent = content;
-    let toolCallBlock = null;
+    let toolCallBlock: any = null;
 
     if (hasToolCall) {
         const parts = content.split(/```json\s*([\s\S]*?)\s*```/);

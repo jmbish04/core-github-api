@@ -1,0 +1,23 @@
+<h2 style="margin-top: 0; padding-bottom: 10px;">{{title}}</h2>
+
+<div>
+  <h3 style="margin-top: 0;">AI Summary</h3>
+  <p>{{summary}}</p>
+</div>
+
+<h3>Top Picks</h3>
+<ul>
+  {{#each repos}}
+    <li>
+      <div>
+        <a href="{{this.url}}"><strong>{{this.name}}</strong></a>
+        <span style="font-size: 12px; margin-left: 10px;">Score: {{this.innovation_score}}/10</span>
+      </div>
+      <div style="font-size: 12px; margin-bottom: 8px;">
+         <em>{{this.category}}</em>
+      </div>
+      <p style="font-size: 14px; margin: 0;">{{this.why_its_interesting}}</p>
+      <br/>
+    </li>
+  {{/each}}
+</ul>

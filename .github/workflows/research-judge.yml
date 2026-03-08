@@ -1,0 +1,422 @@
+name: LiteLLM Deep Research Agent
+on:
+  workflow_dispatch:
+    inputs:
+      query:
+        description: "Research target (e.g., astro shadcn assistant-ui)"
+        required: true
+        default: "astro shadcn assistant-ui"
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Dependencies
+        # Install LiteLLM and Pydantic for structured outputs
+        run: pip install litellm pydantic requests
+
+      - name: Run LiteLLM Gateway Agent
+        env:
+          # Add these to your GitHub Repo Secrets
+          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CF_GATEWAY_ID: ${{ secrets.CLOUDFLARE_GATEWAY_ID }}
+          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_AI_GATEWAY_TOKEN }}
+          WORKER_API_URL_BASE: ${{ secrets.WORKER_API_URL_BASE }}
+          WORKER_API_URL__JUDGE: "${{ env.WORKER_API_URL_BASE }}/upsert/research-judge"
+          WORKER_API_KEY: ${{ secrets.WORKER_API_KEY }}
+          QUERY: ${{ github.event.inputs.query }}
+          MODEL_NAME: "workers-ai/@cf/openai/gpt-oss-120b"
+        run: |
+          cat << 'EOF' > agent.py
+          import os
+          import json
+          import requests
+          from pydantic import BaseModel
+          from litellm import completion
+
+          # 1. Define your exact structured output using Pydantic
+          class RepoAnalysis(BaseModel):
+              is_relevant: bool
+              ai_features_found: list[str]
+              summary: str
+              confidence_score: float
+
+          def main():
+              account_id = os.environ["CF_ACCOUNT_ID"]
+              gateway_id = os.environ["CF_GATEWAY_ID"]
+              api_token = os.environ["CF_API_TOKEN"]
+              query = os.environ["QUERY"]
+              raw_model_name = os.environ.get("MODEL_NAME", "workers-ai/@cf/openai/gpt-oss-120b")
+
+              # 2. Format the Cloudflare AI Gateway URL
+              # Note: We use the /workers-ai/v1 endpoint to enable OpenAI compatibility
+              api_base = f"https://gateway.ai.cloudflare.com/v1/{account_id}/{gateway_id}/compat"
+
+              # TRICK: Cloudflare Workers AI models start with @cf/...
+              # LiteLLM needs 'openai/' prefix to use the OpenAI-compatible endpoint.
+              # User passes 'workers-ai/@cf/openai/gpt-oss-120b' or similar.
+              # We split by '@cf' to get the suffix and prepend 'openai/@cf'
+              if "@cf" in raw_model_name:
+                  suffix = raw_model_name.split("@cf", 1)[1]
+                  litellm_model = f"openai/@cf{suffix}"
+              else:
+                   # Fallback if no @cf found, just assume it's openai/
+                  litellm_model = f"openai/{raw_model_name}"
+
+              print(f"Executing Deep Research analysis for: {query}")
+              print(f"Using LiteLLM Model: {litellm_model}")
+
+              # 3. Call the model using LiteLLM
+              response = completion(
+                  # The 'openai/' prefix tells LiteLLM to treat this custom endpoint exactly like OpenAI
+                  model=litellm_model,
+                  api_base=api_base,
+                  api_key=api_token,
+                  messages=[
+                      {"role": "system", "content": "You are a code analyzer. Extract structured data from the provided repository description. You must strictly adhere to the requested JSON schema."},
+                      {"role": "user", "content": f"Analyze this repository based on the search query: '{query}'."}
+                  ],
+                  
+                  # 4. Enforce Structured Output
+                  # LiteLLM automatically converts this Pydantic class into JSON Schema for Cloudflare
+                  response_format=RepoAnalysis,
+                  
+                  # 5. Reasoning Tokens Configuration
+                  # Allocate 4096 tokens and force 'high' effort to simulate a "minimum" reasoning constraint
+                  max_tokens=4096,
+                  extra_body={
+                      "reasoning": {
+                          "effort": "high"
+                      }
+                  }
+              )
+
+              # 6. Extract and validate the response
+              # The model returns a stringified JSON object matching our Pydantic schema
+              raw_json_str = response.choices[0].message.content
+              print("\n--- AI Analysis Result ---")
+              print(raw_json_str)
+
+              # 7. Post the verified data in a batch to your Cloudflare Worker API
+              worker_url = os.environ.get("WORKER_API_URL")
+              if worker_url:
+                  print(f"Posting data to Worker API: {worker_url}...")
+                  # We parse it just to ensure it's valid JSON before sending
+                  payload = json.loads(raw_json_str) 
+                  
+                  requests.post(
+                      worker_url, 
+                      json={"query": query, "results": payload}, 
+                      headers={"X-API-Key": os.environ.get("WORKER_API_KEY", "")}
+                  )
+                  print("Data successfully synced to Worker.")
+
+          if __name__ == "__main__":
+              main()
+          EOF
+
+          python agent.py
+
+      - name: Run Research Judge Agent
+        env:
+          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CF_GATEWAY_ID: ${{ secrets.CLOUDFLARE_GATEWAY_ID }}
+          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_AI_GATEWAY_TOKEN }}
+          WORKER_API_KEY: ${{ secrets.WORKER_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          USER_PROMPT: ${{ github.event.inputs.query }}
+          CALLBACK_URL: "${{ secrets.WORKER_API_URL_BASE }}/upsert/research-judge"
+        run: |
+          cat <<EOF > research_judge.py
+          from __future__ import annotations
+          import os
+          import json
+          import asyncio
+          import sys
+          import requests
+          from typing import List, Literal, Optional, Any, Callable, Type
+          from dataclasses import dataclass, field
+          from pydantic import BaseModel, Field
+          from openai import AsyncOpenAI
+          from github import Github
+
+          # --- CONFIGURATION (Direct from Env) ---
+          ACCOUNT_ID = os.environ.get("CF_ACCOUNT_ID")
+          GATEWAY_ID = os.environ.get("CF_GATEWAY_ID")
+          API_TOKEN = os.environ.get("CF_API_TOKEN")
+          MODEL_NAME = "@cf/openai/gpt-oss-120b" 
+
+          if not all([ACCOUNT_ID, GATEWAY_ID, API_TOKEN]):
+              print("::error::Missing Cloudflare Credentials")
+              sys.exit(1)
+
+          BASE_URL = f"https://gateway.ai.cloudflare.com/v1/{ACCOUNT_ID}/{GATEWAY_ID}/compat"
+
+          # --- 1. AGENTS MICRO-FRAMEWORK (Inline Implementation) ---
+          # This implements the requested pattern: Agent, Runner, ModelProvider
+
+          @dataclass
+          class RunConfig:
+              model_provider: Optional[ModelProvider] = None
+
+          class Model:
+              pass
+
+          class OpenAIChatCompletionsModel(Model):
+              def __init__(self, model: str, openai_client: AsyncOpenAI):
+                  self.model = model
+                  self.client = openai_client
+
+          class ModelProvider:
+              def get_model(self, model_name: str | None) -> Model:
+                  raise NotImplementedError
+
+          class Agent:
+              def __init__(self, name: str, instructions: str, tools: List[Callable] = None, response_model: Type[BaseModel] = None):
+                  self.name = name
+                  self.instructions = instructions
+                  self.tools = tools or []
+                  self.response_model = response_model
+
+          @dataclass
+          class RunResult:
+              final_output: Any
+
+          class Runner:
+              @staticmethod
+              async def run(agent: Agent, task: str, run_config: RunConfig = None) -> RunResult:
+                  print(f"[{agent.name}] Running task: {task[:50]}...")
+                  
+                  # 1. Resolve Model
+                  provider = run_config.model_provider if run_config else None
+                  if not provider:
+                      raise ValueError("No model provider specified")
+                  
+                  model_wrapper = provider.get_model(None)
+                  if not isinstance(model_wrapper, OpenAIChatCompletionsModel):
+                      raise ValueError("Only OpenAI models supported in this shim")
+                  
+                  client = model_wrapper.client
+                  model_id = model_wrapper.model
+
+                  # 2. Build Messages
+                  messages = [
+                      {"role": "system", "content": agent.instructions},
+                      {"role": "user", "content": task}
+                  ]
+
+                  # 3. Call LLM
+                  try:
+                      # If response_model is set, force JSON mode
+                      kwargs = {}
+                      if agent.response_model:
+                          kwargs["response_format"] = {"type": "json_object"}
+                      
+                      response = await client.chat.completions.create(
+                          model=model_id,
+                          messages=messages,
+                          **kwargs
+                      )
+                      content = response.choices[0].message.content
+                      
+                      # 4. Parse Output
+                      if agent.response_model:
+                          try:
+                              parsed = agent.response_model.model_validate_json(content)
+                              return RunResult(final_output=parsed)
+                          except Exception as e:
+                              print(f"[{agent.name}] JSON Parse Error: {e}")
+                              print(f"[{agent.name}] Raw Output: {content}")
+                              return RunResult(final_output=None)
+                      
+                      return RunResult(final_output=content)
+
+                  except Exception as e:
+                      print(f"[{agent.name}] Execution Error: {e}")
+                      return RunResult(final_output=None)
+
+          def function_tool(func):
+              return func
+
+          def set_tracing_disabled(disabled: bool):
+              pass
+
+          # --- 2. CUSTOM PROVIDER SETUP ---
+
+          # Initialize Client with Cloudflare AI Gateway
+          client = AsyncOpenAI(base_url=BASE_URL, api_key=API_TOKEN)
+          set_tracing_disabled(disabled=True)
+
+          class CustomModelProvider(ModelProvider):
+              def get_model(self, model_name: str | None) -> Model:
+                  return OpenAIChatCompletionsModel(model=model_name or MODEL_NAME, openai_client=client)
+
+          CUSTOM_MODEL_PROVIDER = CustomModelProvider()
+
+          # --- 3. DATA MODELS (Pydantic) ---
+          class SearchPlan(BaseModel):
+              rationale: str = Field(..., description="Reasoning for the search strategy")
+              queries: List[str] = Field(..., description="List of 3 distinct GitHub search queries")
+
+          class RepoFinding(BaseModel):
+              name: str
+              url: str
+              stars: int
+              description: Optional[str] = "No description"
+              relevance_score: int = Field(..., description="1-10 score of relevance to user prompt")
+
+          class JudgeFeedback(BaseModel):
+              status: Literal["pass", "needs_more_data", "fail"]
+              critique: str = Field(..., description="Critique of the findings")
+              approved_urls: List[str] = Field(default_factory=list, description="List of URLs that are good")
+              missing_topics: List[str] = Field(default_factory=list, description="List of topics that need more coverage")
+              
+          class ResearchReport(BaseModel):
+              findings: List[RepoFinding]
+
+          # --- 4. TOOLS ---
+          @function_tool
+          def search_github(query: str) -> List[dict]:
+              """Searches GitHub for repositories."""
+              if not os.environ.get("GITHUB_TOKEN"):
+                  print("[Tool] No GITHUB_TOKEN, skipping search")
+                  return []
+                  
+              g = Github(os.environ["GITHUB_TOKEN"])
+              print(f"[Tool] Searching GitHub: {query}")
+              try:
+                  repos = g.search_repositories(query, sort="stars", order="desc")
+                  results = []
+                  for i, repo in enumerate(repos):
+                      if i >= 4: break 
+                      try:
+                          readme = repo.get_readme().decoded_content.decode("utf-8")[:1000]
+                      except:
+                          readme = "No README"
+                      
+                      results.append({
+                          "name": repo.full_name,
+                          "url": repo.html_url,
+                          "stars": repo.stargazers_count,
+                          "description": repo.description,
+                          "readme_snippet": readme
+                      })
+                  return results
+              except Exception as e:
+                  print(f"[Tool] Search failed: {e}")
+                  return []
+
+          # --- 5. MAIN WORKFLOW ---
+          async def main():
+              prompt = os.environ.get("USER_PROMPT")
+              print(f"--- STARTING RESEARCH (Agents Pattern): {prompt} ---")
+
+              # A. Plan
+              orchestrator = Agent(
+                  name="Orchestrator",
+                  instructions="You are a Search Planner. Break the user request into 3 specific, non-overlapping GitHub search queries. Return JSON.",
+                  response_model=SearchPlan
+              )
+              
+              print(">>> Planning Phase")
+              plan_result = await Runner.run(
+                  orchestrator,
+                  prompt,
+                  run_config=RunConfig(model_provider=CUSTOM_MODEL_PROVIDER)
+              )
+              
+              if not plan_result.final_output:
+                  print("::error::Planning failed")
+                  sys.exit(1)
+                  
+              plan = plan_result.final_output
+              print(f"Plan: {plan.queries}")
+
+              # B. Search & Summarize
+              raw_data = []
+              for q in plan.queries:
+                  # In a real agentic loop, the agent would call the tool. 
+                  # Here we simulate the tool execution to keep it simple and robust for CI.
+                  results = search_github(q)
+                  raw_data.extend(results)
+              
+              print(f"Found {len(raw_data)} raw repos. Analyzing...")
+              
+              analysis_input = json.dumps([{"name": r["name"], "desc": r["description"], "readme": r["readme_snippet"]} for r in raw_data])
+              
+              researcher = Agent(
+                  name="Researcher", 
+                  instructions="Filter these raw GitHub findings for relevance to the user prompt. Return JSON with list of RepoFinding.",
+                  response_model=ResearchReport
+              )
+              
+              print(">>> Analysis Phase")
+              report_result = await Runner.run(
+                  researcher,
+                  f"User Prompt: {prompt}\n\nData: {analysis_input}",
+                  run_config=RunConfig(model_provider=CUSTOM_MODEL_PROVIDER)
+              )
+              
+              report = report_result.final_output
+              if not report:
+                  print("::error::Analysis failed")
+                  sys.exit(1)
+                  
+              print(f"Researcher found {len(report.findings)} relevant repos.")
+
+              # C. Judge
+              judge = Agent(
+                  name="Judge",
+                  instructions="Review findings against prompt. Check for duplicates. Decide status (pass/fail). Return JSON.",
+                  response_model=JudgeFeedback
+              )
+              
+              judge_input = json.dumps([r.model_dump() for r in report.findings])
+              
+              print(">>> Judging Phase")
+              verdict_result = await Runner.run(
+                  judge,
+                  f"Original Prompt: {prompt}\n\nFindings: {judge_input}",
+                  run_config=RunConfig(model_provider=CUSTOM_MODEL_PROVIDER)
+              )
+              
+              verdict = verdict_result.final_output
+              if not verdict:
+                  print("::error::Judging failed")
+                  sys.exit(1)
+
+              print(f"Judge Verdict: {verdict.status.upper()}")
+              print(f"Critique: {verdict.critique}")
+
+              # D. Sync
+              final_payload = {
+                  "prompt": prompt,
+                  "status": verdict.status,
+                  "judge_notes": verdict.critique,
+                  "findings": [r.model_dump() for r in report.findings if r.url in verdict.approved_urls or verdict.status == 'pass']
+              }
+
+              callback_url = os.environ.get("CALLBACK_URL")
+              worker_key = os.environ.get("WORKER_API_KEY")
+              
+              if callback_url and worker_key:
+                  print(f"Posting {len(final_payload['findings'])} repos to {callback_url}...")
+                  try:
+                      requests.post(callback_url, json=final_payload, headers={"X-API-Key": worker_key})
+                      print("::notice::Successfully synced to Worker.")
+                  except Exception as e:
+                      print(f"::error::Failed to post to worker: {e}")
+              else:
+                  print("::warning::Skipping sync (CALLBACK_URL or WORKER_SECRET missing)")
+
+          if __name__ == "__main__":
+              asyncio.run(main())
+          EOF
+
+          python research_judge.py

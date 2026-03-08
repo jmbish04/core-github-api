@@ -1,5 +1,6 @@
 # Dependencies
 node_modules/
+.pnpm-store/
 
 # Cloudflare Wrangler
 .wrangler/
@@ -9,6 +10,7 @@ dist/
 # Logs
 *.log
 npm-debug.log*
+pnpm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
@@ -21,3 +23,6 @@ yarn-error.log*
 # OS-specific
 .DS_Store
 Thumbs.db
+
+# Secrets
+.env

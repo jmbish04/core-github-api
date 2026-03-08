@@ -1,0 +1,37 @@
+name: Run LiteLLM with Cloudflare
+on: 
+  workflow_dispatch:
+    inputs:
+      query:
+        description: 'The repo data to analyze'
+        required: true
+  repository_dispatch:
+    types: [research-judge] # This matches the event_type your Worker sends
+
+jobs:
+  run-model:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Dependencies
+        # Added pydantic and requests for structured outputs and webhooks
+        run: pip install litellm pydantic requests 
+
+      - name: Run Script
+        env:
+          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CF_GATEWAY_ID: ${{ secrets.CLOUDFLARE_GATEWAY_ID }}
+          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_AI_GATEWAY_TOKEN }}
+          WORKER_API_KEY: ${{ secrets.WORKER_API_KEY }}
+          # Fallback logic: handles both manual UI triggers AND Worker Cron triggers
+          USER_PROMPT: ${{ github.event.inputs.query || github.event.client_payload.query }}
+          CALLBACK_URL: "${{ secrets.WORKER_API_URL_BASE }}/upsert/research-judge"
+          MODEL_NAME: "workers-ai/@cf/openai/gpt-oss-120b"
+        run: python scripts/github/repo_analysis/run_lite.py

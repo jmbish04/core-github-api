@@ -1,0 +1,159 @@
+name: Daily Trend Hunter
+on:
+  schedule:
+    - cron: "0 8 * * *" # Runs at 8:00 AM UTC daily
+  workflow_dispatch:
+
+jobs:
+  hunt:
+    name: Fetch Trends & Curate via AI
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install requests pygithub litellm pydantic
+
+      - name: Run Hunter & AI Curation Script
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CF_GATEWAY_ID: ${{ secrets.CLOUDFLARE_GATEWAY_ID }}
+          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_AI_GATEWAY_TOKEN }} 
+          WORKER_API_URL: ${{ secrets.WORKER_API_URL_BASE }}/upsert/daily-trends
+          WORKER_API_KEY: ${{ secrets.WORKER_API_KEY }}
+        run: |
+          cat << 'EOF' > hunter.py
+          import os
+          import requests
+          import json
+          from datetime import datetime, timedelta
+          from github import Github
+          from pydantic import BaseModel
+          from litellm import completion
+
+          # --- 1. Define the Structured Output Schema ---
+          class CuratedRepo(BaseModel):
+              name: str
+              url: str
+              category: str
+              why_its_interesting: str
+              innovation_score: int
+
+          class DailyReport(BaseModel):
+              trend_summary: str
+              top_picks: list[CuratedRepo]
+
+          def get_raw_trends(g):
+              # Get User's Existing Stars (to avoid duplicates)
+              # Note: PyGithub get_starred() can be slow if you have thousands of stars.
+              me = g.get_user("${{ github.repository_owner }}")
+              starred_ids = set()
+              print("Fetching user stars...")
+              for repo in me.get_starred():
+                  starred_ids.add(repo.id)
+
+              date_since = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
+              queries = [
+                  f"language:typescript created:>{date_since} sort:stars",
+                  f"language:python created:>{date_since} sort:stars",
+                  f"topic:google-apps-script created:>{date_since}",
+                  f"topic:cloudflare-workers created:>{date_since}"
+              ]
+              
+              watched_orgs = ["cloudflare", "openai", "google-gemini", "langchain-ai"]
+              raw_repos = []
+
+              print("Scanning for trending repos...")
+              for q in queries:
+                  repos = g.search_repositories(query=q)
+                  count = 0
+                  for repo in repos:
+                      if count >= 10: break # Top 10 per category
+                      if repo.id in starred_ids: continue
+                      
+                      raw_repos.append({
+                          "name": repo.full_name,
+                          "description": repo.description or "No description",
+                          "url": repo.html_url,
+                          "category": q.split(" ")[0]
+                      })
+                      count += 1
+
+              print("Scanning watched orgs...")
+              for org_name in watched_orgs:
+                  try:
+                      org = g.get_organization(org_name)
+                      for repo in org.get_repos(sort="created", direction="desc"):
+                          if (datetime.now() - repo.created_at).days > 30: break
+                          raw_repos.append({
+                              "name": repo.full_name,
+                              "description": repo.description or "No description",
+                              "url": repo.html_url,
+                              "category": "org_watch"
+                          })
+                  except Exception as e:
+                      print(f"Skipping {org_name}: {e}")
+
+              return raw_repos
+
+          def curate_with_ai(raw_repos):
+              print(f"Sending {len(raw_repos)} repos to Cloudflare AI Gateway for curation...")
+              
+              api_base = f"https://gateway.ai.cloudflare.com/v1/{os.environ['CF_ACCOUNT_ID']}/{os.environ['CF_GATEWAY_ID']}/workers-ai/v1"
+              
+              prompt = f"Review the following list of newly created repositories. Select the top 5 most innovative or interesting ones, and provide a brief summary of today's trends.\n\nData: {json.dumps(raw_repos)}"
+
+              response = completion(
+                  model="openai/@cf/openai/gpt-oss-120b",
+                  api_base=api_base,
+                  api_key=os.environ["CF_API_TOKEN"],
+                  messages=[
+                      {"role": "system", "content": "You are an expert developer curating daily tech trends. Return ONLY valid JSON matching the requested schema."},
+                      {"role": "user", "content": prompt}
+                  ],
+                  response_format=DailyReport,
+                  max_tokens=4096,
+                  extra_body={"reasoning": {"effort": "high"}}
+              )
+
+              return response.choices[0].message.content
+
+          def main():
+              g = Github(os.environ["GITHUB_TOKEN"])
+              
+              # 1. Fetch raw data from GitHub
+              raw_repos = get_raw_trends(g)
+              
+              # 2. Curate using Cloudflare Workers AI + LiteLLM
+              ai_curated_json_str = curate_with_ai(raw_repos)
+              
+              # 3. Post to Worker
+              worker_url = os.environ.get("WORKER_API_URL")
+              if worker_url:
+                  print("Posting curated trends to Worker API...")
+                  
+                  # Parse string to dict to ensure valid JSON payload
+                  payload = json.loads(ai_curated_json_str)
+                  payload["date"] = datetime.now().isoformat()
+                  
+                  headers = {
+                      "Content-Type": "application/json",
+                      "X-API-Key": os.environ["WORKER_API_KEY"],
+                      "User-Agent": "github-actions/hunter"
+                  }
+                  
+                  resp = requests.post(worker_url, json=payload, headers=headers)
+                  resp.raise_for_status()
+                  print("Successfully uploaded to Worker.")
+
+          if __name__ == "__main__":
+              main()
+          EOF
+
+          python hunter.py

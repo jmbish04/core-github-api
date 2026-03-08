@@ -1,0 +1,788 @@
+.
+├── AGENTS.md
+├── README.md
+├── backend
+│   ├── drizzle.config.core.ts
+│   ├── drizzle.config.webhooks.ts
+│   └── src
+│       ├── agents
+│       │   ├── AGENTS.md
+│       │   ├── BaseAgent.ts
+│       │   ├── JudgeAgent.ts
+│       │   ├── JulesOverseer.ts
+│       │   ├── OwnerAgent.ts
+│       │   ├── ReportingAgent.ts
+│       │   ├── ResearchAgent.ts
+│       │   ├── TopicOrchestratorAgent.ts
+│       │   ├── WebSearchAgent.ts
+│       │   ├── base-agents
+│       │   │   ├── orchestrator.ts
+│       │   │   ├── patterns
+│       │   │   │   ├── evaluator-optimizer.ts
+│       │   │   │   ├── orchestrator-workers.ts
+│       │   │   │   ├── parallelization.ts
+│       │   │   │   ├── prompt-chaining.ts
+│       │   │   │   └── routing.ts
+│       │   │   └── task_assignee.ts
+│       │   ├── code-generator-agent.ts
+│       │   ├── deep-reasoning.ts
+│       │   ├── gemini.ts
+│       │   ├── github-types.ts
+│       │   ├── health.ts
+│       │   ├── orchestrator.ts
+│       │   ├── planner.ts
+│       │   ├── repo.ts
+│       │   └── shared-tools
+│       │       ├── d1.ts
+│       │       ├── index.ts
+│       │       └── vectorize.ts
+│       ├── ai
+│       │   ├── repo-analysis.ts
+│       │   └── vectorize-helper.ts
+│       ├── api
+│       │   └── health.ts
+│       ├── automations
+│       │   └── registry.ts
+│       ├── db
+│       │   ├── agent-db.ts
+│       │   ├── index.ts
+│       │   ├── repos.ts
+│       │   ├── schema-agent-events.ts
+│       │   ├── schema-budget.ts
+│       │   ├── schema-chat.ts
+│       │   ├── schema-daily-research.ts
+│       │   ├── schema-drafts.ts
+│       │   ├── schema-favorites.ts
+│       │   ├── schema-health.ts
+│       │   ├── schema-jules.ts
+│       │   ├── schema-logs.ts
+│       │   ├── schema-plans.ts
+│       │   ├── schema-pricing.ts
+│       │   ├── schema-project.ts
+│       │   ├── schema-repos.ts
+│       │   ├── schema-research-orchestrator.ts
+│       │   ├── schema-research.ts
+│       │   ├── schema-reviews.ts
+│       │   ├── schema-roadmap.ts
+│       │   ├── schema-sessions.ts
+│       │   ├── schema-settings.ts
+│       │   ├── schema-stars.ts
+│       │   ├── schema-system.ts
+│       │   ├── schema-todos.ts
+│       │   ├── schema-topic-research.ts
+│       │   ├── schema-webhooks.ts
+│       │   ├── schema.ts
+│       │   └── webhooks.ts
+│       ├── do
+│       │   ├── DataProcessor.ts
+│       │   └── RoomDO.ts
+│       ├── env-override.d.ts
+│       ├── exports.ts
+│       ├── flows
+│       │   ├── index.ts
+│       │   └── workflowTemplates.ts
+│       ├── gardener
+│       │   ├── agents
+│       │   │   └── implementer.ts
+│       │   ├── auditor.ts
+│       │   ├── fixers
+│       │   │   └── worker-type-fixer.ts
+│       │   ├── ops
+│       │   │   ├── container-manager.ts
+│       │   │   └── sandbox-registry.ts
+│       │   ├── orchestrator.ts
+│       │   ├── router.ts
+│       │   └── types.ts
+│       ├── health
+│       │   ├── coordinator.ts
+│       │   └── types.ts
+│       ├── hono.ts
+│       ├── index.ts
+│       ├── lib
+│       │   ├── agent-ai.ts
+│       │   ├── agent-sdk.ts
+│       │   ├── agent-utils.ts
+│       │   ├── ai-config.ts
+│       │   ├── budget-tracker.ts
+│       │   ├── crud-factory.ts
+│       │   ├── email-reports.ts
+│       │   ├── gemini.ts
+│       │   ├── logger.ts
+│       │   ├── mcp-client.ts
+│       │   ├── mcp.ts
+│       │   ├── model-config.ts
+│       │   ├── pricing-registry.ts
+│       │   └── research-logger.ts
+│       ├── mcp
+│       │   ├── github-tools.ts
+│       │   ├── tools
+│       │   │   ├── AGENTS.md
+│       │   │   ├── github.ts
+│       │   │   ├── index.ts
+│       │   │   └── orchestration.ts
+│       │   └── tools.ts
+│       ├── mimetext.d.ts
+│       ├── objects
+│       │   └── Supervisor.ts
+│       ├── octokit
+│       │   ├── compat.ts
+│       │   ├── core.ts
+│       │   ├── graphql
+│       │   │   └── graphql.ts
+│       │   ├── index.ts
+│       │   └── rest
+│       │       └── index.ts
+│       ├── retrofit
+│       │   ├── RetrofitAgent.ts
+│       │   └── index.ts
+│       ├── routes
+│       │   ├── api
+│       │   │   ├── agents
+│       │   │   │   ├── chat.ts
+│       │   │   │   ├── index.ts
+│       │   │   │   ├── session.ts
+│       │   │   │   └── sessionStatus.ts
+│       │   │   ├── budget.ts
+│       │   │   ├── chat.ts
+│       │   │   ├── health.ts
+│       │   │   ├── jules.ts
+│       │   │   ├── landing-generator.ts
+│       │   │   ├── ops.ts
+│       │   │   ├── projects.ts
+│       │   │   ├── research.ts
+│       │   │   ├── settings.ts
+│       │   │   ├── stats.ts
+│       │   │   ├── tasks.ts
+│       │   │   ├── timeline.ts
+│       │   │   ├── todos.ts
+│       │   │   ├── webhooks.ts
+│       │   │   └── workflows.ts
+│       │   ├── auth.ts
+│       │   ├── daily-research.ts
+│       │   ├── daily-trends.ts
+│       │   ├── health.ts
+│       │   ├── stars.ts
+│       │   └── webhooks.ts
+│       ├── rpc
+│       │   ├── index.ts
+│       │   ├── service.ts
+│       │   └── types.ts
+│       ├── sandbox-sdk-tools
+│       │   ├── client.ts
+│       │   ├── index.ts
+│       │   ├── session-manager.ts
+│       │   ├── types.ts
+│       │   └── utils.ts
+│       ├── schemas
+│       │   ├── apiSchemas.ts
+│       │   └── research.ts
+│       ├── services
+│       │   ├── browser_render.ts
+│       │   ├── jules.ts
+│       │   ├── landingGenerator
+│       │   │   ├── analyzer.ts
+│       │   │   ├── blueprint.ts
+│       │   │   ├── cloudflareBindings.ts
+│       │   │   ├── service.ts
+│       │   │   ├── template.ts
+│       │   │   ├── templates
+│       │   │   │   ├── landing.hbs
+│       │   │   │   └── partials
+│       │   │   │       ├── cta.hbs
+│       │   │   │       ├── features.hbs
+│       │   │   │       ├── footer.hbs
+│       │   │   │       ├── hero.hbs
+│       │   │   │       ├── metrics.hbs
+│       │   │   │       ├── nav.hbs
+│       │   │   │       ├── problem.hbs
+│       │   │   │       ├── roadmap.hbs
+│       │   │   │       ├── solution.hbs
+│       │   │   │       └── use_cases.hbs
+│       │   │   └── types.ts
+│       │   ├── pricing-scraper.ts
+│       │   ├── proactive-intelligence.ts
+│       │   ├── repository-sync.ts
+│       │   ├── stats-updater.ts
+│       │   ├── statusMapper.ts
+│       │   └── todoInsights.ts
+│       ├── standards
+│       │   └── goldenPath.ts
+│       ├── tools
+│       │   ├── comments.ts
+│       │   ├── files.ts
+│       │   ├── github.ts
+│       │   ├── health-check.ts
+│       │   ├── index.ts
+│       │   ├── issues.ts
+│       │   ├── kv.ts
+│       │   ├── prs.ts
+│       │   ├── research.ts
+│       │   ├── shared.ts
+│       │   └── templates.ts
+│       ├── types
+│       │   ├── enums.ts
+│       │   ├── github-webhooks.ts
+│       │   ├── hbs.d.ts
+│       │   └── index.ts
+│       ├── utils
+│       │   ├── ai-provider-utils.ts
+│       │   ├── base64.ts
+│       │   ├── crypto.ts
+│       │   ├── debug-secrets.ts
+│       │   ├── email.ts
+│       │   ├── etagCache.ts
+│       │   ├── github-auth.ts
+│       │   ├── helpers.ts
+│       │   ├── hono.ts
+│       │   ├── openapi.ts
+│       │   ├── paginate.ts
+│       │   ├── rateLimit.ts
+│       │   └── secrets.ts
+│       └── workflows
+│           ├── DeepResearchWorkflow.ts
+│           ├── ResearchOrchestrator.ts
+│           ├── TopicResearchWorkflow.ts
+│           ├── health.ts
+│           └── search.ts
+├── container
+│   ├── Dockerfile
+│   ├── bun.lock
+│   ├── dist
+│   │   ├── server.js
+│   │   └── task_runner.js
+│   ├── node_modules
+│   │   ├── @hono
+│   │   │   └── node-server -> ../../../node_modules/.pnpm/@hono+node-server@1.19.9_hono@4.11.9/node_modules/@hono/node-server
+│   │   ├── @types
+│   │   │   ├── node -> ../../../node_modules/.pnpm/@types+node@20.19.33/node_modules/@types/node
+│   │   │   └── ws -> ../../../node_modules/.pnpm/@types+ws@8.18.1/node_modules/@types/ws
+│   │   ├── hono -> ../../node_modules/.pnpm/hono@4.11.9/node_modules/hono
+│   │   ├── node-pty -> ../../node_modules/.pnpm/node-pty@1.1.0/node_modules/node-pty
+│   │   ├── typescript -> ../../node_modules/.pnpm/typescript@5.9.3/node_modules/typescript
+│   │   ├── ws -> ../../node_modules/.pnpm/ws@8.19.0/node_modules/ws
+│   │   └── zod -> ../../node_modules/.pnpm/zod@3.25.76/node_modules/zod
+│   ├── package.json
+│   ├── src
+│   │   ├── server.ts
+│   │   └── task_runner.ts
+│   └── tsconfig.json
+├── docs
+│   ├── AGENTS.md
+│   ├── DEPLOYMENT.md
+│   ├── FLOWS.md
+│   ├── RPC_USAGE.md
+│   ├── USAGE_EXAMPLES.md
+│   ├── large_prompts
+│   │   ├── active_monitoring.md
+│   │   ├── agentic_sandbox_container_ctrls.md
+│   │   ├── frontend_control_center.md
+│   │   ├── frontend_kanban_agents.md
+│   │   ├── gh-bot.md
+│   │   ├── gptoss-standby-monitor.md
+│   │   └── pr_containers.md
+│   ├── phase2-proactive-intelligence.md
+│   └── prompt.md
+├── drizzle.config.json
+├── frontend
+│   ├── @
+│   │   └── components
+│   │       └── ui
+│   │           ├── alert.tsx
+│   │           ├── badge.tsx
+│   │           ├── button.tsx
+│   │           ├── card.tsx
+│   │           ├── command.tsx
+│   │           ├── context-menu.tsx
+│   │           ├── dialog.tsx
+│   │           ├── dropdown-menu.tsx
+│   │           ├── hover-card.tsx
+│   │           ├── popover.tsx
+│   │           ├── scroll-area.tsx
+│   │           ├── separator.tsx
+│   │           ├── table.tsx
+│   │           └── tooltip.tsx
+│   ├── README.md
+│   ├── astro.config.mjs
+│   ├── components.json
+│   ├── eslint.config.js
+│   ├── index.html
+│   ├── node_modules
+│   │   ├── @assistant-ui
+│   │   │   └── react -> ../../../node_modules/.pnpm/@assistant-ui+react@0.12.9_@types+react-dom@19.2.3_@types+react@19.2.13__@types+react@1_aced6af68f6b9d969f3a83fedf7196c1/node_modules/@assistant-ui/react
+│   │   ├── @astrojs
+│   │   │   └── react -> ../../../node_modules/.pnpm/@astrojs+react@4.4.2_@types+node@24.10.12_@types+react-dom@19.2.3_@types+react@19.2.13__c0198c0a0bf3f2efc90d1f3f4ee746a1/node_modules/@astrojs/react
+│   │   ├── @dnd-kit
+│   │   │   ├── core -> ../../../node_modules/.pnpm/@dnd-kit+core@6.3.1_react-dom@19.2.4_react@19.2.4__react@19.2.4/node_modules/@dnd-kit/core
+│   │   │   ├── modifiers -> ../../../node_modules/.pnpm/@dnd-kit+modifiers@9.0.0_@dnd-kit+core@6.3.1_react-dom@19.2.4_react@19.2.4__react@19.2.4__react@19.2.4/node_modules/@dnd-kit/modifiers
+│   │   │   ├── sortable -> ../../../node_modules/.pnpm/@dnd-kit+sortable@10.0.0_@dnd-kit+core@6.3.1_react-dom@19.2.4_react@19.2.4__react@19.2.4__react@19.2.4/node_modules/@dnd-kit/sortable
+│   │   │   └── utilities -> ../../../node_modules/.pnpm/@dnd-kit+utilities@3.2.2_react@19.2.4/node_modules/@dnd-kit/utilities
+│   │   ├── @eslint
+│   │   │   └── js -> ../../../node_modules/.pnpm/@eslint+js@9.39.2/node_modules/@eslint/js
+│   │   ├── @faker-js
+│   │   │   └── faker -> ../../../node_modules/.pnpm/@faker-js+faker@10.3.0/node_modules/@faker-js/faker
+│   │   ├── @floating-ui
+│   │   │   └── dom -> ../../../node_modules/.pnpm/@floating-ui+dom@1.7.5/node_modules/@floating-ui/dom
+│   │   ├── @hookform
+│   │   │   └── resolvers -> ../../../node_modules/.pnpm/@hookform+resolvers@5.2.2_react-hook-form@7.71.1_react@19.2.4_/node_modules/@hookform/resolvers
+│   │   ├── @radix-ui
+│   │   │   ├── react-avatar -> ../../../node_modules/.pnpm/@radix-ui+react-avatar@1.1.11_@types+react-dom@19.2.3_@types+react@19.2.13__@types+reac_c96445ddc6df5b02ed28b482c3fba827/node_modules/@radix-ui/react-avatar
+│   │   │   ├── react-collapsible -> ../../../node_modules/.pnpm/@radix-ui+react-collapsible@1.1.12_@types+react-dom@19.2.3_@types+react@19.2.13__@types_5d899bcbdabdd860acb5135a44f09636/node_modules/@radix-ui/react-collapsible
+│   │   │   ├── react-context-menu -> ../../../node_modules/.pnpm/@radix-ui+react-context-menu@2.2.16_@types+react-dom@19.2.3_@types+react@19.2.13__@type_e860e88e2de111749dea29aea12c10ce/node_modules/@radix-ui/react-context-menu
+│   │   │   ├── react-dialog -> ../../../node_modules/.pnpm/@radix-ui+react-dialog@1.1.15_@types+react-dom@19.2.3_@types+react@19.2.13__@types+reac_13352f1eba5645a4654d5906eacd7369/node_modules/@radix-ui/react-dialog
+│   │   │   ├── react-dropdown-menu -> ../../../node_modules/.pnpm/@radix-ui+react-dropdown-menu@2.1.16_@types+react-dom@19.2.3_@types+react@19.2.13__@typ_e65704a97758479c61f83b6636ae3936/node_modules/@radix-ui/react-dropdown-menu
+│   │   │   ├── react-hover-card -> ../../../node_modules/.pnpm/@radix-ui+react-hover-card@1.1.15_@types+react-dom@19.2.3_@types+react@19.2.13__@types+_6ddce3e3c026106b0c8a5d38543c2a87/node_modules/@radix-ui/react-hover-card
+│   │   │   ├── react-icons -> ../../../node_modules/.pnpm/@radix-ui+react-icons@1.3.2_react@19.2.4/node_modules/@radix-ui/react-icons
+│   │   │   ├── react-label -> ../../../node_modules/.pnpm/@radix-ui+react-label@2.1.8_@types+react-dom@19.2.3_@types+react@19.2.13__@types+react@_ab4ac783eb5ee3f42e6dfb49e864841e/node_modules/@radix-ui/react-label
+│   │   │   ├── react-popover -> ../../../node_modules/.pnpm/@radix-ui+react-popover@1.1.15_@types+react-dom@19.2.3_@types+react@19.2.13__@types+rea_09dd1dab8dc239f15a776d58fd970ec9/node_modules/@radix-ui/react-popover
+│   │   │   ├── react-scroll-area -> ../../../node_modules/.pnpm/@radix-ui+react-scroll-area@1.2.10_@types+react-dom@19.2.3_@types+react@19.2.13__@types_523793b36773041d1a4c5e6c63d0bf8b/node_modules/@radix-ui/react-scroll-area
+│   │   │   ├── react-select -> ../../../node_modules/.pnpm/@radix-ui+react-select@2.2.6_@types+react-dom@19.2.3_@types+react@19.2.13__@types+react_26c358b722b99b668f6c410556be05ca/node_modules/@radix-ui/react-select
+│   │   │   ├── react-separator -> ../../../node_modules/.pnpm/@radix-ui+react-separator@1.1.8_@types+react-dom@19.2.3_@types+react@19.2.13__@types+re_e5b0150c742c67fad8d017c5cfd83cf9/node_modules/@radix-ui/react-separator
+│   │   │   ├── react-slot -> ../../../node_modules/.pnpm/@radix-ui+react-slot@1.2.4_@types+react@19.2.13_react@19.2.4/node_modules/@radix-ui/react-slot
+│   │   │   ├── react-tabs -> ../../../node_modules/.pnpm/@radix-ui+react-tabs@1.1.13_@types+react-dom@19.2.3_@types+react@19.2.13__@types+react@_dba59e381fdca6c30438df000340806c/node_modules/@radix-ui/react-tabs
+│   │   │   └── react-tooltip -> ../../../node_modules/.pnpm/@radix-ui+react-tooltip@1.2.8_@types+react-dom@19.2.3_@types+react@19.2.13__@types+reac_cd03b24fbc1e8f0283662fcaec0715e1/node_modules/@radix-ui/react-tooltip
+│   │   ├── @tabler
+│   │   │   └── icons-react -> ../../../node_modules/.pnpm/@tabler+icons-react@3.36.1_react@19.2.4/node_modules/@tabler/icons-react
+│   │   ├── @tanstack
+│   │   │   ├── react-query -> ../../../node_modules/.pnpm/@tanstack+react-query@4.43.0_react-dom@19.2.4_react@19.2.4__react@19.2.4/node_modules/@tanstack/react-query
+│   │   │   └── react-table -> ../../../node_modules/.pnpm/@tanstack+react-table@8.21.3_react-dom@19.2.4_react@19.2.4__react@19.2.4/node_modules/@tanstack/react-table
+│   │   ├── @tiptap
+│   │   │   ├── core -> ../../../node_modules/.pnpm/@tiptap+core@3.19.0_@tiptap+pm@3.19.0/node_modules/@tiptap/core
+│   │   │   ├── extension-code-block-lowlight -> ../../../node_modules/.pnpm/@tiptap+extension-code-block-lowlight@3.19.0_@tiptap+core@3.19.0_@tiptap+pm@3.19.0__@ti_6bd45f15bc025f4cc2dd576eb7b04977/node_modules/@tiptap/extension-code-block-lowlight
+│   │   │   ├── extension-list -> ../../../node_modules/.pnpm/@tiptap+extension-list@3.19.0_@tiptap+core@3.19.0_@tiptap+pm@3.19.0__@tiptap+pm@3.19.0/node_modules/@tiptap/extension-list
+│   │   │   ├── extension-subscript -> ../../../node_modules/.pnpm/@tiptap+extension-subscript@3.19.0_@tiptap+core@3.19.0_@tiptap+pm@3.19.0__@tiptap+pm@3.19.0/node_modules/@tiptap/extension-subscript
+│   │   │   ├── extension-superscript -> ../../../node_modules/.pnpm/@tiptap+extension-superscript@3.19.0_@tiptap+core@3.19.0_@tiptap+pm@3.19.0__@tiptap+pm@3.19.0/node_modules/@tiptap/extension-superscript
+│   │   │   ├── extension-table -> ../../../node_modules/.pnpm/@tiptap+extension-table@3.19.0_@tiptap+core@3.19.0_@tiptap+pm@3.19.0__@tiptap+pm@3.19.0/node_modules/@tiptap/extension-table
+│   │   │   ├── extension-text-style -> ../../../node_modules/.pnpm/@tiptap+extension-text-style@3.19.0_@tiptap+core@3.19.0_@tiptap+pm@3.19.0_/node_modules/@tiptap/extension-text-style
+│   │   │   ├── extension-typography -> ../../../node_modules/.pnpm/@tiptap+extension-typography@3.19.0_@tiptap+core@3.19.0_@tiptap+pm@3.19.0_/node_modules/@tiptap/extension-typography
+│   │   │   ├── extensions -> ../../../node_modules/.pnpm/@tiptap+extensions@3.19.0_@tiptap+core@3.19.0_@tiptap+pm@3.19.0__@tiptap+pm@3.19.0/node_modules/@tiptap/extensions
+│   │   │   ├── pm -> ../../../node_modules/.pnpm/@tiptap+pm@3.19.0/node_modules/@tiptap/pm
+│   │   │   ├── react -> ../../../node_modules/.pnpm/@tiptap+react@3.19.0_@floating-ui+dom@1.7.5_@tiptap+core@3.19.0_@tiptap+pm@3.19.0__@tip_576ddcb34a0e5aab0580cd92c507d954/node_modules/@tiptap/react
+│   │   │   ├── starter-kit -> ../../../node_modules/.pnpm/@tiptap+starter-kit@3.19.0/node_modules/@tiptap/starter-kit
+│   │   │   └── suggestion -> ../../../node_modules/.pnpm/@tiptap+suggestion@3.19.0_@tiptap+core@3.19.0_@tiptap+pm@3.19.0__@tiptap+pm@3.19.0/node_modules/@tiptap/suggestion
+│   │   ├── @types
+│   │   │   ├── js-cookie -> ../../../node_modules/.pnpm/@types+js-cookie@3.0.6/node_modules/@types/js-cookie
+│   │   │   ├── lodash.groupby -> ../../../node_modules/.pnpm/@types+lodash.groupby@4.6.9/node_modules/@types/lodash.groupby
+│   │   │   ├── lodash.throttle -> ../../../node_modules/.pnpm/@types+lodash.throttle@4.1.9/node_modules/@types/lodash.throttle
+│   │   │   ├── node -> ../../../node_modules/.pnpm/@types+node@24.10.12/node_modules/@types/node
+│   │   │   ├── react -> ../../../node_modules/.pnpm/@types+react@19.2.13/node_modules/@types/react
+│   │   │   └── react-dom -> ../../../node_modules/.pnpm/@types+react-dom@19.2.3_@types+react@19.2.13/node_modules/@types/react-dom
+│   │   ├── @uidotdev
+│   │   │   └── usehooks -> ../../../node_modules/.pnpm/@uidotdev+usehooks@2.4.1_react-dom@19.2.4_react@19.2.4__react@19.2.4/node_modules/@uidotdev/usehooks
+│   │   ├── @vitejs
+│   │   │   └── plugin-react -> ../../../node_modules/.pnpm/@vitejs+plugin-react@5.1.3_vite@7.3.1_@types+node@24.10.12_jiti@1.21.7_yaml@2.8.2_/node_modules/@vitejs/plugin-react
+│   │   ├── @xterm
+│   │   │   ├── addon-attach -> ../../../node_modules/.pnpm/@xterm+addon-attach@0.11.0_@xterm+xterm@5.5.0/node_modules/@xterm/addon-attach
+│   │   │   ├── addon-fit -> ../../../node_modules/.pnpm/@xterm+addon-fit@0.10.0_@xterm+xterm@5.5.0/node_modules/@xterm/addon-fit
+│   │   │   └── xterm -> ../../../node_modules/.pnpm/@xterm+xterm@5.5.0/node_modules/@xterm/xterm
+│   │   ├── @xyflow
+│   │   │   └── react -> ../../../node_modules/.pnpm/@xyflow+react@12.10.0_@types+react@19.2.13_immer@11.1.3_react-dom@19.2.4_react@19.2.4__react@19.2.4/node_modules/@xyflow/react
+│   │   ├── ai -> ../../node_modules/.pnpm/ai@5.0.129_zod@4.3.6/node_modules/ai
+│   │   ├── astro -> ../../node_modules/.pnpm/astro@5.17.1_@types+node@24.10.12_jiti@1.21.7_rollup@4.57.1_typescript@5.9.3_yaml@2.8.2/node_modules/astro
+│   │   ├── autoprefixer -> ../../node_modules/.pnpm/autoprefixer@10.4.24_postcss@8.5.6/node_modules/autoprefixer
+│   │   ├── axios -> ../../node_modules/.pnpm/axios@1.13.5/node_modules/axios
+│   │   ├── class-variance-authority -> ../../node_modules/.pnpm/class-variance-authority@0.7.1/node_modules/class-variance-authority
+│   │   ├── clsx -> ../../node_modules/.pnpm/clsx@2.1.1/node_modules/clsx
+│   │   ├── cmdk -> ../../node_modules/.pnpm/cmdk@1.1.1_@types+react-dom@19.2.3_@types+react@19.2.13__@types+react@19.2.13_react-dom_1bf4ade9c3972aa83acdb7dd84f45c8f/node_modules/cmdk
+│   │   ├── date-fns -> ../../node_modules/.pnpm/date-fns@4.1.0/node_modules/date-fns
+│   │   ├── eslint -> ../../node_modules/.pnpm/eslint@9.39.2_jiti@1.21.7/node_modules/eslint
+│   │   ├── eslint-plugin-react-hooks -> ../../node_modules/.pnpm/eslint-plugin-react-hooks@7.0.1_eslint@9.39.2_jiti@1.21.7_/node_modules/eslint-plugin-react-hooks
+│   │   ├── eslint-plugin-react-refresh -> ../../node_modules/.pnpm/eslint-plugin-react-refresh@0.4.26_eslint@9.39.2_jiti@1.21.7_/node_modules/eslint-plugin-react-refresh
+│   │   ├── framer-motion -> ../../node_modules/.pnpm/framer-motion@12.34.0_react-dom@19.2.4_react@19.2.4__react@19.2.4/node_modules/framer-motion
+│   │   ├── fuse.js -> ../../node_modules/.pnpm/fuse.js@7.1.0/node_modules/fuse.js
+│   │   ├── globals -> ../../node_modules/.pnpm/globals@16.5.0/node_modules/globals
+│   │   ├── jotai -> ../../node_modules/.pnpm/jotai@2.17.1_@babel+core@7.29.0_@babel+template@7.28.6_@types+react@19.2.13_react@19.2.4/node_modules/jotai
+│   │   ├── js-cookie -> ../../node_modules/.pnpm/js-cookie@3.0.5/node_modules/js-cookie
+│   │   ├── kibo-ui -> ../../node_modules/.pnpm/kibo-ui@1.1.5_jiti@1.21.7_postcss@8.5.6_typescript@5.9.3_yaml@2.8.2/node_modules/kibo-ui
+│   │   ├── lodash.groupby -> ../../node_modules/.pnpm/lodash.groupby@4.6.0/node_modules/lodash.groupby
+│   │   ├── lodash.throttle -> ../../node_modules/.pnpm/lodash.throttle@4.1.1/node_modules/lodash.throttle
+│   │   ├── lowlight -> ../../node_modules/.pnpm/lowlight@3.3.0/node_modules/lowlight
+│   │   ├── lucide-react -> ../../node_modules/.pnpm/lucide-react@0.556.0_react@19.2.4/node_modules/lucide-react
+│   │   ├── motion -> ../../node_modules/.pnpm/motion@12.34.0_react-dom@19.2.4_react@19.2.4__react@19.2.4/node_modules/motion
+│   │   ├── postcss -> ../../node_modules/.pnpm/postcss@8.5.6/node_modules/postcss
+│   │   ├── react -> ../../node_modules/.pnpm/react@19.2.4/node_modules/react
+│   │   ├── react-dom -> ../../node_modules/.pnpm/react-dom@19.2.4_react@19.2.4/node_modules/react-dom
+│   │   ├── react-hook-form -> ../../node_modules/.pnpm/react-hook-form@7.71.1_react@19.2.4/node_modules/react-hook-form
+│   │   ├── react-icons -> ../../node_modules/.pnpm/react-icons@5.5.0_react@19.2.4/node_modules/react-icons
+│   │   ├── react-markdown -> ../../node_modules/.pnpm/react-markdown@10.1.0_@types+react@19.2.13_react@19.2.4/node_modules/react-markdown
+│   │   ├── react-resizable-panels -> ../../node_modules/.pnpm/react-resizable-panels@4.6.2_react-dom@19.2.4_react@19.2.4__react@19.2.4/node_modules/react-resizable-panels
+│   │   ├── react-router-dom -> ../../node_modules/.pnpm/react-router-dom@7.13.0_react-dom@19.2.4_react@19.2.4__react@19.2.4/node_modules/react-router-dom
+│   │   ├── react-social-login-buttons -> ../../node_modules/.pnpm/react-social-login-buttons@4.1.1_react@19.2.4/node_modules/react-social-login-buttons
+│   │   ├── recharts -> ../../node_modules/.pnpm/recharts@3.7.0_@types+react@19.2.13_react-dom@19.2.4_react@19.2.4__react-is@19.2.4_react@19.2.4_redux@5.0.1/node_modules/recharts
+│   │   ├── remark-gfm -> ../../node_modules/.pnpm/remark-gfm@4.0.1/node_modules/remark-gfm
+│   │   ├── streamdown -> ../../node_modules/.pnpm/streamdown@2.2.0_react@19.2.4/node_modules/streamdown
+│   │   ├── tailwind-merge -> ../../node_modules/.pnpm/tailwind-merge@3.4.0/node_modules/tailwind-merge
+│   │   ├── tailwindcss -> ../../node_modules/.pnpm/tailwindcss@3.4.19_yaml@2.8.2/node_modules/tailwindcss
+│   │   ├── tailwindcss-animate -> ../../node_modules/.pnpm/tailwindcss-animate@1.0.7_tailwindcss@3.4.19_yaml@2.8.2_/node_modules/tailwindcss-animate
+│   │   ├── tippy.js -> ../../node_modules/.pnpm/tippy.js@6.3.7/node_modules/tippy.js
+│   │   ├── tunnel-rat -> ../../node_modules/.pnpm/tunnel-rat@0.1.2_@types+react@19.2.13_immer@11.1.3_react@19.2.4/node_modules/tunnel-rat
+│   │   ├── typescript -> ../../node_modules/.pnpm/typescript@5.9.3/node_modules/typescript
+│   │   ├── typescript-eslint -> ../../node_modules/.pnpm/typescript-eslint@8.55.0_eslint@9.39.2_jiti@1.21.7__typescript@5.9.3/node_modules/typescript-eslint
+│   │   ├── vite -> ../../node_modules/.pnpm/vite@7.3.1_@types+node@24.10.12_jiti@1.21.7_yaml@2.8.2/node_modules/vite
+│   │   ├── zod -> ../../node_modules/.pnpm/zod@4.3.6/node_modules/zod
+│   │   └── zustand -> ../../node_modules/.pnpm/zustand@5.0.11_@types+react@19.2.13_immer@11.1.3_react@19.2.4_use-sync-external-store@1.6.0_react@19.2.4_/node_modules/zustand
+│   ├── package.json
+│   ├── postcss.config.js
+│   ├── public
+│   │   ├── favicon.svg
+│   │   ├── github.svg
+│   │   └── grid.svg
+│   ├── src
+│   │   ├── App.css
+│   │   ├── App.tsx
+│   │   ├── assets
+│   │   │   └── react.svg
+│   │   ├── components
+│   │   │   ├── AgentWorkflowTimeline.tsx
+│   │   │   ├── ContainerStatusBadge.tsx
+│   │   │   ├── LiveOpsConsole.tsx
+│   │   │   ├── PRCommandCenter.tsx
+│   │   │   ├── ProjectBoard.tsx
+│   │   │   ├── RecentTasksCard.tsx
+│   │   │   ├── RepoHealthCard.tsx
+│   │   │   ├── RequireAuth.tsx
+│   │   │   ├── assistant-ui
+│   │   │   │   ├── assistant-modal.tsx
+│   │   │   │   ├── assistant-sidebar.tsx
+│   │   │   │   └── workflow-thread.tsx
+│   │   │   ├── auth
+│   │   │   │   └── numeric-keypad.tsx
+│   │   │   ├── chat
+│   │   │   │   ├── chat-interface.tsx
+│   │   │   │   ├── message-bubble.tsx
+│   │   │   │   └── plan-card.tsx
+│   │   │   ├── client-app.tsx
+│   │   │   ├── health
+│   │   │   │   └── HealthWidget.tsx
+│   │   │   ├── kibo-ui
+│   │   │   │   ├── calendar
+│   │   │   │   │   └── index.tsx
+│   │   │   │   ├── editor
+│   │   │   │   │   └── index.tsx
+│   │   │   │   ├── gantt
+│   │   │   │   │   └── index.tsx
+│   │   │   │   ├── glimpse
+│   │   │   │   │   ├── index.tsx
+│   │   │   │   │   └── server.tsx
+│   │   │   │   ├── kanban
+│   │   │   │   │   └── index.tsx
+│   │   │   │   ├── list
+│   │   │   │   │   └── index.tsx
+│   │   │   │   ├── table
+│   │   │   │   │   └── index.tsx
+│   │   │   │   ├── tags
+│   │   │   │   │   └── index.tsx
+│   │   │   │   └── tree
+│   │   │   │       └── index.tsx
+│   │   │   ├── landing
+│   │   │   ├── layout
+│   │   │   │   ├── AppSidebar.tsx
+│   │   │   │   └── ProjectFolder.tsx
+│   │   │   ├── modals
+│   │   │   │   ├── LiveOpsModal.tsx
+│   │   │   │   └── WorkflowsModal.tsx
+│   │   │   ├── navigation
+│   │   │   │   └── Sidebar.tsx
+│   │   │   ├── project-dashboard
+│   │   │   │   ├── ProjectDashboardLayout.tsx
+│   │   │   │   └── tabs
+│   │   │   │       ├── DashboardTab.tsx
+│   │   │   │       ├── PRCommandCenterTab.tsx
+│   │   │   │       ├── PlanTab.tsx
+│   │   │   │       ├── UxWorkshopTab.tsx
+│   │   │   │       └── VibeCodingTab.tsx
+│   │   │   ├── projects
+│   │   │   │   ├── LandingGeneratorModal.tsx
+│   │   │   │   └── NewProjectDialog.tsx
+│   │   │   ├── tools
+│   │   │   │   └── PrCommentExtractor.tsx
+│   │   │   ├── ui
+│   │   │   │   ├── accordion.tsx
+│   │   │   │   ├── ai-elements
+│   │   │   │   │   └── idx.tsx
+│   │   │   │   ├── alert.tsx
+│   │   │   │   ├── avatar.tsx
+│   │   │   │   ├── badge.tsx
+│   │   │   │   ├── button.tsx
+│   │   │   │   ├── card.tsx
+│   │   │   │   ├── collapsible.tsx
+│   │   │   │   ├── command.tsx
+│   │   │   │   ├── context-menu.tsx
+│   │   │   │   ├── dialog.tsx
+│   │   │   │   ├── diceui
+│   │   │   │   │   ├── kanban.tsx
+│   │   │   │   │   ├── stat.tsx
+│   │   │   │   │   └── timeline.tsx
+│   │   │   │   ├── dropdown-menu.tsx
+│   │   │   │   ├── empty.tsx
+│   │   │   │   ├── form.tsx
+│   │   │   │   ├── input.tsx
+│   │   │   │   ├── label.tsx
+│   │   │   │   ├── popover.tsx
+│   │   │   │   ├── resizable.tsx
+│   │   │   │   ├── scroll-area.tsx
+│   │   │   │   ├── select.tsx
+│   │   │   │   ├── separator.tsx
+│   │   │   │   ├── table.tsx
+│   │   │   │   ├── tabs.tsx
+│   │   │   │   └── textarea.tsx
+│   │   │   ├── webhooks
+│   │   │   │   ├── EventCard.tsx
+│   │   │   │   └── LiveEventsTab.tsx
+│   │   │   └── workflows
+│   │   │       ├── Flow.tsx
+│   │   │       ├── FunctionIcon.tsx
+│   │   │       ├── TurboEdge.tsx
+│   │   │       ├── TurboNode.tsx
+│   │   │       ├── WorkflowRunsTab.tsx
+│   │   │       ├── WorkflowStudio.tsx
+│   │   │       ├── catalog.tsx
+│   │   │       ├── data.tsx
+│   │   │       └── turbo.css
+│   │   ├── context
+│   │   │   ├── AuthContext.tsx
+│   │   │   └── auth-context.tsx
+│   │   ├── env.d.ts
+│   │   ├── hooks
+│   │   │   └── useColbySocket.ts
+│   │   ├── index.css
+│   │   ├── layouts
+│   │   │   └── RootLayout.tsx
+│   │   ├── lib
+│   │   │   ├── control-user.ts
+│   │   │   ├── project-recents.ts
+│   │   │   └── utils.ts
+│   │   ├── main.tsx
+│   │   ├── pages
+│   │   │   ├── Research.tsx
+│   │   │   ├── control
+│   │   │   │   ├── global
+│   │   │   │   │   ├── Chat.tsx
+│   │   │   │   │   ├── CommentsViewer.tsx
+│   │   │   │   │   ├── Dashboard.tsx
+│   │   │   │   │   ├── Kanban.tsx
+│   │   │   │   │   ├── PRCommandCenter.tsx
+│   │   │   │   │   ├── ProjectDashboard.tsx
+│   │   │   │   │   ├── ProjectView.tsx
+│   │   │   │   │   ├── Projects.tsx
+│   │   │   │   │   ├── Roadmap.tsx
+│   │   │   │   │   ├── Settings.tsx
+│   │   │   │   │   ├── TaskDetails.tsx
+│   │   │   │   │   ├── Todo.tsx
+│   │   │   │   │   ├── Tools.tsx
+│   │   │   │   │   └── Webhooks.tsx
+│   │   │   │   └── project
+│   │   │   ├── index.astro
+│   │   │   ├── public
+│   │   │   │   ├── AuthCallback.tsx
+│   │   │   │   ├── Docs.tsx
+│   │   │   │   ├── Health.tsx
+│   │   │   │   ├── Home.tsx
+│   │   │   │   ├── Login.tsx
+│   │   │   │   ├── SparkLanding.tsx
+│   │   │   │   ├── WorkflowEditor.tsx
+│   │   │   │   ├── WorkflowNew.tsx
+│   │   │   │   ├── Workflows.tsx
+│   │   │   │   └── WorkflowsLanding.tsx
+│   │   │   ├── research
+│   │   │   │   ├── ResearchDashboard.tsx
+│   │   │   │   ├── ResearchDetail.tsx
+│   │   │   │   └── ResearchIntake.tsx
+│   │   │   ├── scaler.astro
+│   │   │   └── swagger.astro
+│   │   └── stores
+│   │       └── useProjectStore.ts
+│   ├── tailwind.config.js
+│   ├── tsconfig.app.json
+│   ├── tsconfig.json
+│   ├── tsconfig.node.json
+│   └── vite.config.ts
+├── landing-generator
+│   ├── README.md
+│   ├── analyzer.ts
+│   ├── blueprint.ts
+│   ├── generate.ts
+│   ├── index.ts
+│   ├── template.ts
+│   ├── templates
+│   └── types.ts
+├── migrations
+│   ├── 0000_omniscient_tyrannus.sql
+│   ├── 0017_chat_logging.sql
+│   ├── core
+│   │   ├── 0000_public_speedball.sql
+│   │   ├── 0001_aspiring_terror.sql
+│   │   ├── 0002_freezing_stephen_strange.sql
+│   │   ├── 0003_overrated_jack_flag.sql
+│   │   ├── 0004_lively_war_machine.sql
+│   │   ├── 0005_vengeful_dracula.sql
+│   │   ├── 0006_right_toro.sql
+│   │   ├── 0007_cold_nemesis.sql
+│   │   ├── 0008_opposite_toad_men.sql
+│   │   ├── 0009_narrow_hawkeye.sql
+│   │   ├── 0010_fine_roughhouse.sql
+│   │   ├── 0011_lean_captain_flint.sql
+│   │   ├── 0012_absurd_oracle.sql
+│   │   ├── 0013_living_husk.sql
+│   │   ├── 0014_fresh_gamora.sql
+│   │   ├── 0015_late_patch.sql
+│   │   ├── 0016_strange_ultimo.sql
+│   │   ├── 0017_peaceful_leopardon.sql
+│   │   ├── 0018_gigantic_nick_fury.sql
+│   │   ├── 0019_breezy_echo.sql
+│   │   ├── 0020_puzzling_senator_kelly.sql
+│   │   ├── 0021_nice_venus.sql
+│   │   ├── 0022_slimy_miss_america.sql
+│   │   ├── 0023_romantic_vengeance.sql
+│   │   ├── 0024_third_thunderbolt_ross.sql
+│   │   ├── 0025_wandering_havok.sql
+│   │   └── meta
+│   │       ├── 0000_snapshot.json
+│   │       ├── 0001_snapshot.json
+│   │       ├── 0002_snapshot.json
+│   │       ├── 0003_snapshot.json
+│   │       ├── 0004_snapshot.json
+│   │       ├── 0005_snapshot.json
+│   │       ├── 0006_snapshot.json
+│   │       ├── 0007_snapshot.json
+│   │       ├── 0008_snapshot.json
+│   │       ├── 0009_snapshot.json
+│   │       ├── 0010_snapshot.json
+│   │       ├── 0011_snapshot.json
+│   │       ├── 0012_snapshot.json
+│   │       ├── 0013_snapshot.json
+│   │       ├── 0014_snapshot.json
+│   │       ├── 0015_snapshot.json
+│   │       ├── 0016_snapshot.json
+│   │       ├── 0017_snapshot.json
+│   │       ├── 0018_snapshot.json
+│   │       ├── 0019_snapshot.json
+│   │       ├── 0020_snapshot.json
+│   │       ├── 0021_snapshot.json
+│   │       ├── 0022_snapshot.json
+│   │       ├── 0023_snapshot.json
+│   │       ├── 0024_snapshot.json
+│   │       ├── 0025_snapshot.json
+│   │       └── _journal.json
+│   ├── meta
+│   │   ├── 0000_snapshot.json
+│   │   └── _journal.json
+│   └── webhooks
+│       ├── 0000_chief_pyro.sql
+│       ├── 0001_flippant_master_mold.sql
+│       ├── manual_fix.sql
+│       └── meta
+│           ├── 0000_snapshot.json
+│           ├── 0001_snapshot.json
+│           ├── 0002_snapshot.json
+│           ├── 0003_snapshot.json
+│           └── _journal.json
+├── node_modules
+│   ├── @asteasolutions
+│   │   └── zod-to-openapi -> ../.pnpm/@asteasolutions+zod-to-openapi@8.4.0_zod@4.3.6/node_modules/@asteasolutions/zod-to-openapi
+│   ├── @cloudflare
+│   │   ├── containers -> ../.pnpm/@cloudflare+containers@0.1.0/node_modules/@cloudflare/containers
+│   │   ├── puppeteer -> ../.pnpm/@cloudflare+puppeteer@1.0.6/node_modules/@cloudflare/puppeteer
+│   │   ├── sandbox -> ../.pnpm/@cloudflare+sandbox@0.7.1_@openai+agents@0.4.6_@cfworker+json-schema@4.1.1_ws@8.19.0_zod@4.3.6__@xterm+xterm@5.5.0/node_modules/@cloudflare/sandbox
+│   │   ├── vitest-pool-workers -> ../.pnpm/@cloudflare+vitest-pool-workers@0.10.15_@cloudflare+workers-types@4.20260207.0_@vitest+_809b2aee590293c827f545bcfb62e4d5/node_modules/@cloudflare/vitest-pool-workers
+│   │   └── workers-types -> ../.pnpm/@cloudflare+workers-types@4.20260207.0/node_modules/@cloudflare/workers-types
+│   ├── @google
+│   │   ├── genai -> ../.pnpm/@google+genai@1.40.0_@modelcontextprotocol+sdk@1.26.0_@cfworker+json-schema@4.1.1_zod@4.3.6_/node_modules/@google/genai
+│   │   └── jules-sdk -> ../.pnpm/@google+jules-sdk@0.0.6/node_modules/@google/jules-sdk
+│   ├── @hono
+│   │   ├── swagger-ui -> ../.pnpm/@hono+swagger-ui@0.5.3_hono@4.11.9/node_modules/@hono/swagger-ui
+│   │   ├── zod-openapi -> ../.pnpm/@hono+zod-openapi@1.2.1_hono@4.11.9_zod@4.3.6/node_modules/@hono/zod-openapi
+│   │   └── zod-validator -> ../.pnpm/@hono+zod-validator@0.7.6_hono@4.11.9_zod@4.3.6/node_modules/@hono/zod-validator
+│   ├── @iarna
+│   │   └── toml -> ../.pnpm/@iarna+toml@2.2.5/node_modules/@iarna/toml
+│   ├── @langchain
+│   │   └── textsplitters -> ../.pnpm/@langchain+textsplitters@1.0.1_@langchain+core@1.1.24_@opentelemetry+api@1.9.0_openai@6.19.0_ws@8.19.0_zod@4.3.6__/node_modules/@langchain/textsplitters
+│   ├── @modelcontextprotocol
+│   │   └── sdk -> ../.pnpm/@modelcontextprotocol+sdk@1.26.0_@cfworker+json-schema@4.1.1_zod@4.3.6/node_modules/@modelcontextprotocol/sdk
+│   ├── @octokit
+│   │   ├── graphql -> ../.pnpm/@octokit+graphql@7.1.1/node_modules/@octokit/graphql
+│   │   ├── plugin-retry -> ../.pnpm/@octokit+plugin-retry@8.0.3_@octokit+core@7.0.6/node_modules/@octokit/plugin-retry
+│   │   ├── plugin-throttling -> ../.pnpm/@octokit+plugin-throttling@11.0.3_@octokit+core@7.0.6/node_modules/@octokit/plugin-throttling
+│   │   ├── rest -> ../.pnpm/@octokit+rest@20.1.2/node_modules/@octokit/rest
+│   │   └── webhooks-methods -> ../.pnpm/@octokit+webhooks-methods@4.1.0/node_modules/@octokit/webhooks-methods
+│   ├── @openai
+│   │   └── agents -> ../.pnpm/@openai+agents@0.4.6_@cfworker+json-schema@4.1.1_ws@8.19.0_zod@4.3.6/node_modules/@openai/agents
+│   ├── @paralleldrive
+│   │   └── cuid2 -> ../.pnpm/@paralleldrive+cuid2@3.3.0/node_modules/@paralleldrive/cuid2
+│   ├── @tsndr
+│   │   └── cloudflare-worker-jwt -> ../.pnpm/@tsndr+cloudflare-worker-jwt@3.2.1/node_modules/@tsndr/cloudflare-worker-jwt
+│   ├── @types
+│   │   ├── mimetext -> ../.pnpm/@types+mimetext@2.0.4/node_modules/@types/mimetext
+│   │   ├── node -> ../.pnpm/@types+node@20.19.33/node_modules/@types/node
+│   │   └── uuid -> ../.pnpm/@types+uuid@10.0.0/node_modules/@types/uuid
+│   ├── agents -> .pnpm/agents@0.4.0_@cloudflare+ai-chat@0.0.7_@cloudflare+codemode@0.0.7_@cloudflare+workers-t_7931a7f0f1bdc1b17a75b37a754ab3da/node_modules/agents
+│   ├── ai -> .pnpm/ai@6.0.78_zod@4.3.6/node_modules/ai
+│   ├── cloudflare -> .pnpm/cloudflare@5.2.0/node_modules/cloudflare
+│   ├── drizzle-kit -> .pnpm/drizzle-kit@0.31.9/node_modules/drizzle-kit
+│   ├── drizzle-orm -> .pnpm/drizzle-orm@0.45.1_@cloudflare+workers-types@4.20260207.0_@opentelemetry+api@1.9.0_kysely@0.28.11/node_modules/drizzle-orm
+│   ├── drizzle-zod -> .pnpm/drizzle-zod@0.8.3_drizzle-orm@0.45.1_@cloudflare+workers-types@4.20260207.0_@openteleme_b01c28973b3718a42c23ac4059a0c759/node_modules/drizzle-zod
+│   ├── eventsource -> .pnpm/eventsource@4.1.0/node_modules/eventsource
+│   ├── handlebars -> .pnpm/handlebars@4.7.8/node_modules/handlebars
+│   ├── hono -> .pnpm/hono@4.11.9/node_modules/hono
+│   ├── json5 -> .pnpm/json5@2.2.3/node_modules/json5
+│   ├── kysely -> .pnpm/kysely@0.28.11/node_modules/kysely
+│   ├── kysely-d1 -> .pnpm/kysely-d1@0.4.0_kysely@0.28.11/node_modules/kysely-d1
+│   ├── mimetext -> .pnpm/mimetext@3.0.28/node_modules/mimetext
+│   ├── octokit -> .pnpm/octokit@5.0.5/node_modules/octokit
+│   ├── openai -> .pnpm/openai@6.19.0_ws@8.19.0_zod@4.3.6/node_modules/openai
+│   ├── typescript -> .pnpm/typescript@5.9.3/node_modules/typescript
+│   ├── uuid -> .pnpm/uuid@13.0.0/node_modules/uuid
+│   ├── vitest -> .pnpm/vitest@3.2.4_@types+debug@4.1.12_@types+node@20.19.33_jiti@1.21.7_yaml@2.8.2/node_modules/vitest
+│   ├── wrangler -> .pnpm/wrangler@4.63.0_@cloudflare+workers-types@4.20260207.0/node_modules/wrangler
+│   ├── yaml -> .pnpm/yaml@2.8.2/node_modules/yaml
+│   ├── zod -> .pnpm/zod@4.3.6/node_modules/zod
+│   └── zod-to-json-schema -> .pnpm/zod-to-json-schema@3.25.1_zod@4.3.6/node_modules/zod-to-json-schema
+├── package.json
+├── pnpm-lock.yaml
+├── pnpm-workspace.yaml
+├── prompt.md
+├── public
+│   ├── _astro
+│   │   ├── addon-attach.7tzSWxOz.js
+│   │   ├── addon-fit.Bn0eJQqk.js
+│   │   ├── client-app.C8z3O02B.js
+│   │   ├── client-app.Dous-zk6.css
+│   │   ├── client.Bz6-rH7N.js
+│   │   ├── index.DMOzYGL5.js
+│   │   ├── scaler.astro_astro_type_script_index_0_lang.3EniPErB.js
+│   │   ├── swagger.astro_astro_type_script_index_1_lang.BmNUNSX_.js
+│   │   ├── xterm.BzNAo3Wm.js
+│   │   └── xterm.qxJ8_QYu.css
+│   ├── content-assets.mjs
+│   ├── content-modules.mjs
+│   ├── favicon.svg
+│   ├── github.svg
+│   ├── grid.svg
+│   ├── index.html
+│   ├── scaler
+│   │   └── index.html
+│   └── swagger
+│       └── index.html
+├── scripts
+│   ├── add_missing_secret.sh
+│   ├── fix_github_key.py
+│   ├── github
+│   │   ├── extract_pr_code_comments.py
+│   │   └── extract_pr_code_comments.ts
+│   ├── provision_all_secrets.py
+│   ├── provision_secrets.sh
+│   └── verify_secrets.sh
+├── secrets_debug.txt
+├── tests
+│   ├── flows.test.ts
+│   ├── health.test.ts
+│   ├── test_comprehensive_api_endpoints.py
+│   └── verify-oss-structured.ts
+├── tree.txt
+├── tsconfig.json
+├── vitest.config.ts
+├── worker-configuration.d.ts
+├── wrangler.jsonc
+├── wrangler.log
+└── wrangler.txt
+
+292 directories, 494 files

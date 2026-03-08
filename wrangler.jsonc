@@ -1,27 +1,194 @@
 {
 	"name": "core-github-api",
-	"main": "src/index.ts",
-	"compatibility_date": "2024-09-23",
+	"main": "backend/src/index.ts",
+	"compatibility_date": "2026-02-10",
 	"compatibility_flags": [
 		"nodejs_compat"
 	],
+	// "minify": true,
+	"workers_dev": true,
+	"preview_urls": true,
+	
 	"observability": {
-		"enabled": true
+		"enabled": true,
+		"head_sampling_rate": 1,
+		"logs": {
+			"enabled": true,
+			"head_sampling_rate": 1,
+			"persist": true,
+			"invocation_logs": true
+		},
+		"traces": {
+			"enabled": false,
+			"persist": true,
+			"head_sampling_rate": 1
+		}
 	},
 	"vars": {
-		"LOG_LEVEL": "debug"
+		"LOG_LEVEL": "debug",
+		"AI_DEFAULT_PROVIDER": "worker-ai",
+		"AI_DEFAULT_MODEL": "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+		"GEMINI_MODEL": "gemini-3-pro-preview",
+		"OPENAI_MODEL": "gpt-5.1",
+		"DEFAULT_MODEL_REASONING": "@cf/openai/gpt-oss-120b",
+		"DEFAULT_MODEL_STRUCTURED_RESPONSE": "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+		"DEFAULT_MODEL_EMBEDDING": "@cf/baai/bge-large-en-v1.5",
+		"DEFAULT_MODEL_RERANKER": "@cf/baai/bge-reranker-base",
+		"HEALTH_SANDBOX_TIMEOUT_MS": 60000,
+		"AI_GATEWAY_NAME": "core-github-api",
+		"CLOUDFLARE_WORKER_NAME": "core-github-api",
+		"GITHUB_OWNER": "jmbish04",
+		"TEMPLATES_REPO_NAME": "core-repo-templates",
+		"STANDARDIZATION_REPO_NAME": "core-github-standardization",
+		"HEALTH_TEST_REPO_NAME": "testing-oktokit-commands",
+		"BASE_URL": "https://core-github-api.hacolby.workers.dev",
+		"MAX_AI_BUDGET": "50",
+		"USE_OPENAI_MODELS": false,
+		"MCP_API_URL": "https://docs.mcp.cloudflare.com/mcp"
 	},
+	"containers": [
+		{
+			"class_name": "Sandbox",
+			"image": "./container/Dockerfile",
+			"max_instances": 5,
+			"instance_type": {
+				"vcpu": 1,
+				"memory_mib": 4096,
+				"disk_mb": 6144
+			}
+		}
+	],
 	"ai": {
 		"binding": "AI"
 	},
+	// Configures 'wrangler' to treat .hbs files as Text modules (ES importable strings)
+	// This allows `import template from "./file.hbs"` to work natively in Workers.
+	"rules": [
+		{
+			"type": "Text",
+			"globs": [
+				"**/*.hbs"
+			],
+			"fallthrough": true
+		}
+	],
 	"assets": {
 		"directory": "./public",
-		"binding": "ASSETS"
+		"binding": "ASSETS",
+		"run_worker_first": true,
+		"not_found_handling": "none"
 	},
 	// "secrets": [
 	//   "GITHUB_TOKEN",
 	//   "WORKER_API_KEY"
 	// ],
+	"secrets_store_secrets": [
+		{
+			"binding": "GITHUB_CLIENT_ID",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "CORE_GITHUB_API_GITHUB_CLIENT_ID"
+		},
+		{
+			"binding": "GITHUB_CLIENT_SECRET",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "CORE_GITHUB_API_GITHUB_SECRET"
+		},
+		{
+			"binding": "GITHUB_APP_ID",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "CORE_GITHUB_API_GITHUB_APP_ID"
+		},
+		{
+			"binding": "GITHUB_TOKEN",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "GITHUB_TOKEN"
+		},
+		{
+			"binding": "GITHUB_PERSONAL_ACCESS_TOKEN",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "GH_TOKEN"
+		},
+		{
+			"binding": "CLOUDFLARE_API_TOKEN",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "CLOUDFLARE_API_TOKEN"
+		},
+		{
+			"binding": "OPENAI_API_KEY",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "OPENAI_API_KEY"
+		},
+		{
+			"binding": "CLOUDFLARE_ACCOUNT_ID",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "CLOUDFLARE_ACCOUNT_ID"
+		},
+		{
+			"binding": "CLOUDFLARE_SECRETS_STORE_TOKEN",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "CLOUDFLARE_SECRETS_STORE_TOKEN"
+		},
+		{
+			"binding": "CLOUDFLARE_WORKER_ADMIN_TOKEN",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "CLOUDFLARE_WORKER_ADMIN_TOKEN"
+		},
+		{
+			"binding": "CLOUDFLARE_AI_SEARCH_TOKEN",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "CLOUDFLARE_AI_SEARCH_TOKEN"
+		},				
+		{
+			"binding": "CLOUDFLARE_OBSERVABILITY_TOKEN",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "CLOUDFLARE_OBSERVABILITY_TOKEN"
+		},		
+		{
+			"binding": "WORKER_API_KEY",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "WORKER_API_KEY"
+		},
+		{
+			"binding": "AGENTIC_WORKER_API_KEY",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "AGENTIC_WORKER_API_KEY"
+		},		
+		{
+			"binding": "AI_GATEWAY_TOKEN",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "CLOUDFLARE_AI_GATEWAY_TOKEN"
+		},
+		{
+			"binding": "CF_BROWSER_RENDER_TOKEN",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "CLOUDFLARE_BROWSER_RENDER_TOKEN"
+		},
+		{
+			"binding": "STITCH_API_KEY",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "STITCH_API_KEY"
+		},		
+		{
+			"binding": "JULES_API_KEY",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "JULES_API_KEY"
+		},
+		{
+			"binding": "GEMINI_API_KEY",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "GOOGLE_API_KEY"
+		},
+		{
+			"binding": "ANTHROPIC_API_KEY",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "ANTHROPIC_API_KEY"
+		},
+		{
+			"binding": "DISCORD_TOKEN",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "DISCORD_TOKEN"			
+		}
+	],
 	"durable_objects": {
 		"bindings": [
 			{
@@ -39,6 +206,90 @@
 			{
 				"name": "GEMINI_AGENT",
 				"class_name": "GeminiAgent"
+			},
+			{
+				"name": "PLANNER",
+				"class_name": "PlannerAgent"
+			},
+			{
+				"name": "REPO_AGENT",
+				"class_name": "RepoAgent"
+			},
+			{
+				"name": "SUPERVISOR",
+				"class_name": "Supervisor"
+			},
+			{
+				"name": "DEEP_REASONING_AGENT",
+				"class_name": "DeepReasoningAgent"
+			},
+			// {
+			// 	"name": "COLBY_OPS",
+			// 	"class_name": "DataProcessor"
+			// },
+			{
+				"name": "SANDBOX",
+				"class_name": "Sandbox"
+			},
+			{
+				"name": "OWNER_AGENT",
+				"class_name": "OwnerAgent"
+			},
+			{
+				"name": "RESEARCH_AGENT",
+				"class_name": "ResearchAgent"
+			},
+			{
+				"name": "JULES_OVERSEER",
+				"class_name": "JulesOverseer"
+			},
+			{
+				"name": "TOPIC_ORCHESTRATOR",
+				"class_name": "TopicOrchestratorAgent"
+			},
+			{
+				"name": "WEB_SEARCH_AGENT",
+				"class_name": "WebSearchAgent"
+			},
+			{
+				"name": "JUDGE_AGENT",
+				"class_name": "JudgeAgent"
+			},
+			{
+				"name": "REPORTING_AGENT",
+				"class_name": "ReportingAgent"
+			},
+			{
+				"name": "LANDING_PAGE_AGENT",
+				"class_name": "LandingPageAgent"
+			},
+			{
+				"name": "CLOUDFLARE_DOCS_AGENT",
+				"class_name": "CloudflareDocsAgent"
+			},
+			{
+				"name": "DEEP_RESEARCH_CHAT_AGENT",
+				"class_name": "DeepResearchChatAgent"
+			},
+			{
+				"name": "HEALTH_DIAGNOSTICIAN",
+				"class_name": "HealthDiagnostician"
+			},
+			{
+				"name": "JULES_WEBHOOK_BROADCASTER",
+				"class_name": "JulesWebhookBroadcaster"
+			},
+			{
+				"name": "WORKSHOP_AGENT",
+				"class_name": "WorkshopAgent"
+			},
+			{
+				"name": "CF_WORKSHOP_AGENTS_SDK",
+				"class_name": "CfWorkshop_AgentsSdk"
+			},
+			{
+				"name": "STANDARDIZATION_AGENT",
+				"class_name": "StandardizationAgent"
 			}
 		]
 	},
@@ -46,15 +297,75 @@
 		{
 			"tag": "v1",
 			"new_sqlite_classes": [
+				// Core Orchestrator for managing agent lifecycles
 				"OrchestratorAgent",
+				// Agent for retrofitting and refactoring code
 				"RetrofitAgent",
-				"GeminiAgent"
+				// WebSocket Room for real-time collaboration
+				"RoomDO",
+				// Gemini-powered AI Agent
+				"GeminiAgent",
+				// Planning Agent for task decomposition
+				"PlannerAgent",
+				// Data Processing Container (Currently Disabled)
+				// "DataProcessor",
+				// Supervisor Agent for managing container tasks
+				"Supervisor",
+				// Deep Reasoning Agent for complex logic
+				"DeepReasoningAgent",
+				// Repository Management Agent
+				"RepoAgent",
+				// Secure Sandbox Environment
+				"Sandbox",
+				// Owner/Admin Agent
+				"OwnerAgent",
+				// Research Agent for gathering information
+				"ResearchAgent",
+				// Jules Overseer for session management
+				"JulesOverseer",
+				// Topic Research Orchestrator
+				"TopicOrchestratorAgent",
+				// Web Search Agent
+				"WebSearchAgent",
+				// Judge Agent for evaluating outputs
+				"JudgeAgent",
+				// Reporting Agent for generating summaries
+				"ReportingAgent"
 			]
 		},
 		{
 			"tag": "v2",
 			"new_sqlite_classes": [
-				"RoomDO"
+				"LandingPageAgent"
+			]
+		},
+		{
+			"tag": "v3",
+			"new_sqlite_classes": [
+				// Agent for querying Cloudflare Documentation with GitHub context
+				"CloudflareDocsAgent"
+			]
+		},
+		{
+			"tag": "v4",
+			"new_sqlite_classes": [
+				// Autonomous agent for analyzing and remediating health check failures
+				"HealthDiagnostician",
+				"DeepResearchChatAgent"
+			]
+		},
+		{
+			"tag": "v5",
+			"new_sqlite_classes": [
+				"WorkshopAgent",
+				"CfWorkshop_AgentsSdk",
+				"JulesWebhookBroadcaster"
+			]
+		},
+		{
+			"tag": "v6",
+			"new_sqlite_classes": [
+				"StandardizationAgent"
 			]
 		}
 	],
@@ -63,8 +374,26 @@
 			"name": "GithubSearchWorkflow",
 			"binding": "GITHUB_SEARCH_WORKFLOW",
 			"class_name": "GithubSearchWorkflow"
+		},
+		{
+			"name": "deep-research-workflow",
+			"binding": "DEEP_RESEARCH_WORKFLOW",
+			"class_name": "DeepResearchWorkflow"
+		},
+		{
+			"name": "research-orchestrator",
+			"binding": "RESEARCH_ORCHESTRATOR",
+			"class_name": "ResearchOrchestrator"
+		},
+		{
+			"name": "topic-research-workflow",
+			"binding": "TOPIC_RESEARCH_WORKFLOW",
+			"class_name": "TopicResearchWorkflow"
 		}
 	],
+	"browser": {
+		"binding": "BROWSER"
+	},
 	"kv_namespaces": [
 		{
 			"binding": "ETAG_KV",
@@ -74,15 +403,86 @@
 		{
 			"binding": "COMMENTS_KV",
 			"id": "82d47893d39a4b0fb574b1a760e06452"
+		},
+		{
+			"binding": "AGENT_CACHE",
+			"id": "9f070471888c435297b4bce51924f2df"
+		},
+		{
+			"binding": "KV_CONFIGS",
+			"id": "a2f723e74e3c4fd6a6377ab09bce9829",
+			"remote": true
+		}
+	],
+	// wrangler vectorize create core-github-api-vectors --preset @cf/baai/bge-large-en-v1.5
+	// wrangler vectorize create core-github-api-research --dimensions=1024 --metric=cosine
+	// wrangler vectorize create core-github-api-logs --preset @cf/baai/bge-large-en-v1.5
+	"vectorize": [
+		{
+			"binding": "VECTORIZE",
+			"index_name": "core-github-api-vectors",
+			"remote": true
+		},
+		{
+			"binding": "RESEARCH_INDEX",
+			"index_name": "core-github-api-research",
+			"remote": true
+		},
+		{
+			"binding": "VECTORIZE_LOGS",
+			"index_name": "core-github-api-logs",
+			"remote": true
 		}
 	],
 	"d1_databases": [
 		{
 			"binding": "DB",
 			"database_name": "core-github-api",
-			"database_id": "8d945e71-1c5b-499a-a0b8-71baf2353fdd",
-			"preview_database_id": "797f10ce-b971-469a-bee3-0f09f7d0e7a6",
-			"migrations_dir": "migrations"
+			"database_id": "31a57255-f8c2-451c-82ae-57905686887a",
+			"preview_database_id": "d27edbcf-a478-44f0-ba60-e9830084916a",
+			"migrations_dir": "migrations/core"
+		},
+		{
+			"binding": "DB_WEBHOOKS",
+			"database_name": "core-github-api-webhooks",
+			"database_id": "a03ad237-66aa-4af7-b19b-c39720e9b6a6",
+			"migrations_dir": "migrations/webhooks"
 		}
-	]
+	],
+	// Email sending bindings for Email Routing
+	// Targeted binding - sends only to the specified destination address
+  "send_email": [
+    {
+      "name": "SEND_EMAIL"
+    },
+    {
+      "name": "SEND_EMAIL_NEWSLETTER",
+      "destination_address": "ai@126colby.com"
+    },
+    {
+      "name": "Core Github API",
+      "allowed_destination_addresses": [
+        "ai@126colby.com"
+      ]
+    }
+  ],
+	// Scheduled triggers for automated tasks
+	// Cron format: minute hour day month day-of-week
+	"triggers": {
+		"crons": [
+			// Daily at 9:00 AM UTC - Triggers Research Orchestrator workflow
+			// Analyzes trending GitHub repositories and sends email report
+			"0 9 * * *",
+			// Weekly at 2:00 AM UTC on Mondays - Scrapes AI model pricing
+			// Stores pricing snapshots in D1 and alerts if data becomes stale
+			"0 2 * * 1",
+			// Every 3 hours - Jules Overseer Check
+			"0 */3 * * *",
+			// Weekly Health Suite at 3:00 AM UTC on Sundays
+			"0 3 * * 7",
+			// Every 6 hours - App Store AI Summary Backfill
+			// Processes unsummarized apps with Worker AI and saves to D1
+			"0 */6 * * *"
+		]
+	}
 }

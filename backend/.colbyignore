@@ -1,0 +1,14 @@
+node_modules
+.git
+.DS_Store
+dist
+build
+coverage
+venv
+.venv
+__pycache__
+*.lock
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+bun.lockb

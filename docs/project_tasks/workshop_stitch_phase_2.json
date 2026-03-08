@@ -1,0 +1,37 @@
+{
+  "project": "core-github-api",
+  "module": "Workshop (Stitch Retrofit Phase 2)",
+  "status": "in_progress",
+  "tasks": [
+    {
+      "phase": 1,
+      "title": "Wizard & Launch Frontend",
+      "status": "completed",
+      "screens": ["Review & Launch Summary", "Miller Column Marketplace", "Floating Canvas & Cart", "Deployment Animation"]
+    },
+    {
+      "phase": 2,
+      "title": "Operations Frontend",
+      "status": "completed",
+      "screens": ["Agent Decision Inbox", "Deployment Strategy Wizard", "Live Code Terminal", "Diff Viewer"]
+    },
+    {
+      "phase": 3,
+      "title": "Intelligence Frontend",
+      "status": "completed",
+      "screens": ["Conflict Resolver", "Memory Explorer"]
+    },
+    {
+      "phase": 4,
+      "title": "Analytics Frontend",
+      "status": "completed",
+      "screens": ["Health Report", "Performance Analytics", "Benchmark View", "Retraining Wizard"]
+    },
+    {
+      "phase": 5,
+      "title": "Navigation & Verification",
+      "status": "completed",
+      "description": "Wire the new module into the global sidebar and project-level sub-navigation, replacing mock data with explicit API fetches from Hono."
+    }
+  ]
+}

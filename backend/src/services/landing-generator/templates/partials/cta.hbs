@@ -1,0 +1,25 @@
+<!-- CTA Section -->
+<section id="cta" class="gradient-cta py-20 relative overflow-hidden">
+    <div class="absolute inset-0 opacity-10">
+        <div class="absolute top-10 right-10 w-64 h-64 bg-white rounded-full blur-3xl"></div>
+        <div class="absolute bottom-10 left-10 w-80 h-80 bg-white rounded-full blur-3xl"></div>
+    </div>
+
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center fade-in-up">
+        <h2 class="text-4xl md:text-6xl font-black text-white mb-8 leading-tight">
+            {{cta.tagline}}
+        </h2>
+        <div class="flex flex-col sm:flex-row gap-4 justify-center">
+            {{#each cta.buttons}}
+            <a href="{{this.href}}" class="
+                    {{#if (eq this.variant 'primary')}}
+                        px-8 py-4 bg-white text-emerald-600 rounded-lg font-semibold text-lg hover:bg-emerald-50 transition shadow-xl
+                    {{else}}
+                        px-8 py-4 bg-emerald-800 bg-opacity-50 text-white rounded-lg font-semibold text-lg hover:bg-opacity-70 transition border-2 border-white border-opacity-20
+                    {{/if}}">
+                {{this.text}}
+            </a>
+            {{/each}}
+        </div>
+    </div>
+</section>

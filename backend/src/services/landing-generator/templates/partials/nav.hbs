@@ -1,0 +1,43 @@
+<!-- Sticky Glass Navigation -->
+<nav class="glass-nav fixed top-0 left-0 right-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex justify-between items-center h-16">
+            <div class="flex items-center space-x-2">
+                <div class="text-2xl">{{brandIcon}}</div>
+                <span
+                    class="text-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                    {{brandName}}
+                </span>
+            </div>
+
+            <!-- Desktop Nav -->
+            <div class="hidden md:flex items-center space-x-8">
+                <a href="#problem" class="text-slate-600 hover:text-indigo-600 transition">Challenge</a>
+                <a href="#solution" class="text-slate-600 hover:text-indigo-600 transition">Architecture</a>
+                <a href="#features" class="text-slate-600 hover:text-indigo-600 transition">Features</a>
+                <a href="#use-cases" class="text-slate-600 hover:text-indigo-600 transition">Use Cases</a>
+                <a href="#roadmap" class="text-slate-600 hover:text-indigo-600 transition">Roadmap</a>
+                <a href="{{hero.primaryCTA.href}}"
+                    class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">
+                    {{hero.primaryCTA.text}}
+                </a>
+            </div>
+
+            <!-- Mobile Menu Button -->
+            <button @click="mobileMenuOpen = !mobileMenuOpen" class="md:hidden text-slate-600">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+            </button>
+        </div>
+
+        <!-- Mobile Menu -->
+        <div x-show="mobileMenuOpen" x-transition class="md:hidden pb-4 space-y-2">
+            <a href="#problem" class="block px-4 py-2 text-slate-600 hover:bg-slate-50 rounded">Challenge</a>
+            <a href="#solution" class="block px-4 py-2 text-slate-600 hover:bg-slate-50 rounded">Architecture</a>
+            <a href="#features" class="block px-4 py-2 text-slate-600 hover:bg-slate-50 rounded">Features</a>
+            <a href="#use-cases" class="block px-4 py-2 text-slate-600 hover:bg-slate-50 rounded">Use Cases</a>
+            <a href="#roadmap" class="block px-4 py-2 text-slate-600 hover:bg-slate-50 rounded">Roadmap</a>
+        </div>
+    </div>
+</nav>

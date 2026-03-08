@@ -35,3 +35,31 @@ Before submitting your changes, ensure that:
 2.  `wrangler dev` starts without errors.
 3.  The `/openapi.json` endpoint is up-to-date and valid.
 4.  You have added or updated documentation as needed.
+
+### Database & Drizzle ORM Guidelines
+
+**CRITICAL RULE**: ALWAYS use Drizzle ORM for schema definitions, migrations, and queries. NEVER manually write SQL migrations or modify the database directly unless absolutely necessary for complex performance tuning.
+
+1.  **Strict Drizzle Usage**:
+    *   Define all schemas in `src/db/schema-*.ts`.
+    *   Use `npm run db:generate:*` to create SQL migrations.
+    *   Use `npm run migrate:*` to apply them.
+    *   Do NOT edit `.sql` migration files manually.
+
+2.  **Database Bindings**:
+    *   **`DB` (Core)**: Holds business logic data (Repositories, Reviews, User Data).
+        *   Binding: `env.DB`
+        *   Schema: `src/db/schema.ts` (aggregates `schema-repos.ts`, `schema-reviews.ts`)
+    *   **`DB_WEBHOOKS` (Events)**: Holds high-volume raw webhook events.
+        *   Binding: `env.DB_WEBHOOKS`
+        *   Schema: `src/db/schema-webhooks.ts`
+
+3.  **Naming Conventions**:
+    *   Use `camelCase` for TypeScript property names (e.g., `repoUrl`).
+    *   Use `snake_case` for database column names (e.g., `repo_url`).
+    *   Example: `repoUrl: text("repo_url").notNull()`
+
+4.  **Best Practices (from Cloudflare Docs)**:
+    *   **Migrations**: Always test migrations locally (`migrate:local`) before remote.
+    *   **Batching**: Use batch inserts/updates when dealing with multiple records to reduce round-trips.
+    *   **Indexes**: Define indexes in the schema for frequently queried columns (e.g., `delivery_id`, `repo_id`).

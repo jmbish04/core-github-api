@@ -1,0 +1,297 @@
+{
+  "project_name": "Workshop Phase 2: Stitch Retrofit",
+  "generated_date": "2026-03-05T12:00:00Z",
+  "total_phases": 4,
+  "phases": [
+    {
+      "phase_number": 1,
+      "phase_title": "Wizard Completion & Launch",
+      "description": "Implement the critical path for project creation: Review, Cart, Animation, and Marketplace.",
+      "success_criteria": [
+        "User can review selected agents and launch a project",
+        "Floating cart reflects selection state",
+        "Deployment animation triggers backend provisioning"
+      ],
+      "implementation_plan": {
+        "title": "Wizard Flow",
+        "description": "Screens #1, #3, #4, #2",
+        "architecture": {
+          "explanation": "Frontend components fetch 'draft' state from D1 via Hono. Launch triggers WorkshopAgent DO.",
+          "mermaid_diagram": "graph TD; UI[React Wizard] --> API[Hono API]; API --> DB[D1 Projects]; API --> DO[WorkshopAgent]; DO --> GitHub[GitHub API];"
+        },
+        "proposed_changes": [
+          {
+            "category": "Frontend",
+            "files": [
+              { "action": "NEW", "file_path": "src/frontend/components/workshop/ReviewSummary.tsx", "instructions": ["Implement Screen #1"] },
+              { "action": "NEW", "file_path": "src/frontend/components/workshop/FloatingCart.tsx", "instructions": ["Implement Screen #3"] },
+              { "action": "NEW", "file_path": "src/frontend/components/workshop/DeploymentAnimation.tsx", "instructions": ["Implement Screen #4"] },
+              { "action": "NEW", "file_path": "src/frontend/components/workshop/MillerMarketplace.tsx", "instructions": ["Implement Screen #2"] }
+            ]
+          }
+        ],
+        "verification_plan": {
+          "automated_tests": [],
+          "manual_verification": ["Complete a full project setup flow"]
+        }
+      },
+      "tasks": [
+        {
+          "task_number": 1,
+          "status": "not_started",
+          "agent_assigned": "Frontend Agent",
+          "task_title": "Review & Launch UI",
+          "task_description": "Implement Screen #1: Summary card with 'Launch' CTA.",
+          "task_dependencies": [],
+          "cloudflare_docs_queries": [],
+          "steps": [
+            {
+              "number": 1.1,
+              "title": "Backend Hookup",
+              "status": "not_started",
+              "technical_requirements": ["Ensure GET /api/workshop/draft returns agent config cost estimates"],
+              "success_criteria": ["Data available"]
+            },
+            {
+              "number": 1.2,
+              "title": "Component Implementation",
+              "status": "not_started",
+              "technical_requirements": ["Use shadcn Card, Button", "Fetch data from API"],
+              "success_criteria": ["Renders with real data"]
+            }
+          ],
+          "requirements": ["NO MOCK DATA"],
+          "success_criteria": ["Launch button triggers POST /init"]
+        },
+        {
+          "task_number": 2,
+          "status": "not_started",
+          "agent_assigned": "Frontend Agent",
+          "task_title": "Floating Cart",
+          "task_description": "Implement Screen #3: Persistent cart showing selected agents.",
+          "task_dependencies": [],
+          "cloudflare_docs_queries": [],
+          "steps": [
+            {
+              "number": 2.1,
+              "title": "State Management",
+              "status": "not_started",
+              "technical_requirements": ["Sync cart state with D1 draft_data"],
+              "success_criteria": ["Persists on reload"]
+            }
+          ],
+          "requirements": ["Floating position", "Real-time updates"],
+          "success_criteria": ["Cart accurate"]
+        },
+        {
+          "task_number": 3,
+          "status": "not_started",
+          "agent_assigned": "Frontend Agent",
+          "task_title": "Deployment Animation",
+          "task_description": "Implement Screen #4: Full-screen boot sequence.",
+          "task_dependencies": ["Phase 1 Task 1"],
+          "cloudflare_docs_queries": [],
+          "steps": [
+            {
+              "number": 3.1,
+              "title": "WebSocket/Poll Hookup",
+              "status": "not_started",
+              "technical_requirements": ["Listen for provisioning status events from WorkshopAgent"],
+              "success_criteria": ["Animation reflects real progress"]
+            }
+          ],
+          "requirements": ["High fidelity animation"],
+          "success_criteria": [" transitions to Project View on completion"]
+        }
+      ]
+    },
+    {
+      "phase_number": 2,
+      "phase_title": "Operational Views",
+      "description": "Implement daily operation screens: Inbox, Decisions, Terminal, Deployment.",
+      "success_criteria": [
+        "Inbox shows pending decisions",
+        "Terminal streams live agent logs",
+        "Diff viewer works for code review"
+      ],
+      "implementation_plan": {
+        "title": "Operations UI",
+        "description": "Screens #5, #6, #11, #14",
+        "architecture": {
+          "explanation": "Inbox aggregates 'blocked' events. Terminal streams logs via WebSocket.",
+          "mermaid_diagram": "graph TD; Inbox --> Events[Task Events Table]; Terminal --> Logs[D1 Logs]; Diff --> GitHub[GitHub API];"
+        },
+        "proposed_changes": [
+          {
+            "category": "Frontend",
+            "files": [
+              { "action": "NEW", "file_path": "src/frontend/components/workshop/DecisionInbox.tsx", "instructions": ["Implement Screen #5"] },
+              { "action": "NEW", "file_path": "src/frontend/components/workshop/DeploymentSelector.tsx", "instructions": ["Implement Screen #6"] },
+              { "action": "NEW", "file_path": "src/frontend/components/workshop/LiveTerminal.tsx", "instructions": ["Implement Screen #11"] },
+              { "action": "NEW", "file_path": "src/frontend/components/workshop/DiffViewer.tsx", "instructions": ["Implement Screen #14"] }
+            ]
+          }
+        ],
+        "verification_plan": {
+          "automated_tests": [],
+          "manual_verification": ["Approve a decision in Inbox", "View live logs"]
+        }
+      },
+      "tasks": [
+        {
+          "task_number": 1,
+          "status": "not_started",
+          "agent_assigned": "Architect Agent",
+          "task_title": "Decision Backend",
+          "task_description": "Ensure 'task_events' table supports 'decision_required' status.",
+          "task_dependencies": [],
+          "cloudflare_docs_queries": [],
+          "steps": [
+            {
+              "number": 1.1,
+              "title": "Schema Verification",
+              "status": "not_started",
+              "technical_requirements": ["Check task_events for status column"],
+              "success_criteria": ["Schema ready"]
+            },
+            {
+              "number": 1.2,
+              "title": "API Implementation",
+              "status": "not_started",
+              "technical_requirements": ["GET /api/workshop/inbox", "POST /api/workshop/decision"],
+              "success_criteria": ["Endpoints working"]
+            }
+          ],
+          "requirements": ["Zod validation"],
+          "success_criteria": ["API ready"]
+        },
+        {
+          "task_number": 2,
+          "status": "not_started",
+          "agent_assigned": "Frontend Agent",
+          "task_title": "Decision Inbox UI",
+          "task_description": "Implement Screen #5: The global inbox.",
+          "task_dependencies": ["Phase 2 Task 1"],
+          "cloudflare_docs_queries": [],
+          "steps": [
+            {
+              "number": 2.1,
+              "title": "Component Build",
+              "status": "not_started",
+              "technical_requirements": ["Fetch from /inbox"],
+              "success_criteria": ["Renders pending items"]
+            }
+          ],
+          "requirements": ["Real data only"],
+          "success_criteria": ["Approval triggers API"]
+        }
+      ]
+    },
+    {
+      "phase_number": 3,
+      "phase_title": "Intelligence & Memory",
+      "description": "Implement the 'Brain' views: Memory Explorer and Conflict Resolver.",
+      "success_criteria": [
+        "Memory Explorer shows vector chunks",
+        "Conflict Resolver allows editing memory"
+      ],
+      "implementation_plan": {
+        "title": "Memory UI",
+        "description": "Screens #12, #13",
+        "architecture": {
+          "explanation": "Interfaces with Cloudflare Vectorize (or D1 fallback) to manage agent context.",
+          "mermaid_diagram": "graph TD; UI --> API; API --> Vectorize[Vector Store]; API --> D1[Memory Metadata];"
+        },
+        "proposed_changes": [
+          {
+            "category": "Frontend",
+            "files": [
+              { "action": "NEW", "file_path": "src/frontend/components/workshop/MemoryExplorer.tsx", "instructions": ["Implement Screen #13"] },
+              { "action": "NEW", "file_path": "src/frontend/components/workshop/ConflictResolver.tsx", "instructions": ["Implement Screen #12"] }
+            ]
+          }
+        ],
+        "verification_plan": {
+          "automated_tests": [],
+          "manual_verification": ["Search memory", "Resolve a mock conflict"]
+        }
+      },
+      "tasks": [
+        {
+          "task_number": 1,
+          "status": "not_started",
+          "agent_assigned": "Architect Agent",
+          "task_title": "Memory Backend",
+          "task_description": "Expose agent memory via API.",
+          "task_dependencies": [],
+          "cloudflare_docs_queries": ["Cloudflare Vectorize HTTP API"],
+          "steps": [
+            {
+              "number": 1.1,
+              "title": "API Endpoints",
+              "status": "not_started",
+              "technical_requirements": ["GET /api/workshop/memory", "POST /api/workshop/memory/resolve"],
+              "success_criteria": ["Endpoints working"]
+            }
+          ],
+          "requirements": ["Handle vector embeddings"],
+          "success_criteria": ["API returns chunks"]
+        }
+      ]
+    },
+    {
+      "phase_number": 4,
+      "phase_title": "Analytics & Training",
+      "description": "Implement the 'Optimization' views: Health, Analytics, Benchmarks, Retraining.",
+      "success_criteria": [
+        "Analytics dashboards populate with real stats",
+        "Retraining wizard submits job"
+      ],
+      "implementation_plan": {
+        "title": "Analytics UI",
+        "description": "Screens #7, #8, #9, #10",
+        "architecture": {
+          "explanation": "Aggregates data from task_events and logs tables.",
+          "mermaid_diagram": "graph TD; UI --> API; API --> Aggregation[SQL Aggregation]; Aggregation --> TaskEvents;"
+        },
+        "proposed_changes": [
+          {
+            "category": "Frontend",
+            "files": [
+              { "action": "NEW", "file_path": "src/frontend/components/workshop/HealthReport.tsx", "instructions": ["Implement Screen #7"] },
+              { "action": "NEW", "file_path": "src/frontend/components/workshop/PerformanceAnalytics.tsx", "instructions": ["Implement Screen #8"] },
+              { "action": "NEW", "file_path": "src/frontend/components/workshop/BenchmarkView.tsx", "instructions": ["Implement Screen #9"] },
+              { "action": "NEW", "file_path": "src/frontend/components/workshop/RetrainingWizard.tsx", "instructions": ["Implement Screen #10"] }
+            ]
+          }
+        ],
+        "verification_plan": {
+          "automated_tests": [],
+          "manual_verification": ["Verify stats match DB"]
+        }
+      },
+      "tasks": [
+        {
+          "task_number": 1,
+          "status": "not_started",
+          "agent_assigned": "Architect Agent",
+          "task_title": "Analytics Queries",
+          "task_description": "Write complex SQL queries for aggregation.",
+          "task_dependencies": [],
+          "cloudflare_docs_queries": ["D1 aggregate query performance"],
+          "steps": [
+            {
+              "number": 1.1,
+              "title": "Implement Endpoints",
+              "status": "not_started",
+              "technical_requirements": ["GET /api/workshop/stats/global", "GET /api/workshop/stats/agent/:id"],
+              "success_criteria": ["JSON stats returned"]
+            }
+          ],
+          "requirements": ["Fast execution"],
+          "success_criteria": ["Dashboards load"]
+        }
+      ]
+    }
+  ]
+}

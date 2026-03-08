@@ -1,0 +1,30 @@
+<!-- Metrics Section -->
+<section id="metrics" class="py-20 bg-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-16 fade-in-up">
+            <h2 class="text-4xl md:text-5xl font-black text-slate-900 mb-4">{{metrics.title}}</h2>
+            <div class="w-24 h-1 bg-gradient-to-r from-emerald-600 to-teal-600 mx-auto"></div>
+        </div>
+
+        <div class="grid md:grid-cols-3 gap-12">
+            {{#each metrics.stats}}
+            <div class="fade-in-up text-center">
+                <div class="inline-block px-6 py-3 rounded-xl mb-3 
+                        {{#if (eq this.color 'emerald')}}bg-emerald-100{{/if}} 
+                        {{#if (eq this.color 'indigo')}}bg-indigo-100{{/if}} 
+                        {{#if (eq this.color 'amber')}}bg-amber-100{{/if}} 
+                        {{#unless this.color}}bg-indigo-100{{/unless}}">
+                    <div class="text-4xl md:text-5xl font-black 
+                            {{#if (eq this.color 'emerald')}}text-emerald-600{{/if}} 
+                            {{#if (eq this.color 'indigo')}}text-indigo-600{{/if}} 
+                            {{#if (eq this.color 'amber')}}text-amber-600{{/if}} 
+                            {{#unless this.color}}text-indigo-600{{/unless}}">
+                        {{this.value}}
+                    </div>
+                </div>
+                <div class="text-lg font-semibold text-slate-700">{{this.label}}</div>
+            </div>
+            {{/each}}
+        </div>
+    </div>
+</section>

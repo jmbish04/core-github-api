@@ -1,0 +1,21 @@
+<!-- Use Cases Section -->
+<section id="use-cases" class="py-20 bg-emerald-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-16 fade-in-up">
+            <h2 class="text-4xl md:text-5xl font-black text-slate-900 mb-4">{{useCases.title}}</h2>
+            <div class="w-24 h-1 bg-gradient-to-r from-emerald-600 to-teal-600 mx-auto"></div>
+        </div>
+
+        <div class="grid md:grid-cols-3 gap-8">
+            {{#each useCases.cases}}
+            <div
+                class="fade-in-up bg-white p-8 rounded-xl shadow-lg border-l-4 border-emerald-500 hover:shadow-xl transition">
+                <div class="text-sm font-semibold text-emerald-600 mb-2 uppercase tracking-wide">{{this.persona}}</div>
+                <h3 class="text-xl font-bold text-slate-900 mb-3">{{this.scenario}}</h3>
+                <p class="text-slate-600 leading-relaxed"><span class="font-semibold text-emerald-600">Result:</span>
+                    {{this.outcome}}</p>
+            </div>
+            {{/each}}
+        </div>
+    </div>
+</section>
