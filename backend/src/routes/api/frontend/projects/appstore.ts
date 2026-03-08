@@ -1,6 +1,6 @@
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi';
 import { getDb, schema } from '@db';
-import { eq, inArray, isNull } from 'drizzle-orm';
+import { eq, inArray, isNull, sql } from 'drizzle-orm';
 import { generateUuid } from '@/utils/common';
 import { getCloudflareApiToken, getCloudflareAccountId } from '@/utils/secrets';
 import { analyzeApplicationWithWorkerAI, type AppSummaryResult } from '@/services/appstore-worker-ai';
@@ -40,11 +40,12 @@ export async function persistAiResult(
     .set({ summary: aiResult.summary, updatedAt: new Date() })
     .where(eq(schema.applications.id, appId));
 
-  // 2. Create any new tags
-  for (const newTag of aiResult.new_tags_to_create) {
-    if (!currentTagsByName.has(newTag.name.toLowerCase())) {
+  // 2. Create any new tags in bulk
+  const newTagsToInsert = aiResult.new_tags_to_create
+    .filter(newTag => !currentTagsByName.has(newTag.name.toLowerCase()))
+    .map(newTag => {
       const tagId = generateUuid();
-      await db.insert(schema.tags).values({
+      const tagRecord = {
         id: tagId,
         name: newTag.name,
         description: newTag.description,
@@ -52,36 +53,47 @@ export async function persistAiResult(
         isActive: true,
         createdAt: new Date(),
         updatedAt: new Date(),
-      }).onConflictDoNothing();
+      };
+      // Update local map so subsequent steps can find these tags by name
+      currentTagsByName.set(newTag.name.toLowerCase(), tagRecord as any);
+      return tagRecord;
+    });
 
-      // Update local map so subsequent iterations see it
-      const latestTags = await db.select().from(schema.tags);
-      for (const t of latestTags) {
-        currentTagsByName.set(t.name.toLowerCase(), t);
-      }
-    }
+  if (newTagsToInsert.length > 0) {
+    await db.insert(schema.tags).values(newTagsToInsert).onConflictDoNothing();
   }
 
-  // 3. Map assigned tags
-  for (const tagName of aiResult.assigned_tag_names) {
-    const tag = currentTagsByName.get(tagName.toLowerCase());
-    if (tag) {
-      await db.insert(schema.tagApplicationMapping).values({
-        appId: appId,
-        tagId: tag.id,
-      }).onConflictDoNothing();
-    }
+  // 3 & 4. Map assigned and newly created tags in bulk
+  const allTagNames = Array.from(new Set([
+    ...aiResult.assigned_tag_names,
+    ...aiResult.new_tags_to_create.map(t => t.name)
+  ]));
+
+  // Re-fetch all tags by name to ensure we have the authoritative IDs
+  // (especially for tags that already existed but weren't in currentTagsByName)
+  const allRelevantTags = await db.select()
+    .from(schema.tags)
+    .where(inArray(
+      sql`lower(${schema.tags.name})`,
+      allTagNames.map(name => name.toLowerCase())
+    ));
+
+  for (const tag of allRelevantTags) {
+    currentTagsByName.set(tag.name.toLowerCase(), tag);
   }
 
-  // 4. Map newly created tags
-  for (const newTag of aiResult.new_tags_to_create) {
-    const tag = currentTagsByName.get(newTag.name.toLowerCase());
-    if (tag) {
-      await db.insert(schema.tagApplicationMapping).values({
-        appId: appId,
-        tagId: tag.id,
-      }).onConflictDoNothing();
-    }
+  const mappingsToInsert = allTagNames
+    .map(name => currentTagsByName.get(name.toLowerCase()))
+    .filter((tag): tag is NonNullable<typeof tag> => !!tag)
+    .map(tag => ({
+      appId: appId,
+      tagId: tag.id,
+    }));
+
+  if (mappingsToInsert.length > 0) {
+    await db.insert(schema.tagApplicationMapping)
+      .values(mappingsToInsert)
+      .onConflictDoNothing();
   }
 }
 
