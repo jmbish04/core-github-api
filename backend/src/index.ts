@@ -1073,7 +1073,7 @@ export default {
         return new Response('Not Found', { status: 404 });
       }
     } catch (e) {
-      console.error('Error serving asset:', JSON.stringify(e));
+      console.error('Error serving asset:', e);
       return new Response('Error serving asset', { status: 500 });
     }
   },
