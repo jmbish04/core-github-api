@@ -1,5 +1,7 @@
 import { Env } from "../../types";
 
+const BATCH_SIZE = 100;
+
 export interface CodeChunk {
   id: string;
   repo: string;
@@ -18,7 +20,7 @@ export async function generateEmbeddings(env: Env, texts: string[]) {
   });
 
   // Type assertion since Workers AI types can be tricky
-  return (response as any).data;
+  return (response as { data: number[][] }).data;
 }
 
 export function chunkCode(content: string, path: string, maxChunkSize = 1000, overlap = 200): CodeChunk[] {
@@ -67,8 +69,7 @@ export async function upsertChunks(env: Env, chunks: CodeChunk[], repoFullName: 
     }
   }));
 
-  // Upsert in batches of 100 max
-  const BATCH_SIZE = 100;
+  // Upsert in batches
   for (let i = 0; i < vectorizeVectors.length; i += BATCH_SIZE) {
     const batch = vectorizeVectors.slice(i, i + BATCH_SIZE);
     await env.RESEARCH_INDEX.upsert(batch);
