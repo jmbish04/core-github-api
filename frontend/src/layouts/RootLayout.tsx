@@ -8,6 +8,8 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
+import { GlobalAudioProvider } from "@/components/audio/GlobalAudioProvider";
+
 export default function RootLayout() {
     const topNavLinks = [
         { label: "Home", href: "/" },
@@ -25,6 +27,7 @@ export default function RootLayout() {
     ];
 
     return (
+        <GlobalAudioProvider>
         <div className="flex h-screen bg-background text-foreground font-sans antialiased overflow-hidden">
             <AppSidebar className="hidden md:flex shrink-0" />
             <main className="flex-1 flex flex-col h-full overflow-hidden relative w-full">
@@ -82,5 +85,6 @@ export default function RootLayout() {
                 </div>
             </main>
         </div>
+        </GlobalAudioProvider>
     );
 }

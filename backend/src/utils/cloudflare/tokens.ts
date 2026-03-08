@@ -1,5 +1,5 @@
 
-import Cloudflare from 'cloudflare';
+import * as Cloudflare from 'cloudflare';
 
 /**
  * Cloudflare API Token Verification Utilities

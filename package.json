@@ -97,6 +97,7 @@
     "@types/mimetext": "^2.0.4",
     "@types/node": "^20.19.33",
     "@types/uuid": "^10.0.0",
+    "cloudflare": "^5.2.0",
     "drizzle-kit": "^0.31.9",
     "eslint": "^9.39.2",
     "globals": "^16.5.0",

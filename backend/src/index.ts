@@ -1045,6 +1045,28 @@ async function handleScheduled(event: ScheduledController, env: Env, ctx: Execut
       const successfulWorkflows = results.filter(r => r.status === 'triggered');
       const failedWorkflows = results.filter(r => r.status === 'failed');
       
+      // Generate summary podcast
+      let podcastId = "";
+      try {
+        const agentId = env.PODCAST_AGENT.idFromName("daily-summary");
+        const agentStub = env.PODCAST_AGENT.get(agentId);
+
+        const podcastReqId = crypto.randomUUID();
+        await agentStub.fetch("http://internal/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: podcastReqId,
+            topic: `Daily Research Summary: ${today.toLocaleDateString()}`,
+            githubRepos: successfulWorkflows.map(r => `https://github.com/${r.repo}`),
+          })
+        });
+        podcastId = podcastReqId;
+      } catch (e) {
+        console.error("[Scheduler] Podcast generation failed", e);
+      }
+
+
       // Send email
       if (env.SEND_EMAIL_NEWSLETTER) {
         try {
@@ -1053,6 +1075,7 @@ async function handleScheduled(event: ScheduledController, env: Env, ctx: Execut
             title: `Daily Research Digest - ${today.toLocaleDateString()}`,
             dailyTrendsData: {
               date: today.toLocaleDateString(),
+              podcastId: podcastId,
               trend_summary: `Total Analyzed: ${trendingRepos.length} | Successful Workflows: ${successfulWorkflows.length} | Failed Workflows: ${failedWorkflows.length}`,
               top_picks: results.map(r => ({
                 name: r.repo,

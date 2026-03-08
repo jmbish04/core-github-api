@@ -18,6 +18,7 @@ export interface RepoResearchData {
 }
 
 export interface DailyTrendsData {
+  podcastId?: string;
   date: string;
   trend_summary: string;
   top_picks: Array<{

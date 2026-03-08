@@ -33,6 +33,8 @@ declare namespace Cloudflare {
 		MCP_API_URL: "https://docs.mcp.cloudflare.com/mcp";
 		GITHUB_APP_PRIVATE_KEY: string;
 		ORCHESTRATOR: DurableObjectNamespace<import("./backend/src/index").OrchestratorAgent>;
+		PODCAST_AGENT: DurableObjectNamespace<import("./backend/src/ai/agents/Podcast").PodcastAgent>;
+		PODCAST_BUCKET: R2Bucket;
 		RetrofitAgent: DurableObjectNamespace<import("./backend/src/index").RetrofitAgent>;
 		ROOM_DO: DurableObjectNamespace<import("./backend/src/index").RoomDO>;
 		GEMINI_AGENT: DurableObjectNamespace<import("./backend/src/index").GeminiAgent>;

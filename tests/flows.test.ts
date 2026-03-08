@@ -86,7 +86,7 @@ describe('Flows API', () => {
         'utf-8'
       )
 
-      expect(migrationContent).toContain('CREATE TABLE `gh_management_config`')
+      expect(migrationContent).toContain('CREATE TABLE IF NOT EXISTS `gh_management_config`')
       expect(migrationContent).toContain('`timestamp`')
       expect(migrationContent).toContain('`repo_name`')
       expect(migrationContent).toContain('`action`')

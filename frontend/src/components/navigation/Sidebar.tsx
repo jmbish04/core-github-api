@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import {
+    Headphones,
     BookOpen,
     Clock3,
     Home,
@@ -103,6 +104,7 @@ export function Sidebar({ className }: SidebarProps) {
         { name: "Kanban", href: "/kanban", icon: Trello },
         { name: "Roadmap", href: "/roadmap", icon: Trello },
         { name: "PR Command Center", href: "/pr-center", icon: GitPullRequest },
+        { name: "Podcast Studio", href: "/podcast", icon: Headphones },
         { name: "Settings", href: "/settings", icon: Settings },
         { name: "General Todos", href: "/todos", icon: BookOpen },
     ];
