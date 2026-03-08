@@ -72,13 +72,15 @@ const AGENT_CONFIG = {
   },
 } as const;
 
-const DOC_GEN_AGENT_MODEL = DEFAULT_WORKERS_AI_MODEL;
-
-function asAgentBindings(env: Env) {
+function agentBindingsFromEnv(env: Env) {
   return env as unknown as Record<string, DurableObjectNamespace>;
 }
 
-function buildObservability(agentName: string): ObservabilityConfig {
+/**
+ * Creates the Honi observability config used by a single AI doc generator agent.
+ * Debug logging is enabled so agent and tool activity is visible in Worker logs.
+ */
+function createObservabilityConfig(agentName: string): ObservabilityConfig {
   return {
     logLevel: "debug",
     onEvent: (event) => {
@@ -92,11 +94,11 @@ function createRuntimeAgent(kind: AgentKind) {
   return createAgent({
     name: config.name,
     binding: config.binding,
-    model: DOC_GEN_AGENT_MODEL,
+    model: DEFAULT_WORKERS_AI_MODEL,
     system: config.system,
     tools: AI_DOC_TOOLS,
     maxSteps: 12,
-    observability: buildObservability(config.name),
+    observability: createObservabilityConfig(config.name),
   });
 }
 
@@ -109,7 +111,7 @@ export const DocumenterAgent = documenterAgent.DurableObject;
 export const RulesGeneratorAgent = rulesGeneratorAgent.DurableObject;
 
 export async function runAnalyzerAgent(env: Env, threadId: string, prompt: string) {
-  const result = await routeToAgent(asAgentBindings(env), {
+  const result = await routeToAgent(agentBindingsFromEnv(env), {
     binding: ANALYZER_BINDING,
     threadId,
   }, prompt);
@@ -117,7 +119,7 @@ export async function runAnalyzerAgent(env: Env, threadId: string, prompt: strin
 }
 
 export async function runDocumenterAgent(env: Env, threadId: string, prompt: string) {
-  const result = await routeToAgent(asAgentBindings(env), {
+  const result = await routeToAgent(agentBindingsFromEnv(env), {
     binding: DOCUMENTER_BINDING,
     threadId,
   }, prompt);
@@ -125,7 +127,7 @@ export async function runDocumenterAgent(env: Env, threadId: string, prompt: str
 }
 
 export async function runRulesGeneratorAgent(env: Env, threadId: string, prompt: string) {
-  const result = await routeToAgent(asAgentBindings(env), {
+  const result = await routeToAgent(agentBindingsFromEnv(env), {
     binding: RULES_BINDING,
     threadId,
   }, prompt);

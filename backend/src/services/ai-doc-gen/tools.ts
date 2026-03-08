@@ -110,4 +110,5 @@ const aiDocTools = [
 
 // Honi's ToolDefinition generic is invariant in 0.5.x, so the concrete tool schemas need a
 // one-time bridge cast before they can be supplied to createAgent's non-specific ToolDefinition[].
+// This should be removable once Honi widens that createAgent tools surface in a future release.
 export const AI_DOC_TOOLS = aiDocTools as unknown as ToolDefinition[];
