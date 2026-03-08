@@ -10,7 +10,7 @@
  */
 import { HealthStepResult } from "@/health/types";
 import { fetchCloudflareDocsIndex } from "./tools/browser/docs-fetcher";
-import { createMCPRequest } from "./mcp-client"; // Import the helper
+import { createMCPRequest, MCP_ACCEPT_HEADER } from "./mcp-client"; // Import the helper
 
 /**
  * Checks the health of the MCP domain.
@@ -41,7 +41,7 @@ export async function checkHealth(env: Env): Promise<HealthStepResult> {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
-                    "Accept": "text/event-stream, application/json"
+                    "Accept": MCP_ACCEPT_HEADER
                 },
                 body: JSON.stringify(rpcRequest)
             });

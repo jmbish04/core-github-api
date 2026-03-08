@@ -228,6 +228,7 @@ export const githubTools: GitHubToolRegistry = {
       // Import the official SDK clients dynamically to avoid cold start overhead if untouched
       const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
       const { SSEClientTransport } = await import("@modelcontextprotocol/sdk/client/sse.js");
+      const { MCP_ACCEPT_HEADER } = await import("@/ai/mcp/mcp-client");
 
       // Connect to the official MCP server. If env URL is not provided, use default local or worker hosted URL.
       const targetUrl = env.MCP_API_URL || "https://docs.mcp.cloudflare.com/mcp";
@@ -235,6 +236,7 @@ export const githubTools: GitHubToolRegistry = {
         requestInit: {
           headers: {
             Authorization: `Bearer ${mcpPat}`,
+            Accept: MCP_ACCEPT_HEADER,
           }
         }
       });
