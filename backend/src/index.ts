@@ -1186,3 +1186,8 @@ app.all("/api/agents/retrofit/*", (c) => {
   newUrl.pathname = newUrl.pathname.replace("/api/agents/retrofit", "");
   return stub.fetch(new Request(newUrl.toString(), c.req.raw));
 });
+
+// Fallback endpoints for required mandates
+app.get('/health', (c) => c.json({ status: 'healthy', timestamp: new Date().toISOString() }));
+app.get('/context', (c) => c.json({ app: 'core-github-api', runtime: 'cloudflare-workers', db: 'd1', orm: 'drizzle' }));
+app.get('/docs', (c) => c.redirect('/doc'));
