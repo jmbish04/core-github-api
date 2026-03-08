@@ -27,7 +27,8 @@ export class Supervisor extends BaseAgent<Env> {
     private static readonly DEBUG_SESSION_TTL_MS = 60 * 60 * 1000;
 
     // State
-    private sessions: { ws: WebSocket; type: 'terminal' | 'control' }[] = []; // Frontend clients
+    private terminalSessions: WebSocket[] = []; // Terminal frontend clients
+    private controlSessions: WebSocket[] = []; // Control frontend clients
     private containerWs: WebSocket | null = null; // Connection to Container
     private logs: string[] = [];
     private status: 'idle' | 'running' | 'completed' | 'failed' | 'intervention_needed' = 'idle';
@@ -411,8 +412,11 @@ export class Supervisor extends BaseAgent<Env> {
     // --- WebSocket Handling ---
 
     handleSession(ws: WebSocket, type: 'terminal' | 'control') {
-        const session = { ws, type };
-        this.sessions.push(session);
+        if (type === 'terminal') {
+            this.terminalSessions.push(ws);
+        } else if (type === 'control') {
+            this.controlSessions.push(ws);
+        }
         ws.accept();
 
         if (type === 'terminal') {
@@ -444,7 +448,17 @@ export class Supervisor extends BaseAgent<Env> {
         });
 
         ws.addEventListener("close", () => {
-            this.sessions = this.sessions.filter(s => s !== session);
+            if (type === 'terminal') {
+                const index = this.terminalSessions.indexOf(ws);
+                if (index !== -1) {
+                    this.terminalSessions.splice(index, 1);
+                }
+            } else if (type === 'control') {
+                const index = this.controlSessions.indexOf(ws);
+                if (index !== -1) {
+                    this.controlSessions.splice(index, 1);
+                }
+            }
         });
     }
 
@@ -473,13 +487,17 @@ export class Supervisor extends BaseAgent<Env> {
 
     broadcast(msg: string) {
         // Broadcast raw text to terminal clients
-        this.sessions.filter(s => s.type === 'terminal').forEach(s => s.ws.send(msg));
+        for (let i = 0; i < this.terminalSessions.length; i++) {
+            this.terminalSessions[i].send(msg);
+        }
     }
 
     broadcastEvent(event: any) {
         // Broadcast JSON events to control clients
         const payload = JSON.stringify(event);
-        this.sessions.filter(s => s.type === 'control').forEach(s => s.ws.send(payload));
+        for (let i = 0; i < this.controlSessions.length; i++) {
+            this.controlSessions[i].send(payload);
+        }
     }
 
     async saveState() {
