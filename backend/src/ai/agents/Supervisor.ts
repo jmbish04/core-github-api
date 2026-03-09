@@ -220,7 +220,7 @@ export class Supervisor extends BaseAgent<Env> {
             }
 
             // Set Alarm for Watchdog
-            await this.ctx.storage.setAlarm(Date.now() + 60 * 1000);
+            this.schedule(60);
 
             return Response.json({ status: "started" });
 

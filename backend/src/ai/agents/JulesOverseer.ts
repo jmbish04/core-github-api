@@ -134,7 +134,7 @@ export class JulesOverseer extends BaseAgent {
     return results;
   }
 
-  async scheduled(event: ScheduledEvent) {
+  async onTick() {
     this.logger.info("Running scheduled check...");
     await this.checkJulesStatus();
   }
