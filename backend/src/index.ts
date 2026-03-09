@@ -25,6 +25,7 @@ import type retrofitApi from "@/retrofit";
 import type flowsApi from "@/routes/api/webhooks/handlers/flows";
 import type landingGeneratorApi from "@/routes/api/agents/landing-generator";
 import type research from "@/routes/api/frontend/research/research";
+import frontendToolsApi from "@/routes/api/frontend/tools";
 
 // --- Eagerly loaded lean routes ---
 import webhooksApi from "@/routes/api/webhooks";
@@ -587,6 +588,7 @@ sharedApi.route('/ops', opsApi)
 sharedApi.route('/tasks', tasksApi)
 sharedApi.route('/todos', todosApi)
 sharedApi.route('/projects', projectsApi)
+  .route('/tools', frontendToolsApi)
 sharedApi.route('/stats', statsApi)
 sharedApi.route('/timeline', timelineApi)
 sharedApi.route('/health', healthApi)
@@ -619,6 +621,7 @@ const eagerApi = new OpenAPIHono<{ Bindings: Env }>()
   .route('/tasks', tasksApi)
   .route('/todos', todosApi)
   .route('/projects', projectsApi)
+  .route('/tools', frontendToolsApi)
   .route('/stats', statsApi)
   .route('/timeline', timelineApi)
   .route('/health', healthApi)
@@ -698,7 +701,7 @@ export { Supervisor } from "@/ai/agents/Supervisor";
 export { DeepReasoningAgent } from "@/ai/agents/DeepReasoning";
 // export { DataProcessor } from "@/do/DataProcessor";
 export { GeminiAgent } from "@/ai/agents/Gemini";
-export { GithubSearchWorkflow, DeepResearchWorkflow, TopicResearchWorkflow } from "@/workflows";
+export { GithubSearchWorkflow, DeepResearchWorkflow, TopicResearchWorkflow, DiscordResearchWorkflow } from "@/workflows";
 
 // Research Agents (Topic Research)
 export { TopicOrchestratorAgent } from "./ai/agents/TopicOrchestrator";
@@ -725,6 +728,83 @@ export { Sandbox } from '@cloudflare/sandbox'
 async function handleScheduled(event: ScheduledController, env: Env, ctx: ExecutionContext) {
   console.log('[Scheduled] Cron trigger fired:', event.cron);
   
+  // Daily Discord scan at 9 AM UTC (runs alongside GitHub research)
+  if (event.cron === '0 9 * * *') {
+    ctx.waitUntil(
+      (async () => {
+        try {
+          console.log('[Scheduled] Starting daily Discord scan...');
+          const { runDiscordResearch } = await import('@/workflows/discord');
+          const discordResult = await runDiscordResearch(env, {});
+
+          if (discordResult.digest.length > 0 && env.SEND_EMAIL_NEWSLETTER) {
+            // Group digest items by category for a structured email section
+            const byCategory: Record<string, typeof discordResult.digest> = {};
+            for (const item of discordResult.digest) {
+              if (!byCategory[item.category]) byCategory[item.category] = [];
+              byCategory[item.category].push(item);
+            }
+
+            const categoryLabels: Record<string, string> = {
+              'what-i-built': '🏗️ What People Are Building',
+              'announcement': '📢 Cloudflare Announcements',
+              'binding': '🔧 Tips & Tricks from Product Channels',
+              'general': '💬 Notable Discussions',
+            };
+
+            const sections = Object.entries(byCategory)
+              .map(([cat, items]) => {
+                const label = categoryLabels[cat] ?? cat;
+                const bullets = items
+                  .sort((a, b) => b.aiScore - a.aiScore)
+                  .slice(0, 5)
+                  .map(
+                    (i) =>
+                      `<li><strong>@${i.author}</strong> in #${i.channelName}: ${i.aiSummary} <em>(score: ${i.aiScore}/100)</em></li>`
+                  )
+                  .join('');
+                return `<h3>${label}</h3><ul>${bullets}</ul>`;
+              })
+              .join('');
+
+            const contentHtml = `
+              <h2>Discord Highlights — ${new Date().toLocaleDateString()}</h2>
+              <p>Scanned ${discordResult.ingested} new message(s) across Cloudflare Developers Discord channels. Found <strong>${discordResult.highlighted}</strong> noteworthy item(s).</p>
+              ${sections}
+            `;
+
+            await sendRepoDiscoveryEmail(env, {
+              subject: `Discord Digest — ${discordResult.highlighted} highlights — ${new Date().toLocaleDateString()}`,
+              title: 'Cloudflare Discord Daily Digest',
+              contentHtml,
+              dailyTrendsData: {
+                date: new Date().toLocaleDateString(),
+                trend_summary: `${discordResult.highlighted} Discord highlights from ${discordResult.ingested} new messages scanned across the Cloudflare Developers server.`,
+                top_picks: discordResult.digest
+                  .sort((a, b) => b.aiScore - a.aiScore)
+                  .slice(0, 10)
+                  .map((item) => ({
+                    name: `#${item.channelName} — @${item.author}`,
+                    url: `https://discord.com/channels/@me/${item.messageId}`,
+                    category: item.category,
+                    why_its_interesting: item.aiSummary,
+                    innovation_score: Math.round(item.aiScore / 10),
+                  })),
+              },
+              plainTextFallback: `Discord Digest: ${discordResult.highlighted} highlights found from ${discordResult.ingested} new messages.`,
+            });
+
+            console.log('[Scheduled] Discord digest email sent.');
+          } else {
+            console.log(`[Scheduled] Discord scan complete — no highlights to email (ingested: ${discordResult.ingested}).`);
+          }
+        } catch (err) {
+          console.error('[Scheduled] Discord scan failed:', err);
+        }
+      })()
+    );
+  }
+
   // Daily research scan at 9 AM UTC
   if (event.cron === '0 9 * * *') {
     console.log('[Scheduled] Starting daily research scan...');
@@ -1096,3 +1176,8 @@ export default {
 
 // Export all Durable Objects and Workflows
 export { ResearchOrchestrator } from '@/ai/agents/ResearchOrchestrator';
+
+// Fallback endpoints for required mandates
+app.get('/health', (c) => c.json({ status: 'healthy', timestamp: new Date().toISOString() }));
+app.get('/context', (c) => c.json({ app: 'core-github-api', runtime: 'cloudflare-workers', db: 'd1', orm: 'drizzle' }));
+app.get('/docs', (c) => c.redirect('/doc'));

@@ -3,3 +3,4 @@ export * from './research/deep';
 export * from './research/topic';
 export * from './health';
 export * from './search';
+export * from './discord';
