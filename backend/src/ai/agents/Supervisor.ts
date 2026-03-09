@@ -220,7 +220,7 @@ export class Supervisor extends BaseAgent<Env> {
             }
 
             // Set Alarm for Watchdog
-            await this.ctx.storage.setAlarm(Date.now() + 60 * 1000);
+            await this.schedule(60, "watchdogCheck");
 
             return Response.json({ status: "started" });
 
@@ -231,6 +231,12 @@ export class Supervisor extends BaseAgent<Env> {
             return Response.json({ error: e.message }, { status: 500 });
         }
         */
+    }
+
+    async watchdogCheck() {
+        if (this.status === 'running') {
+            this.broadcast("[Supervisor] ⚠️ Watchdog alert: Task is still running after 60 seconds.\n");
+        }
     }
 
     async killTask(): Promise<Response> {

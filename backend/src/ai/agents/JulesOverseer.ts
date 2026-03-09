@@ -43,6 +43,11 @@ export class JulesOverseer extends BaseAgent {
       return super.fetch(request);
   }
 
+  override async onStart() {
+      // Setup background check every hour using the SDK scheduling
+      await this.schedule(60 * 60, "checkJulesStatus");
+  }
+
 /**
  * Core monitoring loop. Scans the database for active jobs and 
  * inspects their status in the Jules service.
@@ -131,12 +136,10 @@ export class JulesOverseer extends BaseAgent {
         }
     }
 
-    return results;
-  }
+    // Schedule the next check
+    await this.schedule(60 * 60, "checkJulesStatus");
 
-  async scheduled(event: ScheduledEvent) {
-    this.logger.info("Running scheduled check...");
-    await this.checkJulesStatus();
+    return results;
   }
 
   /**
