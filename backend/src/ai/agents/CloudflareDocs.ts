@@ -1,76 +1,72 @@
 /**
- * CloudflareDocsAgent — Specialized Cloudflare Documentation Expert
- *
- * An expert agent for Cloudflare products, features, and best practices.
- * It combines documentation search (via MCP) with structured reasoning to provide 
- * high-fidelity answers and code samples following project conventions.
- * 
- * Inference Strategy:
- * 1. Primary: Gemini (JSON mode) for precise, structured rendering info.
- * 2. Fallback: Workers AI (Llama 3.x) for resilient plain-text responses.
- * 
- * Features:
- * - Dynamic system prompt resolution from KV.
- * - Repo-context-aware responses (aware of project file trees).
- * - Automatic logging of interactions for training and evaluation.
- * 
- * A concrete implementation of HonoBaseAgent focused on answering questions
- * about Cloudflare products, features, and best practices.
- *
- * This agent sources its system prompt from KV_CONFIGS (live-editable via
- * /api/agents/cloudflare-docs/system-prompt) and falls back to the compiled
- * SYSTEM_PROMPT_BASE constant when the KV key is absent.
- *
- * @module AI/Agents/CloudflareDocs
+ * CloudflareDocsAgent — Specialized Cloudflare Documentation Expert.
  */
 
+import { createAgent } from '@/ai/agents/honi';
+import { buildMaxAgentMemory } from '@/ai/agents/memory';
+import { CF_DOCS_PROMPT_KV_KEY } from '@/ai/agents/constants';
+import { AgentStateStore } from '@/ai/agents/support/state-store';
 import {
-  HonoBaseAgent,
-  HonoBaseAgentState,
-  ContentBlock,
-  HonoChatResult,
-} from "@/ai/agents/base/HonoBaseAgent";
-import { CF_DOCS_PROMPT_KV_KEY } from "@/ai/agents/constants";
-import { makeQueryStandardsTool } from "@/ai/tools/standards";
-
-// ─── Re-exports for backward compatibility ────────────────────────────────────
+  runStructuredChat,
+  type ContentBlock,
+  type StructuredChatResult,
+  type StructuredChatState,
+} from '@/ai/agents/support/structured-chat';
+import { makeQueryStandardsTool } from '@/ai/tools/standards';
+import { withFullCodeOutputRules } from '@/ai/utils/code-output-rules';
 
 export type { ContentBlock };
-/** @deprecated Use HonoChatResult from HonoBaseAgent instead */
-export type CloudflareDocsChatResult = HonoChatResult;
+export type CloudflareDocsChatResult = StructuredChatResult;
 
-// ─── State ────────────────────────────────────────────────────────────────────
-
-type CloudflareDocsState = HonoBaseAgentState;
-
-// ─── System prompt ────────────────────────────────────────────────────────────
-
-export const SYSTEM_PROMPT_BASE = `You are an expert Cloudflare Support Engineer and Systems Architect.
+export const SYSTEM_PROMPT_BASE = withFullCodeOutputRules(`You are an expert Cloudflare Support Engineer and Systems Architect.
 
 You have been provided with relevant Cloudflare documentation. Use it as your primary reference.
-Be specific, precise, and include working TypeScript code examples targeting Cloudflare Workers (nodejs_compat mode).`;
+Be specific, precise, and include working TypeScript code examples targeting Cloudflare Workers (nodejs_compat mode).`);
 
-// ─── Agent ────────────────────────────────────────────────────────────────────
+const cloudflareDocsRuntime = createAgent<Env>({
+  name: 'cloudflare-docs',
+  model: 'google-ai-studio/gemini-2.5-flash',
+  system: SYSTEM_PROMPT_BASE,
+  binding: 'CLOUDFLARE_DOCS_AGENT',
+  tools: [],
+  memory: buildMaxAgentMemory({
+    agentName: 'CloudflareDocsAgent',
+    graphId: 'core-github-api-cloudflare-docs',
+  }),
+  observability: { enabled: true, aiGatewaySlug: 'core-github-api', collectEvents: true },
+});
 
-/**
- * CloudflareDocsAgent — Expert Cloudflare documentation agent.
- *
- * All runtime logic (WebSocket, RPC, Gemini, Workers AI fallback, logging)
- * is provided by HonoBaseAgent. This class only supplies identity + prompt.
- */
-export class CloudflareDocsAgent extends HonoBaseAgent {
-  protected get agentName(): string {
-    return "CloudflareDocsAgent";
+const CloudflareDocsDurableObject = cloudflareDocsRuntime.DurableObject as new (
+  ctx: DurableObjectState,
+  env: Env,
+) => DurableObject & {
+  env: Env;
+  fetch(request: Request): Promise<Response>;
+};
+
+type CloudflareDocsState = StructuredChatState;
+
+export class CloudflareDocsAgent extends CloudflareDocsDurableObject {
+  declare env: Env;
+  private readonly store: AgentStateStore<CloudflareDocsState>;
+
+  constructor(ctx: DurableObjectState, env: Env) {
+    super(ctx, env);
+    this.env = env;
+    this.store = new AgentStateStore<CloudflareDocsState>({
+      ctx,
+      env,
+      agentName: 'CloudflareDocsAgent',
+      initialState: {
+        repoContext: null,
+        status: 'idle',
+        history: [],
+        mcpCache: {},
+      },
+    });
   }
 
-  initialState: CloudflareDocsState = {
-    repoContext: null,
-    status: "idle",
-    history: [],
-    mcpCache: {},
-  };
-
-  protected async getSystemPromptBase(): Promise<string> {
+  private async getSystemPromptBase(): Promise<string> {
     let resolvedPrompt = SYSTEM_PROMPT_BASE;
     try {
       const kvRaw = await (this.env as any).KV_CONFIGS.get(CF_DOCS_PROMPT_KV_KEY);
@@ -78,26 +74,74 @@ export class CloudflareDocsAgent extends HonoBaseAgent {
         let parsed: any = null;
         try {
           parsed = JSON.parse(kvRaw);
-        } catch(e){
-          console.error("[CloudflareDocsAgent] KV_CONFIGS key is a raw string, using as-is", JSON.stringify(e));
+        } catch (error) {
+          console.error('[CloudflareDocsAgent] KV_CONFIGS key is a raw string, using as-is', JSON.stringify(error));
         }
-        const fromKv =
-          parsed && typeof parsed === "object" && "value" in parsed
-            ? (parsed.value as string)
-            : kvRaw;
-        if (fromKv && fromKv.length > 20) resolvedPrompt = fromKv;
+        const fromKv = parsed && typeof parsed === 'object' && 'value' in parsed ? parsed.value : kvRaw;
+        if (typeof fromKv === 'string' && fromKv.length > 20) {
+          resolvedPrompt = fromKv;
+        }
       }
     } catch {
-      /* KV unavailable — fall through */
+      // KV unavailable — fall through.
     }
 
     try {
-      const tool = makeQueryStandardsTool((this.env as any));
+      const tool = makeQueryStandardsTool(this.env as any) as any;
       const dynamicStandards = await tool.handler({});
       return `${resolvedPrompt}\n\n═══════════════════════════════════════════════════════\nREPOSITORY STANDARDIZATION RULES\n═══════════════════════════════════════════════════════\n${dynamicStandards}`;
-    } catch (e) {
-      console.error("[CloudflareDocsAgent] Failed to inject dynamic standards", e);
+    } catch (error) {
+      console.error('[CloudflareDocsAgent] Failed to inject dynamic standards', error);
       return resolvedPrompt;
     }
+  }
+
+  async chat(
+    message: string,
+    history: unknown[] = [],
+    context?: unknown,
+    source = 'api',
+    sessionId = 'default',
+    requestedModel?: string,
+  ): Promise<StructuredChatResult> {
+    const systemPrompt = await this.getSystemPromptBase();
+    return runStructuredChat({
+      env: this.env,
+      store: this.store,
+      agentName: 'CloudflareDocsAgent',
+      systemPrompt,
+      message,
+      history,
+      context,
+      source,
+      sessionId,
+      requestedModel,
+    });
+  }
+
+  async fetch(request: Request): Promise<Response> {
+    const url = new URL(request.url);
+    if (request.method === 'POST' && url.pathname === '/chat') {
+      const payload = await request.json<{
+        message?: string;
+        history?: unknown[];
+        context?: unknown;
+        source?: string;
+        sessionId?: string;
+        model?: string;
+      }>();
+
+      const result = await this.chat(
+        payload.message || '',
+        payload.history || [],
+        payload.context,
+        payload.source || 'api',
+        payload.sessionId || 'default',
+        payload.model,
+      );
+      return Response.json(result);
+    }
+
+    return super.fetch(request);
   }
 }

@@ -1,41 +1,58 @@
-import { tool } from "honidev";
+import { tool } from "@/ai/agents/honi";
+import { GOLDEN_PATH_OUTPUT_DISCIPLINE } from "@/services/golden-path-config";
 import { z } from "zod";
-import { getDb } from "@db";
-import { standardizationItems, standardizationTagMappings, standardizationTagDefinitions } from "@db/schemas/app/standardization";
-import { eq } from "drizzle-orm";
+
+import { listGoldenPathConfigs } from "@/services/golden-path-config";
 
 /**
- * An intelligent SDK tool (Honi/CF Agents) that allows agents to autonomously
- * query explicit standardizations rules required for operations within this repository.
+ * Dynamic standards tool backed by D1 golden path configuration.
+ * Agents use this to pull current coding rules by scope, infrastructure, or tag.
  */
 export const makeQueryStandardsTool = (env: Env) => tool({
   name: "query_standards",
-  description: "Query the active repository standardization rules and design guidelines. Use this before generating code to ensure you follow all standard practices required by this codebase.",
-  // @ts-expect-error - mismatch with zod version
+  description:
+    "Query the active golden path standards stored in D1. Use this before generating code so your output follows the current repository rules and always returns full code without elisions.",
   input: z.object({
-    filterByTag: z.string().optional().describe("Optional tag name to filter standards by (e.g. 'Frontend', 'Drizzle', 'Hono')")
+    filterByTag: z.string().optional().describe("Optional active tag name filter."),
+    filterByScope: z.string().optional().describe("Optional scope title filter, such as frontend, backend, ai, infra, or docs."),
+    filterByInfrastructure: z.string().optional().describe("Optional infrastructure filter, such as worker-assets, workers, or coding-agent."),
+    search: z.string().optional().describe("Optional free-text search across titles, descriptions, rules, and tags."),
   }),
-  handler: async (args: { filterByTag?: string }) => {
-    const db = getDb(env.DB);
-    const items = await db.select().from(standardizationItems).where(eq(standardizationItems.isActive, true)).all();
-    const mappings = await db.select().from(standardizationTagMappings).all();
-    const tags = await db.select().from(standardizationTagDefinitions).all();
-
-    let results = items.map(item => {
-      const itemMappings = mappings.filter(m => m.standardizationItemId === item.id);
-      const itemTags = itemMappings.map(m => tags.find(t => t.id === m.tagId)?.name).filter(Boolean);
-      return { ...item, tags: itemTags };
+  handler: async (args: {
+    filterByTag?: string;
+    filterByScope?: string;
+    filterByInfrastructure?: string;
+    search?: string;
+  }) => {
+    const results = await listGoldenPathConfigs(env, {
+      tagName: args.filterByTag,
+      scopeTitle: args.filterByScope,
+      infrastructure: args.filterByInfrastructure,
+      search: args.search,
     });
 
-    if (args.filterByTag) {
-        const lowerFilter = args.filterByTag.toLowerCase();
-        results = results.filter(r => r.tags.some(t => t?.toLowerCase().includes(lowerFilter)));
-    }
-
     if (results.length === 0) {
-        return "No explicit standardization rules found" + (args.filterByTag ? ` for tag: ${args.filterByTag}` : ".");
+      return `No active golden path standards matched the requested filters.\n\n${GOLDEN_PATH_OUTPUT_DISCIPLINE}`;
     }
 
-    return results.map(r => `Rule: ${r.title}\nTags: [${r.tags.join(', ')}]\nDetail:\n${r.rule}`).join('\n\n---\n\n');
-  }
+    const rendered = results
+      .map((item) => {
+        const tags = item.scope.tags.length
+          ? item.scope.tags.map((tag) => tag.name).join(", ")
+          : "none";
+
+        return [
+          `Title: ${item.title}`,
+          `Description: ${item.description}`,
+          `Scope: ${item.scope.title}`,
+          `Infrastructure: ${item.scope.infrastructure}`,
+          `Scope Description: ${item.scope.description}`,
+          `Tags: ${tags}`,
+          `Rule:\n${item.rule}`,
+        ].join("\n");
+      })
+      .join("\n\n---\n\n");
+
+    return `${rendered}\n\n---\n\n${GOLDEN_PATH_OUTPUT_DISCIPLINE}`;
+  },
 });

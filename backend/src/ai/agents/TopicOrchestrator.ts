@@ -1,109 +1,128 @@
 /**
  * Topic Orchestrator Agent (Research Planning & Management)
- * 
- * Manages the high-level lifecycle of a research topic or brief. It:
- * 1. Accepts user briefs and initiates the planning phase.
- * 2. Generates structured research plans and search queries.
- * 3. Coordinates logging across different research stages.
- * 
- * @module AI/Agents/TopicOrchestrator
  */
-import { BaseAgent } from "./base/BaseAgent";
-import { getDb } from "@db";
-import { researchBriefs, researchPlans, researchCandidates } from "@db/schemas/github/research";
-import { ResearchLogger } from "@research-logger";
-import { eq } from "drizzle-orm";
-import { z } from "zod";
+import { z } from 'zod';
+import { eq } from 'drizzle-orm';
+import { createAgent } from '@/ai/agents/honi';
+import { buildMaxAgentMemory } from '@/ai/agents/memory';
+import { AgentStateStore } from '@/ai/agents/support/state-store';
+import { runAgentStructured } from '@/ai/agents/support/inference';
+import { getDb } from '@db';
+import { researchBriefs, researchPlans } from '@db/schemas/github/research';
+import { ResearchLogger } from '@research-logger';
+
+const PlanSchema = z.object({
+  goals: z.array(z.string()).describe('List of high level research goals'),
+  search_queries: z.array(z.string()).describe('Specific Google search queries to run'),
+  required_sources: z.array(z.string()).describe('Specific websites or sources to target if any'),
+});
 
 type AgentState = {
   briefId?: string;
-  status: "idle" | "planning" | "researching" | "review" | "complete";
+  status: 'idle' | 'planning' | 'researching' | 'review' | 'complete';
+  history: Record<string, unknown>[];
+  lastResult?: unknown;
 };
 
-// Actually I'll do two chunks.
+const topicOrchestratorRuntime = createAgent<Env>({
+  name: 'topic-orchestrator',
+  model: 'claude-3-5-sonnet-latest',
+  system: 'You manage research topic intake, planning, and orchestration.',
+  binding: 'TOPIC_ORCHESTRATOR',
+  tools: [],
+  memory: buildMaxAgentMemory({
+    agentName: 'TopicOrchestratorAgent',
+    graphId: 'core-github-api-topic-orchestrator',
+  }),
+  observability: { enabled: true, aiGatewaySlug: 'core-github-api', collectEvents: true },
+});
 
-/**
- * The TopicOrchestratorAgent manages research lifecycle and goal definition.
- */
-export class TopicOrchestratorAgent extends BaseAgent<Env, AgentState> {
-  private researchLogger?: ResearchLogger;
-  private doState: DurableObjectState; // Store DO state explicitly
+const TopicOrchestratorDurableObject = topicOrchestratorRuntime.DurableObject as new (
+  ctx: DurableObjectState,
+  env: Env,
+) => DurableObject & { env: Env };
+
+export class TopicOrchestratorAgent extends TopicOrchestratorDurableObject {
+  declare env: Env;
+  private readonly store: AgentStateStore<AgentState>;
+  private readonly doState: DurableObjectState;
 
   constructor(state: DurableObjectState, env: Env) {
     super(state, env);
-    this.doState = state; // Capture it
-    // Logger initialized in methods where we have briefId context
+    this.env = env;
+    this.doState = state;
+    this.store = new AgentStateStore<AgentState>({
+      ctx: state,
+      env,
+      agentName: 'TopicOrchestratorAgent',
+      initialState: {
+        status: 'idle',
+        history: [],
+      },
+    });
   }
 
-  // --- Public Methods (RPC) ---
-
-/**
- * Submits a new research brief and initiates the planning workflow.
- */
   async submitBrief(userId: string, title: string, content: any) {
     const db = getDb(this.env.DB);
-    
-    // Create new brief
+
     const [brief] = await db.insert(researchBriefs).values({
       userId,
       title,
       rawBriefContent: JSON.stringify(content),
-      status: "planning",
+      status: 'planning',
       createdAt: new Date(),
-      updatedAt: new Date()
+      updatedAt: new Date(),
     }).returning();
 
-    this.setState({ briefId: brief.id, status: "planning" });
-    
-    // Initialize logger
-    this.researchLogger = new ResearchLogger(db, brief.id, null, "TopicOrchestrator", this.doState); // Use explicit DO state
-    await this.researchLogger.logInfo("Lifecycle", `Brief created: ${title}`, { briefId: brief.id });
-    
-    // Trigger initial planning
-    await this.formulatePlan(brief.id, content);
-    
+    await this.store.set({ briefId: brief.id, status: 'planning', history: [] });
+
+    const researchLogger = new ResearchLogger(db, brief.id, null, 'TopicOrchestrator', this.doState);
+    await researchLogger.logInfo('Lifecycle', `Brief created: ${title}`, { briefId: brief.id });
+
+    await this.formulatePlan(brief.id, content, researchLogger);
+
     return brief;
   }
 
   async getStatus() {
-    return this.state; // Refers to TState
+    await this.store.ready();
+    return this.store.state;
   }
 
-  // --- Internal Logic ---
+  private async formulatePlan(briefId: string, content: any, researchLogger: ResearchLogger) {
+    await researchLogger.logThought('Planning', 'Analyzing user brief to generate research plan...');
 
-  private async formulatePlan(briefId: string, content: any) {
-    if (!this.researchLogger) return; // Should be inited
-    
-    await this.researchLogger.logThought("Planning", "Analyzing user brief to generate research plan...");
-    
     const db = getDb(this.env.DB);
-    
-    // Use AI to generate a plan with a structured schema
-    let plan = {};
+
+    let plan: unknown = {};
     try {
-      plan = await this.runStructuredResponseWithModel({
-        name: "ResearchPlanner",
-        instructions: `You are an expert Research Planner. 
-        Analyze the user request and create a list of specific research questions and Google search queries.`,
+      plan = await runAgentStructured({
+        env: this.env,
+        logger: this.store.logger,
+        name: 'ResearchPlanner',
+        instructions: `You are an expert Research Planner.
+Analyze the user request and create a list of specific research questions and Google search queries.`,
         prompt: JSON.stringify(content),
-        schema: z.object({
-          goals: z.array(z.string()).describe("List of high level research goals"),
-          search_queries: z.array(z.string()).describe("Specific Google search queries to run"),
-          required_sources: z.array(z.string()).describe("Specific websites or sources to target if any")
-        })
+        schema: PlanSchema,
       });
-    } catch (e) {
-      await this.researchLogger.logError("Planning", e);
-      plan = { error: "Failed to generate structured plan", details: String(e) };
+    } catch (error) {
+      await researchLogger.logError('Planning', error);
+      plan = { error: 'Failed to generate structured plan', details: String(error) };
     }
 
-    // Save plan
     await db.insert(researchPlans).values({
       briefId,
       currentVersion: JSON.stringify(plan),
       isApproved: false,
     });
-    
-    await this.researchLogger.logInfo("Planning", "Plan generated and saved.", { plan });
+
+    await researchLogger.logInfo('Planning', 'Plan generated and saved.', { plan });
+    await this.store.set({
+      ...this.store.state,
+      briefId,
+      status: 'researching',
+      lastResult: plan,
+      history: [...this.store.state.history, { briefId, plan }],
+    });
   }
 }

@@ -7,7 +7,7 @@ import { eq, and } from 'drizzle-orm';
 import { createGitHubIssue, updateGitHubIssue, createGitHubComment } from '@/ai/mcp/tools/github/github';
 
 import { TaskStatus, KanbanColumn } from '@/types/project-management/enums';
-import { StatusMapper } from '@services/statusMapper';
+import { StatusMapper } from '@/automations/shared/status-mapper';
 import { generateUuid } from "@/utils/common";
 
 // Define standardized task statuses/columns

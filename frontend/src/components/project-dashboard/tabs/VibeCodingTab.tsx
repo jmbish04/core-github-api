@@ -58,7 +58,7 @@ export function VibeCodingTab({
       id: "vibe-intro",
       role: "assistant",
       content:
-        "I am CodeGeneratorAgent. I can produce Golden Path implementation plans, suggested file changes, and Jules handoff tasks.",
+        "I am CodeGenerationService. I can produce Golden Path implementation plans, suggested file changes, and Jules handoff tasks.",
     },
   ]);
 
@@ -134,7 +134,7 @@ export function VibeCodingTab({
     } catch (error: any) {
       append(
         "assistant",
-        `Unable to complete CodeGeneratorAgent request: ${error?.message || "Unknown error."}`,
+        `Unable to complete CodeGenerationService request: ${error?.message || "Unknown error."}`,
       );
     } finally {
       setIsRunning(false);
@@ -157,7 +157,7 @@ export function VibeCodingTab({
             VibeSDK Coding Studio
           </CardTitle>
           <CardDescription>
-            Connected to backend <code>CodeGeneratorAgent</code> with Golden Path enforcement.
+            Connected to backend <code>CodeGenerationService</code> with Golden Path enforcement.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -243,4 +243,3 @@ export function VibeCodingTab({
     </div>
   );
 }
-

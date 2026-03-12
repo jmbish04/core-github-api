@@ -7,7 +7,7 @@
  * @module AI/MCP/Tools/D1
  */
 import { z } from 'zod';
-import { Tool } from '@/ai/agents/base/BaseAgent';
+import type { AgentTool as Tool } from '@/ai/agents/support/types';
 
 /**
  * Tool for reading from D1 database via SQL.

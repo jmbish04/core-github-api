@@ -5,7 +5,7 @@
 
 import { OpenAPIHono, createRoute } from '@hono/zod-openapi'
 import { z } from 'zod'
-import { getAgentByName } from 'agents'
+import { getAgentByName } from '@/ai/agents/runtime/agents'
 import { generateUuid } from "@/utils/common";
 
 const deepResearchChatApi = new OpenAPIHono<{ Bindings: Env }>({

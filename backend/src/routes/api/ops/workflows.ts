@@ -9,7 +9,13 @@ import { DEFAULT_GITHUB_OWNER, DEFAULT_TEMPLATE_REPO } from "@github-utils";
 import { getWebhooksDb } from "@db";
 import { webhookConfigs, automationLogs } from "@/db/schemas/webhooks/automations";
 import { desc } from "drizzle-orm";
-import { AutomationRegistry } from "@/core/AutomationRegistry";
+import { AutomationRegistry } from "@/automations/core/AutomationRegistry";
+import {
+  createAutomationRunnerPolicy,
+  deleteAutomationRunnerPolicy,
+  listAutomationRunnerPolicies,
+  updateAutomationRunnerPolicy,
+} from "@/automations/push/runner-policies";
 const TranscriptMessageSchema = z.object({
   id: z.string().optional(),
   role: z.enum(["assistant", "user"]),
@@ -144,6 +150,21 @@ const AutomationRuleBody = z.object({
   isActive: z.boolean().default(true)
 });
 
+const AutomationRunnerPolicyBody = z.object({
+  title: z.string().trim().min(1),
+  description: z.string().trim().optional().nullable(),
+  automationKey: z.string().trim().min(1),
+  triggerEvent: z.string().trim().min(1),
+  runnerKind: z.enum(["internal_agent", "jules", "github_assignment"]),
+  targetRef: z.string().trim().optional().nullable(),
+  repoOwner: z.string().trim().optional().nullable(),
+  repoName: z.string().trim().optional().nullable(),
+  branchPattern: z.string().trim().optional().nullable(),
+  infrastructure: z.string().trim().optional().nullable(),
+  priority: z.coerce.number().int().min(0).default(100),
+  isActive: z.boolean().default(true),
+});
+
 workflowsApi.get("/rules", async (c) => {
   const db = getDb(c.env.DB);
   const rules = await db.select().from(automationRules).all();
@@ -194,6 +215,39 @@ workflowsApi.delete("/rules/:id", async (c) => {
   const db = getDb(c.env.DB);
   const id = c.req.param("id");
   await db.delete(automationRules).where(eq(automationRules.id, id));
+  return c.json({ success: true });
+});
+
+workflowsApi.get("/runner-policies", async (c) => {
+  const policies = await listAutomationRunnerPolicies(c.env, {
+    automationKey: c.req.query("automationKey") || undefined,
+    triggerEvent: c.req.query("triggerEvent") || undefined,
+    activeOnly: c.req.query("activeOnly") === "true",
+  });
+
+  return c.json({ success: true, policies });
+});
+
+workflowsApi.post(
+  "/runner-policies",
+  zValidator("json", AutomationRunnerPolicyBody),
+  async (c) => {
+    const policy = await createAutomationRunnerPolicy(c.env, c.req.valid("json"));
+    return c.json({ success: true, policy }, 201);
+  },
+);
+
+workflowsApi.put(
+  "/runner-policies/:id",
+  zValidator("json", AutomationRunnerPolicyBody.partial()),
+  async (c) => {
+    const policy = await updateAutomationRunnerPolicy(c.env, c.req.param("id"), c.req.valid("json"));
+    return c.json({ success: true, policy });
+  },
+);
+
+workflowsApi.delete("/runner-policies/:id", async (c) => {
+  await deleteAutomationRunnerPolicy(c.env, c.req.param("id"));
   return c.json({ success: true });
 });
 

@@ -37,3 +37,12 @@ export const standardizationTagMappings = sqliteTable('standardization_tag_mappi
     tagId: text('tag_id').notNull().references(() => standardizationTagDefinitions.id),
     standardizationItemId: text('standardization_item_id').notNull().references(() => standardizationItems.id)
 });
+
+export const repositorySecretDefaults = sqliteTable('repository_secret_defaults', {
+    id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+    secretName: text('secret_name').notNull().unique(),
+    description: text('description'),
+    isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+    createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+});

@@ -1,7 +1,7 @@
 import { Octokit } from "octokit";
 import { WranglerConfigSchema, type WranglerConfig } from "@/types/cloudflare/deployment";
-import { parseWranglerConfigContent, inferFormat, type ConfigFormat, type ParseResult } from "@/services/cloudflare/wrangler-config-parser";
-import { WranglerConfigUpdater, type UpdateOperation, type UpdateResult } from "@/services/cloudflare/wrangler-config-updater";
+import { parseWranglerConfigContent, inferFormat, type ConfigFormat, type ParseResult } from "@/automations/shared/cloudflare/wrangler-config-parser";
+import { WranglerConfigUpdater, type UpdateOperation, type UpdateResult } from "@/automations/shared/cloudflare/wrangler-config-updater";
 
 export class WranglerInspectorService {
   constructor(private octokit: Octokit) {}

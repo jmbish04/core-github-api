@@ -24,12 +24,12 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import { streamText } from "hono/streaming";
-import { JulesService } from "@services/jules";
-import { JULES_STANDARDS } from "@/config/jules-standards";
+import { JulesService } from "@/services/jules/service";
 import { getDb } from "@db";
 import { julesSessions, julesJobs, julesWebhookEvents } from "@db/schemas/jules";
 import { eq, desc, like, and, or } from "drizzle-orm";
 import { generateUuid } from "@/utils/common";
+import { buildCodingAgentInstructions } from "@/services/golden-path-config";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -61,7 +61,7 @@ const startSessionSchema = z.object({
   /** Optional pre-assigned session ID. Jules uses this ID if provided. */
   session_id: z.string().optional(),
 
-  /** If true, JULES_STANDARDS are appended to the prompt (default: true). */
+  /** If true, coding-agent golden-path standards are appended to the prompt (default: true). */
   inject_standards: z.boolean().default(true),
 
   /** Originating agent Durable Object ID for webhook routing. */
@@ -80,7 +80,7 @@ const startSessionSchema = z.object({
  * POST /api/jules/start
  *
  * Creates a new Jules coding session. The prompt is automatically enriched with:
- *   1. JULES_STANDARDS (if inject_standards: true)
+ *   1. Coding-agent golden path standards (if inject_standards: true)
  *   2. Mandatory webhook reporting instructions (always)
  *
  * Returns the session ID, job ID (if repo provided), and initial status.
@@ -101,8 +101,11 @@ app.post("/start", zValidator("json", startSessionSchema), async (c) => {
 
   const julesService = JulesService.getInstance(c.env);
   const db = getDb(c.env.DB);
+  const standards = inject_standards
+    ? await buildCodingAgentInstructions(c.env)
+    : "";
   const enrichedPrompt = inject_standards
-    ? `${prompt}\n\n${JULES_STANDARDS}`
+    ? `${prompt}\n\n${standards}`
     : prompt;
   const sessionId = session_id || generateUuid();
 

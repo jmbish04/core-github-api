@@ -8,7 +8,7 @@
  * @module AI/MCP/Tools/Vectorize
  */
 import { z } from 'zod';
-import { Tool } from '@/ai/agents/base/BaseAgent';
+import type { AgentTool as Tool } from '@/ai/agents/support/types';
 import { v4 as uuidv4 } from 'uuid';
 
 // Helper to get OpenAI client for embeddings via Gateway

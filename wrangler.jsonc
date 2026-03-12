@@ -67,7 +67,10 @@
 		{
 			"type": "Text",
 			"globs": [
-				"**/*.hbs"
+				"**/*.hbs",
+				"**/*.md",
+				"**/*.yml",
+				"**/*.yaml"
 			],
 			"fallthrough": true
 		}
@@ -101,7 +104,7 @@
 		{
 			"binding": "GITHUB_TOKEN",
 			"store_id": "8c42fa70938644e0a8a109744467375f",
-			"secret_name": "GITHUB_TOKEN"
+			"secret_name": "GH_TOKEN"
 		},
 		{
 			"binding": "GITHUB_PERSONAL_ACCESS_TOKEN",
@@ -240,6 +243,10 @@
 				"class_name": "ResearchAgent"
 			},
 			{
+				"name": "DISCORD_RESEARCH_AGENT",
+				"class_name": "DiscordResearchAgent"
+			},
+			{
 				"name": "JULES_OVERSEER",
 				"class_name": "JulesOverseer"
 			},
@@ -278,6 +285,10 @@
 			{
 				"name": "JULES_WEBHOOK_BROADCASTER",
 				"class_name": "JulesWebhookBroadcaster"
+			},
+			{
+				"name": "PLANNING_MONITOR",
+				"class_name": "PlanningMonitor"
 			},
 			{
 				"name": "WORKSHOP_AGENT",
@@ -367,6 +378,18 @@
 			"new_sqlite_classes": [
 				"StandardizationAgent"
 			]
+		},
+		{
+			"tag": "v7",
+			"new_sqlite_classes": [
+				"DiscordResearchAgent"
+			]
+		},
+		{
+			"tag": "v8",
+			"new_sqlite_classes": [
+				"PlanningMonitor"
+			]
 		}
 	],
 	"workflows": [
@@ -389,11 +412,27 @@
 			"name": "topic-research-workflow",
 			"binding": "TOPIC_RESEARCH_WORKFLOW",
 			"class_name": "TopicResearchWorkflow"
+		},
+		{
+			"name": "discord-research-workflow",
+			"binding": "DISCORD_RESEARCH_WORKFLOW",
+			"class_name": "DiscordResearchWorkflow"
+		},
+		{
+			"name": "planning-orchestrator",
+			"binding": "PLANNING_ORCHESTRATOR",
+			"class_name": "PlanningOrchestrator"
 		}
 	],
 	"browser": {
 		"binding": "BROWSER"
 	},
+	"r2_buckets": [
+		{
+			"binding": "PLAN_ARTIFACTS",
+			"bucket_name": "core-github-api-plan-artifacts"
+		}
+	],
 	"kv_namespaces": [
 		{
 			"binding": "ETAG_KV",
@@ -431,6 +470,11 @@
 		{
 			"binding": "VECTORIZE_LOGS",
 			"index_name": "core-github-api-logs",
+			"remote": true
+		},
+		{
+			"binding": "PLAN_EMBEDDINGS",
+			"index_name": "core-github-api-plan-embeddings",
 			"remote": true
 		}
 	],

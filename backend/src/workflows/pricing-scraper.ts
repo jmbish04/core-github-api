@@ -1,13 +1,8 @@
 import { WorkflowEntrypoint, WorkflowStep, WorkflowEvent } from 'cloudflare:workers';
-import { PRICING } from '@/services/cloudflare/flareclerk';
 import { BrowserService } from '@/ai/mcp/tools/cloudflare/browser-render/index';
 // Import octokit tools to file an issue
 import { getOctokit } from '@/services/octokit/core';
 
-type Env = {
-    GITHUB_TOKEN: string;
-    MYBROWSER: any; // Browser rendering binding
-};
 
 export class PricingScraperWorkflow extends WorkflowEntrypoint<Env, any> {
     async run(event: WorkflowEvent<any>, step: WorkflowStep) {

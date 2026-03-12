@@ -1,17 +1,36 @@
-import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi';
+import { OpenAPIHono, z } from '@hono/zod-openapi';
+import type { Context } from 'hono';
 import { swaggerUI } from '@hono/swagger-ui';
-import { apiReference } from '@scalar/hono-api-reference';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { createMcpHandler } from 'agents/mcp';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
+import { handleStatelessMcpRequest } from '@/ai/mcp/http-handler';
+import planningApi from '@/routes/api/planning';
+import julesApi from '@/routes/api/jules';
+import julesWebhookApi from '@/routes/api/webhooks/jules';
 
-export type Env = {
-  STITCH_API_KEY: string;
-};
+type McpEnv = Pick<Env, 'STITCH_API_KEY'>;
+
+function renderScalarReference(specUrl: string): string {
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Codex MCP Orchestrator API Reference</title>
+  </head>
+  <body>
+    <script
+      id="api-reference"
+      data-url="${specUrl}"
+      src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"
+    ></script>
+  </body>
+</html>`;
+}
 
 // --- 1. MCP Server Definition ---
-function createOurMcpServer(env: Env) {
+function createOurMcpServer(env: McpEnv) {
   const server = new McpServer({ 
     name: 'Codex-Orchestrator-MCP', 
     version: '1.0.0' 
@@ -57,24 +76,34 @@ function createOurMcpServer(env: Env) {
   );
 
   // Remote Proxy: Google Stitch & Cloudflare Docs
-  server.tool(
+  server.registerTool(
     'remote_mcp_proxy',
-    'Execute a tool on a remote MCP server (cloudflare-docs or StitchMCP)',
     {
-      targetServer: z.enum(['cloudflare-docs', 'StitchMCP']).describe('The remote server to connect to'),
-      toolName: z.string().describe('The specific tool to execute on the remote server'),
-      parameters: z.record(z.any()).describe('JSON arguments required by the remote tool'),
+      description: 'Execute a tool on a remote MCP server (cloudflare-docs or StitchMCP)',
+      inputSchema: z.object({
+        targetServer: z.enum(['cloudflare-docs', 'StitchMCP']).describe('The remote server to connect to'),
+        toolName: z.string().describe('The specific tool to execute on the remote server'),
+        parameters: z
+          .record(z.string(), z.any())
+          .describe('JSON arguments required by the remote tool'),
+      }),
     },
     async ({ targetServer, toolName, parameters }) => {
       let url = '';
       const headers: Record<string, string> = {};
+      const toTextContent = (value: unknown) => [
+        {
+          type: 'text' as const,
+          text: typeof value === 'string' ? value : JSON.stringify(value),
+        },
+      ];
 
       if (targetServer === 'cloudflare-docs') {
         url = 'https://docs.mcp.cloudflare.com/mcp';
         // Implement disabledTools logic natively from configuration
         if (toolName === 'migrate_pages_to_workers_guide') {
           return {
-            content: [{ type: 'text', text: 'This tool is disabled by configuration.' }]
+            content: toTextContent('This tool is disabled by configuration.'),
           };
         }
       } else if (targetServer === 'StitchMCP') {
@@ -82,7 +111,20 @@ function createOurMcpServer(env: Env) {
         headers['X-Goog-Api-Key'] = env.STITCH_API_KEY;
       }
 
-      const transport = new SSEClientTransport(new URL(url), { headers });
+      const fetchWithHeaders: typeof fetch = (input, init) =>
+        fetch(input, {
+          ...init,
+          headers: {
+            ...(init?.headers || {}),
+            ...headers,
+          },
+        });
+
+      const transport = new SSEClientTransport(new URL(url), {
+        requestInit: { headers },
+        eventSourceInit: { fetch: fetchWithHeaders },
+        fetch: fetchWithHeaders,
+      });
       const client = new Client({ name: `cf-worker-${targetServer}-proxy`, version: '1.0.0' }, { capabilities: {} });
       
       try {
@@ -91,12 +133,12 @@ function createOurMcpServer(env: Env) {
         
         // Ensure we format the return payload strictly according to MCP Server standards
         return {
-          content: result.content || [{ type: 'text', text: JSON.stringify(result) }]
+          content: toTextContent(result),
         };
       } catch (e: any) {
         return {
           isError: true,
-          content: [{ type: 'text', text: `Remote ${targetServer} execution failed: ${e.message}` }]
+          content: toTextContent(`Remote ${targetServer} execution failed: ${e.message}`),
         };
       } finally {
         await client.close();
@@ -115,12 +157,15 @@ app.doc('/openapi.json', {
   info: { 
     title: 'Codex MCP Orchestrator API', 
     version: '1.0.0',
-    description: 'Remote MCP Server utilizing Cloudflare Agents SDK'
+    description: 'Remote MCP Server utilizing the repo-local Honi-compatible agent runtime'
   },
 });
 
 app.get('/swagger', swaggerUI({ url: '/openapi.json' }));
-app.get('/scalar', apiReference({ spec: { url: '/openapi.json' } }));
+app.get('/scalar', (c) => c.html(renderScalarReference('/openapi.json')));
+app.route('/api/planning', planningApi);
+app.route('/api/jules', julesApi);
+app.route('/api/webhooks/jules', julesWebhookApi);
 
 // --- Operational Endpoints ---
 app.get('/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString() }));
@@ -128,14 +173,58 @@ app.get('/context', (c) => c.json({ environment: 'production', transport: 'strea
 app.get('/docs', (c) => c.redirect('/scalar'));
 
 // --- MCP Endpoint ---
-// We use app.all to capture both GET (SSE/Discovery) and POST (RPC execution) traffic 
-// routed through the official createMcpHandler.
-app.all('/mcp/*', async (c) => {
+// The root worker uses the MCP SDK's web-standard streamable HTTP transport
+// directly instead of the unavailable `agents/mcp` package.
+async function handleMcp(c: Context<{ Bindings: Env }>) {
+  if (c.req.method !== 'POST') {
+    return c.json(
+      {
+        jsonrpc: '2.0',
+        error: { code: -32000, message: 'Method not allowed. Use POST /mcp.' },
+        id: null,
+      },
+      405,
+    );
+  }
+
   const server = createOurMcpServer(c.env);
-  const mcpHandler = createMcpHandler(server);
-  
-  // Pass the raw Request, environment, and ExecutionContext down to the Agents SDK handler
-  return mcpHandler(c.req.raw, c.env, c.executionCtx);
-});
+  return handleStatelessMcpRequest(server, c.req.raw);
+}
+
+app.all('/mcp', handleMcp);
+app.all('/mcp/*', handleMcp);
 
 export default app;
+
+export { Sandbox } from '@cloudflare/sandbox';
+export { OrchestratorAgent } from '@/ai/agents/Orchestrator';
+export { RetrofitAgent } from '@/ai/agents/retrofit';
+export { RoomDO } from '@/do/RoomDO';
+export { GeminiAgent } from '@/ai/agents/Gemini';
+export { PlannerAgent } from '@/ai/agents/Planner';
+export { RepoAgent } from '@/ai/agents/github/Repo';
+export { Supervisor } from '@/ai/agents/Supervisor';
+export { DeepReasoningAgent } from '@/ai/agents/DeepReasoning';
+export { OwnerAgent } from '@/ai/agents/github/Owner';
+export { ResearchAgent } from '@/ai/agents/Research';
+export { DiscordResearchAgent } from '@/ai/agents/research/DiscordResearch';
+export { JulesOverseer } from '@/ai/agents/JulesOverseer';
+export { TopicOrchestratorAgent } from '@/ai/agents/TopicOrchestrator';
+export { WebSearchAgent } from '@/ai/agents/WebSearch';
+export { JudgeAgent } from '@/ai/agents/Judge';
+export { ReportingAgent } from '@/ai/agents/Reporting';
+export { LandingPageAgent } from '@/ai/agents/LandingPageAgent';
+export { CloudflareDocsAgent } from '@/ai/agents/CloudflareDocs';
+export { DeepResearchChatAgent } from '@/ai/agents/DeepResearchChat';
+export { HealthDiagnostician } from '@/ai/agents/HealthDiagnostician';
+export { JulesWebhookBroadcaster } from '@/do/JulesWebhookBroadcaster';
+export { PlanningMonitor } from '@/do/PlanningMonitor';
+export { WorkshopAgent } from '@/ai/agents/workshop/WorkshopAgent';
+export { CfWorkshop_AgentsSdk } from '@/ai/agents/workshop/CfAgentsSdk';
+export { StandardizationAgent } from '@/ai/agents/StandardizationAgent';
+export { GithubSearchWorkflow } from '@/workflows/search';
+export { DeepResearchWorkflow } from '@/workflows/research/deep';
+export { DiscordResearchWorkflow } from '@/workflows/research/discord';
+export { ResearchOrchestrator } from '@/workflows/research/orchestrator';
+export { TopicResearchWorkflow } from '@/workflows/research/topic';
+export { PlanningOrchestrator } from '@/workflows/planning/orchestrator';

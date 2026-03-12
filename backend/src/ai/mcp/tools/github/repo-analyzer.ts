@@ -230,13 +230,10 @@ export async function analyzeRepoAndGenerateQuestions(
     }
   };
 
-  // ... rest of logic largely unchanged, using internal logic ...
-  // Docs fetching (no token needed usually, uses proxy or public)
+  // Fetch Cloudflare documentation context after repository analysis so downstream
+  // prompts are grounded in the relevant product areas for this repo.
   let docsContext = "";
   try {
-    // ... (existing logic) ...
-    // I'll preserve the logic but just ensure it's written correctly.
-    // Copying logic from previous file view Step 2430 around lines 230+
     console.log(`[Analyzer] Fetching Cloudflare Docs Index (llms.txt)...`);
     const docSections = await fetchCloudflareDocsIndex();
 

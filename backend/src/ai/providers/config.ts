@@ -29,7 +29,7 @@ export const DEFAULT_WORKERS_AI_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fas
  */
 /**
  * Defined Use Cases for AI Gateway endpoint resolution.
- * - openai_agents_sdk: Used by the @openai/agents package.
+ * - openai_agents_sdk: Used by the repo-local compatibility runtime layered over AI Gateway.
  * - openai_sdk: Standard OpenAI client usage.
  * - worker_ai: Raw Workers AI REST interactions.
  * - google_sdk: Official Google Generative AI SDK.

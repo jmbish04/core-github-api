@@ -32,7 +32,7 @@ import { getDb } from "@db";
 import { julesSessions, julesWebhookEvents } from "@db/schemas/jules";
 import { eq } from "drizzle-orm";
 import { createAlert } from "@alerts";
-import type { JulesEventType, JulesLiveMessage } from "@services/jules";
+import type { JulesEventType, JulesLiveMessage } from "@/services/jules/types";
 
 const app = new Hono<{ Bindings: Env }>();
 

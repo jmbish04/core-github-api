@@ -1,0 +1,450 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "project_name": "reverse-eng-toolkit",
+  "generated_date": "2026-03-12T12:32:41.000Z",
+  "total_phases": 6,
+  "phases": [
+    {
+      "phase_number": 1,
+      "phase_title": "Project Scaffolding & Configuration",
+      "description": "Initialize Worker, Astro frontend, and Wrangler bindings.",
+      "success_criteria": [
+        "wrangler.jsonc validates with DB, DOs, BROWSER, AI bindings.",
+        "worker-configuration.d.ts generated."
+      ],
+      "implementation_plan": {
+        "title": "Core Setup",
+        "description": "Configure the Cloudflare ecosystem bindings.",
+        "architecture": {
+          "explanation": "Standard monolithic Worker serving Astro from Assets, with DOs for processing.",
+          "mermaid_diagram": "graph TD; Worker --> ASSETS; Worker --> DOs; Worker --> D1;"
+        },
+        "proposed_changes": [
+          {
+            "category": "Configuration: Wrangler",
+            "files": [
+              {
+                "action": "MODIFY",
+                "file_path": "wrangler.jsonc",
+                "instructions": [
+                  "Set compatibility_date to 2026-03-12.",
+                  "Add d1_databases binding (DB).",
+                  "Add ai binding (AI).",
+                  "Add browser binding (BROWSER).",
+                  "Add durable_objects bindings for HoniOrchestrator and HoniConsultant.",
+                  "Add new_sqlite_classes migrations for DOs.",
+                  "Configure assets directory to ./dist with single-page-application handling.",
+                  "Add secrets_store_secrets for GITHUB_TOKEN, JULES_API_KEY, CF_API_TOKEN, CF_ACCOUNT_ID."
+                ]
+              }
+            ]
+          }
+        ],
+        "verification_plan": {
+          "automated_tests": [
+            { "command": "npx wrangler types", "expected_outcome": "Builds without error" }
+          ],
+          "manual_verification": ["Verify Env interface inside worker-configuration.d.ts"]
+        }
+      },
+      "tasks": [
+        {
+          "task_number": 1,
+          "status": "not_started",
+          "agent_assigned": "ArchitectAgent",
+          "task_title": "Configure Wrangler and Dependencies",
+          "task_description": "Setup package.json, TS configs, and bindings.",
+          "task_dependencies": [],
+          "cloudflare_docs_queries": ["What is the correct wrangler.jsonc syntax for Cloudflare Browser Rendering BROWSER binding?"],
+          "steps": [
+            {
+              "number": 1.1,
+              "title": "Install packages",
+              "status": "not_started",
+              "technical_requirements": [
+                "pnpm add hono @hono/zod-openapi @hono/swagger-ui drizzle-orm @cloudflare/ai-chat agents @google/jules-sdk octokit @cloudflare/puppeteer @assistant-ui/react @assistant-ui/react-markdown",
+                "pnpm add -D drizzle-kit wrangler@latest"
+              ],
+              "success_criteria": ["Dependencies listed in package.json"]
+            },
+            {
+              "number": 1.2,
+              "title": "Write Configuration",
+              "status": "not_started",
+              "technical_requirements": ["Use $schema", "Implement PRD Section 5 verbatim"],
+              "success_criteria": ["Types generate cleanly"]
+            }
+          ],
+          "requirements": ["Always use pnpm."],
+          "success_criteria": ["Project is ready for database setup"]
+        }
+      ]
+    },
+    {
+      "phase_number": 2,
+      "phase_title": "Database Layer",
+      "description": "Create Drizzle schemas for Projects, Snapshots, UX, and Backend data.",
+      "success_criteria": ["Schema files created", "drizzle-kit generate succeeds"],
+      "implementation_plan": {
+        "title": "D1 Relational Schema",
+        "description": "Map reverse engineering data structures to SQLite.",
+        "architecture": {
+          "explanation": "Four core tables linked by IDs.",
+          "mermaid_diagram": "graph LR; Projects --> Snapshots; Snapshots --> UX; Snapshots --> Backend;"
+        },
+        "proposed_changes": [
+          {
+            "category": "Backend: Database Schema",
+            "files": [
+              {
+                "action": "NEW",
+                "file_path": "src/backend/db/schemas/projects.ts",
+                "instructions": ["Define projects using sqliteTable."]
+              },
+              {
+                "action": "NEW",
+                "file_path": "src/backend/db/schemas/snapshots.ts",
+                "instructions": ["Define reverse_eng_snapshots using sqliteTable."]
+              },
+              {
+                "action": "NEW",
+                "file_path": "src/backend/db/schemas/ux.ts",
+                "instructions": ["Define reverse_eng_ux using sqliteTable. Use text({ mode: 'json' }) for JSON fields."]
+              },
+              {
+                "action": "NEW",
+                "file_path": "src/backend/db/schemas/backend.ts",
+                "instructions": ["Define reverse_eng_backend using sqliteTable. Use text({ mode: 'json' }) for JSON fields."]
+              }
+            ]
+          }
+        ],
+        "verification_plan": {
+          "automated_tests": [
+            { "command": "pnpm run db:generate", "expected_outcome": "Creates migration SQL files" }
+          ],
+          "manual_verification": ["Check foreign key constraints in output SQL"]
+        }
+      },
+      "tasks": [
+        {
+          "task_number": 1,
+          "status": "not_started",
+          "agent_assigned": "ArchitectAgent",
+          "task_title": "Implement Drizzle Schemas",
+          "task_description": "Translate PRD schemas into Drizzle TS files.",
+          "task_dependencies": ["Phase 1 Task 1"],
+          "cloudflare_docs_queries": ["Drizzle ORM SQLite dialect json column text mapping"],
+          "steps": [
+            {
+              "number": 2.1,
+              "title": "Create tables",
+              "status": "not_started",
+              "technical_requirements": ["Use $defaultFn(() => crypto.randomUUID()) for IDs", "Export all in index.ts"],
+              "success_criteria": ["Files exist and export correctly"]
+            }
+          ],
+          "requirements": ["Do not use raw SQL."],
+          "success_criteria": ["Migrations generated successfully"]
+        }
+      ]
+    },
+    {
+      "phase_number": 3,
+      "phase_title": "Core API & Integrations",
+      "description": "Set up Hono OpenAPI routes and utility integrations for Browser Rendering.",
+      "success_criteria": ["OpenAPI spec generated", "Integration utilities created"],
+      "implementation_plan": {
+        "title": "API Gateway and Tooling",
+        "description": "Create routes that interact with D1 and trigger DOs.",
+        "architecture": {
+          "explanation": "REST API handles synchronous CRUD. Analysis trigger dispatches to DO.",
+          "mermaid_diagram": "graph TD; API --> D1; API --> OrchestratorDO;"
+        },
+        "proposed_changes": [
+          {
+            "category": "Backend: Routes",
+            "files": [
+              {
+                "action": "NEW",
+                "file_path": "src/backend/routes/analyze.ts",
+                "instructions": [
+                  "Use createRoute.",
+                  "POST /api/analyze creates a pending snapshot, calls Orchestrator DO via fetch, returns ID."
+                ]
+              },
+              {
+                "action": "NEW",
+                "file_path": "src/backend/routes/snapshots.ts",
+                "instructions": [
+                  "GET endpoints for listing and retrieving snapshot details from D1."
+                ]
+              }
+            ]
+          },
+          {
+            "category": "Backend: Services",
+            "files": [
+              {
+                "action": "NEW",
+                "file_path": "src/backend/services/browser.ts",
+                "instructions": [
+                  "Implement captureScreenshot(url: string, env: Env) using @cloudflare/puppeteer.",
+                  "Implement uploadToCloudflareImages(buffer: Buffer, env: Env)."
+                ]
+              }
+            ]
+          }
+        ],
+        "verification_plan": {
+          "automated_tests": [
+            { "command": "curl http://localhost:8787/openapi.json", "expected_outcome": "Returns JSON" }
+          ],
+          "manual_verification": ["Review Swagger UI"]
+        }
+      },
+      "tasks": [
+        {
+          "task_number": 1,
+          "status": "not_started",
+          "agent_assigned": "ArchitectAgent",
+          "task_title": "Build API and Browser Utils",
+          "task_description": "Implement Hono routes and the Puppeteer integration script.",
+          "task_dependencies": ["Phase 2 Task 1"],
+          "cloudflare_docs_queries": ["Cloudflare Images API upload endpoint", "Puppeteer connect to Cloudflare BROWSER binding"],
+          "steps": [
+            {
+              "number": 3.1,
+              "title": "Browser Utility",
+              "status": "not_started",
+              "technical_requirements": ["Connect via env.BROWSER.fetch(url)"],
+              "success_criteria": ["Utility exports capture function"]
+            },
+            {
+              "number": 3.2,
+              "title": "API Routes",
+              "status": "not_started",
+              "technical_requirements": ["Use @hono/zod-openapi"],
+              "success_criteria": ["Routes defined and registered"]
+            }
+          ],
+          "requirements": ["Strict Zod validation for inputs/outputs"],
+          "success_criteria": ["API handles requests"]
+        }
+      ]
+    },
+    {
+      "phase_number": 4,
+      "phase_title": "AI & Agent Architecture",
+      "description": "Implement the Orchestrator and Consultant Durable Objects.",
+      "success_criteria": ["Agents instantiate and expose correct methods"],
+      "implementation_plan": {
+        "title": "Agent Workflows",
+        "description": "Implement the complex state machines for parallel processing and chat.",
+        "architecture": {
+          "explanation": "Orchestrator manages jules.all() and WebSocket streaming. Consultant manages AIChatAgent state.",
+          "mermaid_diagram": "graph TD; Orchestrator --> Jules; Consultant --> AI_Gateway;"
+        },
+        "proposed_changes": [
+          {
+            "category": "Backend: AI Agents",
+            "files": [
+              {
+                "action": "NEW",
+                "file_path": "src/backend/ai/agents/by-usecase/workflow/honi-orchestrator.ts",
+                "instructions": [
+                  "Extend Agent<Env>.",
+                  "Implement fetch() method to expose a WebSocket endpoint for progress updates.",
+                  "Implement run() method: Use Octokit to get repo tree, prepare prompt array, execute jules.all(), deploy to Sandbox (if applicable), capture screenshots via Browser service, upload to CF Images, run Vision AI, write to D1."
+                ]
+              },
+              {
+                "action": "NEW",
+                "file_path": "src/backend/ai/agents/by-usecase/chat/honi-consultant.ts",
+                "instructions": [
+                  "Extend AIChatAgent<Env>.",
+                  "Inject system prompt defining the persona and strict output formatting (coding agent prompt).",
+                  "Implement RAG tools to query D1 snapshot data and Cloudflare docs."
+                ]
+              }
+            ]
+          }
+        ],
+        "verification_plan": {
+          "automated_tests": [],
+          "manual_verification": ["Verify routeAgentRequest is properly mapped in main Hono app"]
+        }
+      },
+      "tasks": [
+        {
+          "task_number": 1,
+          "status": "not_started",
+          "agent_assigned": "AI/Agent Agent",
+          "task_title": "Implement Agent DOs",
+          "task_description": "Code the background orchestrator and chat agent.",
+          "task_dependencies": ["Phase 3 Task 1"],
+          "cloudflare_docs_queries": ["Cloudflare Agents SDK AIChatAgent class implementation", "Cloudflare Sandbox SDK code execution environment"],
+          "steps": [
+            {
+              "number": 4.1,
+              "title": "HoniOrchestrator",
+              "status": "not_started",
+              "technical_requirements": ["Use @google/jules-sdk jules.all()", "Manage WebSocket upgrades in fetch()"],
+              "success_criteria": ["Class compiles"]
+            },
+            {
+              "number": 4.2,
+              "title": "HoniConsultant",
+              "status": "not_started",
+              "technical_requirements": ["Ensure system prompt dictates copy-pasteable coding agent prompts as output"],
+              "success_criteria": ["Class compiles"]
+            }
+          ],
+          "requirements": ["NEVER use Vercel AI SDK."],
+          "success_criteria": ["Agents registered and accessible via RPC/Fetch"]
+        }
+      ]
+    },
+    {
+      "phase_number": 5,
+      "phase_title": "Frontend UI & Assistant Modal",
+      "description": "Build the Astro UI, Data Tables, and Assistant Modal.",
+      "success_criteria": ["UI renders Dark Theme", "AssistantModal floats globally"],
+      "implementation_plan": {
+        "title": "Astro SPA",
+        "description": "Construct the presentation layer.",
+        "architecture": {
+          "explanation": "Astro handles routing. React islands handle stateful logic like WebSockets and Chat.",
+          "mermaid_diagram": "graph TD; Astro --> React_Islands; React_Islands --> APIs;"
+        },
+        "proposed_changes": [
+          {
+            "category": "Frontend: Pages",
+            "files": [
+              {
+                "action": "NEW",
+                "file_path": "src/frontend/components/GlobalConsultantModal.tsx",
+                "instructions": [
+                  "Implement AssistantModal primitive from @assistant-ui/react.",
+                  "Add a Select dropdown to the header for Consultant Role.",
+                  "Wire to useAgentChat from @cloudflare/ai-chat/react.",
+                  "Render inside BaseLayout.astro with client:load."
+                ]
+              },
+              {
+                "action": "NEW",
+                "file_path": "src/frontend/pages/snapshot/[id].astro",
+                "instructions": [
+                  "Implement Tabs for Overview, UX Journeys, and Backend Architecture.",
+                  "Implement WebSocket connection to display Progress bar if status === 'running'."
+                ]
+              },
+              {
+                "action": "NEW",
+                "file_path": "src/frontend/pages/index.astro",
+                "instructions": [
+                  "Implement URL input form and list of past snapshots."
+                ]
+              }
+            ]
+          }
+        ],
+        "verification_plan": {
+          "automated_tests": [{ "command": "pnpm run build", "expected_outcome": "Static assets emitted to dist/" }],
+          "manual_verification": ["Click floating action button, verify modal opens"]
+        }
+      },
+      "tasks": [
+        {
+          "task_number": 1,
+          "status": "not_started",
+          "agent_assigned": "FrontendAgent",
+          "task_title": "Build Frontend Application",
+          "task_description": "Scaffold Astro, install shadcn, implement UI.",
+          "task_dependencies": ["Phase 4 Task 1"],
+          "cloudflare_docs_queries": [],
+          "steps": [
+            {
+              "number": 5.1,
+              "title": "Install Shadcn",
+              "status": "not_started",
+              "technical_requirements": ["Install required components", "Set HTML class dark"],
+              "success_criteria": ["Components exist"]
+            },
+            {
+              "number": 5.2,
+              "title": "Implement AssistantModal",
+              "status": "not_started",
+              "technical_requirements": ["Use assistant-ui adapter pattern"],
+              "success_criteria": ["Modal works"]
+            }
+          ],
+          "requirements": ["DEFAULT DARK THEME SHADCN"],
+          "success_criteria": ["App visually matches PRD"]
+        }
+      ]
+    },
+    {
+      "phase_number": 6,
+      "phase_title": "Health Checks & Documentation",
+      "description": "Implement D1 health checks and write exhaustive documentation.",
+      "success_criteria": ["/health returns 200", "/docs is populated"],
+      "implementation_plan": {
+        "title": "Observability & Docs",
+        "description": "Ensure system is monitorable and documented.",
+        "architecture": {
+          "explanation": "Health endpoints ping dependencies.",
+          "mermaid_diagram": "graph TD; Health --> DB; Health --> BROWSER;"
+        },
+        "proposed_changes": [
+          {
+            "category": "Backend: Health",
+            "files": [
+              {
+                "action": "NEW",
+                "file_path": "src/backend/health/index.ts",
+                "instructions": ["Implement pings for DB, AI Gateway, and Octokit."]
+              }
+            ]
+          },
+          {
+            "category": "Frontend: Pages",
+            "files": [
+              {
+                "action": "MODIFY",
+                "file_path": "src/frontend/pages/docs.astro",
+                "instructions": ["Add exhaustive DB schemas, API endpoints, and Agent details."]
+              }
+            ]
+          }
+        ],
+        "verification_plan": {
+          "automated_tests": [],
+          "manual_verification": ["Click Run Health Scan on /health UI"]
+        }
+      },
+      "tasks": [
+        {
+          "task_number": 1,
+          "status": "not_started",
+          "agent_assigned": "EvaluatorAgent",
+          "task_title": "Finalize Health and Docs",
+          "task_description": "Complete monitoring and static pages.",
+          "task_dependencies": ["Phase 5 Task 1"],
+          "cloudflare_docs_queries": [],
+          "steps": [
+            {
+              "number": 6.1,
+              "title": "Health Check Script",
+              "status": "not_started",
+              "technical_requirements": [],
+              "success_criteria": ["Returns latency metrics"]
+            }
+          ],
+          "requirements": [],
+          "success_criteria": ["Project ready for deployment"]
+        }
+      ]
+    }
+  ]
+}

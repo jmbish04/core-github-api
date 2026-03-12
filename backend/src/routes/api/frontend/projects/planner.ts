@@ -17,7 +17,7 @@ import {
   resolveDefaultAiProvider, 
   runTextAgent, 
   streamTextAgent 
-} from "@/ai/agents/base/agent-ai";
+} from "@/ai/agents/support/agent-ai";
 import { getOctokit } from "@/services/octokit/core";
 import { KanbanColumn, TaskStatus } from "@/types/project-management/enums";
 

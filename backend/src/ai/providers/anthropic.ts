@@ -13,7 +13,7 @@ import { createUniversalGatewayClient, createUniversalGatewayRunner } from "../u
 import { getAnthropicApiKey } from "@utils/secrets";
 import { cleanJsonOutput } from "@/ai/utils/sanitizer";
 import { AIOptions, TextWithToolsResponse, StructuredWithToolsResponse, UnifiedModel, ModelFilter, ToolCall } from "./index";
-import { Agent, tool } from "@openai/agents";
+import { Agent, tool } from "@/ai/agents/runtime/openai";
 
 export async function verifyApiKey(env: Env): Promise<boolean> {
   try {

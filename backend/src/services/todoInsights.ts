@@ -8,8 +8,8 @@ import { todoAiInsights, todoLinks, todos } from "@db/schema";
 import { getDb } from "@db";
 import { generateUuid } from "@/utils/common";
 import { eq, and, desc, isNull } from "drizzle-orm";
-import { BrowserService } from "./browser_render";
-import { resolveDefaultAiModel, resolveDefaultAiProvider } from "@/ai/agents/base/agent-ai";
+import { BrowserService } from "@/cloudflare/browser";
+import { resolveDefaultAiModel, resolveDefaultAiProvider } from "@/ai/agents/support/agent-ai";
 
 const TodoInsightItemSchema = z.object({
     type: z.enum(["offer_to_help", "enrich_todo", "research"]).default("enrich_todo"),

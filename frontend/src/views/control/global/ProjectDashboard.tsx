@@ -1,11 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { IconGitBranch } from "@tabler/icons-react"
 import {
   ArrowLeft,
   CalendarClock,
-  Cloud,
   FileCode,
   FileJson,
   FileText,
@@ -52,6 +50,7 @@ import { UxWorkshopTab } from "@/components/project-dashboard/tabs/UxWorkshopTab
 import { PlanTab } from "@/components/project-dashboard/tabs/PlanTab";
 import { PRCommandCenterTab } from "@/components/project-dashboard/tabs/PRCommandCenterTab";
 import { CloudflareSdkDashboard } from "@/components/cloudflaresdk/CloudflareSdkDashboard";
+import { CloudflareRepositorySpend } from "@/components/cloudflaresdk/CloudflareRepositorySpend";
 import { CloudflareDocsTool } from "@/components/tools/CloudflareDocsTool";
 import { getControlCenterUserId } from "@/lib/control-user";
 import { pushRecentProject, removeRecentProject } from "@/lib/project-recents";
@@ -511,7 +510,10 @@ export default function ProjectDashboard() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  const entries = overviewQuery.data?.codebase.entries || [];
+  const entries = useMemo(
+    () => overviewQuery.data?.codebase.entries || [],
+    [overviewQuery.data?.codebase.entries],
+  );
   const treeData = useMemo(() => buildTree(entries), [entries]);
 
   useEffect(() => {
@@ -611,16 +613,6 @@ export default function ProjectDashboard() {
         </TreeNode>
       );
     });
-
-  const groupedTasks = useMemo(() => {
-    const byPhase = new Map<string, Array<{ id: string; title: string; status: string }>>();
-    for (const task of taskQuery.data?.tasks || []) {
-      const key = task.phaseId || "ungrouped";
-      if (!byPhase.has(key)) byPhase.set(key, []);
-      byPhase.get(key)?.push(task);
-    }
-    return byPhase;
-  }, [taskQuery.data?.tasks]);
 
   if (lookupQuery.isLoading || overviewQuery.isLoading) {
     return (
@@ -738,6 +730,13 @@ export default function ProjectDashboard() {
 
         <TabsContent value="stats" className="space-y-4">
           <DashboardTab>
+          <CloudflareRepositorySpend
+            owner={overview.repository.owner}
+            repo={overview.repository.name}
+            workerName={overview.cloudflare.workerName || null}
+            compact
+          />
+
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
             <Card>
               <CardHeader className="pb-2">
@@ -909,7 +908,6 @@ export default function ProjectDashboard() {
         <TabsContent value="cloudflaresdk" className="space-y-4">
           <CloudflareSdkDashboard 
             projectId={projectId}
-            projectName={overview.project.name}
             repoOwner={overview.repository.owner}
             repoName={overview.repository.name}
             overview={overview}

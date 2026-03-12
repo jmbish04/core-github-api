@@ -3,8 +3,7 @@
  * @description Shared TypeScript types for the Jules AI coding agent integration.
  *
  * All types in this file are used across the Jules service layer, API routes,
- * Durable Object broadcaster, and database schemas. Import from "@services/jules"
- * to access these without direct path references.
+ * Durable Object broadcaster, and database schemas.
  *
  * @module Services/Jules
  */
@@ -16,7 +15,7 @@
  * Passed to `JulesService.startSession()`.
  */
 export interface StartSessionParams {
-  /** The enriched task prompt (will have webhook instruction + JULES_STANDARDS appended). */
+  /** The enriched task prompt (will have webhook instructions and coding-agent standards appended). */
   prompt: string;
 
   /** Optional GitHub repository context for Jules to work on. */
@@ -31,6 +30,9 @@ export interface StartSessionParams {
 
   /** If true, Jules will automatically open a Pull Request when done. */
   autoPr?: boolean;
+
+  /** If true, Jules pauses at the generated plan and waits for approval. */
+  requireApproval?: boolean;
 
   /** Optional pre-assigned session ID. If omitted, Jules assigns one. */
   sessionId?: string;

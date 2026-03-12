@@ -6,9 +6,11 @@
  * @version 1.0.0
  */
 
-import { callable } from "agents";
-import { BaseAgent, BaseAgentState } from "@/ai/agents/base/BaseAgent";
-import { Logger } from "@logging";
+import { createAgent } from "@/ai/agents/honi";
+import { buildMaxAgentMemory } from "@/ai/agents/memory";
+import { callable } from "@/ai/agents/runtime/agents";
+import { AgentStateStore } from "@/ai/agents/support/state-store";
+import type { PersistentAgentState } from "@/ai/agents/support/types";
 import { generateUuid } from "@/utils/common";
 import { desc, eq, notInArray } from "drizzle-orm";
 import { getAgentDb, agentSchema, migrateAgentDb, type AgentDb } from "@/db/schemas/agents/stateful";
@@ -35,7 +37,7 @@ import type {
  * @description Defines the durable state shape for the OwnerAgent, representing aggregated 
  * GitHub owner statistics and webhook configuration status.
  */
-export type OwnerState = BaseAgentState & {
+export type OwnerState = PersistentAgentState & {
   ownerName: string;
   stats: {
     totalStars: number;
@@ -49,13 +51,35 @@ export type OwnerState = BaseAgentState & {
 
 /**
  * @class OwnerAgent
- * @extends BaseAgent<Env, OwnerState>
+ * @extends Honi Durable Object
  * @description Maintains persistent state for a GitHub Owner and provides an interface 
  * for ingesting webhook events, running automation tracking, and serving metrics.
  */
-export class OwnerAgent extends BaseAgent<Env, OwnerState> {
+const ownerRuntime = createAgent<Env>({
+  name: "owner-agent",
+  model: "claude-3-5-sonnet-latest",
+  system: "You track owner-level GitHub state and automation metrics.",
+  binding: "OWNER_AGENT",
+  tools: [],
+  memory: buildMaxAgentMemory({
+    agentName: "OwnerAgent",
+    graphId: "core-github-api-owner-agent",
+  }),
+  observability: { enabled: true, aiGatewaySlug: "core-github-api", collectEvents: true },
+});
+
+const OwnerDurableObject = ownerRuntime.DurableObject as new (
+  state: DurableObjectState,
+  env: Env,
+) => DurableObject & {
+  env: Env;
+  fetch(request: Request): Promise<Response>;
+};
+
+export class OwnerAgent extends OwnerDurableObject {
+  declare env: Env;
   private _db: AgentDb | null = null;
-  // logger inherited from BaseAgent
+  private readonly store: AgentStateStore<OwnerState>;
 
   /**
    * @constructor
@@ -64,12 +88,28 @@ export class OwnerAgent extends BaseAgent<Env, OwnerState> {
    */
   constructor(state: DurableObjectState, env: Env) {
     super(state, env);
-    // Initialize the Drizzle ORM client backed by the DO's embedded SQLite.
-    this._db = getAgentDb(this.ctx.storage);
-    // Apply pending schema migrations before any requests can be processed.
-    // blockConcurrencyWhile() ensures no incoming requests observe a partially migrated schema.
-    this.ctx.blockConcurrencyWhile(async () => {
-      migrateAgentDb(this.ctx.storage);
+    this.env = env;
+    this.store = new AgentStateStore<OwnerState>({
+      ctx: state,
+      env,
+      agentName: "OwnerAgent",
+      initialState: {
+        ownerName: "",
+        stats: {
+          totalStars: 0,
+          totalForks: 0,
+          totalOpenIssues: 0,
+          repoCount: 0,
+        },
+        lastUpdated: null,
+        webhookConfigured: false,
+        status: "idle",
+        history: [],
+      },
+    });
+    this._db = getAgentDb(state.storage);
+    state.blockConcurrencyWhile(async () => {
+      migrateAgentDb(state.storage);
     });
   }
 
@@ -81,36 +121,9 @@ export class OwnerAgent extends BaseAgent<Env, OwnerState> {
    */
   private get db(): AgentDb {
     if (!this._db) {
-      this._db = getAgentDb(this.ctx.storage);
+      this._db = getAgentDb(this.store.ctx.storage);
     }
     return this._db;
-  }
-
-  /**
-   * @property initialState
-   * @description The default state applied to new Owner instances before any data is ingested.
-   */
-  initialState: OwnerState = {
-    ownerName: "",
-    stats: {
-      totalStars: 0,
-      totalForks: 0,
-      totalOpenIssues: 0,
-      repoCount: 0
-    },
-    lastUpdated: null,
-    webhookConfigured: false,
-    status: "idle",
-    history: []
-  };
-
-  /**
-   * @method onStart
-   * @description Lifecycle hook kept for BaseAgent compatibility.
-   * Schema migration is now handled via `blockConcurrencyWhile` in the constructor.
-   */
-  async onStart(): Promise<void> {
-    // No-op: table creation is managed by the Drizzle DO migrator in the constructor.
   }
 
   /**
@@ -157,6 +170,31 @@ export class OwnerAgent extends BaseAgent<Env, OwnerState> {
     return new Response("OK", { status: 200 });
   }
 
+  async fetch(request: Request): Promise<Response> {
+    const url = new URL(request.url);
+
+    if (request.method === "POST" || url.pathname === "/health-probe" || url.pathname === "/memory" || url.pathname === "/history") {
+      if (url.pathname === "/health-probe") {
+        return Response.json({
+          status: "ok",
+          agent: "OwnerAgent",
+          timestamp: new Date().toISOString(),
+        });
+      }
+      if (url.pathname === "/memory") {
+        await this.store.ready();
+        return Response.json(this.store.state);
+      }
+      if (url.pathname === "/history") {
+        await this.store.ready();
+        return Response.json(this.store.state.history || []);
+      }
+      return this.onRequest(request);
+    }
+
+    return super.fetch(request);
+  }
+
   /**
    * @private
    * @method processWebhook
@@ -176,13 +214,13 @@ export class OwnerAgent extends BaseAgent<Env, OwnerState> {
                       (payload as any).installation?.account?.login || 
                       (payload as any).sender?.login;
 
-    if (ownerName && this.state.ownerName !== ownerName) {
-        this.setState({ ...this.state, ownerName });
+    if (ownerName && this.store.state.ownerName !== ownerName) {
+        await this.store.set({ ...this.store.state, ownerName });
     }
 
     // Track activity & webhook health state
-    this.setState({
-      ...this.state,
+    await this.store.set({
+      ...this.store.state,
       lastUpdated: new Date().toISOString(),
       webhookConfigured: true
     });
@@ -434,7 +472,7 @@ export class OwnerAgent extends BaseAgent<Env, OwnerState> {
    */
   @callable()
   getStats(): OwnerState["stats"] {
-      return this.state.stats;
+      return this.store.state.stats;
   }
   
   /**
@@ -442,10 +480,10 @@ export class OwnerAgent extends BaseAgent<Env, OwnerState> {
    * @description Callable endpoint to truncate all events and automation runs from storage.
    */
   @callable()
-  clearEvents(): void {
+  async clearEvents(): Promise<void> {
       this.db.delete(agentSchema.automationRuns).run();
       this.db.delete(agentSchema.agentEvents).run();
-      this.setState({ ...this.state, lastUpdated: new Date().toISOString() });
+      await this.store.set({ ...this.store.state, lastUpdated: new Date().toISOString() });
   }
 
   /**

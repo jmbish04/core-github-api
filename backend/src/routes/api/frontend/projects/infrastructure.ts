@@ -14,7 +14,7 @@ import {
   generateUuid 
 } from "./utils";
 import { getOctokit } from "@/services/octokit/core";
-import { runTextAgent, resolveDefaultAiModel, resolveDefaultAiProvider } from "@/ai/agents/base/agent-ai";
+import { runTextAgent, resolveDefaultAiModel, resolveDefaultAiProvider } from "@/ai/agents/support/agent-ai";
 
 const app = new Hono<{ Bindings: Env }>();
 

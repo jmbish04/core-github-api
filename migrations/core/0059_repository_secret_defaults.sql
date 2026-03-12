@@ -1,0 +1,8 @@
+CREATE TABLE IF NOT EXISTS repository_secret_defaults (
+  id TEXT PRIMARY KEY NOT NULL,
+  secret_name TEXT NOT NULL UNIQUE,
+  description TEXT,
+  is_active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

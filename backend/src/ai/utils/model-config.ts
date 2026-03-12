@@ -19,6 +19,7 @@
  */
 export type AgentName =
   | 'ResearchAgent'
+  | 'DiscordResearchAgent'
   | 'OwnerAgent'
   | 'PlannerAgent'
   | 'RepoAgent'
@@ -91,6 +92,12 @@ export const AGENT_MODEL_CONFIG: Record<AgentName, ModelConfig> = {
     provider: 'openai',
     costTier: 'medium',
     description: 'Research orchestration - needs good reasoning'
+  },
+  'DiscordResearchAgent': {
+    model: 'claude-sonnet-4.5',
+    provider: 'anthropic',
+    costTier: 'medium',
+    description: 'Discord community research and summarization'
   },
   'GeminiAgent': {
     model: 'gpt-4o',

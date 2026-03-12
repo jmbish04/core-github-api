@@ -1,7 +1,7 @@
 import { OpenAPIHono, createRoute } from "@hono/zod-openapi";
 import { z } from "zod";
 import { OpsVerificationService } from "@services/verification/ops";
-import { getConfigManager } from "@/config-settings";
+import { buildRepositorySyncSecretPlan } from "@/services/repository-secret-defaults";
 import { syncRepoSecrets } from "@services/github/secrets-manager";
 
 const opsApi = new OpenAPIHono<{ Bindings: Env }>();
@@ -63,50 +63,12 @@ opsApi.openapi(createRoute({
         500: { description: 'Internal Server Error' }
     }
 }), async (c) => {
-    const { owner, repo, secrets, force } = c.req.valid("json");
-    let secretsToSync = secrets || [];
+  const { owner, repo, secrets, force } = c.req.valid("json");
+  let secretsToSync = secrets || [];
 
-    if (!secrets || secrets.length === 0) {
-        const configManager = getConfigManager(c);
-        const configuredDefaultsRaw = await configManager.get("DEFAULT_SYNC_SECRETS");
-        
-        let defaultNames: string[] = [];
-        if (Array.isArray(configuredDefaultsRaw)) {
-            defaultNames = configuredDefaultsRaw.map((s: any) => typeof s === 'string' ? s : s.secretName || s.name);
-        }
-        
-        if (defaultNames.length === 0) {
-            defaultNames = [
-              "WORKER_API_KEY",
-              "OPENAI_API_KEY",
-              "ANTHROPIC_API_KEY",
-              "GEMINI_API_KEY",
-              "AI_GATEWAY_TOKEN",
-              "CLOUDFLARE_API_TOKEN",
-              "CLOUDFLARE_ACCOUNT_ID"
-            ];
-        }
-
+  if (!secrets || secrets.length === 0) {
         try {
-          const { getSecretsStoreClient } = await import("@/utils/cloudflare/secret-store");
-          const client = await getSecretsStoreClient(c.env);
-          const store = await client.getDefaultStore();
-          const availableSecrets = await client.listSecrets(store.id);
-
-          const fetchedSecrets = await Promise.all(
-              defaultNames.map(async (name) => {
-                  const found = availableSecrets.find((s: any) => s.name === name);
-                  if (found) {
-                      try {
-                          const value = await client.getSecretValue(store.id, found.id);
-                          if (value) return { name, value };
-                      } catch (e) {}
-                  }
-                  return undefined;
-              })
-          );
-          
-          secretsToSync = fetchedSecrets.filter(s => !!s) as {name: string, value: string}[];
+          secretsToSync = await buildRepositorySyncSecretPlan(c.env);
         } catch (err: any) {
           return c.json({ success: false, error: "Failed to fetch default secrets: " + err.message }, 500);
         }

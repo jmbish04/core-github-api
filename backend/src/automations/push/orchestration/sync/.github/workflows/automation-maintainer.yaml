@@ -1,0 +1,25 @@
+name: Automation Maintainer
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+jobs:
+  notify-core-github-api:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify Core GitHub API
+        env:
+          CORE_API_URL: ${{ secrets.CORE_API_URL }}
+        run: |
+          if [ -z "$CORE_API_URL" ]; then
+            echo "CORE_API_URL is not configured."
+            exit 1
+          fi
+          curl -X POST "$CORE_API_URL/api/webhooks" \
+            -H "Content-Type: application/json" \
+            -H "X-GitHub-Event: push" \
+            -d @"$GITHUB_EVENT_PATH"

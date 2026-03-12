@@ -1,0 +1,72 @@
+name: Auto-Apply Gemini Suggestions
+
+on:
+  pull_request_review_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-apply:
+    if: github.event.comment.user.login == 'gemini-code-assist[bot]'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Wait to batch Gemini comments
+        run: sleep 10
+
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          repository: ${{ github.repository }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Fetch and process comment
+        id: process
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          BODY=$(gh api /repos/$REPO/pulls/comments/$COMMENT_ID --jq '.body')
+          echo "$BODY" | awk '/```suggestion/,/```/' | sed '/```/d' > suggestion.patch
+
+          if [ ! -s suggestion.patch ]; then
+            echo "no_suggestion=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          git apply --check suggestion.patch && echo "patch_valid=true" >> $GITHUB_OUTPUT || echo "patch_valid=false" >> $GITHUB_OUTPUT
+
+      - name: Comment result on PR
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          NO_SUGGESTION: ${{ steps.process.outputs.no_suggestion }}
+          PATCH_VALID: ${{ steps.process.outputs.patch_valid }}
+        run: |
+          if [ "$NO_SUGGESTION" = "true" ]; then
+            gh pr comment "$PR_NUMBER" --repo "$REPO" --body "No suggestion block was found in Gemini's comment."
+            exit 0
+          fi
+
+          if [ "$PATCH_VALID" = "false" ]; then
+            gh pr comment "$PR_NUMBER" --repo "$REPO" --body "Gemini produced a suggestion block, but it did not apply cleanly."
+            exit 0
+          fi
+
+          git apply suggestion.patch
+          git add .
+          git config user.name "auto-gemini-applier"
+          git config user.email "bot@users.noreply.github.com"
+          git commit -m "chore: apply Gemini suggestion from comment $COMMENT_ID"
+          git push origin HEAD
+
+          gh pr comment "$PR_NUMBER" --repo "$REPO" --body "Applied Gemini suggestion from comment $COMMENT_ID."

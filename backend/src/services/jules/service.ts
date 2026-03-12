@@ -61,6 +61,62 @@ function parseChangeSet(
   return files;
 }
 
+function extractFilesFromUnifiedDiff(
+  unidiff?: string | null
+): { filename: string; content: string }[] {
+  if (!unidiff) {
+    return [];
+  }
+
+  const files = new Map<string, string>();
+  const fileBlocks = unidiff.split(/(?=^diff --git)/m).filter(Boolean);
+
+  for (const block of fileBlocks) {
+    const pathMatch = block.match(/^\+\+\+ b\/(.+)$/m);
+    if (!pathMatch) {
+      continue;
+    }
+
+    const filePath = pathMatch[1];
+    const contentLines: string[] = [];
+
+    for (const line of block.split("\n")) {
+      if (
+        line.startsWith("+++") ||
+        line.startsWith("---") ||
+        line.startsWith("@@") ||
+        line.startsWith("diff --git") ||
+        line.startsWith("index ") ||
+        line.startsWith("new file")
+      ) {
+        continue;
+      }
+
+      if (line.startsWith("+")) {
+        contentLines.push(line.slice(1));
+      }
+    }
+
+    if (contentLines.length > 0) {
+      files.set(filePath, contentLines.join("\n"));
+    }
+  }
+
+  return Array.from(files.entries()).map(([filename, content]) => ({
+    filename,
+    content,
+  }));
+}
+
+function parsePullRequestNumber(url?: string): number {
+  if (!url) {
+    return 0;
+  }
+
+  const match = url.match(/\/pull\/(\d+)/);
+  return match ? Number(match[1]) : 0;
+}
+
 // ─── JulesService ─────────────────────────────────────────────────────────────
 
 /**
@@ -183,6 +239,10 @@ export class JulesService {
       autoPr: params.autoPr ?? false,
     };
 
+    if (typeof params.requireApproval === "boolean") {
+      options.requireApproval = params.requireApproval;
+    }
+
     if (params.repo) {
       options.source = {
         github: `${params.repo.owner}/${params.repo.repo}`,
@@ -273,6 +333,17 @@ export class JulesService {
   }
 
   /**
+   * Returns the latest session resource information.
+   *
+   * @param sessionId - The Jules session ID.
+   * @returns The current session resource.
+   */
+  async getSessionInfo(sessionId: string) {
+    const session = await this.getSession(sessionId);
+    return session.info();
+  }
+
+  /**
    * Opens a streaming activity feed for a session.
    * Updates the session's `lastActivityAt` as a background task.
    *
@@ -353,14 +424,32 @@ export class JulesService {
         case "pullRequest":
           parsedOutputs.pullRequests.push({
             title: output.pullRequest.title,
-            number: output.pullRequest.number,
-            url: output.pullRequest.htmlUrl,
+            number:
+              output.pullRequest.number || parsePullRequestNumber(output.pullRequest.url),
+            url: output.pullRequest.htmlUrl || output.pullRequest.url,
           });
           break;
         case "changeSet":
-          parsedOutputs.changeSets.push(
-            ...parseChangeSet(output.changeSet?.patch)
-          );
+          {
+            const parsedFiles: { filename: string; content: string }[] = [];
+          if (typeof output.changeSet?.parsed === "function") {
+            const parsed = output.changeSet.parsed();
+            parsedFiles.push(
+              ...((parsed?.files || []).map((file: any) => ({
+                filename: file.path,
+                content: file.content || "",
+              })) as Array<{ filename: string; content: string }>),
+            );
+          }
+
+          if (parsedFiles.length === 0) {
+            parsedFiles.push(
+              ...parseChangeSet(output.changeSet?.patch),
+              ...extractFilesFromUnifiedDiff(output.changeSet?.gitPatch?.unidiffPatch),
+            );
+          }
+          parsedOutputs.changeSets.push(...parsedFiles);
+          }
           break;
         case "generatedFile":
           parsedOutputs.generatedFiles.push({
@@ -369,6 +458,14 @@ export class JulesService {
           });
           break;
       }
+    }
+
+    const generatedFiles = info.generatedFiles || rawResult.generatedFiles || [];
+    for (const generatedFile of generatedFiles) {
+      parsedOutputs.generatedFiles.push({
+        path: generatedFile.path,
+        content: generatedFile.content,
+      });
     }
 
     // Mark session as completed in D1 (background)
@@ -419,6 +516,17 @@ export class JulesService {
   async waitForState(sessionId: string, state: string): Promise<unknown> {
     const session = await this.getSession(sessionId);
     return session.waitFor(state);
+  }
+
+  /**
+   * Approves a pending Jules plan.
+   *
+   * @param sessionId - The Jules session ID.
+   */
+  async approveSession(sessionId: string): Promise<void> {
+    const session = await this.getSession(sessionId);
+    await session.approve();
+    this.updateSessionActivity(sessionId, "active").catch(console.error);
   }
 
   /**

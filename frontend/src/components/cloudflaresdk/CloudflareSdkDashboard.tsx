@@ -6,7 +6,7 @@ import { Cloud, GitMerge, FileCode2, Terminal, Settings, DollarSign } from "luci
 import { BindingsTable } from "./BindingsTable";
 import { DeploymentsList } from "./DeploymentsList";
 import { LogStreamer } from "./LogStreamer";
-import { CloudflareWorkerCosts } from "./CloudflareWorkerCosts";
+import { CloudflareRepositorySpend } from "./CloudflareRepositorySpend";
 
 type OverviewResponse = {
   success: boolean;
@@ -53,7 +53,6 @@ type OverviewResponse = {
 
 interface CloudflareSdkDashboardProps {
   projectId: string;
-  projectName: string;
   repoOwner: string;
   repoName: string;
   overview: OverviewResponse;
@@ -61,7 +60,6 @@ interface CloudflareSdkDashboardProps {
 
 export function CloudflareSdkDashboard({ 
   projectId, 
-  projectName, 
   repoOwner, 
   repoName, 
   overview 
@@ -223,11 +221,11 @@ export function CloudflareSdkDashboard({
             </TabsContent>
 
             <TabsContent value="costs" className="m-0 mt-0 h-full">
-              {overview.cloudflare.workerName ? (
-                <CloudflareWorkerCosts workerName={overview.cloudflare.workerName} />
-              ) : (
-                 <p className="text-sm text-muted-foreground">Worker name required to view costs.</p>
-              )}
+              <CloudflareRepositorySpend
+                owner={repoOwner}
+                repo={repoName}
+                workerName={overview.cloudflare.workerName || null}
+              />
             </TabsContent>
             
             <TabsContent value="settings" className="m-0 mt-0 h-full">

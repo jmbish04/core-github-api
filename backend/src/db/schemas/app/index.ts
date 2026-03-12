@@ -9,3 +9,4 @@ export * from './tag_application_mapping';
 export * from './tags';
 export * from './golden_path';
 export * from './automation_rules';
+export * from './automation_runner_policies';

@@ -57,7 +57,7 @@ const route = createRoute({
   path: "/workshop-chat",
   operationId: "chatWithWorkshopAgent",
   tags: ["Agents"],
-  summary: "Chat with the Cloudflare Agents SDK workshop agent",
+  summary: "Chat with the Honi workshop agent",
   request: {
     body: {
       content: { "application/json": { schema: WorkshopChatRequestSchema } },

@@ -4,6 +4,8 @@ A Claude skill for building AI agents with [Honi](https://honi.dev) (`honidev`) 
 
 Install this skill to give Claude deep knowledge of the Honi API — tools, memory tiers, MCP servers, multi-agent routing, and all supported providers.
 
+When using this skill to generate or modify code, return complete files only. Do not use placeholder comments or elide unchanged code.
+
 ## Install with OpenClaw
 
 ```bash

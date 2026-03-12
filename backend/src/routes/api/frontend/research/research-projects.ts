@@ -4,7 +4,7 @@ import { researchProjects, researchReports } from '@/db/schemas/github/research'
 import { eq, desc } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 import { getOctokit } from '@/services/octokit/core';
-import { DiscordApiClient } from '@/routes/api/services/discord';
+import { createDiscordApiClient } from '@/services/discord/client';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -177,9 +177,7 @@ app.post('/test', async (c) => {
     // 2. Test Discord Terms using the new API Client
     if (discordTerms && discordTerms.length > 0) {
       try {
-        const discordToken = await (c.env as any).DISCORD_TOKEN.get();
-        if (discordToken) {
-          const discord = new DiscordApiClient(discordToken);
+        const discord = await createDiscordApiClient(c.env as Env);
           const guilds = await discord.getGuilds();
           const searchRegex = new RegExp(discordTerms[0], 'i');
           
@@ -199,7 +197,6 @@ app.post('/test', async (c) => {
               }));
             }
           }
-        }
       } catch (err) {
         console.warn('Discord test fetch failed:', err);
         results.discord = [{ channel: "error", content: "Failed to connect to Discord API.", author: "system" }];

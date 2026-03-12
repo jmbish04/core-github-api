@@ -29,7 +29,7 @@
  */
 
 import { DurableObject } from "cloudflare:workers";
-import type { JulesLiveMessage } from "@services/jules";
+import type { JulesLiveMessage } from "@/services/jules/types";
 
 /**
  * Durable Object that maintains WebSocket connections and broadcasts

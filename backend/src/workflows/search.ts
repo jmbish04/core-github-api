@@ -11,7 +11,7 @@ import { getWebhooksDb } from '@/db';
 import { searches, repoAnalysis } from '@/db/schemas/github/webhooks';
 import { eq, and, inArray } from 'drizzle-orm';
 import type { Bindings } from '@/utils/hono';
-import { getAgentByName } from 'agents';
+import { getAgentByName } from '@/ai/agents/runtime/agents';
 
 interface GithubSearchWorkflowParams {
   sessionId: string;

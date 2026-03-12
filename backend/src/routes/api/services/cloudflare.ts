@@ -11,7 +11,9 @@ import { Hono } from "hono";
 import { getAllCloudflareTools } from "@/ai/mcp/tools/cloudflare/registry";
 import { BrowserService } from "@/ai/mcp/tools/cloudflare/browser-render/index";
 
-import { FlareclerkService, PRICING } from "@/services/cloudflare/flareclerk";
+import { FlareclerkService, PRICING } from "@/cloudflare/flareclerk";
+import { getDb, schema } from "@db";
+import { or, sql } from "drizzle-orm";
 
 const cloudflareApi = new Hono<{ Bindings: Env }>();
 
@@ -103,6 +105,10 @@ function parseDateRange(sinceStr?: string) {
     };
 }
 
+function normalizeRepoSlug(owner: string, repo: string) {
+    return `${owner}/${repo}`.toLowerCase();
+}
+
 cloudflareApi.get("/costs/fleet", async (c) => {
     if (!(c.env as any).CF_ACCOUNT_ID || !(c.env as any).CF_API_TOKEN) {
         return c.json({ error: "Missing Cloudflare API credentials in environment" }, 500);
@@ -152,6 +158,125 @@ cloudflareApi.get("/costs/worker/:name", async (c) => {
             until: range.untilISO,
             worker: fleet.appResults[0],
             platform: PRICING.platform
+        }, 200);
+    } catch (err: any) {
+        return c.json({ error: err.message }, 500);
+    }
+});
+
+cloudflareApi.get("/costs/repository/:owner/:repo", async (c) => {
+    if (!(c.env as any).CF_ACCOUNT_ID || !(c.env as any).CF_API_TOKEN) {
+        return c.json({ error: "Missing Cloudflare API credentials" }, 500);
+    }
+
+    try {
+        const owner = c.req.param("owner");
+        const repo = c.req.param("repo");
+        const workerName = (c.req.query("workerName") || "").trim() || null;
+        const range = parseDateRange(c.req.query("since"));
+        const fc = new FlareclerkService((c.env as any).CF_ACCOUNT_ID, (c.env as any).CF_API_TOKEN);
+        const db = getDb(c.env.DB);
+        const repoSlug = normalizeRepoSlug(owner, repo);
+
+        const linkedApps = await db
+            .select()
+            .from(schema.applications)
+            .where(
+                or(
+                    sql`lower(${schema.applications.githubRepo}) = ${repoSlug}`,
+                    sql`lower(${schema.applications.name}) = ${repo.toLowerCase()}`,
+                    workerName ? sql`lower(${schema.applications.name}) = ${workerName.toLowerCase()}` : sql`0 = 1`,
+                ),
+            );
+
+        const appByName = new Map(linkedApps.map((app) => [app.name.toLowerCase(), app]));
+        const scriptNames = new Set<string>();
+        if (workerName) scriptNames.add(workerName);
+        for (const app of linkedApps) {
+            scriptNames.add(app.name);
+        }
+
+        const discoveredWorkers = await Promise.allSettled(
+            Array.from(scriptNames).map(async (scriptName) => {
+                const worker = await fc.discoverWorker(scriptName);
+                return worker;
+            }),
+        );
+
+        const workerTargets = discoveredWorkers
+            .filter((result): result is PromiseFulfilledResult<any> => result.status === "fulfilled")
+            .map((result) => result.value);
+
+        const workerPricing = new Map<string, any>();
+        if (workerTargets.length > 0) {
+            const analytics = await fc.fetchAnalytics(workerTargets, range);
+            const aggregated = fc.aggregateResults(workerTargets, analytics, range.prorata);
+            const priced = fc.priceResults(aggregated).appResults;
+            for (const result of priced) {
+                workerPricing.set(result.name.toLowerCase(), result);
+            }
+        }
+
+        const linkedWorkerNames = new Set(workerTargets.map((worker) => worker.scriptName.toLowerCase()));
+        const resources = linkedApps.map((app) => {
+            const spend = workerPricing.get(app.name.toLowerCase()) || null;
+            const spendAvailable = Boolean(spend);
+            return {
+                id: app.id,
+                name: app.name,
+                type: app.type,
+                githubRepo: app.githubRepo,
+                url: app.url,
+                summary: app.summary,
+                lastDeployedDate: app.lastDeployedDate?.toISOString() || null,
+                spendAvailable,
+                spendSource: spendAvailable ? (app.type === "pages" ? "pages-project-script" : "worker-script") : null,
+                reason: spendAvailable
+                    ? null
+                    : app.type === "pages"
+                        ? "No directly priced Worker script was discovered for this Pages project."
+                        : "No Cloudflare Worker analytics were discovered for this application.",
+                spend,
+            };
+        });
+
+        if (workerName && !appByName.has(workerName.toLowerCase()) && linkedWorkerNames.has(workerName.toLowerCase())) {
+            resources.unshift({
+                id: `worker:${workerName}`,
+                name: workerName,
+                type: "worker",
+                githubRepo: `${owner}/${repo}`,
+                url: null,
+                summary: null,
+                lastDeployedDate: null,
+                spendAvailable: true,
+                spendSource: "overview-worker",
+                reason: null,
+                spend: workerPricing.get(workerName.toLowerCase()) || null,
+            });
+        }
+
+        const totals = resources.reduce(
+            (acc, resource) => {
+                const spend = resource.spend;
+                if (!spend) return acc;
+                acc.workers += spend.workersCost || 0;
+                acc.durableObjects += spend.doCost || 0;
+                acc.containers += spend.containerCost || 0;
+                acc.d1 += spend.d1Cost || 0;
+                acc.kv += spend.kvCost || 0;
+                acc.grossTotal += spend.grossTotal || 0;
+                return acc;
+            },
+            { workers: 0, durableObjects: 0, containers: 0, d1: 0, kv: 0, grossTotal: 0 },
+        );
+
+        return c.json({
+            since: range.sinceISO,
+            until: range.untilISO,
+            repository: { owner, repo, fullName: `${owner}/${repo}` },
+            resources,
+            totals,
         }, 200);
     } catch (err: any) {
         return c.json({ error: err.message }, 500);

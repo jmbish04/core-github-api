@@ -27,5 +27,8 @@ export default defineConfig([
         tsconfigRootDir: import.meta.dirname,
       },
     },
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
+    },
   },
 ])

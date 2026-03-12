@@ -1,17 +1,18 @@
-import { createAgent, tool } from 'honidev';
-import { z } from 'zod';
 import { Hono } from 'hono';
+import { createAgent } from '@/ai/agents/honi';
+import { buildMaxAgentMemory } from '@/ai/agents/memory';
 
 export const { Agent, handler } = createAgent<Env>({
-  name: "deep-reasoning",
-  model: "google-ai-studio/gemini-2.5-flash",
-  system: "You are a deep technical reasoning assistant. Return only output that matches the requested JSON schema.",
-  binding: "DEEP_REASONING_AGENT",
+  name: 'deep-reasoning',
+  model: 'google-ai-studio/gemini-2.5-flash',
+  system: 'You are a deep technical reasoning assistant. Return only output that matches the requested JSON schema.',
+  binding: 'DEEP_REASONING_AGENT',
   tools: [],
-  memory: {
-     working: true
-  },
-  observability: { enabled: true, aiGatewaySlug: 'core-github-api', collectEvents: true }
+  memory: buildMaxAgentMemory({
+    agentName: 'DeepReasoningAgent',
+    graphId: 'core-github-api-deep-reasoning',
+  }),
+  observability: { enabled: true, aiGatewaySlug: 'core-github-api', collectEvents: true },
 });
 
 const app = new Hono<{ Bindings: Env }>();

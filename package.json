@@ -52,7 +52,7 @@
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "^8.4.1",
     "@cloudflare/puppeteer": "^1.0.6",
-    "@cloudflare/sandbox": "0.7.13",
+    "@cloudflare/sandbox": "0.7.17",
     "@google/jules-mcp": "^0.0.6",
     "@google/jules-sdk": "^0.0.6",
     "@hono/swagger-ui": "latest",

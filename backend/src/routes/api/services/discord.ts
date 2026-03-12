@@ -1,4 +1,5 @@
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi';
+import { createDiscordApiClient } from '@/services/discord/client';
 
 // ============================================================================
 // CLOUDFLARE BINDINGS
@@ -49,51 +50,6 @@ const ErrorSchema = z.object({
 }).openapi('ErrorResponse');
 
 // ============================================================================
-// DISCORD API CLIENT
-// ============================================================================
-export class DiscordApiClient {
-  private baseUrl = 'https://discord.com/api/v10';
-
-  constructor(private token: string) {}
-
-  private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    const response = await fetch(`${this.baseUrl}${endpoint}`, {
-      ...options,
-      headers: {
-        Authorization: `Bot ${this.token}`,
-        'Content-Type': 'application/json',
-        'User-Agent': 'DiscordBot (https://cloudflare.com, 1.0.0)',
-        ...(options.headers || {}),
-      },
-    });
-
-    if (!response.ok) {
-        // Handle 429 specifically if needed later
-      const errorText = await response.text();
-      console.error(`[Discord API Error] ${response.status} on ${endpoint}: ${errorText}`);
-      throw new Error(`Discord API Error: ${response.status}`);
-    }
-    return response.json() as Promise<T>;
-  }
-
-  async getGuilds(): Promise<z.infer<typeof GuildSchema>[]> {
-    return this.request('/users/@me/guilds');
-  }
-
-  async getGuildChannels(guildId: string): Promise<z.infer<typeof ChannelSchema>[]> {
-    return this.request(`/guilds/${guildId}/channels`);
-  }
-
-  async getActiveThreads(guildId: string): Promise<{ threads: z.infer<typeof ChannelSchema>[] }> {
-    return this.request(`/guilds/${guildId}/threads/active`);
-  }
-
-  async getChannelMessages(channelId: string, limit: number = 50): Promise<z.infer<typeof MessageSchema>[]> {
-    return this.request(`/channels/${channelId}/messages?limit=${limit}`);
-  }
-}
-
-// ============================================================================
 // APPLICATION SETUP
 // ============================================================================
 const app = new OpenAPIHono<{ Bindings: Bindings }>();
@@ -112,8 +68,7 @@ app.openapi(createRoute({
   }
 }), async (c) => {
   try {
-    const token = await c.env.DISCORD_TOKEN.get();
-    const discord = new DiscordApiClient(token);
+    const discord = await createDiscordApiClient(c.env);
     const guilds = await discord.getGuilds();
     
     let allChannels: z.infer<typeof ChannelSchema>[] = [];
@@ -139,8 +94,7 @@ app.openapi(createRoute({
   }
 }), async (c) => {
   try {
-    const token = await c.env.DISCORD_TOKEN.get();
-    const discord = new DiscordApiClient(token);
+    const discord = await createDiscordApiClient(c.env);
     const guilds = await discord.getGuilds();
     
     let allMessages: z.infer<typeof MessageSchema>[] = [];
@@ -177,8 +131,7 @@ app.openapi(createRoute({
 }), async (c) => {
   try {
     const { channelId } = c.req.valid('param');
-    const token = await c.env.DISCORD_TOKEN.get();
-    const discord = new DiscordApiClient(token);
+    const discord = await createDiscordApiClient(c.env);
     const messages = await discord.getChannelMessages(channelId, 50);
     return c.json(messages, 200);
   } catch (err: any) {
@@ -196,8 +149,7 @@ app.openapi(createRoute({
   }
 }), async (c) => {
   try {
-    const token = await c.env.DISCORD_TOKEN.get();
-    const discord = new DiscordApiClient(token);
+    const discord = await createDiscordApiClient(c.env);
     const guilds = await discord.getGuilds();
     
     let allThreadMessages: z.infer<typeof MessageSchema>[] = [];
@@ -230,8 +182,7 @@ app.openapi(createRoute({
 }), async (c) => {
   try {
     const { query } = c.req.valid('query');
-    const token = await c.env.DISCORD_TOKEN.get();
-    const discord = new DiscordApiClient(token);
+    const discord = await createDiscordApiClient(c.env);
     const guilds = await discord.getGuilds();
     
     let searchResults: z.infer<typeof MessageSchema>[] = [];
@@ -267,8 +218,7 @@ app.openapi(createRoute({
 }), async (c) => {
   try {
     const { threadId } = c.req.valid('param');
-    const token = await c.env.DISCORD_TOKEN.get();
-    const discord = new DiscordApiClient(token);
+    const discord = await createDiscordApiClient(c.env);
     // Threads utilize the exact same message endpoint as standard channels
     const messages = await discord.getChannelMessages(threadId, 50);
     return c.json(messages, 200);
@@ -293,8 +243,7 @@ app.openapi(createRoute({
   try {
     const { threadId } = c.req.valid('param');
     const { query } = c.req.valid('query');
-    const token = await c.env.DISCORD_TOKEN.get();
-    const discord = new DiscordApiClient(token);
+    const discord = await createDiscordApiClient(c.env);
     
     const messages = await discord.getChannelMessages(threadId, 100);
     const searchRegex = new RegExp(query, 'i');

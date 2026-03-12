@@ -23,7 +23,7 @@ app.post("/create", async (c) => {
   // The plan says TopicOrchestratorAgent manages the brief. 
   // Let's create a new brief ID and use that for the agent ID to keep it 1:1 stateful.
   const id = c.env.TOPIC_ORCHESTRATOR.newUniqueId();
-  const stub = c.env.TOPIC_ORCHESTRATOR.get(id); // Use newUniqueId for a fresh agent
+  const stub = c.env.TOPIC_ORCHESTRATOR.get(id) as any; // Use newUniqueId for a fresh agent
   
   // Create brief via RPC
   const brief = await stub.submitBrief(userId || "anon", title, requirements);

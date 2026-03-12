@@ -50,7 +50,7 @@ export const julesSessions = sqliteTable(
      */
     specialistClass: text("specialist_class"),
 
-    /** The full enriched prompt sent to Jules (includes webhook instruction + JULES_STANDARDS). */
+    /** The full enriched prompt sent to Jules (includes webhook instructions and coding-agent standards). */
     prompt: text("prompt").notNull(),
 
     /** Current lifecycle status of the Jules session. */

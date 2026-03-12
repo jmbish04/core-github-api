@@ -24,7 +24,7 @@ import { webhookDeliveries } from '@/db/schemas/github/webhooks';
 import type { GitHubWebhookPayload } from '@/types/github/webhooks';
 import { App } from 'octokit';
 import { sanitizeRepoName } from '@/ai/mcp/tools/sandbox-sdk';
-import { AutomationRegistry } from '@/core/AutomationRegistry';
+import { AutomationRegistry } from '@/automations/core/AutomationRegistry';
 
 const webhooksApi = new Hono<{ Bindings: Env }>();
 

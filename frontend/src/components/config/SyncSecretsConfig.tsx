@@ -22,7 +22,7 @@ import { Label } from "@/components/ui/label";
 import { Loader2, Trash2, Plus, Server } from "lucide-react";
 
 interface SyncSecretsConfigProps {
-  currentConfig: Record<string, any>;
+  repoSecretDefaults: RepoSecretDefault[];
   onConfigChanged: () => void;
 }
 
@@ -32,7 +32,14 @@ interface CFSecret {
   created_at: string;
 }
 
-export function SyncSecretsConfig({ currentConfig, onConfigChanged }: SyncSecretsConfigProps) {
+interface RepoSecretDefault {
+  id: string;
+  secretName: string;
+  description: string | null;
+  isActive: boolean;
+}
+
+export function SyncSecretsConfig({ repoSecretDefaults, onConfigChanged }: SyncSecretsConfigProps) {
   const [allSecrets, setAllSecrets] = useState<CFSecret[]>([]);
   const [loadingSecrets, setLoadingSecrets] = useState(false);
   
@@ -47,13 +54,11 @@ export function SyncSecretsConfig({ currentConfig, onConfigChanged }: SyncSecret
   const [selectedToAdd, setSelectedToAdd] = useState<string[]>([]);
   const [isUpdating, setIsUpdating] = useState(false);
 
-  const API_BASE = "http://localhost:8787/api/config"; // Matching ConfigDashboard pattern
+  const API_BASE = "/api/config";
 
-  // The active list is stored in DEFAULT_SYNC_SECRETS
-  const rawDefaultSecrets = currentConfig["DEFAULT_SYNC_SECRETS"] || [];
-  const activeDefaultSecrets = Array.isArray(rawDefaultSecrets) 
-      ? rawDefaultSecrets.map((s: any) => typeof s === 'string' ? s : s.secretName || s.name)
-      : [];
+  const activeDefaultSecrets = repoSecretDefaults
+    .filter((entry) => entry.isActive)
+    .map((entry) => entry.secretName);
 
   useEffect(() => {
     fetchSecrets();
@@ -77,8 +82,11 @@ export function SyncSecretsConfig({ currentConfig, onConfigChanged }: SyncSecret
   const handleUnset = async (secretNameToRemove: string) => {
     setIsUpdating(true);
     try {
-      const updatedList = activeDefaultSecrets.filter(name => name !== secretNameToRemove);
-      await saveConfig(updatedList);
+      const res = await fetch(`${API_BASE}/repo-secret-defaults/${encodeURIComponent(secretNameToRemove)}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error("Failed to remove secret default");
+      await onConfigChanged();
     } catch (e) {
       console.error("Failed to unset secret", e);
     } finally {
@@ -90,47 +98,27 @@ export function SyncSecretsConfig({ currentConfig, onConfigChanged }: SyncSecret
     if (selectedToAdd.length === 0) return;
     setIsUpdating(true);
     try {
-      // Create new Set to avoid duplicates
-      const updatedList = Array.from(new Set([...activeDefaultSecrets, ...selectedToAdd]));
-      await saveConfig(updatedList);
-      setSelectedToAdd([]); // clear selection
+      const results = await Promise.all(
+        selectedToAdd.map((secretName) =>
+          fetch(`${API_BASE}/repo-secret-defaults`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ secretName }),
+          }),
+        ),
+      );
+
+      if (results.some((response) => !response.ok)) {
+        throw new Error("Failed to add one or more repository secret defaults");
+      }
+
+      setSelectedToAdd([]);
+      await onConfigChanged();
     } catch (e) {
       console.error("Failed to add existing secrets", e);
     } finally {
       setIsUpdating(false);
     }
-  };
-
-  const saveConfig = async (newList: string[]) => {
-    const res = await fetch(API_BASE, {
-        method: "PATCH", // Ensure API supports PATCH for this or POST if matching PostConfigSchema
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-            DEFAULT_SYNC_SECRETS: {
-                key: "DEFAULT_SYNC_SECRETS",
-                value: newList,
-                type: "json",
-                category: "general"
-            }
-        }),
-    });
-    // Wait ConfigDashboard uses `{ [key]: value }` for PATCH in handleSave!
-    // We must match ConfigDashboard's API expectation for PATCH or use POST.
-    // Actually, ConfigDashboard's handleSave hits PATCH which isn't defined in `config.ts`.
-    // Let's use standard POST matching `PostConfigSchema`
-    const postRes = await fetch(API_BASE, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-            key: "DEFAULT_SYNC_SECRETS",
-            value: newList,
-            type: "json",
-            category: "general",
-            isSecretStoreManaged: false
-        })
-    });
-    if (!postRes.ok) throw new Error("Failed to save config");
-    onConfigChanged();
   };
 
   const handleCreateNew = async () => {
@@ -148,7 +136,7 @@ export function SyncSecretsConfig({ currentConfig, onConfigChanged }: SyncSecret
       });
       if (!res.ok) throw new Error("Failed to create secret");
       
-      // Successfully created and automatically added to DEFAULT_SYNC_SECRETS by backend
+      // Successfully created and automatically added to repository secret defaults by backend
       await fetchSecrets();
       onConfigChanged(); // Refresh parent config to show new active defaults
       

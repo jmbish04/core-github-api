@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { matchAutomations } from "@/config/webhook-conditionals";
+import { matchAutomations } from "@/automations/triggers";
 
 // -----------------------------------------------------------------------------
 // Zod Schemas for Webhook Summary

@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { BaseAutomation, type AutomationMetadata } from '@/core/BaseAutomation';
-import { GardenerOrchestrator } from '@/automations/push/orchestrator';
+import { BaseAutomation, type AutomationMetadata } from '@/automations/core/BaseAutomation';
+import { GardenerOrchestrator } from '@/automations/push/orchestration';
 
 const GardenerPushPayloadSchema = z.object({
   ref: z.string(),
@@ -35,10 +35,7 @@ export class GardenerPush extends BaseAutomation<GardenerPushPayload> {
     }
 
     const parsed = GardenerPushPayloadSchema.safeParse(this.payload);
-    return (
-      parsed.success &&
-      parsed.data.ref === `refs/heads/${parsed.data.repository.default_branch}`
-    );
+    return parsed.success && parsed.data.ref === `refs/heads/${parsed.data.repository.default_branch}`;
   }
 
   async run(): Promise<void> {

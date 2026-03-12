@@ -10,3 +10,4 @@
    - **Stitch MCP & Cloudflare Docs**: Register a `remote_mcp_proxy` tool to proxy to remote servers (`https://stitch.googleapis.com/mcp` and `https://docs.mcp.cloudflare.com/mcp`). Establish an `SSEClientTransport` connection. For Stitch, inject `X-Goog-Api-Key` from environment bindings. Return the result safely utilizing `isError: true` on failure.
 6. **Route Binding**: Map `app.all('/mcp/*')` to execute `createMcpHandler(server)(c.req.raw, c.env, c.executionCtx)`.
 7. **Final Output Check**: Output the full file from imports to exports without truncation.
+8. **No Elisions**: Do not use comments like `// ... rest of code ...`, `// leaving as is`, or equivalent shortcuts.

@@ -10,6 +10,13 @@ interface ConfigDashboardProps {
   category: string;
 }
 
+interface RepoSecretDefault {
+  id: string;
+  secretName: string;
+  description: string | null;
+  isActive: boolean;
+}
+
 // Field definitions for each category
 const FIELD_DEFINITIONS: Record<string, ConfigFieldDef[]> = {
   general: [
@@ -43,7 +50,7 @@ export function ConfigDashboard({ category }: ConfigDashboardProps) {
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const API_BASE = "http://localhost:8787/api/config"; // Should use env or proxy
+  const API_BASE = "/api/config";
 
   const fetchData = async () => {
     setLoading(true);
@@ -57,7 +64,13 @@ export function ConfigDashboard({ category }: ConfigDashboardProps) {
          const res = await fetch(API_BASE);
          if(!res.ok) throw new Error("Failed to fetch config");
          const json = (await res.json()) as any;
-         setData(json.config || {});
+         const configMap = Array.isArray(json.settings)
+           ? Object.fromEntries(json.settings.map((entry: any) => [entry.key, entry.value]))
+           : (json.config || {});
+         setData({
+           ...configMap,
+           __repoSecretDefaults: (json.repoSecretDefaults || []) as RepoSecretDefault[],
+         });
       }
     } catch (e) {
       console.error("Fetch error:", e);
@@ -106,7 +119,10 @@ export function ConfigDashboard({ category }: ConfigDashboardProps) {
                 <div className="space-y-12">
                   <ConfigTable data={data} fields={fields} onSave={handleSave} />
                   {category === "secrets" && (
-                    <SyncSecretsConfig currentConfig={data} onConfigChanged={fetchData} />
+                    <SyncSecretsConfig
+                      repoSecretDefaults={(data.__repoSecretDefaults || []) as RepoSecretDefault[]}
+                      onConfigChanged={fetchData}
+                    />
                   )}
                 </div>
             )

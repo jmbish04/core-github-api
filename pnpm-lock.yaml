@@ -18,8 +18,8 @@ importers:
         specifier: ^1.0.6
         version: 1.0.6
       '@cloudflare/sandbox':
-        specifier: 0.7.13
-        version: 0.7.13(@xterm/xterm@5.5.0)
+        specifier: 0.7.17
+        version: 0.7.17(@xterm/xterm@5.5.0)
       '@google/jules-mcp':
         specifier: ^0.0.6
         version: 0.0.6(@cfworker/json-schema@4.1.1)(@google/jules-sdk@0.0.6)(@types/node@20.19.33)(zod@4.3.6)
@@ -802,8 +802,8 @@ packages:
     resolution: {integrity: sha512-e/0s9Ac2IhyBrgnyTDrYEippqrXqKtllP8qezyunOb6icOJ2FzbfQwhWRIVwV3AgZtutQTF5Kb/gFAGXCuGRqQ==}
     engines: {node: '>=18'}
 
-  '@cloudflare/sandbox@0.7.13':
-    resolution: {integrity: sha512-HVbg6nUqudsUPGMKznyG4gPgYVdEH6nt2NYgKmCJzUJeXixoWDiqCVsJpmCzNueHg/2HX982A6EhQgIUol6jzQ==}
+  '@cloudflare/sandbox@0.7.17':
+    resolution: {integrity: sha512-dS6IdIq8OHg7jg08wz18BtP6TkBSaVrixq+kN4Zm5/6N9Vir+PbfebEFL23lM5UcaPoKx6Gttnhby8e79PSMOA==}
     peerDependencies:
       '@openai/agents': ^0.3.3
       '@opencode-ai/sdk': ^1.1.40
@@ -7647,7 +7647,7 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@cloudflare/sandbox@0.7.13(@xterm/xterm@5.5.0)':
+  '@cloudflare/sandbox@0.7.17(@xterm/xterm@5.5.0)':
     dependencies:
       '@cloudflare/containers': 0.1.1
       aws4fetch: 1.0.20

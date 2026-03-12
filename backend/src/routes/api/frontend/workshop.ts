@@ -1,7 +1,7 @@
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi';
 import { getDb, workshopProjects, workshopTaskEvents, workshopProjectTasks, workshopAgentMemory } from "@db";
 import { eq, sql } from 'drizzle-orm';
-import { getAgentByName } from 'agents';
+import { getAgentByName } from '@/ai/agents/runtime/agents';
 
 // Helper for generating UUIDs
 const generateUuid = () => crypto.randomUUID();

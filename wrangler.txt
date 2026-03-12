@@ -1,9 +1,0 @@
-
- ⛅️ wrangler 4.67.0 (update available 4.68.1)
-─────────────────────────────────────────────
-Successfully created tail, expires at 2026-02-25T14:49:24Z
-Connected to core-github-api, waiting for logs...
-GET https://core-github-api.hacolby.workers.dev/healthz - Ok @ 2/25/2026, 1:21:08 AM
-  (log) {"level":"info","message":"[route] GET /healthz","method":"GET","path":"/healthz","status":200,"latency":"0ms","payloadSizeBytes":0,"correlationId":"af453a04-c000-4cea-bd98-5beb7ece8317","timestamp":"2026-02-25T09:21:09.123Z","payloadSize":"0 bytes"}
-Alarm @ 2/25/2026, 1:20:51 AM - Exception Thrown
-Alarm @ 2/25/2026, 1:20:51 AM - Exception Thrown

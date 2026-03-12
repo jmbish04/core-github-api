@@ -137,6 +137,16 @@ const finalData = await generateStructuredResponse<z.infer<typeof MySchema>>(
   - Similarly, if a provider is specified but no model is provided, the specific provider module's logic determines the default model.
   - Agents should not hardcode default models unless explicitly required by the business logic.
 
+## Full-Code Output Rule
+
+Agents must never return elided or partial code using shortcuts such as:
+
+- `// ... rest of the function remains the same ...`
+- `// leaving as is`
+- `// ... rest of code ...`
+
+If a file is in scope, return the complete file content for that file. If a function is rewritten, return the full rewritten function. Do not replace omitted code with commentary.
+
 ## Tools (MCP)
 
 When integrating tools:

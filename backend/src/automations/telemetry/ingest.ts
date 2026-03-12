@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { BaseAutomation, type AutomationMetadata } from '@/core/BaseAutomation';
+import { BaseAutomation, type AutomationMetadata } from '@/automations/core/BaseAutomation';
 import { getWebhooksDb } from '@db';
 import * as eventTables from '@/db/schemas/github/webhooks';
 

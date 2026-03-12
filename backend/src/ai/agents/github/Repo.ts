@@ -5,17 +5,16 @@
  * @version 1.0.0
  */
 
-import { getAgentByName, routeAgentRequest, callable } from "agents";
-import { BaseAgent, BaseAgentState, Tool } from "@/ai/agents/base/BaseAgent";
-import { Logger } from "@logging";
+import { createAgent } from "@/ai/agents/honi";
+import { buildMaxAgentMemory } from "@/ai/agents/memory";
+import { getAgentByName, routeAgentRequest, callable } from "@/ai/agents/runtime/agents";
+import { runAgentStructured, runAgentText, resolveAgentModel, resolveAgentProvider } from "@/ai/agents/support/inference";
+import { AgentStateStore } from "@/ai/agents/support/state-store";
+import type { AgentTool, PersistentAgentState } from "@/ai/agents/support/types";
 import { generateUuid } from "@/utils/common";
 import { desc, notInArray } from "drizzle-orm";
 
-import {
-  DEFAULT_WORKERS_AI_MODEL,
-  resolveDefaultAiModel,
-  type SupportedProvider,
-} from "@/ai/providers/config";
+import { DEFAULT_WORKERS_AI_MODEL, type SupportedProvider } from "@/ai/providers/config";
 import { verifySignature } from "@/utils/crypto";
 import { getAgentDb, agentSchema, migrateAgentDb, type AgentDb } from "@/db/schemas/agents/stateful";
 
@@ -40,7 +39,7 @@ import type {
  * @interface RepoState
  * @description State shape definition capturing persistent repository metadata and metrics.
  */
-export type RepoState = BaseAgentState & {
+export type RepoState = PersistentAgentState & {
   repoFullName: string;
   stats: {
     stars: number;
@@ -79,19 +78,41 @@ type GenerateStructuredResponseInput = RepoAgentAiOptions & {
 
 type GenerateWithToolsInput = RepoAgentAiOptions & {
   prompt: string;
-  tools: Tool[];
+  tools: AgentTool[];
 };
 
 /**
  * @class RepoAgent
- * @extends BaseAgent<Env, RepoState>
+ * @extends Honi Durable Object
  * @description Coordinates intelligence logic and GitHub metrics on a per-repository basis.
  * Orchestrates SQLite local DO interactions as well as multimodal inference requests 
  * through AI Gateway proxies.
  */
-export class RepoAgent extends BaseAgent<Env, RepoState> {
+const repoRuntime = createAgent<Env>({
+  name: "repo-agent",
+  model: "claude-3-5-sonnet-latest",
+  system: "You manage repository-level GitHub state, events, and intelligence tasks.",
+  binding: "REPO_AGENT",
+  tools: [],
+  memory: buildMaxAgentMemory({
+    agentName: "RepoAgent",
+    graphId: "core-github-api-repo-agent",
+  }),
+  observability: { enabled: true, aiGatewaySlug: "core-github-api", collectEvents: true },
+});
+
+const RepoDurableObject = repoRuntime.DurableObject as new (
+  state: DurableObjectState,
+  env: Env,
+) => DurableObject & {
+  env: Env;
+  fetch(request: Request): Promise<Response>;
+};
+
+export class RepoAgent extends RepoDurableObject {
+  declare env: Env;
   private _db: AgentDb | null = null;
-  // logger inherited from BaseAgent
+  private readonly store: AgentStateStore<RepoState>;
 
   /**
    * @constructor
@@ -100,11 +121,27 @@ export class RepoAgent extends BaseAgent<Env, RepoState> {
    */
   constructor(state: DurableObjectState, env: Env) {
     super(state, env);
-    // Initialize the Drizzle ORM client backed by the DO's embedded SQLite.
-    this._db = getAgentDb(this.ctx.storage);
-    // Apply pending schema migrations before any requests can be processed.
-    this.ctx.blockConcurrencyWhile(async () => {
-      migrateAgentDb(this.ctx.storage);
+    this.env = env;
+    this.store = new AgentStateStore<RepoState>({
+      ctx: state,
+      env,
+      agentName: "RepoAgent",
+      initialState: {
+        repoFullName: "",
+        stats: {
+          stars: 0,
+          forks: 0,
+          openIssues: 0,
+        },
+        lastUpdated: null,
+        webhookConfigured: false,
+        status: "idle",
+        history: [],
+      },
+    });
+    this._db = getAgentDb(state.storage);
+    state.blockConcurrencyWhile(async () => {
+      migrateAgentDb(state.storage);
     });
   }
 
@@ -116,35 +153,9 @@ export class RepoAgent extends BaseAgent<Env, RepoState> {
    */
   private get db(): AgentDb {
     if (!this._db) {
-      this._db = getAgentDb(this.ctx.storage);
+      this._db = getAgentDb(this.store.ctx.storage);
     }
     return this._db;
-  }
-
-  /**
-   * @property initialState
-   * @description Baseline state injected before repository ingestion hooks fire.
-   */
-  initialState: RepoState = {
-    repoFullName: "",
-    stats: {
-      stars: 0,
-      forks: 0,
-      openIssues: 0,
-    },
-    lastUpdated: null,
-    webhookConfigured: false,
-    status: "idle",
-    history: []
-  };
-
-  /**
-   * @method onStart
-   * @description Lifecycle hook kept for BaseAgent compatibility.
-   * Schema migration is now handled via `blockConcurrencyWhile` in the constructor.
-   */
-  async onStart(): Promise<void> {
-    // No-op: table creation is managed by the Drizzle DO migrator in the constructor.
   }
 
   /**
@@ -187,6 +198,30 @@ export class RepoAgent extends BaseAgent<Env, RepoState> {
     return new Response("OK", { status: 200 });
   }
 
+  async fetch(request: Request): Promise<Response> {
+    const url = new URL(request.url);
+    if (request.method === "POST" || url.pathname === "/health-probe" || url.pathname === "/memory" || url.pathname === "/history") {
+      if (url.pathname === "/health-probe") {
+        return Response.json({
+          status: "ok",
+          agent: "RepoAgent",
+          timestamp: new Date().toISOString(),
+        });
+      }
+      if (url.pathname === "/memory") {
+        await this.store.ready();
+        return Response.json(this.store.state);
+      }
+      if (url.pathname === "/history") {
+        await this.store.ready();
+        return Response.json(this.store.state.history || []);
+      }
+      return this.onRequest(request);
+    }
+
+    return super.fetch(request);
+  }
+
   /**
    * @protected
    * @method resolveProvider
@@ -195,42 +230,29 @@ export class RepoAgent extends BaseAgent<Env, RepoState> {
    * @returns {SupportedProvider} Strongly typed Supported Provider label.
    */
   protected resolveProvider(provider?: string | null): SupportedProvider {
-    const normalized = (provider || "").toLowerCase().trim();
-
-    if (normalized === "worker-ai" || normalized === "workers-ai") {
-      return "worker-ai";
-    }
-    if (normalized === "openai") {
-      return "openai";
-    }
-    if (normalized === "gemini" || normalized === "google" || normalized === "google-ai-studio") {
-      return "gemini";
-    }
-    if (normalized === "anthropic") {
-      return "anthropic";
-    }
-
-    return "worker-ai";
+    return resolveAgentProvider(this.env, provider);
   }
 
   /**
    * @method generateText
-   * @description Integrates directly with `@openai/agents` mapping into Cloudflare 
+   * @description Integrates directly with the repo-local agent runtime mapping into Cloudflare 
    * AI Gateway instances to execute generalized stateless text prompts.
    * @param {GenerateTextInput} input - Instruction configurations and strict prompt injection.
    * @returns {Promise<string>} String-based generative completion.
    */
   async generateText(input: GenerateTextInput): Promise<string> {
     const provider = this.resolveProvider(input.provider || DEFAULT_AI_PROVIDER);
-    const model = input.model || resolveDefaultAiModel(this.env, provider) || DEFAULT_AI_MODEL;
+    const model = input.model || resolveAgentModel(this.env, provider) || DEFAULT_AI_MODEL;
     
-    this.logger.info("Generating text", { 
+    this.store.logger.info("Generating text", { 
        provider, 
        model, 
        promptLength: input.prompt.length 
     });
 
-    return await this.runTextWithModel({
+    return await runAgentText({
+      env: this.env,
+      logger: this.store.logger,
       name: input.name || "RepoAgentText",
       model,
       provider,
@@ -250,11 +272,13 @@ export class RepoAgent extends BaseAgent<Env, RepoState> {
     input: GenerateStructuredResponseInput,
   ): Promise<T> {
     const provider = this.resolveProvider(input.provider || DEFAULT_AI_PROVIDER);
-    const model = input.model || resolveDefaultAiModel(this.env, provider) || DEFAULT_AI_MODEL;
+    const model = input.model || resolveAgentModel(this.env, provider) || DEFAULT_AI_MODEL;
     
-    this.logger.info("Generating structured response", { provider, model });
+    this.store.logger.info("Generating structured response", { provider, model });
 
-    return await this.runStructuredResponseWithModel<T>({
+    return await runAgentStructured<T>({
+      env: this.env,
+      logger: this.store.logger,
       name: input.name || "RepoAgentStructured",
       model,
       provider,
@@ -273,11 +297,13 @@ export class RepoAgent extends BaseAgent<Env, RepoState> {
    */
   async generateWithTools(input: GenerateWithToolsInput): Promise<unknown> {
     const provider = this.resolveProvider(input.provider || DEFAULT_AI_PROVIDER);
-    const model = input.model || resolveDefaultAiModel(this.env, provider) || DEFAULT_AI_MODEL;
+    const model = input.model || resolveAgentModel(this.env, provider) || DEFAULT_AI_MODEL;
     
-    this.logger.info("Generating with tools", { provider, model, toolCount: input.tools.length });
+    this.store.logger.info("Generating with tools", { provider, model, toolCount: input.tools.length });
 
-    return await this.runTextWithModel({
+    return await runAgentText({
+      env: this.env,
+      logger: this.store.logger,
       name: input.name || "RepoAgentTools",
       model,
       provider,
@@ -302,8 +328,8 @@ export class RepoAgent extends BaseAgent<Env, RepoState> {
     const repo = this.getRepository(payload);
     if (!repo) return;
 
-    this.setState({
-      ...this.state,
+    await this.store.set({
+      ...this.store.state,
       repoFullName: repo.full_name,
       stats: {
         stars: repo.stargazers_count,
@@ -595,7 +621,7 @@ export class RepoAgent extends BaseAgent<Env, RepoState> {
    */
   @callable()
   getStats(): RepoState["stats"] {
-    return this.state.stats;
+    return this.store.state.stats;
   }
 
   /**
@@ -603,10 +629,10 @@ export class RepoAgent extends BaseAgent<Env, RepoState> {
    * @description Prunes locally scoped Event cache records completely via SQLite delete ops.
    */
   @callable()
-  clearEvents(): void {
+  async clearEvents(): Promise<void> {
     this.db.delete(agentSchema.agentEvents).run();
-    this.setState({
-      ...this.state,
+    await this.store.set({
+      ...this.store.state,
       lastUpdated: new Date().toISOString(),
     });
   }

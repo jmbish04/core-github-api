@@ -18,8 +18,8 @@ export default tseslint.config(
       },
     },
     rules: {
-      // Downgrades the 'any' error to a warning to unblock rapid iteration
-      '@typescript-eslint/no-explicit-any': 'warn',
+      // `any` is allowed in this codebase for Worker bindings, SDK shims, and migration paths.
+      '@typescript-eslint/no-explicit-any': 'off',
       
       // Standard quality-of-life adjustments for Cloudflare Workers
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],

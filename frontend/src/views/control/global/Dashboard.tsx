@@ -4,10 +4,10 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { LucideActivity, LucideShieldCheck } from "lucide-react";
 import { useState } from "react";
 import { RepoHealthCard } from "@/components/RepoHealthCard";
-import { AgentWorkflowTimeline } from "@/components/AgentWorkflowTimeline";
 import { RecentTasksCard } from "@/components/RecentTasksCard";
 import { LiveOpsModal } from "@/components/modals/LiveOpsModal";
 import { WorkflowsModal } from "@/components/modals/WorkflowsModal";
+import { CloudflareFleetSpendSummary } from "@/components/cloudflaresdk/CloudflareFleetSpendSummary";
 import { useProjectStore } from "@/stores/useProjectStore";
 import { api } from "@/lib/api-client";
 import { useQuery } from "@tanstack/react-query";
@@ -90,7 +90,10 @@ export default function DashboardPage() {
             </header>
 
             <main className="flex-1 overflow-hidden p-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-full">
+                <div className="space-y-6 h-full">
+                    <CloudflareFleetSpendSummary />
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-[calc(100%-9rem)]">
 
                     {/* Left Column: Repository Health */}
                     <div className="flex flex-col gap-6">
@@ -130,6 +133,7 @@ export default function DashboardPage() {
                         <RecentTasksCard />
                     </div>
 
+                </div>
                 </div>
             </main>
         </div>

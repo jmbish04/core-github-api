@@ -7,6 +7,12 @@ description: Build AI agents with Honi (honidev) on Cloudflare Workers. Use when
 
 `honidev` is a TypeScript framework for building persistent AI agents on Cloudflare Workers using Durable Objects. Zero cold starts. Global edge deployment. Layered memory that survives across sessions.
 
+## Output Discipline
+
+- Return complete files for every touched file.
+- Never emit truncated code with comments like `// ... rest of code ...`.
+- If you rewrite an agent module, output the entire final module.
+
 ## Installation
 
 ```bash

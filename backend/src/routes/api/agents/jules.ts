@@ -2,13 +2,13 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
-import { JulesService } from "@/services/jules/jules";
+import { JulesService } from "@/services/jules/service";
 import { streamText } from "hono/streaming";
-import { JULES_STANDARDS } from "@/config/jules-standards";
 import { getDb } from "@/db";
 import { julesJobs } from "@/db/schemas/agents/jules";
 import { eq } from "drizzle-orm";
 import { generateUuid } from "@/utils/common";
+import { buildCodingAgentInstructions } from "@/services/golden-path-config";
 
 
 const app = new Hono<{ Bindings: Env }>();
@@ -28,8 +28,10 @@ app.post("/start", zValidator("json", startSessionSchema), async (c) => {
   const { prompt, repoUrl, autoPr, mode, force_overseer, session_id, inject_standards } = c.req.valid("json");
   const julesService = JulesService.getInstance(c.env);
   const db = getDb(c.env.DB);
-  
-  const enhancedPrompt = inject_standards ? `${prompt}\n\n${JULES_STANDARDS}` : prompt;
+  const standards = inject_standards
+    ? await buildCodingAgentInstructions(c.env)
+    : "";
+  const enhancedPrompt = inject_standards ? `${prompt}\n\n${standards}` : prompt;
   const sessionId = session_id || generateUuid();
 
   if (mode === "run") {
@@ -107,7 +109,7 @@ app.post("/start", zValidator("json", startSessionSchema), async (c) => {
 
     let status = "connecting";
     try {
-        status = await session.info().then(i => i.state);
+        status = await session.info().then((i: any) => i.state);
     } catch (e) { }
 
     return c.json({

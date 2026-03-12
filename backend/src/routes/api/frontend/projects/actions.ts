@@ -7,10 +7,8 @@
 import { Hono } from "hono";
 import { getDb } from "@db";
 import { fetchProjectContext } from "./utils";
-import { CodeGeneratorAgent } from "@/ai/agents/SoftwareEngineer";
-import { DocstringsService } from "@services/docstrings";
-import { generateLandingPage } from "@services/landing-generator";
-import { JulesService } from "@/services/jules/jules";
+import { generateDocstringsForProject } from "@/automations/pr/doc-string-generator/service";
+import { JulesService } from "@/services/jules/service";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -50,13 +48,17 @@ app.post("/:id/jules/dispatch", async (c) => {
  * Automatically generates AI-powered docstrings for repository files.
  */
 app.post("/:id/docstrings/generate", async (c) => {
-    const docService = new DocstringsService(c.env);
     const db = getDb(c.env.DB);
     const ctx = await fetchProjectContext(db, c.req.param("id"));
     if (!ctx) return c.json({ error: "Context missing" }, 404);
 
     const body = await c.req.json() as any;
-    const result = await docService.generateForProject(ctx.repoOwner!, ctx.repoName!, body.files || []);
+    const result = await generateDocstringsForProject(
+      c.env,
+      ctx.repoOwner!,
+      ctx.repoName!,
+      body.files || [],
+    );
     return c.json({ success: true, ...result });
 });
 

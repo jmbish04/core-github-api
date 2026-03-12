@@ -13,6 +13,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { McpSync } from "@/automations/repository/standardization/mcp";
 import { SecretSync } from "@/automations/repository/standardization/secrets";
 import { zValidator } from "@hono/zod-validator";
+import { getOctokit } from '@services/octokit/core';
+import { listActiveRepositorySecretNames } from '@/services/repository-secret-defaults';
 
 const standardsApi = new OpenAPIHono<{ Bindings: Env }>();
 
@@ -78,7 +80,11 @@ standardsApi.openapi(createRoute({
  * Returns current standardization configuration and sync intentions.
  */
 standardsApi.get("/config", async (c) => {
-    return c.json({ mcp: { masterRepo: `${c.env.GITHUB_OWNER}/${c.env.STANDARDIZATION_REPO_NAME}`, masterPath: "mcp.json" }, secrets: { available: ["WORKER_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY"] } });
+    const available = await listActiveRepositorySecretNames(c.env);
+    return c.json({
+      mcp: { masterRepo: `${c.env.GITHUB_OWNER}/${c.env.STANDARDIZATION_REPO_NAME}`, masterPath: "mcp.json" },
+      secrets: { available },
+    });
 });
 
 /**
@@ -87,7 +93,10 @@ standardsApi.get("/config", async (c) => {
  */
 standardsApi.post("/refresh-mcp", zValidator("json", z.object({ owner: z.string(), repo: z.string() })), async (c) => {
     const { owner, repo } = c.req.valid("json");
-    c.executionCtx.waitUntil(McpSync.syncMcpConfig(c.env, owner, repo));
+    c.executionCtx.waitUntil((async () => {
+        const octokit = await getOctokit(c.env);
+        await McpSync.syncMcpConfig(c.env, owner, repo, octokit);
+    })());
     return c.json({ success: true, message: `Queued MCP sync for ${owner}/${repo}` });
 });
 
@@ -97,7 +106,10 @@ standardsApi.post("/refresh-mcp", zValidator("json", z.object({ owner: z.string(
  */
 standardsApi.post("/secrets/sync", zValidator("json", z.object({ owner: z.string(), repo: z.string() })), async (c) => {
     const { owner, repo } = c.req.valid("json");
-    c.executionCtx.waitUntil(SecretSync.autoProvisionSecrets(c.env, owner, repo));
+    c.executionCtx.waitUntil((async () => {
+        const octokit = await getOctokit(c.env);
+        await SecretSync.autoProvisionSecrets(c.env, owner, repo, octokit);
+    })());
     return c.json({ success: true, message: `Queued Secret sync for ${owner}/${repo}` });
 });
 
