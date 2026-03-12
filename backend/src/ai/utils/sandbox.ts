@@ -16,7 +16,7 @@ export async function getSandboxOptions(env: Env) {
     return {
         // 💡 Scale-to-zero: container sleeps automatically after 10 min of inactivity.
         // keepAlive must be false (default) so the sleepAfter timer is honoured.
-        sleepAfter: '10m',
+        sleepAfter: env.SANDBOX_SLEEP_AFTER || '10m',
         keepAlive: false,
         normalizeId: true,
         containerTimeouts: {
