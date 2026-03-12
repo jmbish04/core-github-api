@@ -1,6 +1,6 @@
 import { HealthStepResult } from "@/health/health-check";
 import { verifyGitHubToken } from "./github";
-import { getSandbox } from "@cloudflare/sandbox";
+import { getSandbox, Sandbox as SandboxSDK } from "@cloudflare/sandbox";
 import { getSandboxOptions } from "@/ai/utils/sandbox";
 
 // ─── Timeout utility ──────────────────────────────────────────────────
@@ -80,7 +80,7 @@ export async function checkSandboxHealth(env: Env): Promise<HealthStepResult> {
         try {
             // Initialize Sandbox via the Cloudflare SDK
             const options = await getSandboxOptions(env);
-            const sandbox = getSandbox(env.SANDBOX, "sandbox-health-probe", {
+            const sandbox = getSandbox(env.SANDBOX as unknown as DurableObjectNamespace<SandboxSDK>, "sandbox-health-probe", {
                 ...options,
             });
 

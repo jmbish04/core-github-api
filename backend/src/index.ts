@@ -374,7 +374,7 @@ app.get('/llms.txt', (c) => {
     'Docs:',
     `- OpenAPI JSON: ${origin}/openapi.json`,
     `- Swagger UI: ${origin}/swagger`,
-    `- Scaler API Ref: ${origin}/scaler`,
+    `- Scalar API Ref: ${origin}/scalar`,
     '',
     'Health:',
     `- Liveness: ${origin}/healthz`,
@@ -532,6 +532,29 @@ import prOverviewApi from "@/routes/api/services/github/pr-overview";
 
 // Optional: Add swagger UI (points to the new 3.1.0 JSON spec)
 app.get('/doc', swaggerUI({ url: '/openapi.json' }))
+
+// /swagger — Swagger UI (OpenAPI 3.1.0)
+app.get('/swagger', swaggerUI({ url: '/openapi.json' }))
+
+// /scalar — Scalar API Reference (OpenAPI 3.1.0)
+app.get('/scalar', (c) => {
+  return c.html(`<!DOCTYPE html>
+<html>
+  <head>
+    <title>Scalar API Reference</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+  </head>
+  <body>
+    <script
+      id="api-reference"
+      data-url="/openapi.json"
+      data-configuration='{"theme":"purple"}'
+    ></script>
+    <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.25.117/dist/browser/standalone.min.js" crossorigin="anonymous"></script>
+  </body>
+</html>`)
+})
 
 // --- 5. API Runtime Routes (on main 'app') ---
 
@@ -721,8 +744,8 @@ export { WorkshopAgent } from "@/ai/agents/workshop/WorkshopAgent";
 export { JulesWebhookBroadcaster } from "@/do/JulesWebhookBroadcaster";
 
 
-// Sandbox SDK — the Sandbox Durable Object class is provided by the SDK
-export { Sandbox } from '@cloudflare/sandbox'
+// Sandbox Container — custom class with scale-to-zero hibernation via @cloudflare/containers
+export { Sandbox } from '@/containers/sandbox'
 // Scheduled Event Handler
 async function handleScheduled(event: ScheduledController, env: Env, ctx: ExecutionContext) {
   console.log('[Scheduled] Cron trigger fired:', event.cron);
@@ -1096,8 +1119,8 @@ export default {
     const docsPath =
       url.pathname === '/swagger' || url.pathname === '/swagger/'
         ? '/swagger/index.html'
-        : url.pathname === '/scaler' || url.pathname === '/scaler/'
-          ? '/scaler/index.html'
+        : url.pathname === '/scalar' || url.pathname === '/scalar/'
+          ? '/scalar/index.html'
           : null;
 
     // Keep exact and prefix routes separate so `/doc` does not accidentally
@@ -1110,6 +1133,8 @@ export default {
       '/mcp-execute',
       '/ws',
       '/doc',
+      '/swagger',
+      '/scalar',
       '/healthz',
       '/webhooks',
     ]);
