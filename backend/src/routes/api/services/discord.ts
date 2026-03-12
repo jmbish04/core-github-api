@@ -1,18 +1,7 @@
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi';
 import { createDiscordApiClient } from '@/services/discord/client';
 
-// ============================================================================
-// CLOUDFLARE BINDINGS
-// ============================================================================
-export interface SecretStoreBinding {
-  get(): Promise<string>;
-}
-
-export type Bindings = {
-  DISCORD_APPLICATION_ID: SecretStoreBinding;
-  DISCORD_PUBLIC_KEY: SecretStoreBinding;
-  DISCORD_TOKEN: SecretStoreBinding;
-};
+export type Bindings = Env;
 
 // ============================================================================
 // ZOD SCHEMAS
@@ -49,10 +38,165 @@ const ErrorSchema = z.object({
   details: z.any().optional(),
 }).openapi('ErrorResponse');
 
+const ConfigSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  guildId: z.string(),
+  channels: z.array(z.string()).nullable(),
+  prompt: z.string().nullable(),
+  cronSchedule: z.string().nullable(),
+  isActive: z.boolean(),
+  createdAt: z.union([z.string(), z.date()]).optional(),
+  updatedAt: z.union([z.string(), z.date()]).optional(),
+}).openapi('DiscordResearchConfig');
+
+const CreateConfigSchema = z.object({
+  name: z.string(),
+  guildId: z.string(),
+  channels: z.array(z.string()).optional(),
+  prompt: z.string().optional(),
+  cronSchedule: z.string().optional(),
+  isActive: z.boolean().optional().default(true),
+}).openapi('CreateDiscordResearchConfig');
+
+const UpdateConfigSchema = CreateConfigSchema.partial().openapi('UpdateDiscordResearchConfig');
+
 // ============================================================================
 // APPLICATION SETUP
 // ============================================================================
 const app = new OpenAPIHono<{ Bindings: Bindings }>();
+
+// ============================================================================
+// DISCORD ENDPOINTS
+// ============================================================================
+
+// 0. List of Guilds the bot is in
+app.openapi(createRoute({
+  method: 'get',
+  path: '/guilds',
+  responses: {
+    200: { description: 'List of accessible guilds', content: { 'application/json': { schema: z.array(GuildSchema) } } },
+    500: { description: 'Server Error', content: { 'application/json': { schema: ErrorSchema } } }
+  }
+}), async (c) => {
+  try {
+    const discord = await createDiscordApiClient(c.env);
+    const guilds = await discord.getGuilds();
+    return c.json(guilds, 200);
+  } catch (err: any) {
+    return c.json({ error: 'Failed to fetch guilds', details: err.message }, 500);
+  }
+});
+
+// 0.1 List of Channels for a specific guild
+app.openapi(createRoute({
+  method: 'get',
+  path: '/guilds/{guildId}/channels',
+  request: { params: z.object({ guildId: z.string() }) },
+  responses: {
+    200: { description: 'List of channels in a specific guild', content: { 'application/json': { schema: z.array(ChannelSchema) } } },
+    500: { description: 'Server Error', content: { 'application/json': { schema: ErrorSchema } } }
+  }
+}), async (c) => {
+  try {
+    const { guildId } = c.req.valid('param');
+    const discord = await createDiscordApiClient(c.env);
+    const channels = await discord.getGuildChannels(guildId);
+    const textChannels = channels.filter(ch => ch.type === 0);
+    return c.json(textChannels, 200);
+  } catch (err: any) {
+    return c.json({ error: 'Failed to fetch guild channels', details: err.message }, 500);
+  }
+});
+
+// 0.2 Discord Research Configs CRUD
+import { getDb } from '@/db';
+import { discordResearchConfigs } from '@/db/schemas/github/research';
+import { eq } from 'drizzle-orm';
+
+app.openapi(createRoute({
+  method: 'get',
+  path: '/configs',
+  responses: {
+    200: { description: 'List of all Discord research configurations', content: { 'application/json': { schema: z.array(ConfigSchema) } } },
+    500: { description: 'Server Error', content: { 'application/json': { schema: ErrorSchema } } }
+  }
+}), async (c) => {
+  try {
+    const db = getDb(c.env.DB);
+    const configs = await db.select().from(discordResearchConfigs);
+    return c.json(configs as any, 200);
+  } catch (err: any) {
+    return c.json({ error: 'Failed to fetch discord research configs', details: err.message }, 500);
+  }
+});
+
+app.openapi(createRoute({
+  method: 'post',
+  path: '/configs',
+  request: { body: { content: { 'application/json': { schema: CreateConfigSchema } } } },
+  responses: {
+    201: { description: 'Created config', content: { 'application/json': { schema: ConfigSchema } } },
+    500: { description: 'Server Error', content: { 'application/json': { schema: ErrorSchema } } }
+  }
+}), async (c) => {
+  try {
+    const body = c.req.valid('json');
+    const db = getDb(c.env.DB);
+    const [config] = await db.insert(discordResearchConfigs).values(body).returning();
+    return c.json(config as any, 201);
+  } catch (err: any) {
+    return c.json({ error: 'Failed to create discord research config', details: err.message }, 500);
+  }
+});
+
+app.openapi(createRoute({
+  method: 'put',
+  path: '/configs/{id}',
+  request: { 
+    params: z.object({ id: z.string() }),
+    body: { content: { 'application/json': { schema: UpdateConfigSchema } } } 
+  },
+  responses: {
+    200: { description: 'Updated config', content: { 'application/json': { schema: ConfigSchema } } },
+    404: { description: 'Not Found', content: { 'application/json': { schema: ErrorSchema } } },
+    500: { description: 'Server Error', content: { 'application/json': { schema: ErrorSchema } } }
+  }
+}), async (c) => {
+  try {
+    const { id } = c.req.valid('param');
+    const body = c.req.valid('json');
+    const db = getDb(c.env.DB);
+    const [config] = await db.update(discordResearchConfigs)
+      .set({ ...body, updatedAt: new Date() } as any)
+      .where(eq(discordResearchConfigs.id, id))
+      .returning();
+      
+    if (!config) return c.json({ error: 'Config not found' }, 404);
+    return c.json(config as any, 200);
+  } catch (err: any) {
+    return c.json({ error: 'Failed to update discord research config', details: err.message }, 500);
+  }
+});
+
+app.openapi(createRoute({
+  method: 'delete',
+  path: '/configs/{id}',
+  request: { params: z.object({ id: z.string() }) },
+  responses: {
+    200: { description: 'Deleted config', content: { 'application/json': { schema: z.object({ success: z.boolean() }) } } },
+    500: { description: 'Server Error', content: { 'application/json': { schema: ErrorSchema } } }
+  }
+}), async (c) => {
+  try {
+    const { id } = c.req.valid('param');
+    const db = getDb(c.env.DB);
+    await db.delete(discordResearchConfigs).where(eq(discordResearchConfigs.id, id));
+    return c.json({ success: true }, 200);
+  } catch (err: any) {
+    return c.json({ error: 'Failed to delete discord research config', details: err.message }, 500);
+  }
+});
 
 // ============================================================================
 // DISCORD ROUTES
@@ -108,7 +252,7 @@ app.openapi(createRoute({
         try {
           const messages = await discord.getChannelMessages(channel.id, 5);
           allMessages = allMessages.concat(messages);
-        } catch (e) {
+        } catch {
           console.warn(`Could not fetch messages for channel ${channel.id}`);
         }
       }
@@ -159,7 +303,7 @@ app.openapi(createRoute({
         try {
           const messages = await discord.getChannelMessages(thread.id, 10);
           allThreadMessages = allThreadMessages.concat(messages);
-        } catch (e) {
+        } catch {
           console.warn(`Could not fetch messages for thread ${thread.id}`);
         }
       }
@@ -195,7 +339,7 @@ app.openapi(createRoute({
           const messages = await discord.getChannelMessages(thread.id, 50);
           const matched = messages.filter(m => searchRegex.test(m.content));
           searchResults = searchResults.concat(matched);
-        } catch (e) {
+        } catch {
           console.warn(`Could not fetch messages for thread ${thread.id}`);
         }
       }

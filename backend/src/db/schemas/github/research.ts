@@ -49,6 +49,7 @@ export const researchCandidates = sqliteTable(
     judgeScore: integer("judge_score"), // 0-100
     judgeReasoning: text("judge_reasoning"),
     userRating: text("user_rating", { enum: ["keep", "discard", "pending"] }).default("pending"),
+    metadata: text("metadata", { mode: "json" }),
     createdAt: integer("created_at", { mode: "timestamp" }).default(sql`(strftime('%s', 'now'))`).notNull(),
   },
   (t) => ({
@@ -119,4 +120,23 @@ export const researchReports = sqliteTable('research_reports', {
   projectId: text('project_id').notNull().references(() => researchProjects.id, { onDelete: 'cascade' }),
   findings: text('findings', { mode: 'json' }), // The final report data
   createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`(strftime('%s', 'now'))`),
+});
+
+export const discordResearchConfigs = sqliteTable('discord_research_configs', {
+  id: text('id').primaryKey().$defaultFn(() => createId()),
+  name: text('name').notNull(),
+  guildId: text('guild_id').notNull(),
+  channels: text('channels', { mode: 'json' }).$type<string[]>(), // specific channels
+  prompt: text('prompt'), // Custom instruction
+  cronSchedule: text('cron_schedule'),
+  isActive: integer('is_active', { mode: 'boolean' }).default(true),
+  createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`(strftime('%s', 'now'))`),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).default(sql`(strftime('%s', 'now'))`),
+});
+
+export const discordScanWatermarks = sqliteTable('discord_scan_watermarks', {
+  channelId: text('channel_id').primaryKey(),
+  lastMessageId: text('last_message_id'),
+  lastMessageTimestamp: text('last_message_timestamp'),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).default(sql`(strftime('%s', 'now'))`),
 });

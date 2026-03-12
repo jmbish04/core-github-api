@@ -248,7 +248,9 @@ Conclude your investigation with a detailed summary containing the severity, roo
               if (!Array.isArray(fileData) && fileData.type === 'file') {
                 fileSha = fileData.sha;
               }
-            } catch {}
+            } catch (e){
+              this.store.logger.error('get_github_file failed', JSON.stringify(e));
+            }
 
             await octokit.repos.createOrUpdateFileContents({
               owner: repoOwner,
