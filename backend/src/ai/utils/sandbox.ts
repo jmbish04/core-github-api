@@ -14,8 +14,10 @@
  */
 export async function getSandboxOptions(env: Env) {
     return {
-        sleepAfter: '30s',
-        keepAlive: true,
+        // 💡 Scale-to-zero: container sleeps automatically after 10 min of inactivity.
+        // keepAlive must be false (default) so the sleepAfter timer is honoured.
+        sleepAfter: '10m',
+        keepAlive: false,
         normalizeId: true,
         containerTimeouts: {
             instanceGetTimeoutMS: 180_000,   // 3 minutes for provisioning
