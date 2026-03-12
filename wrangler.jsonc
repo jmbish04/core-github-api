@@ -291,6 +291,14 @@
 				"class_name": "PlanningMonitor"
 			},
 			{
+				"name": "PLANNING_SUPERVISOR",
+				"class_name": "PlanningSupervisorAgent"
+			},
+			{
+				"name": "PLANNING_ORCHESTRATOR_AGENT",
+				"class_name": "PlanningOrchestratorAgent"
+			},
+			{
 				"name": "WORKSHOP_AGENT",
 				"class_name": "WorkshopAgent"
 			},
@@ -389,6 +397,13 @@
 			"tag": "v8",
 			"new_sqlite_classes": [
 				"PlanningMonitor"
+			]
+		},
+		{
+			"tag": "v9",
+			"new_sqlite_classes": [
+				"PlanningSupervisorAgent",
+				"PlanningOrchestratorAgent"
 			]
 		}
 	],

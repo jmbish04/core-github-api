@@ -108,7 +108,10 @@ function createOurMcpServer(env: McpEnv) {
         }
       } else if (targetServer === 'StitchMCP') {
         url = 'https://stitch.googleapis.com/mcp';
-        headers['X-Goog-Api-Key'] = env.STITCH_API_KEY;
+        headers['X-Goog-Api-Key'] =
+          typeof env.STITCH_API_KEY === 'string'
+            ? env.STITCH_API_KEY
+            : await env.STITCH_API_KEY.get();
       }
 
       const fetchWithHeaders: typeof fetch = (input, init) =>
@@ -219,6 +222,8 @@ export { DeepResearchChatAgent } from '@/ai/agents/DeepResearchChat';
 export { HealthDiagnostician } from '@/ai/agents/HealthDiagnostician';
 export { JulesWebhookBroadcaster } from '@/do/JulesWebhookBroadcaster';
 export { PlanningMonitor } from '@/do/PlanningMonitor';
+export { PlanningSupervisorAgent } from '@/ai/agents/planning/Supervisor';
+export { PlanningOrchestratorAgent } from '@/ai/agents/planning/Orchestrator';
 export { WorkshopAgent } from '@/ai/agents/workshop/WorkshopAgent';
 export { CfWorkshop_AgentsSdk } from '@/ai/agents/workshop/CfAgentsSdk';
 export { StandardizationAgent } from '@/ai/agents/StandardizationAgent';

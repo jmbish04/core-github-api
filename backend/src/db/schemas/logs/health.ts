@@ -22,7 +22,7 @@ export const healthResults = sqliteTable('health_results', {
     run_id: text('run_id').notNull().references(() => healthRuns.id, { onDelete: 'cascade' }),
 
     // Categorization
-    category: text('category', { enum: ['github', 'ai', 'api', 'webhooks', 'mcp', 'agents', 'browser', 'git', 'sandbox', 'research'] }).notNull(),
+    category: text('category', { enum: ['github', 'ai', 'api', 'webhooks', 'mcp', 'agents', 'browser', 'git', 'sandbox', 'research', 'planning'] }).notNull(),
     name: text('name').notNull(), // e.g. "Orchestrator Accessibility", "Secrets Permissions"
 
     // Status

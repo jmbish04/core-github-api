@@ -1,4 +1,5 @@
 import type { PlanningRequestStatus } from "@/lib/schemas/jules";
+import { createPlanningEvent } from "./store";
 
 export type PlanningMonitorEventType =
   | "STATUS"
@@ -27,6 +28,7 @@ export interface PlanningMonitorFileChange {
 
 export interface PlanningMonitorEvent {
   requestId: string;
+  source?: "api" | "workflow" | "jules" | "stitch" | "agent" | "system" | "user";
   type: PlanningMonitorEventType;
   ts: string;
   status?: PlanningRequestStatus;
@@ -71,14 +73,33 @@ export async function broadcastPlanningEvent(
   event: Omit<PlanningMonitorEvent, "requestId" | "ts"> &
     Partial<Pick<PlanningMonitorEvent, "requestId" | "ts">>,
 ): Promise<void> {
+  const normalized = {
+    requestId,
+    ts: event.ts || new Date().toISOString(),
+    source: event.source || "system",
+    ...event,
+  } satisfies PlanningMonitorEvent;
+
+  await createPlanningEvent(env, {
+    requestId,
+    source: normalized.source || "system",
+    eventType: normalized.type,
+    title: normalized.title,
+    message: normalized.message,
+    payload: {
+      status: normalized.status,
+      plan: normalized.plan,
+      files: normalized.files,
+      artifact: normalized.artifact,
+      data: normalized.data,
+      ts: normalized.ts,
+    },
+  });
+
   const stub = getPlanningMonitorStub(env, requestId);
   await stub.fetch("http://internal/internal/broadcast", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      requestId,
-      ts: event.ts || new Date().toISOString(),
-      ...event,
-    } satisfies PlanningMonitorEvent),
+    body: JSON.stringify(normalized),
   });
 }

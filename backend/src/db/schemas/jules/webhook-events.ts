@@ -42,6 +42,12 @@ export const julesWebhookEvents = sqliteTable(
      */
     julesSessionId: text("jules_session_id").notNull(),
 
+    /** Planning request correlation, when this session is part of a planning request. */
+    planningRequestId: text("planning_request_id"),
+
+    /** Logical session role (planning, implementation, stitch, etc.). */
+    sessionRole: text("session_role"),
+
     /**
      * Classification of the event reported by Jules.
      *
@@ -100,6 +106,7 @@ export const julesWebhookEvents = sqliteTable(
   },
   (table) => ({
     sessionIdx: index("jwh_session_idx").on(table.julesSessionId),
+    planningRequestIdx: index("jwh_planning_request_idx").on(table.planningRequestId),
     eventTypeIdx: index("jwh_event_type_idx").on(table.eventType),
     createdIdx: index("jwh_created_idx").on(table.createdAt),
   })

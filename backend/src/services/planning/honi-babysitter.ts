@@ -52,6 +52,7 @@ export interface PlanningCaptureState {
 export interface PlanningSessionResultSummary {
   state?: string;
   error?: unknown;
+  rawResult?: unknown;
   outputs?: {
     pullRequests: Array<{ title: string; number: number; url: string }>;
     changeSets: Array<{ filename: string; content: string }>;

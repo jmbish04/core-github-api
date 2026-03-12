@@ -14,6 +14,7 @@ import { checkHealth as checkMCPHealth } from '@/ai/mcp/health';
 import { checkHealth as checkBrowserHealth } from '@/ai/mcp/tools/browser/health';
 import { checkGitHealth, checkSandboxHealth } from '@/ai/mcp/tools/github/git-sandbox-health';
 import { checkAPIHealth } from '@/routes/api/health';
+import { checkHealth as checkPlanningHealth } from '@/workflows/planning/health';
 import { checkHealth as checkResearchHealth } from '@/workflows/research/health';
 
 // ─── Check Registry ──────────────────────────────────────────────────────
@@ -36,6 +37,7 @@ const CODE_CHECKS: RegisteredCheck[] = [
     { id: 'git',      category: 'git',      fn: checkGitHealth },
     { id: 'sandbox',  category: 'sandbox',  fn: checkSandboxHealth },
     { id: 'deep_research', category: 'research', fn: checkResearchHealth },
+    { id: 'planning', category: 'planning', fn: checkPlanningHealth },
 ];
 
 export class HealthCoordinator {

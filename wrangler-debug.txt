@@ -2,3 +2,15 @@
 ---- BEFORE getDockerPath ----
 ---- AFTER getDockerPath ----
 ---- BEFORE normalisedContainerConfig block ----
+---- BEFORE canUseNewVersionsDeploymentsApi ----
+---- BEFORE getDockerPath ----
+---- AFTER getDockerPath ----
+---- BEFORE normalisedContainerConfig block ----
+---- BEFORE canUseNewVersionsDeploymentsApi ----
+---- BEFORE getDockerPath ----
+---- AFTER getDockerPath ----
+---- BEFORE normalisedContainerConfig block ----
+---- BEFORE canUseNewVersionsDeploymentsApi ----
+---- BEFORE getDockerPath ----
+---- AFTER getDockerPath ----
+---- BEFORE normalisedContainerConfig block ----

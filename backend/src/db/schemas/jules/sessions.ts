@@ -38,6 +38,9 @@ export const julesSessions = sqliteTable(
     /** ID of the project this session belongs to, if initiated from a project context. */
     projectId: text("project_id"),
 
+    /** Planning request ID when the session belongs to the planning subsystem. */
+    planningRequestId: text("planning_request_id"),
+
     /**
      * ID of the specialist agent (Durable Object instance name) that created this session.
      * Allows the webhook handler to re-instantiate the correct agent.
@@ -49,6 +52,9 @@ export const julesSessions = sqliteTable(
      * Used for agent re-instantiation when routing Jules webhook events.
      */
     specialistClass: text("specialist_class"),
+
+    /** Logical session role (planning, implementation, stitch, etc.). */
+    sessionRole: text("session_role"),
 
     /** The full enriched prompt sent to Jules (includes webhook instructions and coding-agent standards). */
     prompt: text("prompt").notNull(),
@@ -107,6 +113,7 @@ export const julesSessions = sqliteTable(
   (table) => ({
     statusIdx: index("jules_sessions_status_idx").on(table.status),
     projectIdx: index("jules_sessions_project_idx").on(table.projectId),
+    planningRequestIdx: index("jules_sessions_planning_request_idx").on(table.planningRequestId),
     agentIdx: index("jules_sessions_agent_idx").on(table.agentId),
     createdIdx: index("jules_sessions_created_idx").on(table.createdAt),
     lastActivityIdx: index("jules_sessions_last_activity_idx").on(

@@ -3,6 +3,7 @@ import { healthRuns } from "@db/schemas/logs/health";
 import { checkHealth as checkAI } from "@/ai/health";
 import { checkHealth as checkMCP } from "@/ai/mcp/health";
 import { checkGitHubAPIHealth, checkWebhooksHealth } from "@/workflows/health";
+import { checkHealth as checkPlanning } from "@/workflows/planning/health";
 import { checkHealth as checkAgents } from "@/ai/agents/health";
 import { checkHealth as checkBrowser } from "@/ai/mcp/tools/browser/health";
 import { analyzeFailure } from "@/ai/utils/diagnostician";
@@ -37,6 +38,7 @@ export async function runHealthCheck(
     { id: 'webhooks', name: 'Webhooks', fn: checkWebhooksHealth },
     // { id: 'containers', name: 'Containers', fn: checkContainers },
     { id: 'agents', name: 'Agents', fn: checkAgents },
+    { id: 'planning', name: 'Planning', fn: checkPlanning },
     // { id: 'workflows', name: 'Workflows', fn: checkWorkflows }
   ];
 

@@ -28,7 +28,7 @@ function formatDuration(ms: number): string {
 
 // ─── Types ──────────────────────────────────────────────────────────────
 
-type HealthCategory = 'github' | 'ai' | 'api' | 'webhooks' | 'mcp' | 'agents' | 'browser' | 'git' | 'sandbox';
+type HealthCategory = 'github' | 'ai' | 'api' | 'webhooks' | 'mcp' | 'agents' | 'browser' | 'git' | 'sandbox' | 'research' | 'planning';
 
 interface HealthResult {
     id: string;
@@ -77,6 +77,8 @@ const CATEGORY_META: Record<HealthCategory, { icon: React.ReactNode; label: stri
     browser:  { icon: <Globe className="w-5 h-5" />,      label: 'Browser Rendering',       color: 'text-teal-400' },
     git:      { icon: <GitBranch className="w-5 h-5" />,  label: 'Git & Sandbox',           color: 'text-emerald-400' },
     sandbox:  { icon: <Shield className="w-5 h-5" />,     label: 'Sandbox Container',       color: 'text-rose-400' },
+    research: { icon: <Activity className="w-5 h-5" />,   label: 'Deep Research',           color: 'text-fuchsia-400' },
+    planning: { icon: <Settings2 className="w-5 h-5" />,  label: 'Planning Orchestration',  color: 'text-sky-400' },
 };
 
 // ─── Detail Viewer ──────────────────────────────────────────────────────

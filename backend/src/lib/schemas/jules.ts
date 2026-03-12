@@ -46,6 +46,10 @@ export const PlanningRequestInputSchema = JulesCodingTaskInputSchema.extend({
   projectName: SafeStringSchema.optional(),
   stitchProjectId: SafeStringSchema.optional(),
   stitchScreenIds: z.array(SafeStringSchema).max(24).optional(),
+  requiresPlanApproval: z.boolean().optional().default(true),
+  autoOrchestrate: z.boolean().optional(),
+  autoImplement: z.boolean().optional(),
+  sourceContext: z.record(z.string(), z.unknown()).optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
 }).superRefine((value, ctx) => {
   if (
@@ -66,6 +70,42 @@ export const PlanningApprovalInputSchema = z.object({
   notes: SafeStringSchema.optional(),
 });
 
+export const PlanningDecisionInputSchema = z.object({
+  decision: z.enum(["approve", "revise", "reject"]),
+  actedBy: SafeStringSchema.optional().default("user"),
+  notes: SafeStringSchema.optional(),
+});
+
+export const PlanningDecisionActionSchema = z.object({
+  actedBy: SafeStringSchema.optional().default("user"),
+  notes: SafeStringSchema.optional(),
+});
+
+export const PlanningListQuerySchema = z.object({
+  q: SafeStringSchema.optional(),
+  status: PlanningRequestStatusSchema.optional(),
+  workstream: PlanningWorkstreamSchema.optional(),
+  projectId: SafeStringSchema.optional(),
+  projectName: SafeStringSchema.optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional().default(25),
+});
+
+export const PlanningSemanticQuerySchema = z.object({
+  query: SafeStringSchema,
+  requestId: SafeStringSchema.optional(),
+  projectId: SafeStringSchema.optional(),
+  projectName: SafeStringSchema.optional(),
+  topK: z.coerce.number().int().min(1).max(25).optional().default(8),
+}).superRefine((value, ctx) => {
+  if (!value.requestId && !value.projectId && !value.projectName) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "requestId, projectId, or projectName is required for semantic queries",
+      path: ["requestId"],
+    });
+  }
+});
+
 export const JulesCodingTaskErrorCodeSchema = z.enum([
   "INVALID_INPUT",
   "REQUEST_NOT_FOUND",
@@ -82,4 +122,8 @@ export type PlanningRequestStatus = z.infer<typeof PlanningRequestStatusSchema>;
 export type JulesCodingTaskInput = z.infer<typeof JulesCodingTaskInputSchema>;
 export type PlanningRequestInput = z.infer<typeof PlanningRequestInputSchema>;
 export type PlanningApprovalInput = z.infer<typeof PlanningApprovalInputSchema>;
+export type PlanningDecisionInput = z.infer<typeof PlanningDecisionInputSchema>;
+export type PlanningDecisionActionInput = z.infer<typeof PlanningDecisionActionSchema>;
+export type PlanningListQuery = z.infer<typeof PlanningListQuerySchema>;
+export type PlanningSemanticQuery = z.infer<typeof PlanningSemanticQuerySchema>;
 export type JulesCodingTaskErrorCode = z.infer<typeof JulesCodingTaskErrorCodeSchema>;

@@ -313,6 +313,8 @@ export class JulesService {
         agentId: params.agentId,
         specialistClass: params.specialistClass,
         projectId: params.projectId,
+        planningRequestId: params.planningRequestId,
+        sessionRole: params.sessionRole,
         createdAt: now,
         updatedAt: now,
         lastActivityAt: now,
@@ -527,6 +529,24 @@ export class JulesService {
     const session = await this.getSession(sessionId);
     await session.approve();
     this.updateSessionActivity(sessionId, "active").catch(console.error);
+  }
+
+  async reviseSessionPlan(sessionId: string, feedback: string): Promise<void> {
+    await this.sendMessage(
+      sessionId,
+      feedback || "Revise the current plan based on reviewer feedback and resubmit it for approval.",
+    );
+    this.updateSessionActivity(sessionId, "waiting_for_user").catch(console.error);
+  }
+
+  async rejectSessionPlan(sessionId: string, feedback?: string): Promise<void> {
+    if (feedback) {
+      await this.sendMessage(
+        sessionId,
+        `The current plan was rejected. Do not proceed. Reviewer feedback: ${feedback}`,
+      );
+    }
+    this.updateSessionActivity(sessionId, "failed").catch(console.error);
   }
 
   /**

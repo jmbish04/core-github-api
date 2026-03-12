@@ -45,6 +45,12 @@ export interface StartSessionParams {
 
   /** Project ID this session belongs to, for cross-session memory retrieval. */
   projectId?: string;
+
+  /** Planning request correlation when this session belongs to planning orchestration. */
+  planningRequestId?: string;
+
+  /** Logical role of the session within a planning flow. */
+  sessionRole?: string;
 }
 
 // ─── Webhook Event ────────────────────────────────────────────────────────────

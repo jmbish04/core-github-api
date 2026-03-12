@@ -13,3 +13,5 @@ export { DiscordResearchAgent } from './ai/agents/research/DiscordResearch';
 export { LandingPageAgent } from './ai/agents/LandingPageAgent';
 export { DiscordResearchWorkflow } from './workflows/research/discord';
 export { PlanningMonitor } from './do/PlanningMonitor';
+export { PlanningSupervisorAgent } from './ai/agents/planning/Supervisor';
+export { PlanningOrchestratorAgent } from './ai/agents/planning/Orchestrator';

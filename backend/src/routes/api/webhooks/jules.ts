@@ -117,6 +117,8 @@ async function persistEvent(
     rawPayload: unknown;
     stepName?: string;
     progressPct?: number;
+    planningRequestId?: string | null;
+    sessionRole?: string | null;
   }
 ): Promise<void> {
   try {
@@ -124,6 +126,8 @@ async function persistEvent(
     await db.insert(julesWebhookEvents).values({
       id: crypto.randomUUID(),
       julesSessionId: params.julesSessionId,
+      planningRequestId: params.planningRequestId || null,
+      sessionRole: params.sessionRole || null,
       eventType: params.eventType as any,
       message: params.message,
       stepName: params.stepName,
@@ -154,6 +158,11 @@ async function persistEvent(
 app.post("/event", zValidator("json", eventPayloadSchema), async (c) => {
   const payload = c.req.valid("json");
   const db = getDb(c.env.DB);
+  const [session] = await db
+    .select()
+    .from(julesSessions)
+    .where(eq(julesSessions.id, payload.jules_session_id))
+    .limit(1);
 
   // 1. Persist event
   await persistEvent(c.env, {
@@ -161,14 +170,9 @@ app.post("/event", zValidator("json", eventPayloadSchema), async (c) => {
     eventType: payload.event_type,
     message: payload.message,
     rawPayload: payload,
+    planningRequestId: session?.planningRequestId || null,
+    sessionRole: session?.sessionRole || null,
   });
-
-  // 2. Look up originating session for context
-  const [session] = await db
-    .select()
-    .from(julesSessions)
-    .where(eq(julesSessions.id, payload.jules_session_id))
-    .limit(1);
 
   const originalTask = session?.prompt
     ? session.prompt.substring(0, 120) + "..."
@@ -258,6 +262,11 @@ app.post("/event", zValidator("json", eventPayloadSchema), async (c) => {
 app.post("/status", zValidator("json", statusPayloadSchema), async (c) => {
   const payload = c.req.valid("json");
   const db = getDb(c.env.DB);
+  const [session] = await db
+    .select()
+    .from(julesSessions)
+    .where(eq(julesSessions.id, payload.jules_session_id))
+    .limit(1);
 
   // Persist the status as a progress event
   await persistEvent(c.env, {
@@ -267,6 +276,8 @@ app.post("/status", zValidator("json", statusPayloadSchema), async (c) => {
     stepName: payload.step_name,
     progressPct: payload.progress_pct,
     rawPayload: payload,
+    planningRequestId: session?.planningRequestId || null,
+    sessionRole: session?.sessionRole || null,
   });
 
   // Update session activity timestamps (background)
@@ -283,12 +294,6 @@ app.post("/status", zValidator("json", statusPayloadSchema), async (c) => {
   );
 
   // Look up session for context (best-effort, don't block)
-  const [session] = await db
-    .select({ prompt: julesSessions.prompt })
-    .from(julesSessions)
-    .where(eq(julesSessions.id, payload.jules_session_id))
-    .limit(1);
-
   // Broadcast progress update to all WebSocket subscribers
   const liveMessage: JulesLiveMessage = {
     ts: new Date().toISOString(),
