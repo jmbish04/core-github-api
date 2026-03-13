@@ -4,7 +4,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { ProjectFolder } from './ProjectFolder';
 import { useProjectStore } from '@/stores/useProjectStore';
 import { cn } from '@/lib/utils';
-import { Plus, LayoutGrid, Home, Activity, BookOpen, Settings, Wrench, FolderKanban, MessageSquare, Map, CheckSquare, ChevronRight, ChevronDown, FileText, Globe, Webhook, Bot } from 'lucide-react';
+import { Plus, LayoutGrid, Home, Activity, BookOpen, Settings, Wrench, FolderKanban, MessageSquare, Map, CheckSquare, ChevronRight, ChevronDown, FileText, Globe, Webhook, Bot, Telescope } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { HealthWidget } from '@/components/health/HealthWidget';
 import { getControlCenterUserId } from '@/lib/control-user';
@@ -27,6 +27,7 @@ export function AppSidebar({ className }: { className?: string }) {
   // The `tab` value must match the TabsTrigger `value` in Tools.tsx.
   // ============================================================
   const toolboxLinks = [
+    { label: 'Reverse Engineering', tab: '__reverse_engineering__', icon: Telescope },
     { label: 'PR Comment Extractor', tab: 'pr-extractor', icon: FileText },
     { label: 'Cloudflare Docs Agent', tab: 'cloudflare-docs', icon: Bot },
     { label: 'CF Docs Agent [Beta]', tab: 'cloudflare-docs-beta', icon: Bot },
@@ -112,7 +113,7 @@ export function AppSidebar({ className }: { className?: string }) {
                       className="w-full justify-start gap-3 h-8 px-2 font-normal text-muted-foreground hover:text-foreground"
                       asChild
                     >
-                      <NavLink to={`/tools/${tab}`}>
+                      <NavLink to={tab === '__reverse_engineering__' ? '/reverse-engineering' : `/tools/${tab}`}>
                         <Icon className="w-3.5 h-3.5 opacity-70" />
                         {label}
                       </NavLink>

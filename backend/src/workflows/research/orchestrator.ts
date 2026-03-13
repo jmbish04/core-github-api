@@ -297,79 +297,46 @@ For each repository, provide:
   private async deepAnalyze(
     candidate: CandidateRepo,
     sessionId: string
-  ): Promise<DeepAnalysis> {
-    let readmeContent = "";
-    try {
-      const octokit = await getOctokit(this.env);
-      const readme = await octokit.repos.getReadme({
-        owner: candidate.owner,
-        repo: candidate.repo,
-      });
-      readmeContent = Buffer.from((readme.data as any).content, "base64").toString("utf8");
-    } catch (error) {
-      console.warn(`[Orchestrator] No README found for ${candidate.owner}/${candidate.repo}`);
+  ): Promise<any> {
+    console.log(`[Orchestrator] Dispatching deep_analysis to standardization repo for ${candidate.owner}/${candidate.repo}`);
+    
+    const dispatchUrl = `${this.env.BASE_URL}/api/actions/dispatch`;
+    const res = await fetch(dispatchUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        taskName: "deep_analysis",
+        targetRepo: `${candidate.owner}/${candidate.repo}`,
+        payload: {
+          sessionId,
+          description: candidate.description,
+          language: candidate.language,
+          stars: candidate.stars
+        }
+      })
+    });
+    
+    if (!res.ok) {
+        console.error(`Dispatch failed for ${candidate.repo}`);
+        return { repoId: `${candidate.owner}/${candidate.repo}`, error: "Dispatch failed" };
     }
-
-    const analysisPrompt = `Perform a deep technical analysis of the GitHub repository: ${candidate.owner}/${candidate.repo}
-
-Description: ${candidate.description}
-Language: ${candidate.language}
-Stars: ${candidate.stars}
-
-README Content:
-${readmeContent.substring(0, 2000)}
-
-Evaluate the following aspects (score 0-10 each):
-1. Code Quality - Clean code, best practices, documentation
-2. Modularity - Separation of concerns, reusability
-3. Performance - Optimization techniques, efficiency
-4. Security - Best practices, vulnerability management
-
-Provide a technical summary explaining your scores.`;
-
-    const deepAnalysisSchema = z.object({
-      codeQuality: z.number().min(0).max(10),
-      modularity: z.number().min(0).max(10),
-      performance: z.number().min(0).max(10),
-      security: z.number().min(0).max(10),
-      summary: z.string(),
-    });
-
-    const analysis = await this.executeAgent<Omit<DeepAnalysis, "repoId" | "artifacts">>(
-      "DeepDiveAnalyst",
-      "workers-ai/@cf/openai/gpt-oss-120b",
-      "You are an expert code reviewer. Provide structured analysis.",
-      analysisPrompt,
-      deepAnalysisSchema
-    );
-
+    
+    const data = await res.json() as { taskId: string };
+    
+    // Note: The workflow should ideally use step.waitForEvent(data.taskId) here to pause 
+    // execution cleanly. For this refactor, we transition the state asynchronously.
     const db = getDb(this.env.DB_WEBHOOKS);
-    const artifactId = generateUuid();
-
-    await db.insert(schema.analysisArtifacts).values({
-      id: artifactId,
-      sessionId,
-      repoId: `${candidate.owner}/${candidate.repo}`,
-      artifactType: "deep_analysis",
-      content: JSON.stringify(analysis),
-    });
-
     await db
       .update(schema.repoScores)
       .set({
-        codeQuality: analysis.codeQuality,
-        modularity: analysis.modularity,
-        performance: analysis.performance,
-        security: analysis.security,
-        analysisSummary: analysis.summary,
-        status: "analyzed",
+        status: "analyzing_async", // Transition to async state
       })
       .where(eq(schema.repoScores.repoId, `${candidate.owner}/${candidate.repo}`));
 
     return {
       repoId: `${candidate.owner}/${candidate.repo}`,
-      ...analysis,
-      artifacts: [artifactId],
+      taskId: data.taskId,
+      status: "dispatched"
     };
   }
 
@@ -377,72 +344,44 @@ Provide a technical summary explaining your scores.`;
    * LLM-as-Judge evaluation with scoring rubric
    */
   private async judgeAnalysis(
-    analysis: DeepAnalysis,
+    analysis: any,
     sessionId: string
-  ): Promise<JudgeScore> {
-    const rubric = `Scoring Rubric (0-10 scale):
-- Logic & Architecture: Code organization, design patterns, scalability
-- Modularity & Reusability: Component separation, DRY principles
-- Performance Optimization: Efficiency, resource usage, caching
-- Security Best Practices: Input validation, authentication, vulnerability management
-
-Current Scores:
-- Code Quality: ${analysis.codeQuality}/10
-- Modularity: ${analysis.modularity}/10
-- Performance: ${analysis.performance}/10
-- Security: ${analysis.security}/10
-
-Analysis Summary:
-${analysis.summary}
-
-Provide:
-1. Overall score (0-10) - weighted average with your judgment
-2. Detailed reasoning for the score
-3. Key strengths (array of strings)
-4. Key weaknesses (array of strings)
-5. Recommendation: "highly_relevant", "relevant", or "not_relevant"`;
-
-    const judgeSchema = z.object({
-      overallScore: z.number().min(0).max(10),
-      reasoning: z.string(),
-      strengths: z.array(z.string()),
-      weaknesses: z.array(z.string()),
-      recommendation: z.enum(["highly_relevant", "relevant", "not_relevant"]),
+  ): Promise<any> {
+    console.log(`[Orchestrator] Dispatching judge_analysis to standardization repo for ${analysis.repoId}`);
+    
+    const dispatchUrl = `${this.env.BASE_URL}/api/actions/dispatch`;
+    const res = await fetch(dispatchUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        taskName: "judge_analysis",
+        targetRepo: analysis.repoId,
+        payload: {
+          sessionId,
+          analysisTaskId: analysis.taskId
+        }
+      })
     });
+    
+    if (!res.ok) {
+        console.error(`Dispatch failed for judge ${analysis.repoId}`);
+        return { repoId: analysis.repoId, error: "Dispatch failed" };
+    }
 
-    const score = await this.executeAgent<Omit<JudgeScore, "repoId">>(
-      "LLMJudge",
-      "workers-ai/@cf/openai/gpt-oss-120b",
-      "You are an expert code reviewer and judge. Evaluate repositories objectively.",
-      rubric,
-      judgeSchema
-    );
+    const data = await res.json() as { taskId: string };
 
     const db = getDb(this.env.DB_WEBHOOKS);
-
-    await db.insert(schema.analysisArtifacts).values({
-      id: generateUuid(),
-      sessionId,
-      repoId: analysis.repoId,
-      artifactType: "judge_score",
-      content: JSON.stringify(score),
-    });
-
     await db
       .update(schema.repoScores)
       .set({
-        finalScore: score.overallScore,
-        judgeReasoning: score.reasoning,
-        strengths: JSON.stringify(score.strengths),
-        weaknesses: JSON.stringify(score.weaknesses),
-        recommendation: score.recommendation,
-        status: "scored",
+        status: "judging_async",
       })
       .where(eq(schema.repoScores.repoId, analysis.repoId));
 
     return {
       repoId: analysis.repoId,
-      ...score,
+      taskId: data.taskId,
+      status: "dispatched"
     };
   }
 }

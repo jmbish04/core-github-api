@@ -12,6 +12,8 @@ import { JulesService } from "@/services/jules/service";
 import { createPlanningRequest, updatePlanningRequest } from "@/services/planning/store";
 import { broadcastPlanningEvent } from "@/services/planning/monitor";
 import { PlanningRequestInputSchema } from "@/lib/schemas/jules";
+import { ReverseEngineeringAuthSchema } from "@/lib/schemas/reverse-engineering";
+import { createReverseEngineeringSnapshot } from "@/services/reverse-engineering/store";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -120,6 +122,71 @@ app.post("/:id/planning/request", async (c) => {
     request,
     workflowInstanceId: instance.id,
     planningUrl: `/api/planning/${requestId}`,
+  });
+});
+
+/**
+ * POST /:id/reverse-engineering/request
+ * Convenience wrapper to create a reverse engineering snapshot from project context.
+ */
+app.post("/:id/reverse-engineering/request", async (c) => {
+  const db = getDb(c.env.DB);
+  const projectId = c.req.param("id");
+  const ctx = await fetchProjectContext(db, projectId);
+  if (!ctx || !ctx.repoOwner || !ctx.repoName) {
+    return c.json({ success: false, error: "Project repository context missing" }, 404);
+  }
+
+  const body = (await c.req.json().catch(() => ({}))) as {
+    branch?: string;
+    frontendUrl?: string;
+    auth?: unknown;
+    useSandboxPreview?: boolean;
+    title?: string;
+  };
+  const auth = body.auth ? ReverseEngineeringAuthSchema.parse(body.auth) : undefined;
+
+  const snapshotId = crypto.randomUUID();
+  const repoUrl = ctx.repoUrl || `https://github.com/${ctx.repoOwner}/${ctx.repoName}`;
+  const snapshot = await createReverseEngineeringSnapshot(c.env, {
+    snapshotId,
+    projectId,
+    githubOwner: ctx.repoOwner,
+    githubRepo: ctx.repoName,
+    repoUrl,
+    branch: body.branch || "main",
+    frontendUrl: body.frontendUrl,
+    auth,
+    title: body.title || `${ctx.repoOwner}/${ctx.repoName}`,
+    useSandboxPreview: body.useSandboxPreview ?? true,
+  });
+
+  const stubId = c.env.HONI_ORCHESTRATOR.idFromName(snapshotId);
+  const stub = c.env.HONI_ORCHESTRATOR.get(stubId);
+  await stub.fetch(
+    new Request("https://internal/run", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        snapshotId,
+        projectId,
+        owner: ctx.repoOwner,
+        repo: ctx.repoName,
+        repoUrl,
+        branch: body.branch || "main",
+        frontendUrl: body.frontendUrl,
+        auth,
+        useSandboxPreview: body.useSandboxPreview ?? true,
+        title: body.title || `${ctx.repoOwner}/${ctx.repoName}`,
+      }),
+    }),
+  );
+
+  return c.json({
+    success: true,
+    snapshotId,
+    snapshot,
+    detailUrl: `/api/reverse-engineering/snapshots/${snapshotId}`,
   });
 });
 

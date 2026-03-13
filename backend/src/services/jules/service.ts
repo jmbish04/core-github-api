@@ -209,22 +209,7 @@ export class JulesService {
     return (this.env as any).WORKER_HOST || "core-github-api.workers.dev";
   }
 
-  // ── Public API ───────────────────────────────────────────────────────────────
-
-  /**
-   * Starts a new Jules coding session.
-   *
-   * This method:
-   *   1. Appends the mandatory webhook instruction to the prompt
-   *   2. Creates a Jules SDK session (with retry on SourceNotFound)
-   *   3. Persists the session to `jules_sessions` in D1
-   *
-   * @param params - Session configuration (prompt, repo, agentId, projectId, etc.)
-   * @returns The initialized Jules session object from the SDK.
-   *
-   * @throws If the Jules SDK cannot create a session (non-SourceNotFound errors re-throw).
-   */
-  async startSession(params: StartSessionParams) {
+  private buildSessionPayload(params: StartSessionParams) {
     const sessionId = params.sessionId || crypto.randomUUID();
     const webhookInstruction = buildWebhookInstruction(
       this.getWorkerHost(),
@@ -232,7 +217,6 @@ export class JulesService {
     );
     const enrichedPrompt = `${params.prompt}\n\n${webhookInstruction}`;
 
-    const client = await this.getClient();
     const options: Record<string, unknown> = {
       id: sessionId,
       prompt: enrichedPrompt,
@@ -250,16 +234,22 @@ export class JulesService {
       };
     }
 
-    console.log(
-      `[JulesService] Starting session ${sessionId}: ${params.prompt.substring(0, 60)}...`
-    );
+    return {
+      sessionId,
+      enrichedPrompt,
+      options,
+    };
+  }
 
+  private async createSessionWithFallback(
+    client: any,
+    params: StartSessionParams,
+    payload: ReturnType<JulesService["buildSessionPayload"]>,
+  ) {
     let session: any;
     try {
-      session = await (client as any).session(options);
+      session = await client.session(payload.options);
     } catch (sessionError: any) {
-      // Graceful fallback: if Jules can't find the repo (e.g. private, or app not installed)
-      // retry without source so Jules can still work on the prompt without repo context.
       if (
         sessionError?.message?.includes("SourceNotFoundError") ||
         sessionError?.name === "SourceNotFoundError"
@@ -267,23 +257,91 @@ export class JulesService {
         console.warn(
           `[JulesService] Source not found for ${params.repo?.owner}/${params.repo?.repo}. Retrying without source...`
         );
-        delete options.source;
-        options.autoPr = false;
-        session = await (client as any).session(options);
+        delete payload.options.source;
+        payload.options.autoPr = false;
+        session = await client.session(payload.options);
       } else {
         throw sessionError;
       }
     }
 
-    const finalSessionId: string = session.id || sessionId;
+    return session;
+  }
+
+  // ── Public API ───────────────────────────────────────────────────────────────
+
+  /**
+   * Starts a new Jules coding session.
+   *
+   * This method:
+   *   1. Appends the mandatory webhook instruction to the prompt
+   *   2. Creates a Jules SDK session (with retry on SourceNotFound)
+   *   3. Persists the session to `jules_sessions` in D1
+   *
+   * @param params - Session configuration (prompt, repo, agentId, projectId, etc.)
+   * @returns The initialized Jules session object from the SDK.
+   *
+   * @throws If the Jules SDK cannot create a session (non-SourceNotFound errors re-throw).
+   */
+  async startSession(params: StartSessionParams) {
+    const client = await this.getClient();
+    const payload = this.buildSessionPayload(params);
+
+    console.log(
+      `[JulesService] Starting session ${payload.sessionId}: ${params.prompt.substring(0, 60)}...`
+    );
+
+    const session = await this.createSessionWithFallback(client as any, params, payload);
+
+    const finalSessionId: string = session.id || payload.sessionId;
     console.log(`[JulesService] Session created: ${finalSessionId}`);
 
     // Persist to D1 — fire-and-forget, do not block the response
-    this.persistSession(finalSessionId, enrichedPrompt, params).catch((err) =>
+    this.persistSession(finalSessionId, payload.enrichedPrompt, params).catch((err) =>
       console.error("[JulesService] Failed to persist session to D1:", err)
     );
 
     return session;
+  }
+
+  async startParallelSessions(paramsList: StartSessionParams[]) {
+    const client = await this.getClient();
+    const payloads = paramsList.map((params) => ({
+      params,
+      payload: this.buildSessionPayload(params),
+    }));
+
+    let sessions: any[] = [];
+
+    if (typeof (client as any).all === "function") {
+      try {
+        sessions = await (client as any).all(payloads.map((entry) => entry.payload.options));
+      } catch (error) {
+        console.warn("[JulesService] client.all() failed, falling back to Promise.all(session())", error);
+      }
+    }
+
+    if (sessions.length === 0) {
+      sessions = await Promise.all(
+        payloads.map((entry) =>
+          this.createSessionWithFallback(client as any, entry.params, entry.payload),
+        ),
+      );
+    }
+
+    await Promise.all(
+      sessions.map((session, index) =>
+        this.persistSession(
+          session.id || payloads[index]!.payload.sessionId,
+          payloads[index]!.payload.enrichedPrompt,
+          payloads[index]!.params,
+        ).catch((err) =>
+          console.error("[JulesService] Failed to persist parallel session to D1:", err),
+        ),
+      ),
+    );
+
+    return sessions;
   }
 
   /**
@@ -478,6 +536,49 @@ export class JulesService {
       error: info.error,
       outputs: parsedOutputs,
       rawResult: result,
+    };
+  }
+
+  async collectSessionOutcome(sessionOrId: string | any): Promise<{
+    sessionId: string;
+    state: string;
+    lastAgentMessage: string | null;
+    pullRequestUrl?: string;
+    generatedFiles: Array<{ path: string; content: string }>;
+    rawResult: any;
+  }> {
+    const session =
+      typeof sessionOrId === "string" ? await this.getSession(sessionOrId) : sessionOrId;
+    const outcome = await session.result();
+    const generatedFiles: Array<{ path: string; content: string }> = [];
+
+    const filesCollection =
+      typeof outcome?.generatedFiles === "function" ? outcome.generatedFiles() : null;
+
+    if (filesCollection && typeof filesCollection.entries === "function") {
+      for (const [path, file] of filesCollection.entries()) {
+        let content = "";
+        if (typeof file?.content === "string") {
+          content = file.content;
+        } else if (typeof file?.text === "function") {
+          content = await file.text();
+        } else if (typeof file === "string") {
+          content = file;
+        }
+
+        generatedFiles.push({ path, content });
+      }
+    }
+
+    return {
+      sessionId: String(session.id || outcome?.id || ""),
+      state: outcome?.state || "unknown",
+      lastAgentMessage:
+        typeof outcome?.lastAgentMessage === "string" ? outcome.lastAgentMessage : null,
+      pullRequestUrl:
+        typeof outcome?.pullRequest?.url === "string" ? outcome.pullRequest.url : undefined,
+      generatedFiles,
+      rawResult: outcome,
     };
   }
 

@@ -12,7 +12,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
-import { useAlerts, AlertType, AlertsConfig } from '@/context/alerts-context';
+import { useAlerts } from '@/context/alerts-context';
+import type { AlertType, AlertsConfig } from '@/context/alerts-context';
 import { cn } from '@/lib/utils';
 
 const ALERT_TYPES: Array<{ type: AlertType; label: string; description: string }> = [

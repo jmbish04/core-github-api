@@ -1,12 +1,14 @@
 import React, { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DollarSign, Cloud, Activity } from "lucide-react";
 
-export function CloudflareCosts() {
+const standaloneQueryClient = new QueryClient();
+
+function CloudflareCostsContent() {
     const [period, setPeriod] = useState("30d");
 
     const { data: fleetCosts, isLoading } = useQuery({
@@ -114,5 +116,17 @@ export function CloudflareCosts() {
                 </CardContent>
             </Card>
         </div>
+    );
+}
+
+export function CloudflareCosts() {
+    return <CloudflareCostsContent />;
+}
+
+export function StandaloneCloudflareCosts() {
+    return (
+        <QueryClientProvider client={standaloneQueryClient}>
+            <CloudflareCostsContent />
+        </QueryClientProvider>
     );
 }

@@ -1,4 +1,4 @@
-CREATE TABLE `pricing_change_log` (
+CREATE TABLE IF NOT EXISTS `pricing_change_log` (
 	`id` text PRIMARY KEY NOT NULL,
 	`provider` text NOT NULL,
 	`model_id` text NOT NULL,
@@ -20,11 +20,11 @@ CREATE TABLE `pricing_change_log` (
 	`detected_at` integer NOT NULL
 );
 --> statement-breakpoint
-CREATE INDEX `pricing_change_provider_idx` ON `pricing_change_log` (`provider`);--> statement-breakpoint
-CREATE INDEX `pricing_change_model_id_idx` ON `pricing_change_log` (`model_id`);--> statement-breakpoint
-CREATE INDEX `pricing_change_detected_at_idx` ON `pricing_change_log` (`detected_at`);--> statement-breakpoint
-CREATE INDEX `pricing_change_type_idx` ON `pricing_change_log` (`change_type`);--> statement-breakpoint
-CREATE TABLE `standardization_items` (
+CREATE INDEX IF NOT EXISTS `pricing_change_provider_idx` ON `pricing_change_log` (`provider`);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `pricing_change_model_id_idx` ON `pricing_change_log` (`model_id`);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `pricing_change_detected_at_idx` ON `pricing_change_log` (`detected_at`);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `pricing_change_type_idx` ON `pricing_change_log` (`change_type`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `standardization_items` (
 	`id` text PRIMARY KEY NOT NULL,
 	`title` text NOT NULL,
 	`rule` text NOT NULL,
@@ -34,7 +34,7 @@ CREATE TABLE `standardization_items` (
 	`timestamp_inactive` text
 );
 --> statement-breakpoint
-CREATE TABLE `standardization_tag_definitions` (
+CREATE TABLE IF NOT EXISTS `standardization_tag_definitions` (
 	`id` text PRIMARY KEY NOT NULL,
 	`name` text NOT NULL,
 	`description` text,
@@ -42,7 +42,7 @@ CREATE TABLE `standardization_tag_definitions` (
 	`is_active` integer DEFAULT true NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE `standardization_tag_mappings` (
+CREATE TABLE IF NOT EXISTS `standardization_tag_mappings` (
 	`id` text PRIMARY KEY NOT NULL,
 	`tag_id` text NOT NULL,
 	`standardization_item_id` text NOT NULL,
@@ -50,7 +50,7 @@ CREATE TABLE `standardization_tag_mappings` (
 	FOREIGN KEY (`standardization_item_id`) REFERENCES `standardization_items`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE TABLE `automation_logs` (
+CREATE TABLE IF NOT EXISTS `automation_logs` (
 	`id` text PRIMARY KEY NOT NULL,
 	`repo` text NOT NULL,
 	`automation_class` text NOT NULL,
@@ -60,7 +60,7 @@ CREATE TABLE `automation_logs` (
 	`created_at` text NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE `webhook_configs` (
+CREATE TABLE IF NOT EXISTS `webhook_configs` (	
 	`id` text PRIMARY KEY NOT NULL,
 	`automation_class` text NOT NULL,
 	`is_active` integer DEFAULT true NOT NULL,
@@ -69,4 +69,4 @@ CREATE TABLE `webhook_configs` (
 	`updated_at` text NOT NULL
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX `webhook_configs_automation_class_unique` ON `webhook_configs` (`automation_class`);
+CREATE UNIQUE INDEX IF NOT EXISTS `webhook_configs_automation_class_unique` ON `webhook_configs` (`automation_class`);

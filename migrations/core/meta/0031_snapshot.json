@@ -2,7 +2,7 @@
   "version": "6",
   "dialect": "sqlite",
   "id": "82e5cc83-e5fe-4c7d-8e06-dc0b28744640",
-  "prevId": "71a397f9-7650-4303-98f3-acf836286dbe",
+  "prevId": "309ceed3-25b8-487f-ad72-f9288c14994d",
   "tables": {
     "ai_cost_logs": {
       "name": "ai_cost_logs",

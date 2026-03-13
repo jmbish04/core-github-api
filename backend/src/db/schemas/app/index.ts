@@ -10,3 +10,6 @@ export * from './tags';
 export * from './golden_path';
 export * from './automation_rules';
 export * from './automation_runner_policies';
+export * from './action_logs';
+export * from './unified_action_logs';
+export * from './research_judgments';

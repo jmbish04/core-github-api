@@ -10,7 +10,9 @@ export async function checkHealth(env: Env): Promise<HealthStepResult> {
         { name: 'Gemini Agent', binding: env.GEMINI_AGENT, instance: 'health-check-probe' },
         { name: 'Planner', binding: env.PLANNER, instance: 'health-check-probe' },
         { name: 'Supervisor', binding: env.SUPERVISOR, instance: 'health-check-probe' },
-        { name: 'Deep Reasoning', binding: env.DEEP_REASONING_AGENT, instance: 'health-check-probe' }
+        { name: 'Deep Reasoning', binding: env.DEEP_REASONING_AGENT, instance: 'health-check-probe' },
+        { name: 'Reverse Engineering Orchestrator', binding: env.HONI_ORCHESTRATOR, instance: 'health-check-probe' },
+        { name: 'Reverse Engineering Consultant', binding: env.HONI_CONSULTANT, instance: 'health-check-probe' },
     ];
 
     const agentResults: Record<string, any> = {};

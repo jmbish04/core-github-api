@@ -7,20 +7,21 @@
 import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Bell, CheckCircle2, XCircle, AlertCircle, Info,
+  Bell, CheckCircle2, Info,
   Zap, Server, Brain, Shield, Filter, Clock,
   RefreshCcw, ExternalLink, X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
-import { useAlerts, Alert, AlertType, AlertSeverity } from '@/context/alerts-context';
+import { useAlerts } from '@/context/alerts-context';
+import type { Alert, AlertType, AlertSeverity } from '@/context/alerts-context';
 import { useAuth } from '@/context/auth-context';
 
 // ─── Type meta ────────────────────────────────────────────────────────────────
@@ -114,7 +115,7 @@ function AlertCard({ alert, onDismiss }: { alert: Alert; onDismiss?: () => void 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function AlertsPage() {
-  const { grouped, total, isLoading, refresh, dismissOne, dismissByType, dismissAll } = useAlerts();
+  const { grouped, total, isLoading, refresh, dismissOne, dismissAll } = useAlerts();
   const { apiKey } = useAuth();
 
   const [typeFilter, setTypeFilter] = useState<string>('all');

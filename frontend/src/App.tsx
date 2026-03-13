@@ -30,6 +30,8 @@ import { WorkshopTakeover } from "@/components/workshop/WorkshopTakeover";
 
 import { PRCommandCenter } from "@/views/control/global/PRCommandCenter";
 import Dashboard from "@/views/control/global/Dashboard";
+import ReverseEngineering from "@/views/control/global/ReverseEngineering";
+import ReverseEngineeringSnapshot from "@/views/control/global/ReverseEngineeringSnapshot";
 import Kanban from "@/views/control/global/Kanban";
 import Roadmap from "@/views/control/global/Roadmap";
 import Projects from "@/views/control/global/Projects";
@@ -94,6 +96,9 @@ function App() {
             <Route path="/docs/cloudflare-agent" element={<CloudflareDocsInfo />} />
 
             <Route path="/dashboard" element={guard(<Dashboard />)} />
+            <Route path="/reverse-engineering" element={guard(<ReverseEngineering />)} />
+            <Route path="/reverse-engineering/:snapshotId" element={guard(<ReverseEngineeringSnapshot />)} />
+            <Route path="/projects/:username/:repo_name/reverse-engineering" element={guard(<ReverseEngineering />)} />
             <Route path="/projects" element={guard(<Navigate to="/projects" replace />)} />
             <Route path="/projects/:username/:repo_name" element={guard(<ProjectDashboard />)} />
             <Route path="/projects/:username/:repo_name/:tab" element={guard(<ProjectDashboard />)} />
@@ -130,6 +135,7 @@ function App() {
             <Route path="/project/:owner/:repo/chat" element={guard(<Chat />)} />
             <Route path="/project/:owner/:repo/roadmap" element={guard(<Roadmap />)} />
             <Route path="/project/:owner/:repo/pr-center" element={guard(<PRCommandCenter />)} />
+            <Route path="/project/:owner/:repo/reverse-engineering" element={guard(<ReverseEngineering />)} />
             <Route path="/project/:owner/:repo/settings" element={guard(<Navigate to="/settings/general" replace />)} />
             <Route path="/project/:owner/:repo/icebox" element={guard(<Todo />)} />
             <Route path="/project/:owner/:repo/tools/:tool_name?" element={guard(<ToolsPage />)} />

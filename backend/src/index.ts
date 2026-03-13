@@ -6,8 +6,13 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
 import { handleStatelessMcpRequest } from '@/ai/mcp/http-handler';
 import planningApi from '@/routes/api/planning';
+import reverseEngineeringApi from '@/routes/api/reverse-engineering';
 import julesApi from '@/routes/api/jules';
 import julesWebhookApi from '@/routes/api/webhooks/jules';
+import actionsApi from '@/routes/api/actions';
+import actionCallbackApi from '@/routes/api/webhooks/action-callback';
+import actionWorkerWsApi from '@/routes/api/ws/action-worker';
+import researchJudgeApi from '@/routes/api/webhooks/research-judge';
 
 type McpEnv = Pick<Env, 'STITCH_API_KEY'>;
 
@@ -167,8 +172,13 @@ app.doc('/openapi.json', {
 app.get('/swagger', swaggerUI({ url: '/openapi.json' }));
 app.get('/scalar', (c) => c.html(renderScalarReference('/openapi.json')));
 app.route('/api/planning', planningApi);
+app.route('/api/reverse-engineering', reverseEngineeringApi);
 app.route('/api/jules', julesApi);
 app.route('/api/webhooks/jules', julesWebhookApi);
+app.route('/api/actions', actionsApi);
+app.route('/api/webhooks/action-callback', actionCallbackApi);
+app.route('/api/ws/action-worker', actionWorkerWsApi);
+app.route('/api/webhooks/research-judge', researchJudgeApi);
 
 // --- Operational Endpoints ---
 app.get('/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString() }));
@@ -197,6 +207,14 @@ async function handleMcp(c: Context<{ Bindings: Env }>) {
 app.all('/mcp', handleMcp);
 app.all('/mcp/*', handleMcp);
 
+app.notFound((c) => {
+  if (c.req.method === 'GET' || c.req.method === 'HEAD') {
+    return c.env.ASSETS.fetch(c.req.raw);
+  }
+
+  return c.json({ error: 'Not found' }, 404);
+});
+
 export default app;
 
 export { Sandbox } from '@cloudflare/sandbox';
@@ -222,8 +240,11 @@ export { DeepResearchChatAgent } from '@/ai/agents/DeepResearchChat';
 export { HealthDiagnostician } from '@/ai/agents/HealthDiagnostician';
 export { JulesWebhookBroadcaster } from '@/do/JulesWebhookBroadcaster';
 export { PlanningMonitor } from '@/do/PlanningMonitor';
+export { ReverseEngineeringMonitor } from '@/do/ReverseEngineeringMonitor';
 export { PlanningSupervisorAgent } from '@/ai/agents/planning/Supervisor';
 export { PlanningOrchestratorAgent } from '@/ai/agents/planning/Orchestrator';
+export { HoniOrchestrator } from '@/ai/agents/reverse-engineering/Orchestrator';
+export { HoniConsultant } from '@/ai/agents/reverse-engineering/Consultant';
 export { WorkshopAgent } from '@/ai/agents/workshop/WorkshopAgent';
 export { CfWorkshop_AgentsSdk } from '@/ai/agents/workshop/CfAgentsSdk';
 export { StandardizationAgent } from '@/ai/agents/StandardizationAgent';

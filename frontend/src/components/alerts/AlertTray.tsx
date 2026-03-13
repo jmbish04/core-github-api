@@ -14,14 +14,14 @@
 import { Link } from 'react-router-dom';
 import {
   CheckCircle2, XCircle, AlertCircle, Info, Zap,
-  GitBranch, Brain, Server, Shield, X, ArrowRight,
+  Brain, Server, Shield, X, ArrowRight,
   Bell, ExternalLink,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { useAlerts, Alert, AlertType, AlertSeverity } from '@/context/alerts-context';
+import { useAlerts } from '@/context/alerts-context';
+import type { Alert, AlertType, AlertSeverity } from '@/context/alerts-context';
 
 // ─── Meta ─────────────────────────────────────────────────────────────────────
 

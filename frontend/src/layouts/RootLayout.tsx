@@ -4,6 +4,7 @@ import { AppSidebar } from "@/components/layout/AppSidebar";
 import { HealthWidget } from "@/components/health/HealthWidget";
 import { UserNav } from "@/components/layout/UserNav";
 import { AlertBadge } from "@/components/alerts/AlertBadge";
+import { GlobalConsultantModal } from "@/components/reverse-engineering/GlobalConsultantModal";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,7 @@ export default function RootLayout() {
         { label: "Dashboard", href: "/dashboard" },
         { label: "Projects", href: "/projects" },
         { label: "Research", href: "/research" },
+        { label: "Reverse Engineering", href: "/reverse-engineering" },
         { label: "Health", href: "/health" },
         { label: "Workflows", href: "/workflows" },
         { label: "Webhooks", href: "/webhooks" },
@@ -80,6 +82,7 @@ export default function RootLayout() {
                 <div className="flex-1 h-full overflow-hidden relative">
                     <Outlet />
                 </div>
+                <GlobalConsultantModal />
             </main>
         </div>
     );

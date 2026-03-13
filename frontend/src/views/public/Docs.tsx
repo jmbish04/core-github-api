@@ -23,12 +23,13 @@ export default function DocsPage() {
             </div>
 
             <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-8">
-                <TabsList className="grid w-full grid-cols-1 md:grid-cols-4 h-auto p-1 bg-muted/50 rounded-xl">
+                <TabsList className="grid w-full grid-cols-1 md:grid-cols-6 h-auto p-1 bg-muted/50 rounded-xl">
                     <TabsTrigger value="architecture" className="py-3 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm">Architecture</TabsTrigger>
                     <TabsTrigger value="commands" className="py-3 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm">Slash Commands</TabsTrigger>
                     <TabsTrigger value="workflows" className="py-3 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm">Workflows</TabsTrigger>
                     <TabsTrigger value="jules" className="py-3 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm">Jules API</TabsTrigger>
                     <TabsTrigger value="configuration" className="py-3 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm">Configuration</TabsTrigger>
+                    <TabsTrigger value="reverse-engineering" className="py-3 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm">Reverse Engineering</TabsTrigger>
                 </TabsList>
 
                 {/* --- ARCHITECTURE TAB --- */}
@@ -231,6 +232,70 @@ GEMINI_API_KEY="... (For the Brain)"
 OPENAI_API_KEY="... (Optional, for fallbacks)"`}
                                 </pre>
                             </ScrollArea>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
+                <TabsContent value="reverse-engineering" className="space-y-6">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2"><GitPullRequest className="h-5 w-5 text-cyan-400" /> Reverse Engineering Toolkit</CardTitle>
+                            <CardDescription>Repository analysis into PRD, epics, user journeys, UX evidence, and backend architecture.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-5 text-sm text-muted-foreground">
+                            <p>
+                                The reverse-engineering pipeline uses a staged Honi + Jules workflow:
+                                repository research, preview URL resolution, authenticated Browser Rendering screenshots,
+                                parallel Jules analysis, and final synthesis into implementation-ready deliverables.
+                            </p>
+                            <p>
+                                Screenshot capture uses the Browser Rendering REST API, not the Worker binding, so auth
+                                can be injected with cookies, basic auth, or custom headers when the frontend requires it.
+                            </p>
+                            <div className="grid gap-4 md:grid-cols-2">
+                                <div className="rounded-lg border border-border/60 bg-card/40 p-4">
+                                    <h3 className="mb-2 font-semibold text-foreground">API Surface</h3>
+                                    <ul className="list-disc pl-5 space-y-1">
+                                        <li><strong>Analyze route:</strong> <code>POST /api/reverse-engineering/analyze</code></li>
+                                        <li><strong>List snapshots:</strong> <code>GET /api/reverse-engineering/snapshots</code></li>
+                                        <li><strong>Snapshot detail:</strong> <code>GET /api/reverse-engineering/snapshots/:id</code></li>
+                                        <li><strong>Snapshot events:</strong> <code>GET /api/reverse-engineering/snapshots/:id/events</code></li>
+                                        <li><strong>Live monitor:</strong> <code>GET /api/reverse-engineering/snapshots/:id/ws</code></li>
+                                        <li><strong>Resume auth:</strong> <code>POST /api/reverse-engineering/snapshots/:id/resume</code></li>
+                                        <li><strong>Consultant chat:</strong> <code>POST /api/reverse-engineering/snapshots/:id/consult</code></li>
+                                        <li><strong>PRD render:</strong> <code>GET /api/reverse-engineering/snapshots/:id/plan</code></li>
+                                        <li><strong>Raw markdown:</strong> <code>GET /api/reverse-engineering/snapshots/:id/plan.md</code></li>
+                                        <li><strong>Download markdown:</strong> <code>GET /api/reverse-engineering/snapshots/:id/download</code></li>
+                                    </ul>
+                                </div>
+                                <div className="rounded-lg border border-border/60 bg-card/40 p-4">
+                                    <h3 className="mb-2 font-semibold text-foreground">Durable Agents</h3>
+                                    <ul className="list-disc pl-5 space-y-1">
+                                        <li><strong>HoniOrchestrator</strong>: runs the three-stage repo research, Jules parallelization, and final synthesis loop.</li>
+                                        <li><strong>HoniConsultant</strong>: answers snapshot questions using stored D1 context plus Cloudflare docs MCP when infrastructure context is relevant.</li>
+                                        <li><strong>ReverseEngineeringMonitor</strong>: request-scoped WebSocket room for progress updates and event fan-out.</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div className="rounded-lg border border-border/60 bg-card/40 p-4">
+                                <h3 className="mb-2 font-semibold text-foreground">Persistence Model</h3>
+                                <ul className="list-disc pl-5 space-y-1">
+                                    <li><code>reverse_eng_snapshots</code>: request metadata, preview resolution, repo research, PRD markdown, epics, journeys, and lifecycle state.</li>
+                                    <li><code>reverse_eng_ux</code>: page-level code analysis, vision analysis, screenshot gallery, and synthesized UX outputs.</li>
+                                    <li><code>reverse_eng_backend</code>: endpoint inventory, data model, deployment model, integrations, and backend architecture markdown.</li>
+                                    <li><code>reverse_eng_events</code>: timeline of orchestration, auth pauses, screenshot capture, Jules stages, and completion/failure events.</li>
+                                </ul>
+                            </div>
+                            <div className="rounded-lg border border-border/60 bg-card/40 p-4">
+                                <h3 className="mb-2 font-semibold text-foreground">Preview and Auth Waterfall</h3>
+                                <ol className="list-decimal pl-5 space-y-1">
+                                    <li>Parse <code>wrangler.jsonc</code> or <code>wrangler.toml</code> and resolve <code>https://{'{worker-name}'}.hacolby.app</code>.</li>
+                                    <li>Fallback to the explicit frontend URL provided by the user.</li>
+                                    <li>Fallback again to Sandbox preview hosted on <code>core-github-api.hacolby.workers.dev</code>.</li>
+                                    <li>Before screenshots, inspect frontend code for auth requirements such as <code>WORKER_API_KEY</code>, <code>AGENTIC_WORKER_API_KEY</code>, cookies, query params, or custom headers.</li>
+                                    <li>If auth is required and not supplied, pause the snapshot in <code>awaiting_auth</code> and resume only when the user provides the method.</li>
+                                </ol>
+                            </div>
                         </CardContent>
                     </Card>
                 </TabsContent>

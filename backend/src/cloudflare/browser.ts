@@ -19,6 +19,19 @@ export type ContentRequest = {
 export type ScreenshotRequest = {
     url?: string;
     html?: string;
+    cookies?: Array<{
+        name: string;
+        value: string;
+        domain?: string;
+        path?: string;
+        secure?: boolean;
+        httpOnly?: boolean;
+    }>;
+    authenticate?: {
+        username: string;
+        password: string;
+    };
+    setExtraHTTPHeaders?: Record<string, string>;
     screenshotOptions?: {
         fullPage?: boolean;
         omitBackground?: boolean;

@@ -43,6 +43,7 @@ export const NAV_OPERATIONS: NavItem[] = [
 ];
 
 export const NAV_TOOLBOX: NavItem[] = [
+  { label: 'Reverse Engineering',  href: '/reverse-engineering',         description: 'Analyze a repository into PRD, epics, journeys, and UX evidence' },
   { label: 'PR Comment Extractor',  href: '/tools/pr-extractor',         description: 'Extract and analyze pull-request comments' },
   { label: 'Cloudflare Docs Agent', href: '/tools/cloudflare-docs',       description: 'AI agent for Cloudflare documentation Q&A' },
   { label: 'CF Docs Agent [Beta]',  href: '/tools/cloudflare-docs-beta',  description: 'Beta variant of the Cloudflare Docs Agent' },
@@ -69,6 +70,7 @@ export const NAV_PROJECT_CONTEXT: NavItem[] = [
   { label: 'Project Chat',            href: '/project/:owner/:repo/chat',       description: 'Per-project AI chat' },
   { label: 'Project Roadmap',         href: '/project/:owner/:repo/roadmap',    description: 'Per-project roadmap' },
   { label: 'Project PR Center',       href: '/project/:owner/:repo/pr-center',  description: 'Pull-request command center' },
+  { label: 'Project Reverse Engineering', href: '/project/:owner/:repo/reverse-engineering', description: 'Run reverse-engineering analysis for a project repository' },
   { label: 'Project Tools',           href: '/project/:owner/:repo/tools',      description: 'Per-project toolbox' },
   { label: 'Project Cloudflare Docs', href: '/project/:owner/:repo/tools/cloudflare-docs', description: 'Project-scoped Cloudflare Docs Agent' },
 ];

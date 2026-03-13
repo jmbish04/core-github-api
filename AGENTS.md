@@ -225,3 +225,8 @@ We are deploying a dedicated **Agentic Research Team** consisting of a stateful 
 1.  **MCP**: Verify tools `gh_official_search` and `gh_official_read` are available in the Agent's tool list.
 2.  **Research**: Send "Analyze facebook/react" to `ResearchAgent`. Verify Workflow logs showing Sandbox clone.
 3.  **Email**: Trigger cron manually via `npx wrangler triggers fire --name "daily-scan"`.
+
+## Cross-Repository Architecture & Actions
+
+- **Rule:** the `core-github-standardization` repository is the source of truth for CI/CD templates, heavy-lifting Python scripts, and global GitHub Actions.
+- **Rule:** Any modification to an async task requires two PRs: One to `core-github-standardization` to update the python/yaml logic, and one to `core-github-api` to update the Zod schemas and D1 ingestion logic.
