@@ -327,20 +327,16 @@ tasksApi.patch('/tasks/:id', async (c) => {
         }
     };
 
-    if (nextStatus !== currentStatus) {
-        updatePayload.status = nextStatus;
-        ghUpdates.state = nextStatus === TaskStatus.DONE ? 'closed' : 'open';
-    }
-    if (nextColumn !== currentColumn) updatePayload.kanbanColumn = nextColumn;
-
+    processUpdate('status', nextStatus, currentStatus, 'state', v => v === TaskStatus.DONE ? 'closed' : 'open');
+    processUpdate('kanbanColumn', nextColumn, currentColumn);
     processUpdate('position', position, task.position);
     processUpdate('title', title, task.title, 'title');
     processUpdate('description', description, task.description, 'body');
     processUpdate('assignee', assignee, task.assignee, 'assignees', v => v ? [v] : []);
 
     const { startAt, endAt } = calculateTaskTimestamps(nextStatus, nextColumn, task.startAt || null, task.endAt || null, now);
-    if (startAt !== undefined && startAt !== task.startAt) updatePayload.startAt = startAt;
-    if (endAt !== undefined && endAt !== task.endAt) updatePayload.endAt = endAt;
+    processUpdate('startAt', startAt, task.startAt);
+    processUpdate('endAt', endAt, task.endAt);
 
     // Sync to GitHub if linked and updates exist
     if (Object.keys(ghUpdates).length > 0) {
