@@ -123,6 +123,26 @@ function getBaseContext(c: any) {
     };
 }
 
+function calculateTaskTimestamps(status: TaskStatus, column: KanbanColumn, currentStartAt: string | null, currentEndAt: string | null, now: string) {
+    let startAt = currentStartAt;
+    let endAt = currentEndAt;
+
+    const isInProgress = status === TaskStatus.IN_PROGRESS || column === KanbanColumn.IN_PROGRESS;
+    const isDone = status === TaskStatus.DONE || column === KanbanColumn.DONE;
+
+    if (isInProgress && !startAt) {
+        startAt = now;
+    }
+
+    if (isDone) {
+        endAt = now;
+    } else if (endAt) {
+        endAt = null;
+    }
+
+    return { startAt, endAt };
+}
+
 const tasksApi = new Hono<{ Bindings: Env }>();
 
 // GET /api/repos/:owner/:repo/tasks
@@ -238,15 +258,7 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
     const initialStatus = (status as TaskStatus) || TaskStatus.TODO;
     const initialColumn = StatusMapper.mapStatusToColumn(initialStatus);
 
-    let startAt: string | undefined;
-
-    // If initial status implies progress, set startAt
-    if (initialStatus === TaskStatus.IN_PROGRESS || initialColumn === KanbanColumn.IN_PROGRESS) {
-        startAt = now;
-    }
-
-    let dbSuccess = true;
-    let dbError = null;
+    const { startAt } = calculateTaskTimestamps(initialStatus, initialColumn, null, null, now);
 
     try {
         await db.insert(tasks).values({
@@ -264,24 +276,11 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
             startAt: startAt
         });
     } catch (e: any) {
-        dbSuccess = false;
-        dbError = e.message;
-    }
-
-    await logTaskEvent(
-        db,
-        requestId,
-        newId,
-        issue.number,
-        'db_task_create',
-        dbSuccess ? 'success' : 'failed',
-        dbError ? { error: dbError } : undefined
-    );
-
-    if (!dbSuccess) {
+        await logTaskEvent(db, requestId, newId, issue.number, 'db_task_create', 'failed', { error: e.message });
         return c.json({ success: false, error: 'Failed to save local task' }, 500);
     }
 
+    await logTaskEvent(db, requestId, newId, issue.number, 'db_task_create', 'success');
     return c.json({ success: true, id: newId });
 });
 
@@ -365,20 +364,11 @@ tasksApi.patch('/tasks/:id', async (c) => {
         );
     }
 
-    // Logic: Set startAt if moving to active state and not set
-    const isInProgress = nextStatus === TaskStatus.IN_PROGRESS || nextColumn === KanbanColumn.IN_PROGRESS;
-    const isDone = nextStatus === TaskStatus.DONE || nextColumn === KanbanColumn.DONE;
+    // Logic: Calculate Timestamps
+    const { startAt, endAt } = calculateTaskTimestamps(nextStatus, nextColumn, task.startAt, task.endAt, now);
 
-    if (isInProgress && !task.startAt) {
-        updatePayload.startAt = now;
-    }
-
-    if (isDone) {
-        updatePayload.endAt = now;
-    } else if (task.endAt) {
-        // If moving OUT of done, reset endAt
-        updatePayload.endAt = null;
-    }
+    if (startAt !== task.startAt) updatePayload.startAt = startAt;
+    if (endAt !== task.endAt) updatePayload.endAt = endAt;
 
     // Update Local
     await db.update(tasks)
