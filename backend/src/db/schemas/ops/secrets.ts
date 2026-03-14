@@ -25,14 +25,6 @@ import { createInsertSchema } from 'drizzle-zod';
  * Stores references to secrets provisioned in Cloudflare Secrets Store.
  * The `name` is the canonical identifier used in Worker bindings.
  */
-export const secretsConfig = sqliteTable('secrets_config', {
-  /** Cloudflare-compatible secret name (alphanumeric, underscores, hyphens only). */
-  name: text('name').primaryKey(),
-  /** The plaintext secret value — stored only temporarily; prefer Secrets Store IDs for production. */
-  value: text('value').notNull(),
-  /** Optional human-readable description for the admin UI. */
-  description: text('description'),
-});
 
 // ─── Derived Zod schema ───────────────────────────────────────────────────────
 
