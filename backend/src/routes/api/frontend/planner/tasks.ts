@@ -55,6 +55,45 @@ async function logTaskEvent(
 }
 
 /**
+ * Core functionality to execute a GitHub Action and log it.
+ */
+async function executeGithubAction(
+    db: ReturnType<typeof getDb>,
+    actionFn: () => Promise<any>,
+    logOptions: {
+        requestId: string;
+        taskId: string | null;
+        githubIssueId: number | null;
+        eventType: string;
+        details?: any;
+    }
+) {
+    let result = null;
+    let actionError = null;
+    let isSuccess = false;
+
+    try {
+        result = await actionFn();
+        isSuccess = !!result;
+    } catch (e: any) {
+        actionError = e.message;
+    }
+
+    const details = actionError ? { error: actionError, ...logOptions.details } : logOptions.details;
+    await logTaskEvent(
+        db,
+        logOptions.requestId,
+        logOptions.taskId,
+        logOptions.githubIssueId,
+        logOptions.eventType,
+        isSuccess ? 'success' : 'failed',
+        details
+    );
+
+    return result;
+}
+
+/**
  * Execute a GitHub Action if the task is linked to a repository.
  */
 async function performGithubAction(
@@ -76,31 +115,23 @@ async function performGithubAction(
 
     const { owner, name } = repoRecord;
 
-    let result = null;
-    let actionError = null;
-    let isSuccess = false;
-
-    try {
-        result = await actionFn(owner, name, githubIssueId);
-        isSuccess = !!result;
-    } catch (e: any) {
-        actionError = e.message;
+    if (!logOptions) {
+        // Fallback for calls without logOptions to just try the action
+        try {
+            return await actionFn(owner, name, githubIssueId);
+        } catch (e) {
+            return null;
+        }
     }
 
-    if (logOptions) {
-        const details = actionError ? { error: actionError, ...logOptions.details } : logOptions.details;
-        await logTaskEvent(
-            db,
-            logOptions.requestId,
-            logOptions.taskId,
-            githubIssueId,
-            logOptions.eventType,
-            isSuccess ? 'success' : 'failed',
-            details
-        );
-    }
-
-    return result;
+    return await executeGithubAction(
+        db,
+        () => actionFn(owner, name, githubIssueId),
+        {
+            ...logOptions,
+            githubIssueId
+        }
+    );
 }
 
 function getTaskById(db: ReturnType<typeof getDb>, id: string) {
@@ -116,6 +147,31 @@ function getRepoById(db: ReturnType<typeof getDb>, id: string) {
 }
 
 const tasksApi = new Hono<{ Bindings: Env }>();
+
+function calculateTaskTimestamps(
+    status: TaskStatus,
+    column: KanbanColumn,
+    currentStartAt: string | null,
+    currentEndAt: string | null,
+    now: string
+): { startAt?: string; endAt?: string | null } {
+    const isActive = status === TaskStatus.IN_PROGRESS || column === KanbanColumn.IN_PROGRESS;
+    const isDone = status === TaskStatus.DONE || column === KanbanColumn.DONE;
+
+    const updates: { startAt?: string; endAt?: string | null } = {};
+
+    if (isActive && !currentStartAt) {
+        updates.startAt = now;
+    }
+
+    if (isDone) {
+        updates.endAt = now;
+    } else if (currentEndAt) {
+        updates.endAt = null;
+    }
+
+    return updates;
+}
 
 function getBaseContext(c: any) {
     const db = getDb(c.env.DB);
@@ -231,10 +287,8 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
 
     let startAt: string | undefined;
 
-    // If initial status implies progress, set startAt
-    if (initialStatus === TaskStatus.IN_PROGRESS || initialColumn === KanbanColumn.IN_PROGRESS) {
-        startAt = now;
-    }
+    const timestamps = calculateTaskTimestamps(initialStatus, initialColumn, null, null, now);
+    startAt = timestamps.startAt;
 
     let dbSuccess = true;
     let dbError = null;
@@ -325,41 +379,37 @@ tasksApi.patch('/tasks/:id', async (c) => {
         updatePayload.kanbanColumn = nextColumn;
     }
 
-    // GitHub state depends on the target status
-    if (task.githubIssueId) {
-        if (nextStatus === TaskStatus.DONE) githubUpdates.state = 'closed';
-        else githubUpdates.state = 'open';
+    if (position !== undefined && position !== task.position) {
+        updatePayload.position = position;
     }
 
-    if (position !== undefined) updatePayload.position = position;
-    if (title !== undefined) {
+    // Shared check for title
+    if (title !== undefined && title !== task.title) {
         updatePayload.title = title;
         if (task.githubIssueId) githubUpdates.title = title;
     }
-    if (description !== undefined) {
+
+    // Shared check for description
+    if (description !== undefined && description !== task.description) {
         updatePayload.description = description;
         if (task.githubIssueId) githubUpdates.body = description;
     }
-    if (assignee !== undefined) {
+
+    // Shared check for assignee
+    if (assignee !== undefined && assignee !== task.assignee) {
         updatePayload.assignee = assignee;
         if (task.githubIssueId) githubUpdates.assignees = assignee ? [assignee] : [];
     }
 
-    // Abstract repetitive status evaluations
-    const isActive = nextStatus === TaskStatus.IN_PROGRESS || nextColumn === KanbanColumn.IN_PROGRESS;
-    const isDone = (nextStatus as TaskStatus) === TaskStatus.DONE || (nextColumn as KanbanColumn) === KanbanColumn.DONE;
-
-    // Logic: Set startAt if moving to active state and not set
-    if (isActive && !task.startAt) {
-        updatePayload.startAt = now;
+    // GitHub state depends on the target status
+    if (task.githubIssueId && nextStatus !== currentStatus) {
+        if (nextStatus === TaskStatus.DONE) githubUpdates.state = 'closed';
+        else githubUpdates.state = 'open';
     }
 
-    if (isDone) {
-        updatePayload.endAt = now;
-    } else if (task.endAt) {
-        // If moving OUT of done, reset endAt
-        updatePayload.endAt = null;
-    }
+    const timestamps = calculateTaskTimestamps(nextStatus, nextColumn, task.startAt, task.endAt, now);
+    if (timestamps.startAt !== undefined) updatePayload.startAt = timestamps.startAt;
+    if (timestamps.endAt !== undefined) updatePayload.endAt = timestamps.endAt;
 
     // Sync to GitHub if linked and there are updates
     if (task.githubIssueId && Object.keys(githubUpdates).length > 0) {
