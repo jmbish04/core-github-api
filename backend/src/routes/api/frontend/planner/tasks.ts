@@ -239,9 +239,6 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
         startAt = now;
     }
 
-    let dbSuccess = true;
-    let dbError = null;
-
     try {
         await db.insert(tasks).values({
             id: newId,
@@ -258,24 +255,11 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
             startAt: startAt
         });
     } catch (e: any) {
-        dbSuccess = false;
-        dbError = e.message;
-    }
-
-    await logTaskEvent(
-        db,
-        requestId,
-        newId,
-        issue.number,
-        'db_task_create',
-        dbSuccess ? 'success' : 'failed',
-        dbError ? { error: dbError } : undefined
-    );
-
-    if (!dbSuccess) {
+        await logTaskEvent(db, requestId, newId, issue.number, 'db_task_create', 'failed', { error: e.message });
         return c.json({ success: false, error: 'Failed to save local task' }, 500);
     }
 
+    await logTaskEvent(db, requestId, newId, issue.number, 'db_task_create', 'success');
     return c.json({ success: true, id: newId });
 });
 
@@ -425,6 +409,7 @@ tasksApi.delete('/tasks/:id', async (c) => {
     const { id } = c.req.param();
     const db = getDb(c.env.DB);
     const requestId = generateUuid();
+    const now = new Date().toISOString();
 
     const task = await getTaskById(db, id);
     if (!task) return c.json({ success: false, error: 'Task not found' }, 404);
@@ -442,7 +427,7 @@ tasksApi.delete('/tasks/:id', async (c) => {
     await db.update(tasks)
         .set({
             isDeleted: 1,
-            updatedAt: new Date().toISOString()
+            updatedAt: now
         })
         .where(eq(tasks.id, id));
 
