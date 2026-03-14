@@ -113,12 +113,26 @@ async function logTaskEvent(
     }
 }
 
+function initRequest(c: import('hono').Context<{ Bindings: import('@utils/hono').Bindings }>) {
+    const db = getDb(c.env.DB);
+    const requestId = generateUuid();
+    const now = new Date().toISOString();
+    return { db, requestId, now };
+}
+
+function initRepoRequest(c: import('hono').Context<{ Bindings: import('@utils/hono').Bindings }>) {
+    const { owner, repo } = c.req.param();
+    const db = getDb(c.env.DB);
+    const requestId = generateUuid();
+    const now = new Date().toISOString();
+    return { owner, repo, db, requestId, now };
+}
+
 const tasksApi = new Hono<{ Bindings: Env }>();
 
 // GET /api/repos/:owner/:repo/tasks
 tasksApi.get('/repos/:owner/:repo/tasks', async (c) => {
-    const { owner, repo } = c.req.param();
-    const db = getDb(c.env.DB);
+    const { owner, repo, db } = initRepoRequest(c);
 
     // Resolve repo ID
     const repoRecord = await getRepoByOwnerAndName(db, owner, repo);
@@ -139,7 +153,7 @@ tasksApi.get('/repos/:owner/:repo/tasks', async (c) => {
 
 // GET /api/tasks (Global list)
 tasksApi.get('/', async (c) => {
-    const db = getDb(c.env.DB);
+    const { db } = initRequest(c);
     // Join with repos to get context if needed, or just return flat
     const rows = await db.select().from(tasks).where(eq(tasks.isDeleted, 0)).limit(100).orderBy(tasks.updatedAt);
     
@@ -162,12 +176,9 @@ tasksApi.get('/', async (c) => {
 
 // POST /api/repos/:owner/:repo/tasks (Create Task & Issue)
 tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
-    const { owner, repo } = c.req.param();
     const body = await c.req.json();
     const { title, description, status, assignee } = body as any;
-    const db = getDb(c.env.DB);
-    const requestId = generateUuid();
-    const now = new Date().toISOString();
+    const { owner, repo, db, requestId, now } = initRepoRequest(c);
 
     // Log API Request
     await logTaskEvent(db, requestId, null, null, 'api_request_create_task', 'pending', { owner, repo, body });
@@ -230,9 +241,7 @@ tasksApi.patch('/tasks/:id', async (c) => {
     const { id } = c.req.param();
     const body = await c.req.json();
     const { status, position, title, description, assignee, kanbanColumn } = body as any;
-    const db = getDb(c.env.DB);
-    const requestId = generateUuid();
-    const now = new Date().toISOString();
+    const { db, requestId, now } = initRequest(c);
 
     // Get current task
     const task = await getTaskById(db, id);
@@ -325,9 +334,7 @@ tasksApi.patch('/tasks/:id', async (c) => {
 tasksApi.post('/tasks/:id/comments', async (c) => {
     const { id } = c.req.param();
     const { content, author } = await c.req.json() as any;
-    const db = getDb(c.env.DB);
-    const requestId = generateUuid();
-    const now = new Date().toISOString();
+    const { db, requestId, now } = initRequest(c);
 
     const task = await getTaskById(db, id);
     if (!task) return c.json({ success: false, error: 'Task not found' }, 404);
@@ -358,9 +365,7 @@ tasksApi.post('/tasks/:id/comments', async (c) => {
 // DELETE /api/tasks/:id (Soft delete)
 tasksApi.delete('/tasks/:id', async (c) => {
     const { id } = c.req.param();
-    const db = getDb(c.env.DB);
-    const requestId = generateUuid();
-    const now = new Date().toISOString();
+    const { db, requestId, now } = initRequest(c);
 
     const task = await getTaskById(db, id);
     await syncWithGitHubIssue(db, task, async (owner, name, issueNumber) => {
