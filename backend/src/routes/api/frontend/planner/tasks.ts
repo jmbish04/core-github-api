@@ -176,8 +176,7 @@ tasksApi.get('/', async (c) => {
         return context.phases.flatMap((p: any) => {
             if (!p.tasks || !Array.isArray(p.tasks)) return [];
             return p.tasks.map((t: any) => {
-                const mappedStatus = t.status === 'not_started' ? TaskStatus.TODO :
-                                     t.status === 'in_progress' ? TaskStatus.IN_PROGRESS : TaskStatus.DONE;
+                const mappedStatus = t.status === 'not_started' ? TaskStatus.TODO : (t.status === 'in_progress' ? TaskStatus.IN_PROGRESS : TaskStatus.DONE);
                 return {
                     id: `${w.id}-${p.phase_number}-${t.task_number}`,
                     repoId: w.repoId,
@@ -288,14 +287,13 @@ tasksApi.patch('/tasks/:id', async (c) => {
     // Determines updates for GitHub
     // Sync to GitHub if linked
     if (task.githubIssueId) {
-        const updates: any = {};
         const targetStatus = (status as TaskStatus) || task.status as TaskStatus;
+        const updates: any = {
+            state: targetStatus === TaskStatus.DONE ? 'closed' : 'open'
+        };
 
-        if (targetStatus === TaskStatus.DONE) updates.state = 'closed';
-        else updates.state = 'open';
-
-        if (title) updates.title = title;
-        if (description) updates.body = description;
+        if (title !== undefined) updates.title = title;
+        if (description !== undefined) updates.body = description;
         if (assignee !== undefined) updates.assignees = assignee ? [assignee] : [];
 
         if (Object.keys(updates).length > 0) {
@@ -328,23 +326,20 @@ tasksApi.patch('/tasks/:id', async (c) => {
         if (syncedColumn) nextColumn = syncedColumn;
     }
 
+    // Update Timestamps
+    const { startAt, endAt } = calculateTaskTimestamps(nextStatus, nextColumn, now, task.startAt, task.endAt);
+
     // Prepare DB Update Payload
-    const updatePayload: any = {
-        updatedAt: now
-    };
+    const updatePayload: any = { updatedAt: now };
 
     if (nextStatus !== currentStatus) updatePayload.status = nextStatus;
     if (nextColumn !== currentColumn) updatePayload.kanbanColumn = nextColumn;
-
+    if (startAt !== task.startAt) updatePayload.startAt = startAt;
+    if (endAt !== task.endAt) updatePayload.endAt = endAt;
     if (position !== undefined) updatePayload.position = position;
     if (title !== undefined) updatePayload.title = title;
     if (description !== undefined) updatePayload.description = description;
     if (assignee !== undefined) updatePayload.assignee = assignee;
-
-    // Update Timestamps
-    const { startAt, endAt } = calculateTaskTimestamps(nextStatus, nextColumn, now, task.startAt, task.endAt);
-    if (startAt !== task.startAt) updatePayload.startAt = startAt;
-    if (endAt !== task.endAt) updatePayload.endAt = endAt;
 
     // Update Local
     await updateLocalTask(db, task, updatePayload, requestId, 'db_task_update');
