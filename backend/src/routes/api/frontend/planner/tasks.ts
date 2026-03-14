@@ -22,7 +22,7 @@ export const TASK_STATUSES = [
  * Log a Task Audit Event
  */
 async function logTaskEvent(
-    db: any,
+    db: ReturnType<typeof getDb>,
     requestId: string,
     taskId: string | null,
     githubIssueId: number | null,
@@ -58,7 +58,7 @@ async function logTaskEvent(
  * Execute a GitHub Action if the task is linked to a repository.
  */
 async function performGithubAction(
-    db: any,
+    db: ReturnType<typeof getDb>,
     repoId: string,
     githubIssueId: number | null,
     actionFn: (owner: string, repoName: string, issueNumber: number) => Promise<any>,
@@ -71,31 +71,48 @@ async function performGithubAction(
 ) {
     if (!githubIssueId) return null;
 
-    const repoRecord = await db.select().from(repos).where(eq(repos.id, repoId)).limit(1);
-    if (!repoRecord.length) return null;
+    const repoRecord = await getRepoById(db, repoId);
+    if (!repoRecord || !repoRecord.length) return null;
 
     const { owner, name } = repoRecord[0];
 
+    let result = null;
+    let actionError = null;
+    let isSuccess = false;
+
     try {
-        const result = await actionFn(owner, name, githubIssueId);
-        if (logOptions) {
-            await logTaskEvent(db, logOptions.requestId, logOptions.taskId, githubIssueId, logOptions.eventType, result ? 'success' : 'failed', logOptions.details);
-        }
-        return result;
+        result = await actionFn(owner, name, githubIssueId);
+        isSuccess = !!result;
     } catch (e: any) {
-        if (logOptions) {
-            await logTaskEvent(db, logOptions.requestId, logOptions.taskId, githubIssueId, logOptions.eventType, 'failed', { error: e.message, ...logOptions.details });
-        }
-        return null;
+        actionError = e.message;
     }
+
+    if (logOptions) {
+        const details = actionError ? { error: actionError, ...logOptions.details } : logOptions.details;
+        await logTaskEvent(
+            db,
+            logOptions.requestId,
+            logOptions.taskId,
+            githubIssueId,
+            logOptions.eventType,
+            isSuccess ? 'success' : 'failed',
+            details
+        );
+    }
+
+    return result;
 }
 
-async function getTaskById(db: any, id: string) {
-    return await db.select().from(tasks).where(eq(tasks.id, id)).limit(1);
+function getTaskById(db: ReturnType<typeof getDb>, id: string) {
+    return db.select().from(tasks).where(eq(tasks.id, id)).limit(1);
 }
 
-async function getRepoByOwnerAndName(db: any, owner: string, repo: string) {
-    return await db.select().from(repos).where(and(eq(repos.owner, owner), eq(repos.name, repo))).limit(1);
+function getRepoByOwnerAndName(db: ReturnType<typeof getDb>, owner: string, repo: string) {
+    return db.select().from(repos).where(and(eq(repos.owner, owner), eq(repos.name, repo))).limit(1);
+}
+
+function getRepoById(db: ReturnType<typeof getDb>, id: string) {
+    return db.select().from(repos).where(eq(repos.id, id)).limit(1);
 }
 
 const tasksApi = new Hono<{ Bindings: Env }>();
@@ -214,6 +231,9 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
         startAt = now;
     }
 
+    let dbSuccess = true;
+    let dbError = null;
+
     try {
         await db.insert(tasks).values({
             id: newId,
@@ -229,9 +249,22 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
             updatedAt: now,
             startAt: startAt
         });
-        await logTaskEvent(db, requestId, newId, issue.number, 'db_task_create', 'success');
     } catch (e: any) {
-        await logTaskEvent(db, requestId, newId, issue.number, 'db_task_create', 'failed', { error: e.message });
+        dbSuccess = false;
+        dbError = e.message;
+    }
+
+    await logTaskEvent(
+        db,
+        requestId,
+        newId,
+        issue.number,
+        'db_task_create',
+        dbSuccess ? 'success' : 'failed',
+        dbError ? { error: dbError } : undefined
+    );
+
+    if (!dbSuccess) {
         return c.json({ success: false, error: 'Failed to save local task' }, 500);
     }
 
