@@ -70,13 +70,13 @@ function getRequestContext(c: Context<{ Bindings: Bindings }>) {
  * Common DB queries for single records
  */
 const getRepoByOwnerAndName = (db: ReturnType<typeof getDb>, owner: string, name: string) =>
-    db.select().from(repos).where(and(eq(repos.owner, owner), eq(repos.name, name))).limit(1).then(res => res[0] || null);
+    db.select().from(repos).where(and(eq(repos.owner, owner), eq(repos.name, name))).limit(1).then((res: any[]) => res[0] || null);
 
 const getRepoById = (db: ReturnType<typeof getDb>, id: string) =>
-    db.select().from(repos).where(eq(repos.id, id)).limit(1).then(res => res[0] || null);
+    db.select().from(repos).where(eq(repos.id, id)).limit(1).then((res: any[]) => res[0] || null);
 
 const getTaskById = (db: ReturnType<typeof getDb>, id: string) =>
-    db.select().from(tasks).where(eq(tasks.id, id)).limit(1).then(res => res[0] || null);
+    db.select().from(tasks).where(eq(tasks.id, id)).limit(1).then((res: any[]) => res[0] || null);
 
 const getTaskContext = async (c: Context<{ Bindings: Bindings }>) => {
     const { id } = c.req.param();
@@ -181,33 +181,28 @@ tasksApi.get('/', async (c) => {
     
     // Also fetch workshop tasks for global view
     const workshopRows = await db.select().from(workshopProjectTasks).limit(100);
-    const mappedWorkshop: any[] = [];
-    workshopRows.forEach(w => {
-        if (!w.phases || !Array.isArray(w.phases)) return;
-        w.phases.forEach((p: any) => {
-            if (!p.tasks || !Array.isArray(p.tasks)) return;
-            p.tasks.forEach((t: any) => {
-                mappedWorkshop.push({
-                    id: `${w.id}-${p.phase_number}-${t.task_number}`,
-                    repoId: w.projectId,
-                    title: `[Phase ${p.phase_number}] ${t.task_title}`,
-                    description: t.task_description || '',
-                    status: t.status === 'not_started' ? TaskStatus.TODO :
-                            t.status === 'in_progress' ? TaskStatus.IN_PROGRESS : TaskStatus.DONE,
-                    kanbanColumn: t.status === 'not_started' ? KanbanColumn.PLANNED :
-                                  t.status === 'in_progress' ? KanbanColumn.IN_PROGRESS : KanbanColumn.DONE,
-                    assignee: t.agent_assigned || null,
-                    githubIssueId: null,
-                    githubHtmlUrl: null,
-                    createdAt: w.createdAt,
-                    updatedAt: w.updatedAt,
-                    startAt: null,
-                    endAt: null,
-                    isDeleted: 0
-                });
-            });
-        });
-    });
+    const mappedWorkshop = workshopRows.flatMap(w =>
+        (Array.isArray(w?.phases) ? w.phases : []).flatMap((p: any) =>
+            (Array.isArray(p?.tasks) ? p.tasks : []).map((t: any) => ({
+                id: `${w.id}-${p.phase_number}-${t.task_number}`,
+                repoId: w.projectId,
+                title: `[Phase ${p.phase_number}] ${t.task_title}`,
+                description: t.task_description || '',
+                status: t.status === 'not_started' ? TaskStatus.TODO :
+                        t.status === 'in_progress' ? TaskStatus.IN_PROGRESS : TaskStatus.DONE,
+                kanbanColumn: t.status === 'not_started' ? KanbanColumn.PLANNED :
+                              t.status === 'in_progress' ? KanbanColumn.IN_PROGRESS : KanbanColumn.DONE,
+                assignee: t.agent_assigned || null,
+                githubIssueId: null,
+                githubHtmlUrl: null,
+                createdAt: w.createdAt,
+                updatedAt: w.updatedAt,
+                startAt: null,
+                endAt: null,
+                isDeleted: 0
+            }))
+        )
+    );
 
     // Combine and sort
     const combined = [...rows, ...mappedWorkshop]
@@ -345,7 +340,7 @@ tasksApi.patch('/tasks/:id', async (c) => {
     // Prepare DB Update Payload
     const updatePayload: any = { updatedAt: now, startAt, endAt };
 
-    const processUpdate = <K extends keyof typeof updatePayload>(key: K, value: any, currentValue?: any) => {
+    const processUpdate = <K extends string>(key: K, value: any, currentValue?: any) => {
         if (value !== undefined && value !== currentValue) {
             updatePayload[key] = value;
         }
@@ -353,10 +348,10 @@ tasksApi.patch('/tasks/:id', async (c) => {
 
     processUpdate('status', nextStatus, currentStatus);
     processUpdate('kanbanColumn', nextColumn, currentColumn);
-    processUpdate('position', position);
-    processUpdate('title', title);
-    processUpdate('description', description);
-    processUpdate('assignee', assignee);
+    processUpdate('position', position, task.position);
+    processUpdate('title', title, task.title);
+    processUpdate('description', description, task.description);
+    processUpdate('assignee', assignee, task.assignee);
 
     // Update Local
     await db.update(tasks).set(updatePayload).where(eq(tasks.id, id));
