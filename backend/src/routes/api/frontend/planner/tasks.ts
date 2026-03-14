@@ -165,15 +165,32 @@ function getBaseContext(c: Context<any>) {
     };
 }
 
+async function getTaskContext(c: Context<any>) {
+    const { id } = c.req.param();
+    const ctx = getBaseContext(c);
+    const task = await getTaskById(ctx.db, id);
+    return { id, task, ...ctx };
+}
+
+async function getRepoContext(c: Context<any>) {
+    const { owner, repo } = c.req.param();
+    const ctx = getBaseContext(c);
+    const repoRecord = await getRepoByOwnerAndName(ctx.db, owner, repo);
+    return { owner, repo, repoRecord, ...ctx };
+}
+
 function calculateTaskTimestamps(task: any, nextStatus: TaskStatus, nextColumn: KanbanColumn, now: string) {
     let startAt = task.startAt;
     let endAt = task.endAt;
 
-    if ((nextStatus === TaskStatus.IN_PROGRESS || nextColumn === KanbanColumn.IN_PROGRESS) && !startAt) {
+    const isStarted = nextStatus === TaskStatus.IN_PROGRESS || nextColumn === KanbanColumn.IN_PROGRESS;
+    const isCompleted = nextStatus === TaskStatus.DONE || nextColumn === KanbanColumn.DONE;
+
+    if (isStarted && !startAt) {
         startAt = now;
     }
 
-    if (nextStatus === TaskStatus.DONE || nextColumn === KanbanColumn.DONE) {
+    if (isCompleted) {
         endAt = now;
     } else if (endAt) {
         endAt = null;
@@ -186,11 +203,7 @@ const tasksApi = new Hono<{ Bindings: Env }>();
 
 // GET /api/repos/:owner/:repo/tasks
 tasksApi.get('/repos/:owner/:repo/tasks', async (c) => {
-    const { owner, repo } = c.req.param();
-    const { db } = getBaseContext(c);
-
-    // Resolve repo ID
-    const repoRecord = await getRepoByOwnerAndName(db, owner, repo);
+    const { db, repoRecord } = await getRepoContext(c);
 
     if (!repoRecord) {
         return c.json({ success: false, error: 'Repo not found' }, 404);
@@ -326,14 +339,10 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
 
 // PATCH /api/tasks/:id
 tasksApi.patch('/tasks/:id', async (c) => {
-    const { id } = c.req.param();
     const body = await c.req.json();
     const { status, position, title, description, assignee, kanbanColumn } = body as any;
-    const { db, requestId, now } = getBaseContext(c);
+    const { id, db, requestId, now, task } = await getTaskContext(c);
 
-    // Get current task
-    const task = await getTaskById(db, id);
-    
     if (!task) {
         return c.json({ success: false, error: 'Task not found' }, 404);
     }
@@ -409,11 +418,9 @@ tasksApi.patch('/tasks/:id', async (c) => {
 
 // POST /api/tasks/:id/comments
 tasksApi.post('/tasks/:id/comments', async (c) => {
-    const { id } = c.req.param();
     const { content, author } = await c.req.json() as any;
-    const { db, requestId, now } = getBaseContext(c);
+    const { id, db, requestId, now, task } = await getTaskContext(c);
 
-    const task = await getTaskById(db, id);
     if (!task) return c.json({ success: false, error: 'Task not found' }, 404);
 
     // Sync to GitHub
@@ -444,10 +451,8 @@ tasksApi.post('/tasks/:id/comments', async (c) => {
 
 // DELETE /api/tasks/:id (Soft delete)
 tasksApi.delete('/tasks/:id', async (c) => {
-    const { id } = c.req.param();
-    const { db, requestId, now } = getBaseContext(c);
+    const { id, db, requestId, now, task } = await getTaskContext(c);
 
-    const task = await getTaskById(db, id);
     if (!task) return c.json({ success: false, error: 'Task not found' }, 404);
 
     if (task.githubIssueId) {
@@ -459,7 +464,6 @@ tasksApi.delete('/tasks/:id', async (c) => {
             { requestId, taskId: id, eventType: 'github_issue_close' }
         );
     }
-
 
     await db.update(tasks)
         .set({
