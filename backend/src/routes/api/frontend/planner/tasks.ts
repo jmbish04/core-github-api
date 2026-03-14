@@ -110,10 +110,10 @@ async function performGithubAction(
 ) {
     if (!githubIssueId) return null;
 
-    const repoRecord = await db.select().from(repos).where(eq(repos.id, repoId)).limit(1);
-    if (!repoRecord.length) return null;
+    const repoRecord = await getRepoById(db, repoId);
+    if (!repoRecord) return null;
 
-    const { owner, name } = repoRecord[0];
+    const { owner, name } = repoRecord;
 
     return executeGithubAction(db, () => actionFn(owner, name, githubIssueId), logOptions ? {
         ...logOptions,
@@ -123,6 +123,10 @@ async function performGithubAction(
 
 async function getRepoByOwnerAndName(db: ReturnType<typeof getDb>, owner: string, repo: string) {
     return db.select().from(repos).where(and(eq(repos.owner, owner), eq(repos.name, repo))).limit(1).then(res => res[0] || null);
+}
+
+async function getRepoById(db: ReturnType<typeof getDb>, id: string) {
+    return db.select().from(repos).where(eq(repos.id, id)).limit(1).then(res => res[0] || null);
 }
 
 async function getTaskById(db: ReturnType<typeof getDb>, id: string) {
@@ -159,12 +163,9 @@ function calculateTaskTimestamps(status: TaskStatus, column: KanbanColumn, curre
 function mapWorkshopTasks(workshopRows: any[]) {
     return workshopRows.flatMap(w => {
         const context = (w.taskContext || {}) as any;
-        if (!context.phases || !Array.isArray(context.phases)) return [];
 
-        return context.phases.flatMap((p: any) => {
-            if (!p.tasks || !Array.isArray(p.tasks)) return [];
-
-            return p.tasks.map((t: any) => {
+        return (Array.isArray(context.phases) ? context.phases : []).flatMap((p: any) => {
+            return (Array.isArray(p.tasks) ? p.tasks : []).map((t: any) => {
                 const status = t.status === 'not_started' ? TaskStatus.TODO :
                                t.status === 'in_progress' ? TaskStatus.IN_PROGRESS : TaskStatus.DONE;
 
