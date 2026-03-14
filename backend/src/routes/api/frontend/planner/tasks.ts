@@ -321,10 +321,6 @@ tasksApi.patch('/tasks/:id', async (c) => {
     }
     if (nextColumn !== currentColumn) {
         updatePayload.kanbanColumn = nextColumn;
-        // Even if only column changed, we might need to update github state if status synced
-        if (nextStatus !== currentStatus) {
-            ghUpdates.state = nextStatus === TaskStatus.DONE ? 'closed' : 'open';
-        }
     }
 
     if (position !== undefined && position !== task.position) updatePayload.position = position;
