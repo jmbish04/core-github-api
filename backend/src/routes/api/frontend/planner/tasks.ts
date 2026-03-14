@@ -57,17 +57,17 @@ async function logTaskEvent(
 /**
  * Core functionality to execute a GitHub Action and log it.
  */
-async function executeGithubAction(
+async function executeGithubAction<T>(
     db: ReturnType<typeof getDb>,
-    actionFn: () => Promise<any>,
-    logOptions: {
+    actionFn: () => Promise<T>,
+    logOptions?: {
         requestId: string;
         taskId: string | null;
         githubIssueId: number | null;
         eventType: string;
         details?: any;
     }
-) {
+): Promise<T | null> {
     let result = null;
     let actionError = null;
     let isSuccess = false;
@@ -79,16 +79,25 @@ async function executeGithubAction(
         actionError = e.message;
     }
 
-    const details = actionError ? { error: actionError, ...logOptions.details } : logOptions.details;
-    await logTaskEvent(
-        db,
-        logOptions.requestId,
-        logOptions.taskId,
-        logOptions.githubIssueId,
-        logOptions.eventType,
-        isSuccess ? 'success' : 'failed',
-        details
-    );
+    if (logOptions) {
+        let details = actionError ? { error: actionError, ...logOptions.details } : logOptions.details;
+
+        // Dynamically capture the new issue number and html_url if it was just created
+        const finalGithubIssueId = result && (result as any).number ? (result as any).number : logOptions.githubIssueId;
+        if (result && (result as any).html_url) {
+            details = { ...details, html_url: (result as any).html_url };
+        }
+
+        await logTaskEvent(
+            db,
+            logOptions.requestId,
+            logOptions.taskId,
+            finalGithubIssueId,
+            logOptions.eventType,
+            isSuccess ? 'success' : 'failed',
+            details
+        );
+    }
 
     return result;
 }
@@ -115,22 +124,13 @@ async function performGithubAction(
 
     const { owner, name } = repoRecord;
 
-    if (!logOptions) {
-        // Fallback for calls without logOptions to just try the action
-        try {
-            return await actionFn(owner, name, githubIssueId);
-        } catch (e) {
-            return null;
-        }
-    }
-
     return await executeGithubAction(
         db,
         () => actionFn(owner, name, githubIssueId),
-        {
+        logOptions ? {
             ...logOptions,
             githubIssueId
-        }
+        } : undefined
     );
 }
 
@@ -270,13 +270,15 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
     }
 
     // 1. Create GitHub Issue
-    const issue = await createGitHubIssue(c.env, owner, repo, title, description, assignee ? [assignee] : undefined);
+    const issue = await executeGithubAction(
+        db,
+        async () => await createGitHubIssue(c.env, owner, repo, title, description, assignee ? [assignee] : undefined),
+        { requestId, taskId: null, githubIssueId: null, eventType: 'github_issue_create' }
+    );
 
     if (!issue) {
-        await logTaskEvent(db, requestId, null, null, 'github_issue_create', 'failed');
         return c.json({ success: false, error: 'Failed to create GitHub issue' }, 500);
     }
-    await logTaskEvent(db, requestId, null, issue.number, 'github_issue_create', 'success', { html_url: issue.html_url });
 
     // 2. Create Local Task
     const newId = generateUuid();
