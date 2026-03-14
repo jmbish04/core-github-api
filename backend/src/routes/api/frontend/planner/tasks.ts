@@ -12,18 +12,15 @@ import { StatusMapper } from '@services/statusMapper';
 import { generateUuid } from "@/utils/common";
 
 async function getTaskById(db: ReturnType<typeof getDb>, id: string) {
-    const records = await db.select().from(tasks).where(eq(tasks.id, id)).limit(1);
-    return records.length ? records[0] : null;
+    return db.select().from(tasks).where(eq(tasks.id, id)).limit(1).then(res => res[0] || null);
 }
 
 async function getRepoByOwnerAndName(db: ReturnType<typeof getDb>, owner: string, name: string) {
-    const records = await db.select().from(repos).where(and(eq(repos.owner, owner), eq(repos.name, name))).limit(1);
-    return records.length ? records[0] : null;
+    return db.select().from(repos).where(and(eq(repos.owner, owner), eq(repos.name, name))).limit(1).then(res => res[0] || null);
 }
 
 async function getRepoById(db: ReturnType<typeof getDb>, id: string) {
-    const records = await db.select().from(repos).where(eq(repos.id, id)).limit(1);
-    return records.length ? records[0] : null;
+    return db.select().from(repos).where(eq(repos.id, id)).limit(1).then(res => res[0] || null);
 }
 
 async function getGitHubContext(db: ReturnType<typeof getDb>, task: any): Promise<{ owner: string, name: string, issueNumber: number } | null> {
@@ -120,24 +117,27 @@ tasksApi.get('/', async (c) => {
         return phases.flatMap((p: any) => {
             if (!p.tasks || !Array.isArray(p.tasks)) return [];
 
-            return p.tasks.map((t: any) => ({
-                id: `${w.id}-${p.phase_number}-${t.task_number}`,
-                repoId: w.repoId,
-                title: `[Phase ${p.phase_number}] ${t.task_title}`,
-                description: t.task_description || '',
-                status: t.status === 'not_started' ? TaskStatus.TODO :
-                        t.status === 'in_progress' ? TaskStatus.IN_PROGRESS : TaskStatus.DONE,
-                kanbanColumn: t.status === 'not_started' ? KanbanColumn.PLANNED :
-                              t.status === 'in_progress' ? KanbanColumn.IN_PROGRESS : KanbanColumn.DONE,
-                assignee: t.agent_assigned || null,
-                githubIssueId: null,
-                githubHtmlUrl: null,
-                createdAt: w.createdAt,
-                updatedAt: w.updatedAt,
-                startAt: null,
-                endAt: null,
-                isDeleted: 0
-            }));
+            return p.tasks.map((t: any) => {
+                const mappedStatus = t.status === 'not_started' ? TaskStatus.TODO :
+                                     t.status === 'in_progress' ? TaskStatus.IN_PROGRESS : TaskStatus.DONE;
+
+                return {
+                    id: `${w.id}-${p.phase_number}-${t.task_number}`,
+                    repoId: w.repoId,
+                    title: `[Phase ${p.phase_number}] ${t.task_title}`,
+                    description: t.task_description || '',
+                    status: mappedStatus,
+                    kanbanColumn: StatusMapper.mapStatusToColumn(mappedStatus),
+                    assignee: t.agent_assigned || null,
+                    githubIssueId: null,
+                    githubHtmlUrl: null,
+                    createdAt: w.createdAt,
+                    updatedAt: w.updatedAt,
+                    startAt: null,
+                    endAt: null,
+                    isDeleted: 0
+                };
+            });
         });
     });
 
@@ -258,11 +258,7 @@ tasksApi.patch('/tasks/:id', async (c) => {
 
         if (Object.keys(updates).length > 0) {
             const ghResult = await updateGitHubIssue(c.env, owner, name, issueNumber, updates);
-            if (ghResult) {
-                await logTaskEvent(db, requestId, id, issueNumber, 'github_issue_update', 'success', updates);
-            } else {
-                await logTaskEvent(db, requestId, id, issueNumber, 'github_issue_update', 'failed', updates);
-            }
+            await logTaskEvent(db, requestId, id, issueNumber, 'github_issue_update', ghResult ? 'success' : 'failed', updates);
         }
     }
 
@@ -340,10 +336,8 @@ tasksApi.post('/tasks/:id/comments', async (c) => {
         const comment = await createGitHubComment(c.env, owner, name, issueNumber, `**${author || 'User'}**: ${content}`);
         if (comment) {
             githubCommentId = comment.id;
-            await logTaskEvent(db, requestId, id, issueNumber, 'github_comment_create', 'success');
-        } else {
-            await logTaskEvent(db, requestId, id, issueNumber, 'github_comment_create', 'failed');
         }
+        await logTaskEvent(db, requestId, id, issueNumber, 'github_comment_create', comment ? 'success' : 'failed');
     }
 
     // Save Local
