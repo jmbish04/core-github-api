@@ -104,22 +104,21 @@ def main():
     # 3. Generate the Markdown Report
     md = ["# Drizzle ORM Schema & D1 Analysis Report\n"]
     md.append("## Table Names by Database\n")
-    
-    md.append("### env.DB")
+
+    def generate_table_list(db_name, db_sorted_keys):
+        prefix = "\n### " if db_name != "env.DB" else "### "
+        md.append(f"{prefix}{db_name}")
+        if db_sorted_keys:
+            for t in db_sorted_keys:
+                md.append(f"- {t}")
+        else:
+            md.append(f"- *No tables definitively mapped to {db_name} yet*")
+
     db1_sorted = sorted(db1_map.keys())
-    if db1_sorted:
-        for t in db1_sorted:
-            md.append(f"- {t}")
-    else:
-        md.append("- *No tables definitively mapped to env.DB yet*")
-        
-    md.append("\n### env.DB_WEBHOOKS")
     db2_sorted = sorted(db2_map.keys())
-    if db2_sorted:
-        for t in db2_sorted:
-            md.append(f"- {t}")
-    else:
-        md.append("- *No tables definitively mapped to env.DB_WEBHOOKS yet*")
+
+    generate_table_list("env.DB", db1_sorted)
+    generate_table_list("env.DB_WEBHOOKS", db2_sorted)
 
     # Track any imported tables
     for file_path, imported_tables_set in file_interactions.items():
@@ -140,25 +139,20 @@ def main():
         md.append(f"### `{file_path}`")
         md.append(f"- **Tables Imported:** {tables_used}\n")
 
-    md.append("---\n\n## env.DB d1 db")
-    md.append("| Table Name | Short File Paths |")
-    md.append("|---|---|")
-    if db1_sorted:
-        for t in db1_sorted:
-            paths = ", ".join([f"`{p}`" for p in sorted(db1_map[t])])
-            md.append(f"| **{t}** | {paths} |")
-    else:
-        md.append("| *None Detected* | *N/A* |")
+    def generate_d1_db_table(db_name, db_sorted_keys, db_map):
+        prefix = "\n## " if db_name != "env.DB" else "---\n\n## "
+        md.append(f"{prefix}{db_name} d1 db")
+        md.append("| Table Name | Short File Paths |")
+        md.append("|---|---|")
+        if db_sorted_keys:
+            for t in db_sorted_keys:
+                paths = ", ".join([f"`{p}`" for p in sorted(db_map[t])])
+                md.append(f"| **{t}** | {paths} |")
+        else:
+            md.append("| *None Detected* | *N/A* |")
 
-    md.append("\n## env.DB_WEBHOOKS d1 db")
-    md.append("| Table Name | Short File Paths |")
-    md.append("|---|---|")
-    if db2_sorted:
-        for t in db2_sorted:
-            paths = ", ".join([f"`{p}`" for p in sorted(db2_map[t])])
-            md.append(f"| **{t}** | {paths} |")
-    else:
-        md.append("| *None Detected* | *N/A* |")
+    generate_d1_db_table("env.DB", db1_sorted, db1_map)
+    generate_d1_db_table("env.DB_WEBHOOKS", db2_sorted, db2_map)
 
     # 4. Write to disk
     try:
