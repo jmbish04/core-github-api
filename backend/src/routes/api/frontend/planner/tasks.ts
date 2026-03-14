@@ -158,7 +158,8 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
     const body = await c.req.json();
     const { title, description, status, assignee } = body as any;
     const db = getDb(c.env.DB);
-    const requestId = crypto.randomUUID();
+    const requestId = generateUuid();
+    const now = new Date().toISOString();
 
     // Log API Request
     await logTaskEvent(db, requestId, null, null, 'api_request_create_task', 'pending', { owner, repo, body });
@@ -179,7 +180,7 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
     await logTaskEvent(db, requestId, null, issue.number, 'github_issue_create', 'success', { html_url: issue.html_url });
 
     // 2. Create Local Task
-    const newId = crypto.randomUUID();
+    const newId = generateUuid();
 
     // Logic: Status defaults to TODO (per schema), Mapper determines column
     const initialStatus = (status as TaskStatus) || TaskStatus.TODO;
@@ -189,7 +190,7 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
 
     // If initial status implies progress, set startAt
     if (initialStatus === TaskStatus.IN_PROGRESS || initialColumn === KanbanColumn.IN_PROGRESS) {
-        startAt = new Date().toISOString();
+        startAt = now;
     }
 
     try {
@@ -203,8 +204,8 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
             assignee,
             githubIssueId: issue.number,
             githubHtmlUrl: issue.html_url,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
+            createdAt: now,
+            updatedAt: now,
             startAt: startAt
         });
         await logTaskEvent(db, requestId, newId, issue.number, 'db_task_create', 'success');
@@ -222,7 +223,8 @@ tasksApi.patch('/tasks/:id', async (c) => {
     const body = await c.req.json();
     const { status, position, title, description, assignee, kanbanColumn } = body as any;
     const db = getDb(c.env.DB);
-    const requestId = crypto.randomUUID();
+    const requestId = generateUuid();
+    const now = new Date().toISOString();
 
     // Get current task
     const task = await getTaskById(db, id);
@@ -282,7 +284,7 @@ tasksApi.patch('/tasks/:id', async (c) => {
 
     // Prepare DB Update Payload
     const updatePayload: any = {
-        updatedAt: new Date().toISOString()
+        updatedAt: now
     };
 
     if (nextStatus !== currentStatus) updatePayload.status = nextStatus;
@@ -295,11 +297,11 @@ tasksApi.patch('/tasks/:id', async (c) => {
 
     // Logic: Set startAt if moving to active state and not set
     if ((nextStatus === TaskStatus.IN_PROGRESS || nextColumn === KanbanColumn.IN_PROGRESS) && !task.startAt) {
-        updatePayload.startAt = new Date().toISOString();
+        updatePayload.startAt = now;
     }
 
     if ((nextStatus as TaskStatus) === TaskStatus.DONE || (nextColumn as KanbanColumn) === KanbanColumn.DONE) {
-        updatePayload.endAt = new Date().toISOString();
+        updatePayload.endAt = now;
     } else if (nextStatus !== TaskStatus.DONE && nextColumn !== KanbanColumn.DONE && task.endAt) {
         // If moving OUT of done, reset endAt
         updatePayload.endAt = null;
@@ -320,7 +322,8 @@ tasksApi.post('/tasks/:id/comments', async (c) => {
     const { id } = c.req.param();
     const { content, author } = await c.req.json() as any;
     const db = getDb(c.env.DB);
-    const requestId = crypto.randomUUID();
+    const requestId = generateUuid();
+    const now = new Date().toISOString();
 
     const task = await getTaskById(db, id);
     if (!task) return c.json({ success: false, error: 'Task not found' }, 404);
@@ -338,15 +341,15 @@ tasksApi.post('/tasks/:id/comments', async (c) => {
     });
 
     // Save Local
-    const commentId = crypto.randomUUID();
+    const commentId = generateUuid();
     await db.insert(taskComments).values({
         id: commentId,
         taskId: id,
         content,
         author: author || 'system',
         githubCommentId,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        createdAt: now,
+        updatedAt: now
     });
 
     return c.json({ success: true, id: commentId });
@@ -356,7 +359,8 @@ tasksApi.post('/tasks/:id/comments', async (c) => {
 tasksApi.delete('/tasks/:id', async (c) => {
     const { id } = c.req.param();
     const db = getDb(c.env.DB);
-    const requestId = crypto.randomUUID();
+    const requestId = generateUuid();
+    const now = new Date().toISOString();
 
     const task = await getTaskById(db, id);
     await syncWithGitHubIssue(db, task, async (owner, name, issueNumber) => {
@@ -367,7 +371,7 @@ tasksApi.delete('/tasks/:id', async (c) => {
     await db.update(tasks)
         .set({
             isDeleted: 1,
-            updatedAt: new Date().toISOString()
+            updatedAt: now
         })
         .where(eq(tasks.id, id));
 

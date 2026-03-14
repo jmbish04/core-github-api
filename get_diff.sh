@@ -1,2 +1,1 @@
-#!/bin/bash
-git diff eb57d14b61e53125a435bbb895187db8c300d18e^...eb57d14b61e53125a435bbb895187db8c300d18e
+git diff HEAD~1..HEAD
