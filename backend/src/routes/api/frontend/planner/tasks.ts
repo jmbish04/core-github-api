@@ -292,23 +292,6 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
     return c.json({ success: true, id: newId });
 });
 
-function processUpdate<K extends string | number | symbol, G extends string | number | symbol>(
-    key: K,
-    value: any,
-    currentValue: any,
-    updatePayload: any,
-    githubUpdates: any,
-    githubKey?: G,
-    githubValueFormatter?: (v: any) => any
-) {
-    if (value !== undefined && value !== currentValue) {
-        updatePayload[key] = value;
-        if (githubKey) {
-            githubUpdates[githubKey] = githubValueFormatter ? githubValueFormatter(value) : value;
-        }
-    }
-}
-
 // PATCH /api/tasks/:id
 tasksApi.patch('/tasks/:id', async (c) => {
     const body = await c.req.json();
@@ -338,12 +321,21 @@ tasksApi.patch('/tasks/:id', async (c) => {
     const githubUpdates: any = {};
     const updatePayload: any = { updatedAt: now };
 
-    processUpdate('status', nextStatus, currentStatus, updatePayload, githubUpdates, 'state', (v) => v === TaskStatus.DONE ? 'closed' : 'open');
-    processUpdate('kanbanColumn', nextColumn, currentColumn, updatePayload, githubUpdates);
-    processUpdate('title', title, task.title, updatePayload, githubUpdates, 'title');
-    processUpdate('description', description, task.description, updatePayload, githubUpdates, 'body');
-    processUpdate('assignee', assignee, task.assignee, updatePayload, githubUpdates, 'assignees', (v) => v ? [v] : []);
-    processUpdate('position', position, task.position, updatePayload, githubUpdates);
+    const processUpdate = (key: string, value: any, current: any, assignGithub?: () => void) => {
+        if (value !== undefined && value !== current) {
+            updatePayload[key] = value;
+            if (assignGithub) assignGithub();
+        }
+    };
+
+    processUpdate('status', nextStatus, currentStatus, () => {
+        githubUpdates.state = nextStatus === TaskStatus.DONE ? 'closed' : 'open';
+    });
+    processUpdate('kanbanColumn', nextColumn, currentColumn);
+    processUpdate('title', title, task.title, () => githubUpdates.title = title);
+    processUpdate('description', description, task.description, () => githubUpdates.body = description);
+    processUpdate('assignee', assignee, task.assignee, () => githubUpdates.assignees = assignee ? [assignee] : []);
+    processUpdate('position', position, task.position);
 
     const { startAt, endAt } = calculateTaskTimestamps(task, nextStatus, nextColumn, now);
     if (startAt !== task.startAt) updatePayload.startAt = startAt;
@@ -351,11 +343,12 @@ tasksApi.patch('/tasks/:id', async (c) => {
 
     // Sync to GitHub if linked
     if (task.githubIssueId && Object.keys(githubUpdates).length > 0) {
+        const issueId = task.githubIssueId;
         await performGithubAction(
             db,
             task.repoId,
-            (owner, name) => updateGitHubIssue(c.env, owner, name, task.githubIssueId!, githubUpdates),
-            { requestId, taskId: id, githubIssueId: task.githubIssueId, eventType: 'github_issue_update', details: githubUpdates }
+            (owner, name) => updateGitHubIssue(c.env, owner, name, issueId, githubUpdates),
+            { requestId, taskId: id, githubIssueId: issueId, eventType: 'github_issue_update', details: githubUpdates }
         );
     }
 
@@ -379,16 +372,17 @@ tasksApi.post('/tasks/:id/comments', async (c) => {
     // Sync to GitHub
     let githubCommentId: number | null = null;
     if (task.githubIssueId) {
+        const issueId = task.githubIssueId;
         await performGithubAction(
             db,
             task.repoId,
             (owner, name) =>
-                createGitHubComment(c.env, owner, name, task.githubIssueId!, `**${author || 'User'}**: ${content}`)
+                createGitHubComment(c.env, owner, name, issueId, `**${author || 'User'}**: ${content}`)
                 .then(comment => {
                     if (comment) githubCommentId = comment.id;
                     return comment;
                 }),
-            { requestId, taskId: id, githubIssueId: task.githubIssueId, eventType: 'github_comment_create' }
+            { requestId, taskId: id, githubIssueId: issueId, eventType: 'github_comment_create' }
         );
     }
 
@@ -415,11 +409,12 @@ tasksApi.delete('/tasks/:id', async (c) => {
     const { id, db, requestId, now, task } = ctx;
 
     if (task.githubIssueId) {
+        const issueId = task.githubIssueId;
         await performGithubAction(
             db,
             task.repoId,
-            (owner, name) => updateGitHubIssue(c.env, owner, name, task.githubIssueId!, { state: 'closed' }),
-            { requestId, taskId: id, githubIssueId: task.githubIssueId, eventType: 'github_issue_close' }
+            (owner, name) => updateGitHubIssue(c.env, owner, name, issueId, { state: 'closed' }),
+            { requestId, taskId: id, githubIssueId: issueId, eventType: 'github_issue_close' }
         );
     }
 
