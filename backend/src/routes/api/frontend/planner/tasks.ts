@@ -331,49 +331,32 @@ tasksApi.patch('/tasks/:id', async (c) => {
     };
     const githubUpdates: any = {};
 
-    const processUpdate = (newValue: any, currentValue: any, assign: () => void) => {
+    const syncField = <K extends keyof typeof task, G extends string>(
+        localKey: K,
+        newValue: any,
+        currentValue: any,
+        githubKey?: G,
+        githubValue?: any
+    ) => {
         if (newValue !== undefined && newValue !== currentValue) {
-            assign();
+            updatePayload[localKey] = newValue;
+            if (githubKey) {
+                githubUpdates[githubKey] = githubValue !== undefined ? githubValue : newValue;
+            }
         }
     };
 
-    processUpdate(nextStatus, currentStatus, () => {
-        updatePayload.status = nextStatus;
-        githubUpdates.state = nextStatus === TaskStatus.DONE ? 'closed' : 'open';
-    });
-
-    processUpdate(nextColumn, currentColumn, () => {
-        updatePayload.kanbanColumn = nextColumn;
-    });
-
-    processUpdate(position, task.position, () => {
-        updatePayload.position = position;
-    });
-
-    processUpdate(title, task.title, () => {
-        updatePayload.title = title;
-        githubUpdates.title = title;
-    });
-
-    processUpdate(description, task.description, () => {
-        updatePayload.description = description;
-        githubUpdates.body = description;
-    });
-
-    processUpdate(assignee, task.assignee, () => {
-        updatePayload.assignee = assignee;
-        githubUpdates.assignees = assignee ? [assignee] : [];
-    });
+    syncField('status', nextStatus, currentStatus, 'state', nextStatus === TaskStatus.DONE ? 'closed' : 'open');
+    syncField('kanbanColumn', nextColumn, currentColumn);
+    syncField('position', position, task.position);
+    syncField('title', title, task.title, 'title');
+    syncField('description', description, task.description, 'body');
+    syncField('assignee', assignee, task.assignee, 'assignees', assignee ? [assignee] : []);
 
     const { startAt, endAt } = calculateTaskTimestamps(nextStatus, nextColumn, task.startAt || null, task.endAt || null, now);
 
-    processUpdate(startAt, task.startAt, () => {
-        updatePayload.startAt = startAt;
-    });
-
-    processUpdate(endAt, task.endAt, () => {
-        updatePayload.endAt = endAt;
-    });
+    syncField('startAt', startAt, task.startAt);
+    syncField('endAt', endAt, task.endAt);
 
     // Sync to GitHub if linked and updates exist
     if (Object.keys(githubUpdates).length > 0) {
