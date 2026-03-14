@@ -227,13 +227,18 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
     }
 
     // 1. Create GitHub Issue
-    const issue = await createGitHubIssue(c.env, owner, repo, title, description, assignee ? [assignee] : undefined);
-
-    await logTaskEvent(db, requestId, null, issue?.number || null, 'github_issue_create', issue ? 'success' : 'failed', issue ? { html_url: issue.html_url } : undefined);
-
-    if (!issue) {
+    let issue;
+    try {
+        issue = await createGitHubIssue(c.env, owner, repo, title, description, assignee ? [assignee] : undefined);
+        if (!issue) {
+            throw new Error('Failed to create GitHub issue');
+        }
+    } catch (e: any) {
+        await logTaskEvent(db, requestId, null, null, 'github_issue_create', 'failed', { error: e.message });
         return c.json({ success: false, error: 'Failed to create GitHub issue' }, 500);
     }
+
+    await logTaskEvent(db, requestId, null, issue.number, 'github_issue_create', 'success', { html_url: issue.html_url });
 
     // 2. Create Local Task
     const newId = generateUuid();
@@ -245,7 +250,6 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
     // If initial status implies progress, set startAt
     const { startAt } = calculateTaskTimestamps(initialStatus, initialColumn, null, null, now);
 
-    let dbError: any = null;
     try {
         await db.insert(tasks).values({
             id: newId,
@@ -262,14 +266,11 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
             startAt
         });
     } catch (e: any) {
-        dbError = e;
-    } finally {
-        await logTaskEvent(db, requestId, newId, issue.number, 'db_task_create', dbError ? 'failed' : 'success', dbError ? { error: dbError.message } : undefined);
-    }
-
-    if (dbError) {
+        await logTaskEvent(db, requestId, newId, issue.number, 'db_task_create', 'failed', { error: e.message });
         return c.json({ success: false, error: 'Failed to save local task' }, 500);
     }
+
+    await logTaskEvent(db, requestId, newId, issue.number, 'db_task_create', 'success');
 
     return c.json({ success: true, id: newId });
 });
