@@ -326,31 +326,36 @@ tasksApi.patch('/tasks/:id', async (c) => {
     };
     const githubUpdates: any = {};
 
+    const processUpdate = <K extends keyof typeof updatePayload>(
+        newValue: any,
+        currentValue: any,
+        dbKey: K,
+        ghKey?: string,
+        ghValueFn?: (v: any) => any
+    ) => {
+        if (newValue !== undefined && newValue !== currentValue) {
+            updatePayload[dbKey] = newValue;
+            if (ghKey) {
+                githubUpdates[ghKey] = ghValueFn ? ghValueFn(newValue) : newValue;
+            }
+        }
+    };
+
     if (nextStatus !== currentStatus) {
         updatePayload.status = nextStatus;
-        if (nextStatus === TaskStatus.DONE) githubUpdates.state = 'closed';
-        else githubUpdates.state = 'open';
+        githubUpdates.state = nextStatus === TaskStatus.DONE ? 'closed' : 'open';
     }
     if (nextColumn !== currentColumn) updatePayload.kanbanColumn = nextColumn;
 
     if (position !== undefined) updatePayload.position = position;
 
-    if (title !== undefined && title !== task.title) {
-        updatePayload.title = title;
-        githubUpdates.title = title;
-    }
-    if (description !== undefined && description !== task.description) {
-        updatePayload.description = description;
-        githubUpdates.body = description;
-    }
-    if (assignee !== undefined && assignee !== task.assignee) {
-        updatePayload.assignee = assignee;
-        githubUpdates.assignees = assignee ? [assignee] : [];
-    }
+    processUpdate(title, task.title, 'title', 'title');
+    processUpdate(description, task.description, 'description', 'body');
+    processUpdate(assignee, task.assignee, 'assignee', 'assignees', (v) => v ? [v] : []);
 
     const { startAt, endAt } = calculateTaskTimestamps(nextStatus, nextColumn, task.startAt || null, task.endAt || null, now);
-    if (startAt !== undefined && startAt !== task.startAt) updatePayload.startAt = startAt;
-    if (endAt !== undefined && endAt !== task.endAt) updatePayload.endAt = endAt;
+    processUpdate(startAt, task.startAt, 'startAt');
+    processUpdate(endAt, task.endAt, 'endAt');
 
     // Sync to GitHub if linked and updates exist
     if (Object.keys(githubUpdates).length > 0) {
