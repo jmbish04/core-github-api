@@ -126,32 +126,31 @@ tasksApi.get('/', async (c) => {
     
     // Also fetch workshop tasks for global view
     const workshopRows = await db.select().from(tasks).where(eq(tasks.taskType, 'workshop_project')).limit(100);
-    const mappedWorkshop: any[] = [];
-    workshopRows.forEach(w => {
+    const mappedWorkshop: any[] = workshopRows.flatMap(w => {
         const context = (w.taskContext || {}) as any;
-        if (!context.phases || !Array.isArray(context.phases)) return;
-        context.phases.forEach((p: any) => {
-            if (!p.tasks || !Array.isArray(p.tasks)) return;
-            p.tasks.forEach((t: any) => {
-                mappedWorkshop.push({
-                    id: `${w.id}-${p.phase_number}-${t.task_number}`,
-                    repoId: w.repoId,
-                    title: `[Phase ${p.phase_number}] ${t.task_title}`,
-                    description: t.task_description || '',
-                    status: t.status === 'not_started' ? TaskStatus.TODO :
-                            t.status === 'in_progress' ? TaskStatus.IN_PROGRESS : TaskStatus.DONE,
-                    kanbanColumn: t.status === 'not_started' ? KanbanColumn.PLANNED :
-                                  t.status === 'in_progress' ? KanbanColumn.IN_PROGRESS : KanbanColumn.DONE,
-                    assignee: t.agent_assigned || null,
-                    githubIssueId: null,
-                    githubHtmlUrl: null,
-                    createdAt: w.createdAt,
-                    updatedAt: w.updatedAt,
-                    startAt: null,
-                    endAt: null,
-                    isDeleted: 0
-                });
-            });
+        if (!context.phases || !Array.isArray(context.phases)) return [];
+
+        return context.phases.flatMap((p: any) => {
+            if (!p.tasks || !Array.isArray(p.tasks)) return [];
+
+            return p.tasks.map((t: any) => ({
+                id: `${w.id}-${p.phase_number}-${t.task_number}`,
+                repoId: w.repoId,
+                title: `[Phase ${p.phase_number}] ${t.task_title}`,
+                description: t.task_description || '',
+                status: t.status === 'not_started' ? TaskStatus.TODO :
+                        t.status === 'in_progress' ? TaskStatus.IN_PROGRESS : TaskStatus.DONE,
+                kanbanColumn: t.status === 'not_started' ? KanbanColumn.PLANNED :
+                              t.status === 'in_progress' ? KanbanColumn.IN_PROGRESS : KanbanColumn.DONE,
+                assignee: t.agent_assigned || null,
+                githubIssueId: null,
+                githubHtmlUrl: null,
+                createdAt: w.createdAt,
+                updatedAt: w.updatedAt,
+                startAt: null,
+                endAt: null,
+                isDeleted: 0
+            }));
         });
     });
 
@@ -270,7 +269,7 @@ tasksApi.patch('/tasks/:id', async (c) => {
                 db,
                 task.repoId,
                 task.githubIssueId,
-                async (owner, name, issueNumber) => await updateGitHubIssue(c.env, owner, name, issueNumber, updates),
+                (owner, name, issueNumber) => updateGitHubIssue(c.env, owner, name, issueNumber, updates),
                 { requestId, taskId: id, eventType: 'github_issue_update', details: updates }
             );
         }
@@ -343,18 +342,14 @@ tasksApi.post('/tasks/:id/comments', async (c) => {
     const task = currentTask[0];
 
     // Sync to GitHub
-    let githubCommentId: number | null = null;
-    await performGithubAction(
+    const comment = await performGithubAction(
         db,
         task.repoId,
         task.githubIssueId,
-        async (owner, name, issueNumber) => {
-            const comment = await createGitHubComment(c.env, owner, name, issueNumber, `**${author || 'User'}**: ${content}`);
-            if (comment) githubCommentId = comment.id;
-            return comment;
-        },
+        (owner, name, issueNumber) => createGitHubComment(c.env, owner, name, issueNumber, `**${author || 'User'}**: ${content}`),
         { requestId, taskId: id, eventType: 'github_comment_create' }
     );
+    const githubCommentId = comment?.id || null;
 
     // Save Local
     const commentId = crypto.randomUUID();
@@ -378,12 +373,14 @@ tasksApi.delete('/tasks/:id', async (c) => {
     const requestId = crypto.randomUUID();
 
     const currentTask = await db.select().from(tasks).where(eq(tasks.id, id)).limit(1);
-    if (currentTask.length && currentTask[0].githubIssueId) {
+    if (!currentTask.length) return c.json({ success: false, error: 'Task not found' }, 404);
+
+    if (currentTask[0].githubIssueId) {
         await performGithubAction(
             db,
             currentTask[0].repoId,
             currentTask[0].githubIssueId,
-            async (owner, name, issueNumber) => await updateGitHubIssue(c.env, owner, name, issueNumber, { state: 'closed' }),
+            (owner, name, issueNumber) => updateGitHubIssue(c.env, owner, name, issueNumber, { state: 'closed' }),
             { requestId, taskId: id, eventType: 'github_issue_close' }
         );
     }
