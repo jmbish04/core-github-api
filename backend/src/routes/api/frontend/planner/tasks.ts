@@ -1,5 +1,5 @@
 // src/routes/api/tasks.ts
-import { Hono } from 'hono';
+import { Hono, Context } from 'hono';
 import { Bindings } from '@utils/hono';
 import { getDb } from '@db';
 import { tasks, taskEvents, taskComments } from '@db/schemas/projects/tasks';
@@ -22,7 +22,7 @@ export const TASK_STATUSES = [
  * Log a Task Audit Event
  */
 async function logTaskEvent(
-    db: any,
+    db: ReturnType<typeof getDb>,
     requestId: string,
     taskId: string | null,
     githubIssueId: number | null,
@@ -59,7 +59,7 @@ async function logTaskEvent(
  * Execute a GitHub Action if the task is linked to a repository.
  */
 async function performGithubAction(
-    db: any,
+    db: ReturnType<typeof getDb>,
     task: any,
     actionFn: (owner: string, repoName: string, issueNumber: number) => Promise<any>,
     logOptions?: {
@@ -70,10 +70,10 @@ async function performGithubAction(
 ) {
     if (!task.githubIssueId) return null;
 
-    const repoRecord = await db.select().from(repos).where(eq(repos.id, task.repoId)).limit(1);
-    if (!repoRecord.length) return null;
+    const repoRecord = await getRepoById(db, task.repoId);
+    if (!repoRecord) return null;
 
-    const { owner, name } = repoRecord[0];
+    const { owner, name } = repoRecord;
 
     try {
         const result = await actionFn(owner, name, task.githubIssueId);
@@ -89,15 +89,19 @@ async function performGithubAction(
     }
 }
 
-async function getRepoByOwnerAndName(db: any, owner: string, name: string) {
-    return await db.select().from(repos).where(and(eq(repos.owner, owner), eq(repos.name, name))).limit(1);
+async function getRepoById(db: ReturnType<typeof getDb>, id: string) {
+    return await db.select().from(repos).where(eq(repos.id, id)).limit(1).then(res => res[0] || null);
 }
 
-async function getTaskById(db: any, id: string) {
-    return await db.select().from(tasks).where(eq(tasks.id, id)).limit(1);
+async function getRepoByOwnerAndName(db: ReturnType<typeof getDb>, owner: string, name: string) {
+    return await db.select().from(repos).where(and(eq(repos.owner, owner), eq(repos.name, name))).limit(1).then(res => res[0] || null);
 }
 
-function getBaseContext(c: any) {
+async function getTaskById(db: ReturnType<typeof getDb>, id: string) {
+    return await db.select().from(tasks).where(eq(tasks.id, id)).limit(1).then(res => res[0] || null);
+}
+
+function getBaseContext(c: Context) {
     return {
         db: getDb(c.env.DB),
         requestId: generateUuid(),
@@ -115,26 +119,26 @@ function calculateTaskTimestamps(status: TaskStatus, column: KanbanColumn, now: 
 
     if (status === TaskStatus.DONE || column === KanbanColumn.DONE) {
         endAt = now;
-    } else if ((status as TaskStatus) !== TaskStatus.DONE && (column as KanbanColumn) !== KanbanColumn.DONE && endAt) {
+    } else if (endAt) {
         endAt = null; // Reset if moving out of done
     }
 
     return { startAt, endAt };
 }
 
-async function getTaskContext(c: any, id: string) {
+async function getTaskContext(c: Context, id: string) {
     const { db, requestId, now } = getBaseContext(c);
-    const currentTask = await getTaskById(db, id);
-    return { db, requestId, now, task: currentTask.length ? currentTask[0] : null };
+    const task = await getTaskById(db, id);
+    return { db, requestId, now, task };
 }
 
-async function getRepoContext(c: any, owner: string, repo: string) {
+async function getRepoContext(c: Context, owner: string, repo: string) {
     const { db, requestId, now } = getBaseContext(c);
     const repoRecord = await getRepoByOwnerAndName(db, owner, repo);
-    return { db, requestId, now, repoRecord: repoRecord.length ? repoRecord[0] : null };
+    return { db, requestId, now, repoRecord };
 }
 
-async function updateLocalTask(db: any, task: any, payload: any, requestId: string, eventType: string) {
+async function updateLocalTask(db: ReturnType<typeof getDb>, task: any, payload: any, requestId: string, eventType: string) {
     await db.update(tasks)
         .set(payload)
         .where(eq(tasks.id, task.id));
