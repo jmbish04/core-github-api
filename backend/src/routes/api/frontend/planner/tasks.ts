@@ -55,6 +55,45 @@ async function logTaskEvent(
 }
 
 /**
+ * Core execution block for any GitHub action to ensure consistent error handling and logging.
+ */
+async function executeGithubAction(
+    db: any,
+    actionFn: () => Promise<any>,
+    logOptions?: {
+        requestId: string;
+        taskId: string | null;
+        githubIssueId: number | null;
+        eventType: string;
+        details?: any;
+    }
+) {
+    let result = null;
+    let error: any = null;
+    try {
+        result = await actionFn();
+    } catch (e: any) {
+        error = e;
+    } finally {
+        if (logOptions) {
+            const status = result && !error ? 'success' : 'failed';
+            const logDetails = error ? { error: error.message, ...(logOptions.details || {}) } : { ...(logOptions.details || {}) };
+
+            // Merge URL detail for issue creations
+            if (result && result.html_url && !logDetails.html_url) {
+                logDetails.html_url = result.html_url;
+            }
+
+            // For issue creations, capture the generated issue number
+            const issueId = (result && result.number) ? result.number : logOptions.githubIssueId;
+
+            await logTaskEvent(db, logOptions.requestId, logOptions.taskId, issueId, logOptions.eventType, status, Object.keys(logDetails).length > 0 ? logDetails : undefined);
+        }
+    }
+    return result;
+}
+
+/**
  * Execute a GitHub Action if the task is linked to a repository.
  */
 async function performGithubAction(
@@ -76,20 +115,10 @@ async function performGithubAction(
 
     const { owner, name } = repoRecord[0];
 
-    let result = null;
-    let error: any = null;
-    try {
-        result = await actionFn(owner, name, githubIssueId);
-    } catch (e: any) {
-        error = e;
-    } finally {
-        if (logOptions) {
-            const status = result && !error ? 'success' : 'failed';
-            const details = error ? { error: error.message, ...logOptions.details } : logOptions.details;
-            await logTaskEvent(db, logOptions.requestId, logOptions.taskId, githubIssueId, logOptions.eventType, status, details);
-        }
-    }
-    return result;
+    return executeGithubAction(db, () => actionFn(owner, name, githubIssueId), logOptions ? {
+        ...logOptions,
+        githubIssueId
+    } : undefined);
 }
 
 async function getRepoByOwnerAndName(db: ReturnType<typeof getDb>, owner: string, repo: string) {
@@ -136,17 +165,16 @@ function mapWorkshopTasks(workshopRows: any[]) {
             if (!p.tasks || !Array.isArray(p.tasks)) return [];
 
             return p.tasks.map((t: any) => {
-                const isNotStarted = t.status === 'not_started';
-                const isInProgress = t.status === 'in_progress';
+                const status = t.status === 'not_started' ? TaskStatus.TODO :
+                               t.status === 'in_progress' ? TaskStatus.IN_PROGRESS : TaskStatus.DONE;
+
                 return {
                     id: `${w.id}-${p.phase_number}-${t.task_number}`,
                     repoId: w.repoId,
                     title: `[Phase ${p.phase_number}] ${t.task_title}`,
                     description: t.task_description || '',
-                    status: isNotStarted ? TaskStatus.TODO :
-                            isInProgress ? TaskStatus.IN_PROGRESS : TaskStatus.DONE,
-                    kanbanColumn: isNotStarted ? KanbanColumn.PLANNED :
-                                  isInProgress ? KanbanColumn.IN_PROGRESS : KanbanColumn.DONE,
+                    status,
+                    kanbanColumn: StatusMapper.mapStatusToColumn(status),
                     assignee: t.agent_assigned || null,
                     githubIssueId: null,
                     githubHtmlUrl: null,
@@ -226,9 +254,11 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
     }
 
     // 1. Create GitHub Issue
-    const issue = await createGitHubIssue(c.env, owner, repo, title, description, assignee ? [assignee] : undefined);
-
-    await logTaskEvent(db, requestId, null, issue?.number || null, 'github_issue_create', issue ? 'success' : 'failed', issue ? { html_url: issue.html_url } : undefined);
+    const issue = await executeGithubAction(
+        db,
+        () => createGitHubIssue(c.env, owner, repo, title, description, assignee ? [assignee] : undefined),
+        { requestId, taskId: null, githubIssueId: null, eventType: 'github_issue_create' }
+    );
 
     if (!issue) {
         return c.json({ success: false, error: 'Failed to create GitHub issue' }, 500);
