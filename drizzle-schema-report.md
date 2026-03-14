@@ -464,7 +464,7 @@
 - **Tables Imported:** alerts
 
 ### `backend/src/routes/api/frontend/planner/tasks.ts`
-- **Tables Imported:** projects, task_comments, task_events, tasks
+- **Tables Imported:** task_comments, task_events, tasks, workshop_project_tasks
 
 ### `backend/src/routes/api/frontend/planner/timeline.ts`
 - **Tables Imported:** agent_activities
@@ -922,7 +922,7 @@
 | **project_favorites** | `backend/src/routes/api/frontend/projects/favorites.ts` |
 | **project_phases** | `backend/src/routes/api/frontend/projects/planner.ts` |
 | **project_plans** | `backend/src/routes/api/frontend/projects/planner.ts` |
-| **projects** | `backend/src/ai/mcp/tools/github/github.ts`, `backend/src/index.ts`, `backend/src/routes/api/frontend/planner/tasks.ts`, `backend/src/routes/api/frontend/projects/appstore.ts`, `backend/src/routes/api/frontend/projects/base.ts`, `backend/src/routes/api/frontend/projects/hierarchy.ts`, `backend/src/routes/api/frontend/projects/infrastructure.ts`, `backend/src/routes/api/frontend/projects/planner.ts`, `backend/src/routes/api/frontend/research/research-projects.ts`, `backend/src/routes/api/projects/tasks.ts`, `backend/src/services/repository-sync.ts`, `backend/src/services/standardization.ts`, `backend/src/workflows/discord.ts`, `backend/src/workflows/research/deep.ts` |
+| **projects** | `backend/src/ai/mcp/tools/github/github.ts`, `backend/src/index.ts`, `backend/src/routes/api/frontend/projects/appstore.ts`, `backend/src/routes/api/frontend/projects/base.ts`, `backend/src/routes/api/frontend/projects/hierarchy.ts`, `backend/src/routes/api/frontend/projects/infrastructure.ts`, `backend/src/routes/api/frontend/projects/planner.ts`, `backend/src/routes/api/frontend/research/research-projects.ts`, `backend/src/routes/api/projects/tasks.ts`, `backend/src/services/repository-sync.ts`, `backend/src/services/standardization.ts`, `backend/src/workflows/discord.ts`, `backend/src/workflows/research/deep.ts` |
 | **prompt_revisions** | `backend/src/routes/api/agents/cloudflare-docs-prompt.ts`, `backend/src/routes/api/agents/cloudflare-docs-revisions.ts` |
 | **pull_requests** | `backend/src/services/github/pr-ingestion.ts`, `backend/src/services/jules/jules.ts`, `backend/src/services/jules/service.ts` |
 | **repo_analysis** | `backend/src/workflows/search.ts` |
@@ -959,7 +959,7 @@
 | **user_settings** | `backend/src/routes/api/frontend/settings.ts` |
 | **webhook_deliveries** | `backend/src/routes/api/services/github/pr-overview.ts`, `backend/src/routes/api/webhooks/index.ts`, `backend/src/workflows/health.ts` |
 | **workshop_agent_memory** | `backend/src/routes/api/frontend/workshop.ts` |
-| **workshop_project_tasks** | `backend/src/ai/agents/workshop/WorkshopAgent.ts`, `backend/src/routes/api/frontend/workshop.ts`, `backend/src/routes/api/projects/tasks.ts` |
+| **workshop_project_tasks** | `backend/src/ai/agents/workshop/WorkshopAgent.ts`, `backend/src/routes/api/frontend/planner/tasks.ts`, `backend/src/routes/api/frontend/workshop.ts`, `backend/src/routes/api/projects/tasks.ts` |
 | **workshop_projects** | `backend/src/ai/agents/workshop/WorkshopAgent.ts`, `backend/src/routes/api/frontend/workshop.ts` |
 | **workshop_task_events** | `backend/src/routes/api/frontend/workshop.ts` |
 
