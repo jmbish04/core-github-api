@@ -385,23 +385,31 @@ tasksApi.patch('/tasks/:id', async (c) => {
         updatePayload.position = position;
     }
 
+    const processUpdate = <K extends keyof typeof task>(
+        val: typeof task[K] | undefined,
+        current: typeof task[K],
+        assign: () => void
+    ) => {
+        if (val !== undefined && val !== current) assign();
+    };
+
     // Shared check for title
-    if (title !== undefined && title !== task.title) {
+    processUpdate<'title'>(title, task.title, () => {
         updatePayload.title = title;
         if (task.githubIssueId) githubUpdates.title = title;
-    }
+    });
 
     // Shared check for description
-    if (description !== undefined && description !== task.description) {
+    processUpdate<'description'>(description, task.description, () => {
         updatePayload.description = description;
         if (task.githubIssueId) githubUpdates.body = description;
-    }
+    });
 
     // Shared check for assignee
-    if (assignee !== undefined && assignee !== task.assignee) {
+    processUpdate<'assignee'>(assignee, task.assignee, () => {
         updatePayload.assignee = assignee;
         if (task.githubIssueId) githubUpdates.assignees = assignee ? [assignee] : [];
-    }
+    });
 
     const timestamps = calculateTaskTimestamps(nextStatus, nextColumn, task.startAt, task.endAt, now);
     if (timestamps.startAt !== undefined) updatePayload.startAt = timestamps.startAt;
