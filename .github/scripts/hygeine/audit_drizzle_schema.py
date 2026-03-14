@@ -46,17 +46,22 @@ def main():
     # Matches: export const varName = sqliteTable('tableName', ...)
     table_regex = re.compile(r"export\s+const\s+([a-zA-Z0-9_]+)\s*=\s*(?:sqliteTable|pgTable|mysqlTable)\(\s*['\"]([^'\"]+)['\"]")
     
+    file_contents = {}
+
     for file_path in files:
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
+                file_contents[file_path] = content
                 matches = table_regex.findall(content)
                 for var_name, table_name in matches:
                     rel_path = os.path.relpath(file_path, root_dir)
                     tables.append({
                         "var_name": var_name,
                         "table_name": table_name,
-                        "file": rel_path
+                        "file": rel_path,
+                        "var_regex": re.compile(r"\b" + re.escape(var_name) + r"\b"),
+                        "export_regex": re.compile(r"export\s+const\s+" + re.escape(var_name) + r"\b")
                     })
         except Exception as e:
             print(f"Warning: Could not read {file_path}: {e}")
@@ -70,41 +75,31 @@ def main():
     all_discovered = sorted(list(set(t['table_name'] for t in tables)))
     all_imported_tables = set()
 
-    for file_path in files:
-        try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                content = f.read()
-                
-            rel_path = os.path.relpath(file_path, root_dir)
-            
-            # Look for standard Cloudflare Worker / Hono context bindings
-            uses_db1 = 'env.DB' in content or 'c.env.DB' in content
-            uses_db2 = 'env.DB_WEBHOOKS' in content or 'c.env.DB_WEBHOOKS' in content
-            
-            imported_tables = set()
-            
-            for t in tables:
-                # Regex boundary check for the specific Drizzle table variable
-                var_regex = re.compile(r"\b" + re.escape(t['var_name']) + r"\b")
-                
-                # Check for usage/import
-                if var_regex.search(content):
-                    imported_tables.add(t['table_name'])
-                    
-                    if uses_db1:
-                        db1_map[t['table_name']].add(rel_path)
-                    if uses_db2:
-                        db2_map[t['table_name']].add(rel_path)
-                        
-                    # Also check if the table is used/imported vs being exported here
-                    if not re.search(r"export\s+const\s+" + re.escape(t['var_name']) + r"\b", content):
-                        all_imported_tables.add(t['table_name'])
+    for file_path, content in file_contents.items():
+        rel_path = os.path.relpath(file_path, root_dir)
 
-            if imported_tables:
-                file_interactions[rel_path] = imported_tables
+        # Look for standard Cloudflare Worker / Hono context bindings
+        uses_db1 = 'env.DB' in content or 'c.env.DB' in content
+        uses_db2 = 'env.DB_WEBHOOKS' in content or 'c.env.DB_WEBHOOKS' in content
+
+        imported_tables = set()
+
+        for t in tables:
+            # Check for usage/import
+            if t['var_regex'].search(content):
+                imported_tables.add(t['table_name'])
                 
-        except Exception as e:
-            print(f"Warning: Could not read {file_path}: {e}")
+                if uses_db1:
+                    db1_map[t['table_name']].add(rel_path)
+                if uses_db2:
+                    db2_map[t['table_name']].add(rel_path)
+                    
+                # Also check if the table is used/imported vs being exported here
+                if not t['export_regex'].search(content):
+                    all_imported_tables.add(t['table_name'])
+
+        if imported_tables:
+            file_interactions[rel_path] = imported_tables
 
     # 3. Generate the Markdown Report
     md = ["# Drizzle ORM Schema & D1 Analysis Report\n"]

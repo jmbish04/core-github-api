@@ -22,7 +22,7 @@ export const TASK_STATUSES = [
  * Log a Task Audit Event
  */
 async function logTaskEvent(
-    db: any,
+    db: ReturnType<typeof getDb>,
     requestId: string,
     taskId: string | null,
     githubIssueId: number | null,
@@ -59,7 +59,7 @@ async function logTaskEvent(
  * Execute a GitHub Action if the task is linked to a repository.
  */
 async function performGithubAction(
-    db: any,
+    db: ReturnType<typeof getDb>,
     repoId: string,
     githubIssueId: number | null,
     actionFn: (owner: string, repoName: string, issueNumber: number) => Promise<any>,
@@ -72,10 +72,10 @@ async function performGithubAction(
 ) {
     if (!githubIssueId) return null;
 
-    const repoRecord = await db.select().from(repos).where(eq(repos.id, repoId)).limit(1);
-    if (!repoRecord.length) return null;
+    const [repoRecord] = await getRepoById(db, repoId);
+    if (!repoRecord) return null;
 
-    const { owner, name } = repoRecord[0];
+    const { owner, name } = repoRecord;
 
     let result = null;
     let status: 'success' | 'failed' = 'failed';
@@ -95,11 +95,15 @@ async function performGithubAction(
     return result;
 }
 
-async function getRepoByOwnerAndName(db: any, owner: string, name: string) {
+async function getRepoByOwnerAndName(db: ReturnType<typeof getDb>, owner: string, name: string) {
     return await db.select().from(repos).where(and(eq(repos.owner, owner), eq(repos.name, name))).limit(1);
 }
 
-async function getTaskById(db: any, id: string) {
+async function getRepoById(db: ReturnType<typeof getDb>, id: string) {
+    return await db.select().from(repos).where(eq(repos.id, id)).limit(1);
+}
+
+async function getTaskById(db: ReturnType<typeof getDb>, id: string) {
     return await db.select().from(tasks).where(eq(tasks.id, id)).limit(1);
 }
 
