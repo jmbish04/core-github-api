@@ -352,21 +352,6 @@ tasksApi.patch('/tasks/:id', async (c) => {
     };
     const githubUpdates: any = {};
 
-    if (nextStatus !== currentStatus) {
-        updatePayload.status = nextStatus;
-    }
-    if (nextColumn !== currentColumn) {
-        updatePayload.kanbanColumn = nextColumn;
-    }
-
-    // GitHub state depends on the target status
-    if (task.githubIssueId) {
-        if (nextStatus === TaskStatus.DONE) githubUpdates.state = 'closed';
-        else githubUpdates.state = 'open';
-    }
-
-    if (position !== undefined && position !== task.position) updatePayload.position = position;
-
     const checkAndUpdate = (field: any, taskField: any, dbKey: string, ghKey?: string, transformGh?: (v: any) => any) => {
         if (field !== undefined && field !== taskField) {
             updatePayload[dbKey] = field;
@@ -376,14 +361,22 @@ tasksApi.patch('/tasks/:id', async (c) => {
         }
     };
 
+    checkAndUpdate(nextStatus, currentStatus, 'status');
+    checkAndUpdate(nextColumn, currentColumn, 'kanbanColumn');
+    checkAndUpdate(position, task.position, 'position');
     checkAndUpdate(title, task.title, 'title', 'title');
     checkAndUpdate(description, task.description, 'description', 'body');
     checkAndUpdate(assignee, task.assignee, 'assignee', 'assignees', (v) => v ? [v] : []);
 
     // Calculate timestamps
     const { startAt, endAt } = calculateTaskTimestamps(nextStatus, nextColumn, now, task.startAt, task.endAt);
-    if (startAt !== task.startAt) updatePayload.startAt = startAt;
-    if (endAt !== task.endAt) updatePayload.endAt = endAt;
+    checkAndUpdate(startAt, task.startAt, 'startAt');
+    checkAndUpdate(endAt, task.endAt, 'endAt');
+
+    // GitHub state depends on the target status
+    if (task.githubIssueId && nextStatus !== currentStatus) {
+        githubUpdates.state = nextStatus === TaskStatus.DONE ? 'closed' : 'open';
+    }
 
     // Sync to GitHub if linked and there are updates
     if (task.githubIssueId && Object.keys(githubUpdates).length > 0) {
