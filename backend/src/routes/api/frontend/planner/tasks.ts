@@ -311,27 +311,31 @@ tasksApi.patch('/tasks/:id', async (c) => {
     const githubUpdates: any = {};
     const updatePayload: any = { updatedAt: now };
 
+    const processUpdate = <K extends keyof typeof task, G extends string>(
+        incoming: any,
+        taskKey: K,
+        payloadKey: string,
+        githubKey?: G,
+        githubValue?: any
+    ) => {
+        if (incoming !== undefined && incoming !== task[taskKey]) {
+            updatePayload[payloadKey] = incoming;
+            if (githubKey) {
+                githubUpdates[githubKey] = githubValue !== undefined ? githubValue : incoming;
+            }
+        }
+    };
+
     if (nextStatus !== currentStatus) {
         updatePayload.status = nextStatus;
         githubUpdates.state = nextStatus === TaskStatus.DONE ? 'closed' : 'open';
     }
     if (nextColumn !== currentColumn) updatePayload.kanbanColumn = nextColumn;
 
-    if (title !== undefined && title !== task.title) {
-        updatePayload.title = title;
-        githubUpdates.title = title;
-    }
-    if (description !== undefined && description !== task.description) {
-        updatePayload.description = description;
-        githubUpdates.body = description;
-    }
-    if (assignee !== undefined && assignee !== task.assignee) {
-        updatePayload.assignee = assignee;
-        githubUpdates.assignees = assignee ? [assignee] : [];
-    }
-    if (position !== undefined && position !== task.position) {
-        updatePayload.position = position;
-    }
+    processUpdate(title, 'title', 'title', 'title');
+    processUpdate(description, 'description', 'description', 'body');
+    processUpdate(assignee, 'assignee', 'assignee', 'assignees', assignee ? [assignee] : []);
+    processUpdate(position, 'position', 'position');
 
     // Sync to GitHub if linked
     await syncWithGitHubIssue(db, task, async (owner, name, issueNumber) => {
