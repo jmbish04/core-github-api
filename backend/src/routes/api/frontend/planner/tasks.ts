@@ -345,11 +345,6 @@ tasksApi.patch('/tasks/:id', async (c) => {
 
     // Sync to GitHub if linked
     if (task.githubIssueId && Object.keys(githubUpdates).length > 0) {
-        // Fallback for state update when only assignee/title changes but state needs synchronization just in case?
-        // No, original logic only updated state on targetStatus. We are now explicit about nextStatus.
-        if (!githubUpdates.state) {
-            githubUpdates.state = nextStatus === TaskStatus.DONE ? 'closed' : 'open';
-        }
         await performGithubAction(
             db,
             task.repoId,
