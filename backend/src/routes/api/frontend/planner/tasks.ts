@@ -215,10 +215,10 @@ tasksApi.get('/', async (c) => {
     const workshopRows = await db.select().from(tasks).where(eq(tasks.taskType, 'workshop_project')).limit(100);
     const mappedWorkshop = workshopRows.flatMap(w => {
         const context = (w.taskContext || {}) as any;
-        if (!context.phases || !Array.isArray(context.phases)) return [];
-        return context.phases.flatMap((p: any) => {
-            if (!p.tasks || !Array.isArray(p.tasks)) return [];
-            return p.tasks.map((t: any) => {
+        const phases = Array.isArray(context?.phases) ? context.phases : [];
+        return phases.flatMap((p: any) => {
+            const phaseTasks = Array.isArray(p?.tasks) ? p.tasks : [];
+            return phaseTasks.map((t: any) => {
                 const mappedStatus = t.status === 'not_started' ? TaskStatus.TODO :
                                      t.status === 'in_progress' ? TaskStatus.IN_PROGRESS : TaskStatus.DONE;
 
@@ -295,15 +295,7 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
     const initialStatus = (status as TaskStatus) || TaskStatus.TODO;
     const initialColumn = StatusMapper.mapStatusToColumn(initialStatus);
 
-    let startAt: string | undefined;
-
-
-    // If initial status implies progress, set startAt
-    if (initialStatus === TaskStatus.IN_PROGRESS || initialColumn === KanbanColumn.IN_PROGRESS) {
-        startAt = now;
-    }
-
-    let dbError = null;
+    const { startAt } = calculateTaskTimestamps({}, initialStatus, initialColumn, now);
 
     try {
         await db.insert(tasks).values({
@@ -318,27 +310,15 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
             githubHtmlUrl: issue.html_url,
             createdAt: now,
             updatedAt: now,
-            startAt: startAt
+            startAt
         });
+
+        await logTaskEvent(db, requestId, newId, issue.number, 'db_task_create', 'success');
+        return c.json({ success: true, id: newId });
     } catch (e: any) {
-        dbError = e.message;
-    }
-
-    await logTaskEvent(
-        db,
-        requestId,
-        newId,
-        issue.number,
-        'db_task_create',
-        !dbError ? 'success' : 'failed',
-        dbError ? { error: dbError } : undefined
-    );
-
-    if (dbError) {
+        await logTaskEvent(db, requestId, newId, issue.number, 'db_task_create', 'failed', { error: e.message });
         return c.json({ success: false, error: 'Failed to save local task' }, 500);
     }
-
-    return c.json({ success: true, id: newId });
 });
 
 // PATCH /api/tasks/:id
