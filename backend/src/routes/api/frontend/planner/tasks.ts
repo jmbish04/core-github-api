@@ -187,11 +187,9 @@ tasksApi.get('/', async (c) => {
     const workshopRows = await db.select().from(tasks).where(eq(tasks.taskType, 'workshop_project')).limit(100);
     const mappedWorkshop = workshopRows.flatMap(w => {
         const phases = ((w.taskContext || {}) as any)?.phases;
-        if (!Array.isArray(phases)) return [];
-        return phases.flatMap((p: any) => {
+        return (Array.isArray(phases) ? phases : []).flatMap((p: any) => {
             const phaseTasks = p?.tasks;
-            if (!Array.isArray(phaseTasks)) return [];
-            return phaseTasks.map((t: any) => {
+            return (Array.isArray(phaseTasks) ? phaseTasks : []).map((t: any) => {
                 const mappedStatus = t.status === 'not_started' ? TaskStatus.TODO : (t.status === 'in_progress' ? TaskStatus.IN_PROGRESS : TaskStatus.DONE);
                 return {
                     id: `${w.id}-${p.phase_number}-${t.task_number}`,
@@ -332,29 +330,45 @@ tasksApi.patch('/tasks/:id', async (c) => {
     const updatePayload: any = { updatedAt: now };
     const githubUpdates: any = {};
 
-    const syncField = <K extends keyof typeof updatePayload, G extends string>(
-        fieldValue: any,
-        currentValue: any,
-        localKey: K,
-        githubKey?: G,
-        githubValueMap?: (v: any) => any
-    ) => {
-        if (fieldValue !== undefined && fieldValue !== currentValue) {
-            updatePayload[localKey] = fieldValue;
-            if (githubKey) {
-                githubUpdates[githubKey] = githubValueMap ? githubValueMap(fieldValue) : fieldValue;
-            }
-        }
+    const processUpdate = (val: any, current: any, assign: () => void) => {
+        if (val !== undefined && val !== current) assign();
     };
 
-    syncField(nextStatus, currentStatus, 'status', 'state', v => v === TaskStatus.DONE ? 'closed' : 'open');
-    syncField(nextColumn, currentColumn, 'kanbanColumn');
-    syncField(startAt, task.startAt, 'startAt');
-    syncField(endAt, task.endAt, 'endAt');
-    syncField(position, task.position, 'position');
-    syncField(title, task.title, 'title', 'title');
-    syncField(description, task.description, 'description', 'body');
-    syncField(assignee, task.assignee, 'assignee', 'assignees', v => (v ? [v] : []));
+    processUpdate(nextStatus, currentStatus, () => {
+        updatePayload.status = nextStatus;
+        githubUpdates.state = nextStatus === TaskStatus.DONE ? 'closed' : 'open';
+    });
+
+    processUpdate(nextColumn, currentColumn, () => {
+        updatePayload.kanbanColumn = nextColumn;
+    });
+
+    processUpdate(startAt, task.startAt, () => {
+        updatePayload.startAt = startAt;
+    });
+
+    processUpdate(endAt, task.endAt, () => {
+        updatePayload.endAt = endAt;
+    });
+
+    processUpdate(position, task.position, () => {
+        updatePayload.position = position;
+    });
+
+    processUpdate(title, task.title, () => {
+        updatePayload.title = title;
+        githubUpdates.title = title;
+    });
+
+    processUpdate(description, task.description, () => {
+        updatePayload.description = description;
+        githubUpdates.body = description;
+    });
+
+    processUpdate(assignee, task.assignee, () => {
+        updatePayload.assignee = assignee;
+        githubUpdates.assignees = assignee ? [assignee] : [];
+    });
 
     // Sync to GitHub if linked
     if (task.githubIssueId && Object.keys(githubUpdates).length > 0) {
