@@ -1,6 +1,5 @@
 // src/routes/api/tasks.ts
 import { Hono, Context } from 'hono';
-import { Bindings } from '@utils/hono';
 import { getDb } from '@db';
 import { tasks, taskEvents, taskComments } from '@db/schemas/projects/tasks';
 import { repos } from '@db/schemas/github/repos';
@@ -77,7 +76,7 @@ async function logTaskEvent(
     }
 }
 
-function getBaseContext(c: Context) {
+function getBaseContext(c: Context<{ Bindings: Env }>) {
     return {
         db: getDb(c.env.DB),
         requestId: generateUuid(),
@@ -103,7 +102,7 @@ function calculateTaskTimestamps(status: TaskStatus, column: KanbanColumn, curre
 }
 
 async function executeGithubAction<T>(
-    db: any,
+    db: ReturnType<typeof getDb>,
     requestId: string,
     taskId: string | null,
     issueNumber: number | null,
@@ -113,12 +112,37 @@ async function executeGithubAction<T>(
 ): Promise<T | null> {
     try {
         const result = await action();
-        await logTaskEvent(db, requestId, taskId, issueNumber, eventType, result ? 'success' : 'failed', { ...details, result });
+        const loggedIssueNumber = issueNumber ?? (result as any)?.number ?? null;
+        await logTaskEvent(db, requestId, taskId, loggedIssueNumber, eventType, result ? 'success' : 'failed', { ...details, result });
         return result;
     } catch (e: any) {
         await logTaskEvent(db, requestId, taskId, issueNumber, eventType, 'failed', { error: e.message, ...details });
         return null;
     }
+}
+
+async function executeTaskGithubAction<T>(
+    c: Context<{ Bindings: Env }>,
+    db: ReturnType<typeof getDb>,
+    requestId: string,
+    task: any,
+    eventType: string,
+    actionFn: (env: Env, owner: string, name: string, issueNumber: number) => Promise<T>,
+    details?: any
+): Promise<T | null> {
+    const ghContext = await getGitHubContext(db, task);
+    if (!ghContext) return null;
+
+    const { owner, name, issueNumber } = ghContext;
+    return executeGithubAction(
+        db,
+        requestId,
+        task.id,
+        issueNumber,
+        eventType,
+        () => actionFn(c.env, owner, name, issueNumber),
+        details
+    );
 }
 
 const tasksApi = new Hono<{ Bindings: Env }>();
@@ -276,8 +300,6 @@ tasksApi.patch('/tasks/:id', async (c) => {
 
     await logTaskEvent(db, requestId, id, task.githubIssueId, 'api_request_update_task', 'pending', body);
 
-    const ghContext = await getGitHubContext(db, task);
-
     // Determine final Status and KanbanColumn using Mapper
     const currentStatus = task.status as TaskStatus;
     const currentColumn = task.kanbanColumn as KanbanColumn;
@@ -331,11 +353,10 @@ tasksApi.patch('/tasks/:id', async (c) => {
     if (endAt !== undefined && endAt !== task.endAt) updatePayload.endAt = endAt;
 
     // Sync to GitHub if linked and updates exist
-    if (ghContext && Object.keys(githubUpdates).length > 0) {
-        const { owner, name, issueNumber } = ghContext;
-        await executeGithubAction(
-            db, requestId, id, issueNumber, 'github_issue_update',
-            () => updateGitHubIssue(c.env, owner, name, issueNumber, githubUpdates),
+    if (Object.keys(githubUpdates).length > 0) {
+        await executeTaskGithubAction(
+            c, db, requestId, task, 'github_issue_update',
+            (env, owner, name, issueNumber) => updateGitHubIssue(env, owner, name, issueNumber, githubUpdates),
             githubUpdates
         );
     }
@@ -361,16 +382,12 @@ tasksApi.post('/tasks/:id/comments', async (c) => {
 
     // Sync to GitHub
     let githubCommentId: number | null = null;
-    const ghContext = await getGitHubContext(db, task);
-    if (ghContext) {
-        const { owner, name, issueNumber } = ghContext;
-        const comment = await executeGithubAction(
-            db, requestId, id, issueNumber, 'github_comment_create',
-            () => createGitHubComment(c.env, owner, name, issueNumber, `**${author || 'User'}**: ${content}`)
-        );
-        if (comment) {
-            githubCommentId = comment.id;
-        }
+    const comment = await executeTaskGithubAction(
+        c, db, requestId, task, 'github_comment_create',
+        (env, owner, name, issueNumber) => createGitHubComment(env, owner, name, issueNumber, `**${author || 'User'}**: ${content}`)
+    );
+    if (comment) {
+        githubCommentId = comment.id;
     }
 
     // Save Local
@@ -396,14 +413,10 @@ tasksApi.delete('/tasks/:id', async (c) => {
     const task = await getTaskById(db, id);
 
     if (task) {
-        const ghContext = await getGitHubContext(db, task);
-        if (ghContext) {
-            const { owner, name, issueNumber } = ghContext;
-            await executeGithubAction(
-                db, requestId, id, issueNumber, 'github_issue_close',
-                () => updateGitHubIssue(c.env, owner, name, issueNumber, { state: 'closed' })
-            );
-        }
+        await executeTaskGithubAction(
+            c, db, requestId, task, 'github_issue_close',
+            (env, owner, name, issueNumber) => updateGitHubIssue(env, owner, name, issueNumber, { state: 'closed' })
+        );
     }
 
     await db.update(tasks)
