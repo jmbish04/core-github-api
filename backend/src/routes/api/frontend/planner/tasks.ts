@@ -342,25 +342,27 @@ tasksApi.patch('/tasks/:id', async (c) => {
     const updatePayload: any = { updatedAt: now };
     const githubUpdates: any = {};
 
-    if (nextStatus !== currentStatus) {
-        updatePayload.status = nextStatus;
-        githubUpdates.state = nextStatus === TaskStatus.DONE ? 'closed' : 'open';
-    }
-    if (nextColumn !== currentColumn) updatePayload.kanbanColumn = nextColumn;
-    if (position !== undefined) updatePayload.position = position;
+    const syncField = <K extends keyof typeof updatePayload, G extends keyof typeof githubUpdates>(
+        value: any,
+        current: any,
+        updateKey: K,
+        githubKey?: G,
+        transform?: (val: any) => any
+    ) => {
+        if (value !== undefined && value !== current) {
+            updatePayload[updateKey] = value;
+            if (githubKey) {
+                githubUpdates[githubKey] = transform ? transform(value) : value;
+            }
+        }
+    };
 
-    if (title !== undefined && title !== task.title) {
-        updatePayload.title = title;
-        githubUpdates.title = title;
-    }
-    if (description !== undefined && description !== task.description) {
-        updatePayload.description = description;
-        githubUpdates.body = description;
-    }
-    if (assignee !== undefined && assignee !== task.assignee) {
-        updatePayload.assignee = assignee;
-        githubUpdates.assignees = assignee ? [assignee] : [];
-    }
+    syncField(nextStatus, currentStatus, 'status', 'state', v => (v === TaskStatus.DONE ? 'closed' : 'open'));
+    syncField(nextColumn, currentColumn, 'kanbanColumn');
+    syncField(position, undefined, 'position');
+    syncField(title, task.title, 'title', 'title');
+    syncField(description, task.description, 'description', 'body');
+    syncField(assignee, task.assignee, 'assignee', 'assignees', v => (v ? [v] : []));
 
     // Sync to GitHub if linked and relevant fields changed
     if (task.githubIssueId && Object.keys(githubUpdates).length > 0) {
