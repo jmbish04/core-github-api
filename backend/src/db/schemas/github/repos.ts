@@ -63,23 +63,6 @@ export type NewGitHubRepository = typeof repositories.$inferInsert;
 
 
 // ----------------------
-// repo_tech_stack
-// ----------------------
-export const repoTechStack = sqliteTable(
-    "repo_tech_stack",
-    {
-        repoId: text("repo_id")
-            .notNull()
-            .references(() => repositories.id, { onDelete: "cascade" }),
-        domain: text("domain").notNull(),                    // "frontend","backend","infra","testing","tooling"
-        key: text("key").notNull(),                          // "framework","bundler","ui_primitives","components","styling"
-        value: text("value").notNull(),                      // "react","vite","radix-ui","shadcn","tailwindcss"
-        source: text("source")                               // "ai_detected","manual","package.json","wrangler"
-    },
-    (table) => ({
-        pk: primaryKey({ columns: [table.repoId, table.domain, table.key] })
-    })
-);
 
 // ----------------------
 // repo_stats
@@ -127,79 +110,5 @@ export const repoMetrics = sqliteTable("repo_metrics", {
     lastReleaseTag: text("last_release_tag"),
     lastReleaseAt: text("last_release_at")
 });
-
-// ----------------------
-// repo_infra
-// ----------------------
-export const repoInfra = sqliteTable("repo_infra", {
-    repoId: text("repo_id")
-        .primaryKey()
-        .references(() => repositories.id, { onDelete: "cascade" }),
-
-    provider: text("provider"),                             // "cloudflare","gcp","aws","mixed","unknown"
-
-    usesWorkers: integer("uses_workers", { mode: "boolean" }).default(false),
-    usesPages: integer("uses_pages", { mode: "boolean" }).default(false),
-    usesD1: integer("uses_d1", { mode: "boolean" }).default(false),
-    usesKv: integer("uses_kv", { mode: "boolean" }).default(false),
-    usesR2: integer("uses_r2", { mode: "boolean" }).default(false),
-    usesQueues: integer("uses_queues", { mode: "boolean" }).default(false),
-    usesVectorize: integer("uses_vectorize", { mode: "boolean" }).default(false),
-
-    wranglerPath: text("wrangler_path"),                   // "wrangler.toml" or nested path
-    envsJson: text("envs_json")                            // JSON: env names, bindings, etc.
-});
-
-// ----------------------
-// repo_ai_context
-// ----------------------
-export const repoAiContext = sqliteTable("repo_ai_context", {
-    repoId: text("repo_id")
-        .primaryKey()
-        .references(() => repositories.id, { onDelete: "cascade" }),
-
-    embeddingId: text("embedding_id"),                     // ID in Vectorize or other
-    tokensEstimate: integer("tokens_estimate"),
-    lastIndexedAt: text("last_indexed_at"),
-    indexVersion: integer("index_version")
-});
-
-// ----------------------
-// repo_tags
-// ----------------------
-export const repoTags = sqliteTable(
-    "repo_tags",
-    {
-        repoId: text("repo_id")
-            .notNull()
-            .references(() => repositories.id, { onDelete: "cascade" }),
-        tag: text("tag").notNull()
-    },
-    (table) => ({
-        pk: primaryKey({ columns: [table.repoId, table.tag] })
-    })
-);
-
-// ----------------------
-// operation_logs (Gardener)
-// ----------------------
-export const operationLogs = sqliteTable("operation_logs", {
-    id: integer("id").primaryKey({ autoIncrement: true }),
-    repoId: text("repo_id")
-        .notNull()
-        .references(() => repositories.id, { onDelete: "cascade" }),
-
-    actionType: text("action_type").notNull(),            // "standardization", "fix_worker_types", "comment_enrichment"
-    status: text("status").notNull(),                     // "queued", "in_progress", "success", "failed", "skipped"
-
-    prUrl: text("pr_url"),                                // URL of the PR created by the agent
-    detailsJson: text("details_json"),                    // JSON log of specific fixes applied or errors
-
-    createdAt: text("created_at").notNull(),
-    completedAt: text("completed_at")
-}, (table) => ({
-    repoIdx: index("idx_operation_logs_repo").on(table.repoId),
-    actionIdx: index("idx_operation_logs_action").on(table.actionType)
-}));
 
 
