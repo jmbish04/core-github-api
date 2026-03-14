@@ -179,10 +179,11 @@ tasksApi.get('/', async (c) => {
     const workshopRows = await db.select().from(tasks).where(eq(tasks.taskType, 'workshop_project')).limit(100);
     const mappedWorkshop = workshopRows.flatMap(w => {
         const context = (w.taskContext || {}) as any;
-        if (!context.phases || !Array.isArray(context.phases)) return [];
-        return context.phases.flatMap((p: any) => {
-            if (!p.tasks || !Array.isArray(p.tasks)) return [];
-            return p.tasks.map((t: any) => {
+        const phases = Array.isArray(context?.phases) ? context.phases : [];
+
+        return phases.flatMap((p: any) => {
+            const tasksList = Array.isArray(p?.tasks) ? p.tasks : [];
+            return tasksList.map((t: any) => {
                 const mappedStatus = t.status === 'not_started' ? TaskStatus.TODO :
                                      t.status === 'in_progress' ? TaskStatus.IN_PROGRESS : TaskStatus.DONE;
 
@@ -315,28 +316,31 @@ tasksApi.patch('/tasks/:id', async (c) => {
     const updatePayload: any = { updatedAt: now, ...timestampUpdates };
     const ghUpdates: any = {};
 
+    const syncField = <K extends keyof typeof updatePayload, G extends keyof typeof ghUpdates>(
+        value: any,
+        currentValue: any,
+        dbKey: K,
+        ghKey?: G,
+        ghTransformer?: (val: any) => any
+    ) => {
+        if (value !== undefined && value !== currentValue) {
+            updatePayload[dbKey] = value;
+            if (ghKey) {
+                ghUpdates[ghKey] = ghTransformer ? ghTransformer(value) : value;
+            }
+        }
+    };
+
     if (nextStatus !== currentStatus) {
         updatePayload.status = nextStatus;
         ghUpdates.state = nextStatus === TaskStatus.DONE ? 'closed' : 'open';
     }
 
-    if (nextColumn !== currentColumn) updatePayload.kanbanColumn = nextColumn;
-    if (position !== undefined && position !== task.position) updatePayload.position = position;
-
-    if (title !== undefined && title !== task.title) {
-        updatePayload.title = title;
-        ghUpdates.title = title;
-    }
-
-    if (description !== undefined && description !== task.description) {
-        updatePayload.description = description;
-        ghUpdates.body = description;
-    }
-
-    if (assignee !== undefined && assignee !== task.assignee) {
-        updatePayload.assignee = assignee;
-        ghUpdates.assignees = assignee ? [assignee] : [];
-    }
+    syncField(nextColumn, currentColumn, 'kanbanColumn');
+    syncField(position, task.position, 'position');
+    syncField(title, task.title, 'title', 'title');
+    syncField(description, task.description, 'description', 'body');
+    syncField(assignee, task.assignee, 'assignee', 'assignees', (val) => val ? [val] : []);
 
     // Sync to GitHub if linked and updates exist
     if (task.githubIssueId && Object.keys(ghUpdates).length > 0) {
