@@ -310,31 +310,48 @@ tasksApi.patch('/tasks/:id', async (c) => {
     const updatePayload: any = { updatedAt: now };
     const githubUpdates: any = {};
 
+    const processUpdate = (val: any, current: any, assign: () => void) => {
+        if (val !== undefined && val !== current) assign();
+    };
+
+    processUpdate(nextStatus, currentStatus, () => {
+        updatePayload.status = nextStatus;
+    });
+
     if (status) {
         githubUpdates.state = nextStatus === TaskStatus.DONE ? 'closed' : 'open';
     }
 
-    if (nextStatus !== currentStatus) updatePayload.status = nextStatus;
-    if (nextColumn !== currentColumn) updatePayload.kanbanColumn = nextColumn;
-    if (startAt !== task.startAt) updatePayload.startAt = startAt;
-    if (endAt !== task.endAt) updatePayload.endAt = endAt;
-    if (position !== undefined) updatePayload.position = position;
+    processUpdate(nextColumn, currentColumn, () => {
+        updatePayload.kanbanColumn = nextColumn;
+    });
 
-    const syncField = <K extends keyof typeof updatePayload, G extends string>(
-        val: any,
-        localKey: K,
-        githubKey: G,
-        githubMapFn?: (v: any) => any
-    ) => {
-        if (val !== undefined) {
-            updatePayload[localKey] = val;
-            githubUpdates[githubKey] = githubMapFn ? githubMapFn(val) : val;
-        }
-    };
+    processUpdate(startAt, task.startAt, () => {
+        updatePayload.startAt = startAt;
+    });
 
-    syncField(title, 'title', 'title');
-    syncField(description, 'description', 'body');
-    syncField(assignee, 'assignee', 'assignees', (val) => val ? [val] : []);
+    processUpdate(endAt, task.endAt, () => {
+        updatePayload.endAt = endAt;
+    });
+
+    processUpdate(position, task.position, () => {
+        updatePayload.position = position;
+    });
+
+    processUpdate(title, task.title, () => {
+        updatePayload.title = title;
+        githubUpdates.title = title;
+    });
+
+    processUpdate(description, task.description, () => {
+        updatePayload.description = description;
+        githubUpdates.body = description;
+    });
+
+    processUpdate(assignee, task.assignee, () => {
+        updatePayload.assignee = assignee;
+        githubUpdates.assignees = assignee ? [assignee] : [];
+    });
 
     // Sync to GitHub if linked
     if (task.githubIssueId && Object.keys(githubUpdates).length > 0) {

@@ -110,16 +110,22 @@ def main():
         else:
             md_array.append(f"- *No tables definitively mapped to {title} yet*")
 
-    db1_sorted = sorted(db1_map.keys())
-    append_db_list(md, db1_sorted, "env.DB")
+    db_configs = [
+        {"name": "env.DB", "map": db1_map},
+        {"name": "env.DB_WEBHOOKS", "map": db2_map}
+    ]
 
-    md.append("\n")
-    db2_sorted = sorted(db2_map.keys())
-    append_db_list(md, db2_sorted, "env.DB_WEBHOOKS")
+    mapped_tables = set()
+    for idx, db in enumerate(db_configs):
+        sorted_keys = sorted(db["map"].keys())
+        db["sorted"] = sorted_keys
+        append_db_list(md, sorted_keys, db["name"])
+        mapped_tables.update(sorted_keys)
+        if idx < len(db_configs) - 1:
+            md.append("\n")
 
     # Catch AI Slop (Orphaned Tables)
     all_discovered = sorted(list(set(t['table_name'] for t in tables)))
-    mapped_tables = set(db1_sorted + db2_sorted)
     unmapped = [t for t in all_discovered if t not in mapped_tables]
     
     if unmapped:
@@ -146,10 +152,10 @@ def main():
             md_array.append("| *None Detected* | *N/A* |")
 
     md.append("---\n")
-    append_db_table_report(md, db1_sorted, db1_map, "env.DB")
-
-    md.append("\n")
-    append_db_table_report(md, db2_sorted, db2_map, "env.DB_WEBHOOKS")
+    for idx, db in enumerate(db_configs):
+        append_db_table_report(md, db["sorted"], db["map"], db["name"])
+        if idx < len(db_configs) - 1:
+            md.append("\n")
 
     # 4. Write to disk
     try:
