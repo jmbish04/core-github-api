@@ -1,5 +1,6 @@
 // src/routes/api/tasks.ts
 import { Hono } from 'hono';
+import type { Context } from 'hono';
 import { Bindings } from '@utils/hono';
 import { getDb } from '@db';
 import { tasks, taskEvents, taskComments } from '@db/schemas/projects/tasks';
@@ -114,8 +115,6 @@ function getRepoByOwnerAndName(db: ReturnType<typeof getDb>, owner: string, repo
 function getRepoById(db: ReturnType<typeof getDb>, id: string) {
     return db.select().from(repos).where(eq(repos.id, id)).limit(1).then(res => res[0] || null);
 }
-
-import type { Context } from 'hono';
 
 function getBaseContext(c: Context<any>) {
     return {
