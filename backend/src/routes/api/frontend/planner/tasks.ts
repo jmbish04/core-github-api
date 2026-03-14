@@ -345,33 +345,27 @@ tasksApi.patch('/tasks/:id', async (c) => {
     const updatePayload: any = { updatedAt: now };
     const githubUpdates: any = {};
 
-    if (nextStatus !== currentStatus) {
-        updatePayload.status = nextStatus;
-        githubUpdates.state = nextStatus === TaskStatus.DONE ? 'closed' : 'open';
-    }
+    const syncField = <K extends string, G extends string>(
+        newValue: any,
+        currentValue: any,
+        updateKey: K,
+        githubKey?: G,
+        githubValue?: any
+    ) => {
+        if (newValue !== undefined && newValue !== currentValue) {
+            updatePayload[updateKey] = newValue;
+            if (githubKey) {
+                githubUpdates[githubKey] = githubValue !== undefined ? githubValue : newValue;
+            }
+        }
+    };
 
-    if (nextColumn !== currentColumn) {
-        updatePayload.kanbanColumn = nextColumn;
-    }
-
-    if (position !== undefined && position !== task.position) {
-        updatePayload.position = position;
-    }
-
-    if (title !== undefined && title !== task.title) {
-        updatePayload.title = title;
-        githubUpdates.title = title;
-    }
-
-    if (description !== undefined && description !== task.description) {
-        updatePayload.description = description;
-        githubUpdates.body = description;
-    }
-
-    if (assignee !== undefined && assignee !== task.assignee) {
-        updatePayload.assignee = assignee;
-        githubUpdates.assignees = assignee ? [assignee] : [];
-    }
+    syncField(nextStatus, currentStatus, 'status', 'state', nextStatus === TaskStatus.DONE ? 'closed' : 'open');
+    syncField(nextColumn, currentColumn, 'kanbanColumn');
+    syncField(position, task.position, 'position');
+    syncField(title, task.title, 'title', 'title');
+    syncField(description, task.description, 'description', 'body');
+    syncField(assignee, task.assignee, 'assignee', 'assignees', assignee ? [assignee] : []);
 
     // Sync to GitHub if linked and there are relevant updates
     if (task.githubIssueId && Object.keys(githubUpdates).length > 0) {
