@@ -46,31 +46,31 @@ def main():
     # Matches: export const varName = sqliteTable('tableName', ...)
     table_regex = re.compile(r"export\s+const\s+([a-zA-Z0-9_]+)\s*=\s*(?:sqliteTable|pgTable|mysqlTable)\(\s*['\"]([^'\"]+)['\"]")
     
+    file_contents = {}
     for file_path in files:
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
-                content = f.read()
-                matches = table_regex.findall(content)
-                for var_name, table_name in matches:
-                    rel_path = os.path.relpath(file_path, root_dir)
-                    tables.append({
-                        "var_name": var_name,
-                        "table_name": table_name,
-                        "file": rel_path
-                    })
+                file_contents[file_path] = f.read()
         except Exception as e:
             print(f"Warning: Could not read {file_path}: {e}")
+
+    for file_path, content in file_contents.items():
+        matches = table_regex.findall(content)
+        for var_name, table_name in matches:
+            rel_path = os.path.relpath(file_path, root_dir)
+            tables.append({
+                "var_name": var_name,
+                "table_name": table_name,
+                "file": rel_path
+            })
 
     file_interactions = defaultdict(set)
     db1_map = defaultdict(set) # For env.DB
     db2_map = defaultdict(set) # For env.DB_WEBHOOKS
     
     # 2. Scan files for table imports and D1 database interactions
-    for file_path in files:
+    for file_path, content in file_contents.items():
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                content = f.read()
-                
             rel_path = os.path.relpath(file_path, root_dir)
             
             # Look for standard Cloudflare Worker / Hono context bindings
@@ -95,7 +95,7 @@ def main():
                 file_interactions[rel_path] = imported_tables
                 
         except Exception as e:
-            print(f"Warning: Could not read {file_path}: {e}")
+            print(f"Warning: Error processing {file_path}: {e}")
 
     # 3. Generate the Markdown Report
     md = ["# Drizzle ORM Schema & D1 Analysis Report\n"]
