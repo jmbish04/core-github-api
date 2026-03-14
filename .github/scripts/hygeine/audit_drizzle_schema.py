@@ -50,19 +50,22 @@ def main():
     for file_path in files:
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
-                file_contents[file_path] = f.read()
+                content = f.read()
+                file_contents[file_path] = content
+
+                # Match tables directly as we read files
+                matches = table_regex.findall(content)
+                for var_name, table_name in matches:
+                    rel_path = os.path.relpath(file_path, root_dir)
+                    tables.append({
+                        "var_name": var_name,
+                        "table_name": table_name,
+                        "file": rel_path,
+                        # Precompile the var regex for later to optimize the scan loop
+                        "var_regex": re.compile(r"\b" + re.escape(var_name) + r"\b")
+                    })
         except Exception as e:
             print(f"Warning: Could not read {file_path}: {e}")
-
-    for file_path, content in file_contents.items():
-        matches = table_regex.findall(content)
-        for var_name, table_name in matches:
-            rel_path = os.path.relpath(file_path, root_dir)
-            tables.append({
-                "var_name": var_name,
-                "table_name": table_name,
-                "file": rel_path
-            })
 
     file_interactions = defaultdict(set)
     db1_map = defaultdict(set) # For env.DB
@@ -81,9 +84,7 @@ def main():
             
             for t in tables:
                 # Regex boundary check for the specific Drizzle table variable
-                var_regex = re.compile(r"\b" + re.escape(t['var_name']) + r"\b")
-                
-                if var_regex.search(content):
+                if t['var_regex'].search(content):
                     imported_tables.add(t['table_name'])
                     
                     if uses_db1:
