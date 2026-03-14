@@ -65,14 +65,15 @@ async function getRepoById(db: ReturnType<typeof getDb>, id: string) {
 async function performGithubAction(
     db: ReturnType<typeof getDb>,
     task: any,
-    actionFn: (owner: string, repoName: string, issueNumber: number) => Promise<any>,
+    githubIssueId: number | null | undefined,
+    actionFn: (owner: string, repoName: string, issueNumber?: number) => Promise<any>,
     logOptions?: {
         requestId: string;
         eventType: string;
         details?: any;
     }
 ) {
-    if (!task.githubIssueId) return null;
+    if (githubIssueId === null) return null;
 
     const repoRecord = await getRepoById(db, task.repoId);
     if (!repoRecord) return null;
@@ -83,7 +84,7 @@ async function performGithubAction(
     let errorMsg: string | undefined;
 
     try {
-        result = await actionFn(owner, name, task.githubIssueId);
+        result = await actionFn(owner, name, githubIssueId || undefined);
     } catch (e: any) {
         errorMsg = e.message;
     }
@@ -91,7 +92,12 @@ async function performGithubAction(
     if (logOptions) {
         const status = result ? 'success' : 'failed';
         const details = errorMsg ? { error: errorMsg, ...logOptions.details } : logOptions.details;
-        await logTaskEvent(db, logOptions.requestId, task.id, task.githubIssueId, logOptions.eventType, status, details);
+
+        // If the action creates an issue, the issue id might only be available in the result.
+        // We use a dynamically resolved ID via callback if logOptions.details contains issue extractor,
+        // or fallback to githubIssueId. But for now let's just use the passed ID or result's number.
+        const resolvedIssueId = githubIssueId || (result ? result.number : null);
+        await logTaskEvent(db, logOptions.requestId, task.id || null, resolvedIssueId, logOptions.eventType, status, details);
     }
 
     return result;
@@ -234,13 +240,22 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
     }
 
     // 1. Create GitHub Issue
-    const issue = await createGitHubIssue(c.env, owner, repo, title, description, assignee ? [assignee] : undefined);
-
-    await logTaskEvent(db, requestId, null, issue?.number || null, 'github_issue_create', issue ? 'success' : 'failed', issue ? { html_url: issue.html_url } : undefined);
+    // We pass a dummy task object containing just the repoId since it hasn't been created yet.
+    const dummyTask = { repoId: repoRecord.id };
+    const issue = await performGithubAction(
+        db,
+        dummyTask,
+        undefined, // Bypass guard to allow creation
+        (owner, name) => createGitHubIssue(c.env, owner, name, title, description, assignee ? [assignee] : undefined),
+        { requestId, eventType: 'github_issue_create' }
+    );
 
     if (!issue) {
         return c.json({ success: false, error: 'Failed to create GitHub issue' }, 500);
     }
+
+    // Update log with html_url if successful
+    await logTaskEvent(db, requestId, null, issue.number, 'github_issue_create_details', 'success', { html_url: issue.html_url });
 
     // 2. Create Local Task
     const newId = generateUuid();
@@ -348,7 +363,8 @@ tasksApi.patch('/tasks/:id', async (c) => {
         await performGithubAction(
             db,
             task,
-            (owner, name, issueNumber) => updateGitHubIssue(c.env, owner, name, issueNumber, ghUpdates),
+            task.githubIssueId,
+            (owner, name, issueNumber) => updateGitHubIssue(c.env, owner, name, issueNumber!, ghUpdates),
             { requestId, eventType: 'github_issue_update', details: ghUpdates }
         );
     }
@@ -371,7 +387,8 @@ tasksApi.post('/tasks/:id/comments', async (c) => {
     const commentResult = await performGithubAction(
         db,
         task,
-        (owner, name, issueNumber) => createGitHubComment(c.env, owner, name, issueNumber, `**${author || 'User'}**: ${content}`),
+        task.githubIssueId,
+        (owner, name, issueNumber) => createGitHubComment(c.env, owner, name, issueNumber!, `**${author || 'User'}**: ${content}`),
         { requestId, eventType: 'github_comment_create' }
     );
     const githubCommentId = commentResult ? commentResult.id : null;
@@ -401,7 +418,8 @@ tasksApi.delete('/tasks/:id', async (c) => {
     await performGithubAction(
         db,
         task,
-        (owner, name, issueNumber) => updateGitHubIssue(c.env, owner, name, issueNumber, { state: 'closed' }),
+        task.githubIssueId,
+        (owner, name, issueNumber) => updateGitHubIssue(c.env, owner, name, issueNumber!, { state: 'closed' }),
         { requestId, eventType: 'github_issue_close' }
     );
 
