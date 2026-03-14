@@ -1,5 +1,5 @@
 // src/routes/api/tasks.ts
-import { Hono } from 'hono';
+import { Hono, Context } from 'hono';
 import { Bindings } from '@utils/hono';
 import { getDb } from '@db';
 import { tasks, taskEvents, taskComments } from '@db/schemas/projects/tasks';
@@ -75,6 +75,31 @@ async function logTaskEvent(
     } catch (e) {
         console.error("Failed to log task event", e);
     }
+}
+
+function getBaseContext(c: Context) {
+    return {
+        db: getDb(c.env.DB),
+        requestId: generateUuid(),
+        now: new Date().toISOString()
+    };
+}
+
+function calculateTaskTimestamps(status: TaskStatus, column: KanbanColumn, currentStartAt: string | null, currentEndAt: string | null, now: string) {
+    let startAt = currentStartAt;
+    let endAt = currentEndAt;
+
+    if ((status === TaskStatus.IN_PROGRESS || column === KanbanColumn.IN_PROGRESS) && !startAt) {
+        startAt = now;
+    }
+
+    if (status === TaskStatus.DONE || column === KanbanColumn.DONE) {
+        endAt = now;
+    } else if (status !== TaskStatus.DONE && column !== KanbanColumn.DONE && endAt) {
+        endAt = null;
+    }
+
+    return { startAt, endAt };
 }
 
 const tasksApi = new Hono<{ Bindings: Env }>();
@@ -160,8 +185,7 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
     const { owner, repo } = c.req.param();
     const body = await c.req.json();
     const { title, description, status, assignee } = body as any;
-    const db = getDb(c.env.DB);
-    const requestId = generateUuid();
+    const { db, requestId, now } = getBaseContext(c);
 
     // Log API Request
     await logTaskEvent(db, requestId, null, null, 'api_request_create_task', 'pending', { owner, repo, body });
@@ -183,18 +207,12 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
 
     // 2. Create Local Task
     const newId = generateUuid();
-    const now = new Date().toISOString();
 
     // Logic: Status defaults to TODO (per schema), Mapper determines column
     const initialStatus = (status as TaskStatus) || TaskStatus.TODO;
     const initialColumn = StatusMapper.mapStatusToColumn(initialStatus);
 
-    let startAt: string | undefined;
-
-    // If initial status implies progress, set startAt
-    if (initialStatus === TaskStatus.IN_PROGRESS || initialColumn === KanbanColumn.IN_PROGRESS) {
-        startAt = now;
-    }
+    const { startAt } = calculateTaskTimestamps(initialStatus, initialColumn, null, null, now);
 
     try {
         await db.insert(tasks).values({
@@ -225,8 +243,7 @@ tasksApi.patch('/tasks/:id', async (c) => {
     const { id } = c.req.param();
     const body = await c.req.json();
     const { status, position, title, description, assignee, kanbanColumn } = body as any;
-    const db = getDb(c.env.DB);
-    const requestId = generateUuid();
+    const { db, requestId, now } = getBaseContext(c);
 
     // Get current task
     const task = await getTaskById(db, id);
@@ -283,7 +300,6 @@ tasksApi.patch('/tasks/:id', async (c) => {
     }
 
     // Prepare DB Update Payload
-    const now = new Date().toISOString();
     const updatePayload: any = {
         updatedAt: now
     };
@@ -296,17 +312,9 @@ tasksApi.patch('/tasks/:id', async (c) => {
     if (description !== undefined) updatePayload.description = description;
     if (assignee !== undefined) updatePayload.assignee = assignee;
 
-    // Logic: Set startAt if moving to active state and not set
-    if ((nextStatus === TaskStatus.IN_PROGRESS || nextColumn === KanbanColumn.IN_PROGRESS) && !task.startAt) {
-        updatePayload.startAt = now;
-    }
-
-    if ((nextStatus as TaskStatus) === TaskStatus.DONE || (nextColumn as KanbanColumn) === KanbanColumn.DONE) {
-        updatePayload.endAt = now;
-    } else if (nextStatus !== TaskStatus.DONE && nextColumn !== KanbanColumn.DONE && task.endAt) {
-        // If moving OUT of done, reset endAt
-        updatePayload.endAt = null;
-    }
+    const { startAt, endAt } = calculateTaskTimestamps(nextStatus, nextColumn, task.startAt || null, task.endAt || null, now);
+    if (startAt !== undefined && startAt !== task.startAt) updatePayload.startAt = startAt;
+    if (endAt !== undefined && endAt !== task.endAt) updatePayload.endAt = endAt;
 
     // Update Local
     await db.update(tasks)
@@ -322,8 +330,7 @@ tasksApi.patch('/tasks/:id', async (c) => {
 tasksApi.post('/tasks/:id/comments', async (c) => {
     const { id } = c.req.param();
     const { content, author } = await c.req.json() as any;
-    const db = getDb(c.env.DB);
-    const requestId = generateUuid();
+    const { db, requestId, now } = getBaseContext(c);
 
     const task = await getTaskById(db, id);
     if (!task) return c.json({ success: false, error: 'Task not found' }, 404);
@@ -342,7 +349,6 @@ tasksApi.post('/tasks/:id/comments', async (c) => {
 
     // Save Local
     const commentId = generateUuid();
-    const now = new Date().toISOString();
     await db.insert(taskComments).values({
         id: commentId,
         taskId: id,
@@ -359,8 +365,7 @@ tasksApi.post('/tasks/:id/comments', async (c) => {
 // DELETE /api/tasks/:id (Soft delete)
 tasksApi.delete('/tasks/:id', async (c) => {
     const { id } = c.req.param();
-    const db = getDb(c.env.DB);
-    const requestId = generateUuid();
+    const { db, requestId, now } = getBaseContext(c);
 
     const task = await getTaskById(db, id);
 
@@ -373,7 +378,6 @@ tasksApi.delete('/tasks/:id', async (c) => {
         }
     }
 
-    const now = new Date().toISOString();
     await db.update(tasks)
         .set({
             isDeleted: 1,
