@@ -94,6 +94,14 @@ async function performGithubAction(
     }
 }
 
+async function getRepoByOwnerAndName(db: ReturnType<typeof getDb>, owner: string, repo: string) {
+    return db.select().from(repos).where(and(eq(repos.owner, owner), eq(repos.name, repo))).limit(1);
+}
+
+async function getTaskById(db: ReturnType<typeof getDb>, id: string) {
+    return db.select().from(tasks).where(eq(tasks.id, id)).limit(1);
+}
+
 const tasksApi = new Hono<{ Bindings: Env }>();
 
 // GET /api/repos/:owner/:repo/tasks
@@ -102,7 +110,7 @@ tasksApi.get('/repos/:owner/:repo/tasks', async (c) => {
     const db = getDb(c.env.DB);
 
     // Resolve repo ID
-    const repoRecord = await db.select().from(repos).where(and(eq(repos.owner, owner), eq(repos.name, repo))).limit(1);
+    const repoRecord = await getRepoByOwnerAndName(db, owner, repo);
 
     if (!repoRecord.length) {
         return c.json({ success: false, error: 'Repo not found' }, 404);
@@ -179,7 +187,7 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
     // Log API Request
     await logTaskEvent(db, requestId, null, null, 'api_request_create_task', 'pending', { owner, repo, body });
 
-    const repoRecord = await db.select().from(repos).where(and(eq(repos.owner, owner), eq(repos.name, repo))).limit(1);
+    const repoRecord = await getRepoByOwnerAndName(db, owner, repo);
     if (!repoRecord.length) {
         await logTaskEvent(db, requestId, null, null, 'api_request_create_task', 'failed', { error: 'Repo not found' });
         return c.json({ success: false, error: 'Repo not found' }, 404);
@@ -196,6 +204,7 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
 
     // 2. Create Local Task
     const newId = crypto.randomUUID();
+    const now = new Date().toISOString();
 
     // Logic: Status defaults to TODO (per schema), Mapper determines column
     const initialStatus = (status as TaskStatus) || TaskStatus.TODO;
@@ -205,7 +214,7 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
 
     // If initial status implies progress, set startAt
     if (initialStatus === TaskStatus.IN_PROGRESS || initialColumn === KanbanColumn.IN_PROGRESS) {
-        startAt = new Date().toISOString();
+        startAt = now;
     }
 
     try {
@@ -219,8 +228,8 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
             assignee,
             githubIssueId: issue.number,
             githubHtmlUrl: issue.html_url,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
+            createdAt: now,
+            updatedAt: now,
             startAt: startAt
         });
         await logTaskEvent(db, requestId, newId, issue.number, 'db_task_create', 'success');
@@ -241,7 +250,7 @@ tasksApi.patch('/tasks/:id', async (c) => {
     const requestId = crypto.randomUUID();
 
     // Get current task
-    const currentTask = await db.select().from(tasks).where(eq(tasks.id, id)).limit(1);
+    const currentTask = await getTaskById(db, id);
     
     // Check if it's a workshop task
     if (!currentTask.length) {
@@ -295,9 +304,11 @@ tasksApi.patch('/tasks/:id', async (c) => {
         if (syncedColumn) nextColumn = syncedColumn;
     }
 
+    const now = new Date().toISOString();
+
     // Prepare DB Update Payload
     const updatePayload: any = {
-        updatedAt: new Date().toISOString()
+        updatedAt: now
     };
 
     if (nextStatus !== currentStatus) updatePayload.status = nextStatus;
@@ -310,11 +321,11 @@ tasksApi.patch('/tasks/:id', async (c) => {
 
     // Logic: Set startAt if moving to active state and not set
     if ((nextStatus === TaskStatus.IN_PROGRESS || nextColumn === KanbanColumn.IN_PROGRESS) && !task.startAt) {
-        updatePayload.startAt = new Date().toISOString();
+        updatePayload.startAt = now;
     }
 
     if ((nextStatus as TaskStatus) === TaskStatus.DONE || (nextColumn as KanbanColumn) === KanbanColumn.DONE) {
-        updatePayload.endAt = new Date().toISOString();
+        updatePayload.endAt = now;
     } else if (nextStatus !== TaskStatus.DONE && nextColumn !== KanbanColumn.DONE && task.endAt) {
         // If moving OUT of done, reset endAt
         updatePayload.endAt = null;
@@ -337,7 +348,7 @@ tasksApi.post('/tasks/:id/comments', async (c) => {
     const db = getDb(c.env.DB);
     const requestId = crypto.randomUUID();
 
-    const currentTask = await db.select().from(tasks).where(eq(tasks.id, id)).limit(1);
+    const currentTask = await getTaskById(db, id);
     if (!currentTask.length) return c.json({ success: false, error: 'Task not found' }, 404);
     const task = currentTask[0];
 
@@ -353,14 +364,15 @@ tasksApi.post('/tasks/:id/comments', async (c) => {
 
     // Save Local
     const commentId = crypto.randomUUID();
+    const now = new Date().toISOString();
     await db.insert(taskComments).values({
         id: commentId,
         taskId: id,
         content,
         author: author || 'system',
         githubCommentId,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        createdAt: now,
+        updatedAt: now
     });
 
     return c.json({ success: true, id: commentId });
@@ -372,7 +384,7 @@ tasksApi.delete('/tasks/:id', async (c) => {
     const db = getDb(c.env.DB);
     const requestId = crypto.randomUUID();
 
-    const currentTask = await db.select().from(tasks).where(eq(tasks.id, id)).limit(1);
+    const currentTask = await getTaskById(db, id);
     if (!currentTask.length) return c.json({ success: false, error: 'Task not found' }, 404);
 
     if (currentTask[0].githubIssueId) {
@@ -385,10 +397,12 @@ tasksApi.delete('/tasks/:id', async (c) => {
         );
     }
 
+    const now = new Date().toISOString();
+
     await db.update(tasks)
         .set({
             isDeleted: 1,
-            updatedAt: new Date().toISOString()
+            updatedAt: now
         })
         .where(eq(tasks.id, id));
 
