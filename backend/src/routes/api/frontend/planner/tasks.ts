@@ -313,9 +313,7 @@ tasksApi.patch('/tasks/:id', async (c) => {
         const syncedStatus = StatusMapper.getSyncStatus(nextStatus, nextColumn);
         if (syncedStatus) nextStatus = syncedStatus;
     }
-    // 2. If Status Changed, does Column need to sync? (Priority driven by what was passed)
-    // If BOTH passed, Mapper shouldn't override explicit values unless strictly invalid? 
-    // Let's assume explicit input wins, but if only one passed, we sync the other.
+    // 2. If Status Changed, does Column need to sync?
     else if (status && status !== currentStatus) {
         const syncedColumn = StatusMapper.getSyncColumn(nextColumn, nextStatus);
         if (syncedColumn) nextColumn = syncedColumn;
@@ -338,19 +336,17 @@ tasksApi.patch('/tasks/:id', async (c) => {
         updatePayload.position = position;
     }
 
-    if (title !== undefined && title !== task.title) {
-        updatePayload.title = title;
-        githubUpdates.title = title;
-    }
+    const updates = [
+        { field: 'title', ghField: 'title', val: title },
+        { field: 'description', ghField: 'body', val: description },
+        { field: 'assignee', ghField: 'assignees', val: assignee, isArray: true }
+    ];
 
-    if (description !== undefined && description !== task.description) {
-        updatePayload.description = description;
-        githubUpdates.body = description;
-    }
-
-    if (assignee !== undefined && assignee !== task.assignee) {
-        updatePayload.assignee = assignee;
-        githubUpdates.assignees = assignee ? [assignee] : [];
+    for (const { field, ghField, val, isArray } of updates) {
+        if (val !== undefined && val !== task[field as keyof typeof task]) {
+            updatePayload[field] = val;
+            githubUpdates[ghField] = isArray ? (val ? [val] : []) : val;
+        }
     }
 
     // Sync to GitHub if linked and there are relevant updates
