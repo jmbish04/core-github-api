@@ -130,32 +130,29 @@ tasksApi.get('/', async (c) => {
     
     // Also fetch workshop tasks for global view
     const workshopRows = await db.select().from(tasks).where(eq(tasks.taskType, 'workshop_project')).limit(100);
-    const mappedWorkshop: any[] = [];
-    workshopRows.forEach(w => {
+    const mappedWorkshop = workshopRows.flatMap(w => {
         const context = (w.taskContext || {}) as any;
-        if (!context.phases || !Array.isArray(context.phases)) return;
-        context.phases.forEach((p: any) => {
-            if (!p.tasks || !Array.isArray(p.tasks)) return;
-            p.tasks.forEach((t: any) => {
-                mappedWorkshop.push({
-                    id: `${w.id}-${p.phase_number}-${t.task_number}`,
-                    repoId: w.repoId,
-                    title: `[Phase ${p.phase_number}] ${t.task_title}`,
-                    description: t.task_description || '',
-                    status: t.status === 'not_started' ? TaskStatus.TODO :
-                            t.status === 'in_progress' ? TaskStatus.IN_PROGRESS : TaskStatus.DONE,
-                    kanbanColumn: t.status === 'not_started' ? KanbanColumn.PLANNED :
-                                  t.status === 'in_progress' ? KanbanColumn.IN_PROGRESS : KanbanColumn.DONE,
-                    assignee: t.agent_assigned || null,
-                    githubIssueId: null,
-                    githubHtmlUrl: null,
-                    createdAt: w.createdAt,
-                    updatedAt: w.updatedAt,
-                    startAt: null,
-                    endAt: null,
-                    isDeleted: 0
-                });
-            });
+        if (!context.phases || !Array.isArray(context.phases)) return [];
+        return context.phases.flatMap((p: any) => {
+            if (!p.tasks || !Array.isArray(p.tasks)) return [];
+            return p.tasks.map((t: any) => ({
+                id: `${w.id}-${p.phase_number}-${t.task_number}`,
+                repoId: w.repoId,
+                title: `[Phase ${p.phase_number}] ${t.task_title}`,
+                description: t.task_description || '',
+                status: t.status === 'not_started' ? TaskStatus.TODO :
+                        t.status === 'in_progress' ? TaskStatus.IN_PROGRESS : TaskStatus.DONE,
+                kanbanColumn: t.status === 'not_started' ? KanbanColumn.PLANNED :
+                              t.status === 'in_progress' ? KanbanColumn.IN_PROGRESS : KanbanColumn.DONE,
+                assignee: t.agent_assigned || null,
+                githubIssueId: null,
+                githubHtmlUrl: null,
+                createdAt: w.createdAt,
+                updatedAt: w.updatedAt,
+                startAt: null,
+                endAt: null,
+                isDeleted: 0
+            }));
         });
     });
 
