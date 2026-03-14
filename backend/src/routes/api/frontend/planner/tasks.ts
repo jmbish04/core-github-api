@@ -115,7 +115,7 @@ function getRepoById(db: ReturnType<typeof getDb>, id: string) {
     return db.select().from(repos).where(eq(repos.id, id)).limit(1).then(res => res[0] || null);
 }
 
-function getBaseContext(c: Context<{ Bindings: Env }>) {
+function getBaseContext(c: Context<{ Bindings: Bindings }>) {
     return {
         db: getDb(c.env.DB),
         requestId: generateUuid(),
@@ -149,21 +149,21 @@ function calculateTaskTimestamps(
 }
 
 
-async function getRepoContext(c: Context<{ Bindings: Env }>) {
+async function getRepoContext(c: Context<{ Bindings: Bindings }>) {
     const { owner, repo } = c.req.param();
     const baseCtx = getBaseContext(c);
     const repoRecord = await getRepoByOwnerAndName(baseCtx.db, owner, repo);
     return { owner, repo, ...baseCtx, repoRecord };
 }
 
-async function getTaskContext(c: Context<{ Bindings: Env }>) {
+async function getTaskContext(c: Context<{ Bindings: Bindings }>) {
     const { id } = c.req.param();
     const baseCtx = getBaseContext(c);
     const task = await getTaskById(baseCtx.db, id);
     return { id, ...baseCtx, task };
 }
 
-const tasksApi = new Hono<{ Bindings: Env }>();
+const tasksApi = new Hono<{ Bindings: Bindings }>();
 
 // GET /api/repos/:owner/:repo/tasks
 tasksApi.get('/repos/:owner/:repo/tasks', async (c) => {
