@@ -118,7 +118,8 @@ def main():
         md.append("- *No tables definitively mapped to env.DB_WEBHOOKS yet*")
 
     # Catch AI Slop (Orphaned Tables)
-    all_discovered = sorted(list(set(t['table_name'] for t in tables)))
+    all_discovered_tables = [t for t in tables if not t['file'].endswith('backend/src/db/schema.ts')]
+    all_discovered = sorted(list(set(t['table_name'] for t in all_discovered_tables)))
     mapped_tables = set(db1_sorted + db2_sorted)
     unmapped = [t for t in all_discovered if t not in mapped_tables]
     
