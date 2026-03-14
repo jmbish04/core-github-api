@@ -38,11 +38,9 @@ async function getWorkshopTasks(db: ReturnType<typeof getDb>, repoId?: string) {
     const workshopRows = await db.select().from(tasks).where(condition).limit(100);
 
     return workshopRows.flatMap((w: any) => {
-        const phases = ((w.taskContext || {}) as any).phases;
-        if (!phases || !Array.isArray(phases)) return [];
+        const phases = Array.isArray((w.taskContext as any)?.phases) ? (w.taskContext as any).phases : [];
         return phases.flatMap((p: any) => {
-            const tasksList = p.tasks;
-            if (!tasksList || !Array.isArray(tasksList)) return [];
+            const tasksList = Array.isArray(p?.tasks) ? p.tasks : [];
             return tasksList.map((t: any) => {
                 const mappedStatus = t.status === 'not_started' ? TaskStatus.TODO :
                                      t.status === 'in_progress' ? TaskStatus.IN_PROGRESS : TaskStatus.DONE;
@@ -314,30 +312,32 @@ tasksApi.patch('/tasks/:id', async (c) => {
     };
     const ghUpdates: any = {};
 
-    if (nextStatus !== currentStatus) {
-        updatePayload.status = nextStatus;
-        if (nextStatus === TaskStatus.DONE) ghUpdates.state = 'closed';
-        else ghUpdates.state = 'open';
-    }
-    if (nextColumn !== currentColumn) updatePayload.kanbanColumn = nextColumn;
+    const processUpdate = (
+        val: any,
+        current: any,
+        assign: () => void
+    ) => {
+        if (val !== undefined && val !== current) {
+            assign();
+        }
+    };
 
-    if (position !== undefined && position !== task.position) updatePayload.position = position;
-    if (title !== undefined && title !== task.title) {
-        updatePayload.title = title;
-        ghUpdates.title = title;
-    }
-    if (description !== undefined && description !== task.description) {
-        updatePayload.description = description;
-        ghUpdates.body = description;
-    }
-    if (assignee !== undefined && assignee !== task.assignee) {
+    processUpdate(nextStatus, currentStatus, () => {
+        updatePayload.status = nextStatus;
+        ghUpdates.state = nextStatus === TaskStatus.DONE ? 'closed' : 'open';
+    });
+    processUpdate(nextColumn, currentColumn, () => { updatePayload.kanbanColumn = nextColumn; });
+    processUpdate(position, task.position, () => { updatePayload.position = position; });
+    processUpdate(title, task.title, () => { updatePayload.title = title; ghUpdates.title = title; });
+    processUpdate(description, task.description, () => { updatePayload.description = description; ghUpdates.body = description; });
+    processUpdate(assignee, task.assignee, () => {
         updatePayload.assignee = assignee;
         ghUpdates.assignees = assignee ? [assignee] : [];
-    }
+    });
 
     const { startAt, endAt } = calculateTaskTimestamps(task.startAt, task.endAt, nextStatus, nextColumn, now);
-    if (startAt !== undefined && startAt !== task.startAt) updatePayload.startAt = startAt;
-    if (endAt !== undefined && endAt !== task.endAt) updatePayload.endAt = endAt;
+    processUpdate(startAt, task.startAt, () => { updatePayload.startAt = startAt; });
+    processUpdate(endAt, task.endAt, () => { updatePayload.endAt = endAt; });
 
     // Sync to GitHub if linked
     await syncWithGitHubIssue(db, task, async (owner, name, issueNumber) => {
