@@ -292,8 +292,8 @@ tasksApi.patch('/tasks/:id', async (c) => {
             state: targetStatus === TaskStatus.DONE ? 'closed' : 'open'
         };
 
-        if (title !== undefined) updates.title = title;
-        if (description !== undefined) updates.body = description;
+        if (title) updates.title = title;
+        if (description) updates.body = description;
         if (assignee !== undefined) updates.assignees = assignee ? [assignee] : [];
 
         if (Object.keys(updates).length > 0) {
