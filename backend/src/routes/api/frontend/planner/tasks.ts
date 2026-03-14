@@ -115,6 +115,32 @@ function getRepoById(db: ReturnType<typeof getDb>, id: string) {
     return db.select().from(repos).where(eq(repos.id, id)).limit(1).then(res => res[0] || null);
 }
 
+function calculateTaskTimestamps(
+    status: TaskStatus,
+    column: KanbanColumn,
+    now: string,
+    currentStartAt?: string | null,
+    currentEndAt?: string | null
+): { startAt?: string | null; endAt?: string | null } {
+    const isActive = status === TaskStatus.IN_PROGRESS || column === KanbanColumn.IN_PROGRESS;
+    const isDone = status === TaskStatus.DONE || column === KanbanColumn.DONE;
+
+    let startAt = currentStartAt;
+    let endAt = currentEndAt;
+
+    if (isActive && !startAt) {
+        startAt = now;
+    }
+
+    if (isDone) {
+        endAt = now;
+    } else if (endAt) {
+        endAt = null;
+    }
+
+    return { startAt, endAt };
+}
+
 const tasksApi = new Hono<{ Bindings: Env }>();
 
 function getBaseContext(c: any) {
@@ -214,13 +240,28 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
     }
 
     // 1. Create GitHub Issue
-    const issue = await createGitHubIssue(c.env, owner, repo, title, description, assignee ? [assignee] : undefined);
-
-    if (!issue) {
-        await logTaskEvent(db, requestId, null, null, 'github_issue_create', 'failed');
-        return c.json({ success: false, error: 'Failed to create GitHub issue' }, 500);
+    let issue: any = null;
+    let issueError: string | null = null;
+    try {
+        issue = await createGitHubIssue(c.env, owner, repo, title, description, assignee ? [assignee] : undefined);
+        if (!issue) throw new Error('Failed to create GitHub issue');
+    } catch (e: any) {
+        issueError = e.message;
     }
-    await logTaskEvent(db, requestId, null, issue.number, 'github_issue_create', 'success', { html_url: issue.html_url });
+
+    await logTaskEvent(
+        db,
+        requestId,
+        null,
+        issue?.number || null,
+        'github_issue_create',
+        issueError ? 'failed' : 'success',
+        issueError ? { error: issueError } : { html_url: issue?.html_url }
+    );
+
+    if (issueError) {
+        return c.json({ success: false, error: issueError }, 500);
+    }
 
     // 2. Create Local Task
     const newId = generateUuid();
@@ -229,12 +270,7 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
     const initialStatus = (status as TaskStatus) || TaskStatus.TODO;
     const initialColumn = StatusMapper.mapStatusToColumn(initialStatus);
 
-    let startAt: string | undefined;
-
-    // If initial status implies progress, set startAt
-    if (initialStatus === TaskStatus.IN_PROGRESS || initialColumn === KanbanColumn.IN_PROGRESS) {
-        startAt = now;
-    }
+    const { startAt } = calculateTaskTimestamps(initialStatus, initialColumn, now);
 
     let dbSuccess = true;
     let dbError = null;
@@ -331,35 +367,27 @@ tasksApi.patch('/tasks/:id', async (c) => {
         else githubUpdates.state = 'open';
     }
 
-    if (position !== undefined) updatePayload.position = position;
-    if (title !== undefined) {
+    if (position !== undefined && position !== task.position) updatePayload.position = position;
+
+    if (title !== undefined && title !== task.title) {
         updatePayload.title = title;
         if (task.githubIssueId) githubUpdates.title = title;
     }
-    if (description !== undefined) {
+
+    if (description !== undefined && description !== task.description) {
         updatePayload.description = description;
         if (task.githubIssueId) githubUpdates.body = description;
     }
-    if (assignee !== undefined) {
+
+    if (assignee !== undefined && assignee !== task.assignee) {
         updatePayload.assignee = assignee;
         if (task.githubIssueId) githubUpdates.assignees = assignee ? [assignee] : [];
     }
 
-    // Abstract repetitive status evaluations
-    const isActive = nextStatus === TaskStatus.IN_PROGRESS || nextColumn === KanbanColumn.IN_PROGRESS;
-    const isDone = (nextStatus as TaskStatus) === TaskStatus.DONE || (nextColumn as KanbanColumn) === KanbanColumn.DONE;
-
-    // Logic: Set startAt if moving to active state and not set
-    if (isActive && !task.startAt) {
-        updatePayload.startAt = now;
-    }
-
-    if (isDone) {
-        updatePayload.endAt = now;
-    } else if (task.endAt) {
-        // If moving OUT of done, reset endAt
-        updatePayload.endAt = null;
-    }
+    // Calculate timestamps
+    const { startAt, endAt } = calculateTaskTimestamps(nextStatus, nextColumn, now, task.startAt, task.endAt);
+    if (startAt !== task.startAt) updatePayload.startAt = startAt;
+    if (endAt !== task.endAt) updatePayload.endAt = endAt;
 
     // Sync to GitHub if linked and there are updates
     if (task.githubIssueId && Object.keys(githubUpdates).length > 0) {
