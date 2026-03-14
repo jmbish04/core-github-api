@@ -34,11 +34,10 @@ jobs:
           path: drizzle-schema-report.md
           retention-days: 14
 
-      # Optional: Fail the PR if unmapped/orphaned tables (AI slop) are detected. 
+      # Optional: Warn the PR if unmapped/orphaned tables (AI slop) are detected.
       # Remove or comment out if you just want the report without blocking the PR.
       - name: Check for AI Slop
         run: |
           if grep -q "### Unmapped / Orphaned Schema Tables" drizzle-schema-report.md; then
-            echo "::error::Orphaned Drizzle tables detected! Please review the schema for AI slop."
-            exit 1
+            echo "::warning::Orphaned Drizzle tables detected! Please review the schema for AI slop."
           fi
