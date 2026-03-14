@@ -12,46 +12,6 @@ import {
 } from "drizzle-orm/sqlite-core";
 
 /**
- * A single “run” of extracting code review comments from a PR
- * (e.g., one GitHub PR + one AI reviewer like gemini-code-assist).
- */
-export const codeReviewRuns = sqliteTable(
-    "code_review_runs",
-    {
-        id: integer("id").primaryKey({ autoIncrement: true }),
-
-        provider: text("provider").notNull(),          // "github"
-        repoOwner: text("repo_owner").notNull(),      // "env.GITHUB_OWNER"
-        repoName: text("repo_name").notNull(),        // "jh-poc-chrome-extension"
-        repoFullName: text("repo_full_name").notNull(), // "env.GITHUB_OWNER/jh-poc-chrome-extension"
-
-        prNumber: integer("pr_number").notNull(),     // 7
-        prTitle: text("pr_title"),                    // optional, useful for context
-        prUrl: text("pr_url"),                        // https://github.com/.../pull/7
-
-        aiReviewer: text("ai_reviewer").notNull(),    // "gemini-code-assist"
-        aiReviewerLogin: text("ai_reviewer_login"),   // "gemini-code-assist[bot]"
-        aiReviewerAvatarUrl: text("ai_reviewer_avatar_url"),
-
-        extractedAt: text("extracted_at").notNull(),  // ISO8601 when you ran the scraper
-        createdAt: text("created_at").notNull(),      // same as extractedAt or first seen
-        updatedAt: text("updated_at").notNull()       // last time you refreshed this run
-    },
-    (table) => ({
-        repoPrIdx: index("idx_code_review_runs_repo_pr").on(
-            table.repoOwner,
-            table.repoName,
-            table.prNumber
-        ),
-        providerRepoPrIdx: index("idx_code_review_runs_provider_repo_pr").on(
-            table.provider,
-            table.repoFullName,
-            table.prNumber
-        )
-    })
-);
-
-/**
  * Individual AI code review comments (e.g., Gemini suggestions on one PR).
  * This is where you’ll hang embeddings, status, assignee, etc.
  */
@@ -60,10 +20,6 @@ export const codeReviewComments = sqliteTable(
     {
         id: integer("id").primaryKey({ autoIncrement: true }),
 
-        // Foreign keys / context
-        runId: integer("run_id")
-            .notNull()
-            .references(() => codeReviewRuns.id, { onDelete: "cascade" }),
 
         provider: text("provider").notNull(),         // "github"
         repoOwner: text("repo_owner").notNull(),
@@ -125,7 +81,6 @@ export const codeReviewComments = sqliteTable(
         lastVectorizedAt: text("last_vectorized_at"), // ISO8601
     },
     (table) => ({
-        runIdx: index("idx_code_review_comments_run").on(table.runId),
         repoPrIdx: index("idx_code_review_comments_repo_pr").on(
             table.repoOwner,
             table.repoName,

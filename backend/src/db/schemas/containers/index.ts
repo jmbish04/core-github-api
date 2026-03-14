@@ -14,14 +14,3 @@ import {
     index,
 } from "drizzle-orm/sqlite-core";
 
-// ----------------------
-// container_logs
-// ----------------------
-export const containerLogs = sqliteTable('container_logs', {
-    id: text('id').primaryKey(),
-    repoId: integer('repo_id'),
-    command: text('command'),
-    status: text('status'),
-    output: text('output'),
-    createdAt: text('created_at')
-});
