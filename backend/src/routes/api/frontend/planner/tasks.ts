@@ -233,9 +233,7 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
     // 1. Create GitHub Issue
     const issue = await createGitHubIssue(c.env, owner, repo, title, description, assignee ? [assignee] : undefined);
 
-    const issueStatus = issue ? 'success' : 'failed';
-    const issueDetails = issue ? { html_url: issue.html_url } : undefined;
-    await logTaskEvent(db, requestId, null, issue?.number || null, 'github_issue_create', issueStatus, issueDetails);
+    await logTaskEvent(db, requestId, null, issue?.number || null, 'github_issue_create', issue ? 'success' : 'failed', issue ? { html_url: issue.html_url } : undefined);
 
     if (!issue) {
         return c.json({ success: false, error: 'Failed to create GitHub issue' }, 500);
@@ -270,9 +268,7 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
     } catch (e: any) {
         dbError = e;
     } finally {
-        const dbStatus = dbError ? 'failed' : 'success';
-        const dbDetails = dbError ? { error: dbError.message } : undefined;
-        await logTaskEvent(db, requestId, newId, issue.number, 'db_task_create', dbStatus, dbDetails);
+        await logTaskEvent(db, requestId, newId, issue.number, 'db_task_create', dbError ? 'failed' : 'success', dbError ? { error: dbError.message } : undefined);
     }
 
     if (dbError) {
