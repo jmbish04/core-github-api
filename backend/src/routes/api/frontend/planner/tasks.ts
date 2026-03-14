@@ -347,21 +347,28 @@ tasksApi.patch('/tasks/:id', async (c) => {
     const updatePayload: any = { updatedAt: now, ...timestampUpdates };
     const ghUpdates: any = {};
 
-    const syncField = <K extends keyof any, G extends keyof any>(
-        newValue: any, currentValue: any, dbKey: K, ghKey?: G, ghValueMap?: (val: any) => any
-    ) => {
-        if (newValue !== undefined && newValue !== currentValue) {
-            updatePayload[dbKey] = newValue;
-            if (ghKey) ghUpdates[ghKey] = ghValueMap ? ghValueMap(newValue) : newValue;
-        }
+    const processUpdate = (newValue: any, currentValue: any, assign: () => void) => {
+        if (newValue !== undefined && newValue !== currentValue) assign();
     };
 
-    syncField(nextStatus, currentStatus, 'status', 'state', val => val === TaskStatus.DONE ? 'closed' : 'open');
-    syncField(nextColumn, currentColumn, 'kanbanColumn');
-    syncField(position, task.position, 'position');
-    syncField(title, task.title, 'title', 'title');
-    syncField(description, task.description, 'description', 'body');
-    syncField(assignee, task.assignee, 'assignee', 'assignees', val => val ? [val] : []);
+    processUpdate(nextStatus, currentStatus, () => {
+        updatePayload.status = nextStatus;
+        ghUpdates.state = nextStatus === TaskStatus.DONE ? 'closed' : 'open';
+    });
+    processUpdate(nextColumn, currentColumn, () => updatePayload.kanbanColumn = nextColumn);
+    processUpdate(position, task.position, () => updatePayload.position = position);
+    processUpdate(title, task.title, () => {
+        updatePayload.title = title;
+        ghUpdates.title = title;
+    });
+    processUpdate(description, task.description, () => {
+        updatePayload.description = description;
+        ghUpdates.body = description;
+    });
+    processUpdate(assignee, task.assignee, () => {
+        updatePayload.assignee = assignee;
+        ghUpdates.assignees = assignee ? [assignee] : [];
+    });
 
     // Sync to GitHub if linked and updates exist
     if (task.githubIssueId && Object.keys(ghUpdates).length > 0) {
