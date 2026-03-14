@@ -249,11 +249,12 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
             updatedAt: now,
             startAt: startAt
         });
-        await logTaskEvent(db, requestId, newId, issue.number, 'db_task_create', 'success');
     } catch (e: any) {
         await logTaskEvent(db, requestId, newId, issue.number, 'db_task_create', 'failed', { error: e.message });
         return c.json({ success: false, error: 'Failed to save local task' }, 500);
     }
+
+    await logTaskEvent(db, requestId, newId, issue.number, 'db_task_create', 'success');
 
     return c.json({ success: true, id: newId });
 });
@@ -275,32 +276,7 @@ tasksApi.patch('/tasks/:id', async (c) => {
 
     await logTaskEvent(db, requestId, id, task.githubIssueId, 'api_request_update_task', 'pending', body);
 
-    // Determines updates for GitHub
-    // ... (GitHub Sync Logic) ...
-    // Sync to GitHub if linked
     const ghContext = await getGitHubContext(db, task);
-    if (ghContext) {
-        const { owner, name, issueNumber } = ghContext;
-        const updates: any = {};
-
-        // Map status
-        const targetStatus = (status as TaskStatus) || task.status as TaskStatus;
-
-        if (targetStatus === TaskStatus.DONE) updates.state = 'closed';
-        else updates.state = 'open';
-
-        if (title) updates.title = title;
-        if (description) updates.body = description;
-        if (assignee !== undefined) updates.assignees = assignee ? [assignee] : [];
-
-        if (Object.keys(updates).length > 0) {
-            await executeGithubAction(
-                db, requestId, id, issueNumber, 'github_issue_update',
-                () => updateGitHubIssue(c.env, owner, name, issueNumber, updates),
-                updates
-            );
-        }
-    }
 
     // Determine final Status and KanbanColumn using Mapper
     const currentStatus = task.status as TaskStatus;
@@ -322,22 +298,47 @@ tasksApi.patch('/tasks/:id', async (c) => {
         if (syncedColumn) nextColumn = syncedColumn;
     }
 
-    // Prepare DB Update Payload
+    // Prepare DB Update Payload and GitHub Updates
     const updatePayload: any = {
         updatedAt: now
     };
+    const githubUpdates: any = {};
 
-    if (nextStatus !== currentStatus) updatePayload.status = nextStatus;
+    if (nextStatus !== currentStatus) {
+        updatePayload.status = nextStatus;
+        if (nextStatus === TaskStatus.DONE) githubUpdates.state = 'closed';
+        else githubUpdates.state = 'open';
+    }
     if (nextColumn !== currentColumn) updatePayload.kanbanColumn = nextColumn;
 
     if (position !== undefined) updatePayload.position = position;
-    if (title !== undefined) updatePayload.title = title;
-    if (description !== undefined) updatePayload.description = description;
-    if (assignee !== undefined) updatePayload.assignee = assignee;
+
+    if (title !== undefined && title !== task.title) {
+        updatePayload.title = title;
+        githubUpdates.title = title;
+    }
+    if (description !== undefined && description !== task.description) {
+        updatePayload.description = description;
+        githubUpdates.body = description;
+    }
+    if (assignee !== undefined && assignee !== task.assignee) {
+        updatePayload.assignee = assignee;
+        githubUpdates.assignees = assignee ? [assignee] : [];
+    }
 
     const { startAt, endAt } = calculateTaskTimestamps(nextStatus, nextColumn, task.startAt || null, task.endAt || null, now);
     if (startAt !== undefined && startAt !== task.startAt) updatePayload.startAt = startAt;
     if (endAt !== undefined && endAt !== task.endAt) updatePayload.endAt = endAt;
+
+    // Sync to GitHub if linked and updates exist
+    if (ghContext && Object.keys(githubUpdates).length > 0) {
+        const { owner, name, issueNumber } = ghContext;
+        await executeGithubAction(
+            db, requestId, id, issueNumber, 'github_issue_update',
+            () => updateGitHubIssue(c.env, owner, name, issueNumber, githubUpdates),
+            githubUpdates
+        );
+    }
 
     // Update Local
     await db.update(tasks)
