@@ -115,6 +115,33 @@ function getRepoById(db: ReturnType<typeof getDb>, id: string) {
     return db.select().from(repos).where(eq(repos.id, id)).limit(1).then(res => res[0] || null);
 }
 
+
+function calculateTaskTimestamps(
+    status: TaskStatus | undefined,
+    column: KanbanColumn | undefined,
+    currentStartAt: string | null | undefined,
+    currentEndAt: string | null | undefined,
+    now: string
+): { startAt?: string | null; endAt?: string | null } {
+    const isInProgress = status === TaskStatus.IN_PROGRESS || column === KanbanColumn.IN_PROGRESS;
+    const isDone = status === TaskStatus.DONE || column === KanbanColumn.DONE;
+
+    const timestamps: { startAt?: string | null; endAt?: string | null } = {};
+
+    if (isInProgress && !currentStartAt) {
+        timestamps.startAt = now;
+    }
+
+    if (isDone) {
+        timestamps.endAt = now;
+    } else if (currentEndAt) {
+        // If moving OUT of done, reset endAt
+        timestamps.endAt = null;
+    }
+
+    return timestamps;
+}
+
 function getBaseContext(c: any) {
     return {
         db: getDb(c.env.DB),
@@ -238,12 +265,7 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
     const initialStatus = (status as TaskStatus) || TaskStatus.TODO;
     const initialColumn = StatusMapper.mapStatusToColumn(initialStatus);
 
-    let startAt: string | undefined;
-
-    // If initial status implies progress, set startAt
-    if (initialStatus === TaskStatus.IN_PROGRESS || initialColumn === KanbanColumn.IN_PROGRESS) {
-        startAt = now;
-    }
+    const { startAt, endAt } = calculateTaskTimestamps(initialStatus, initialColumn, null, null, now);
 
     let dbSuccess = true;
     let dbError = null;
@@ -261,7 +283,8 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
             githubHtmlUrl: issue.html_url,
             createdAt: now,
             updatedAt: now,
-            startAt: startAt
+            startAt: startAt || null,
+            endAt: endAt || null
         });
     } catch (e: any) {
         dbSuccess = false;
@@ -365,20 +388,11 @@ tasksApi.patch('/tasks/:id', async (c) => {
         );
     }
 
-    // Logic: Set startAt if moving to active state and not set
-    const isInProgress = nextStatus === TaskStatus.IN_PROGRESS || nextColumn === KanbanColumn.IN_PROGRESS;
-    const isDone = nextStatus === TaskStatus.DONE || nextColumn === KanbanColumn.DONE;
-
-    if (isInProgress && !task.startAt) {
-        updatePayload.startAt = now;
-    }
-
-    if (isDone) {
-        updatePayload.endAt = now;
-    } else if (task.endAt) {
-        // If moving OUT of done, reset endAt
-        updatePayload.endAt = null;
-    }
+    // Merge calculated timestamps into payload
+    Object.assign(
+        updatePayload,
+        calculateTaskTimestamps(nextStatus, nextColumn, task.startAt, task.endAt, now)
+    );
 
     // Update Local
     await db.update(tasks)
