@@ -385,24 +385,23 @@ tasksApi.patch('/tasks/:id', async (c) => {
         updatePayload.position = position;
     }
 
-    const syncField = <K extends keyof typeof updatePayload, G extends keyof typeof githubUpdates>(
-        fieldValue: any,
-        currentValue: any,
-        payloadKey: K,
-        githubKey?: G
-    ) => {
-        if (fieldValue !== undefined && fieldValue !== currentValue) {
-            updatePayload[payloadKey] = fieldValue;
-            if (task.githubIssueId && githubKey) {
-                if (githubKey === 'assignees') githubUpdates[githubKey] = fieldValue ? [fieldValue] : [];
-                else githubUpdates[githubKey] = fieldValue;
-            }
-        }
-    };
+    // Shared check for title
+    if (title !== undefined && title !== task.title) {
+        updatePayload.title = title;
+        if (task.githubIssueId) githubUpdates.title = title;
+    }
 
-    syncField(title, task.title, 'title', 'title');
-    syncField(description, task.description, 'description', 'body');
-    syncField(assignee, task.assignee, 'assignee', 'assignees');
+    // Shared check for description
+    if (description !== undefined && description !== task.description) {
+        updatePayload.description = description;
+        if (task.githubIssueId) githubUpdates.body = description;
+    }
+
+    // Shared check for assignee
+    if (assignee !== undefined && assignee !== task.assignee) {
+        updatePayload.assignee = assignee;
+        if (task.githubIssueId) githubUpdates.assignees = assignee ? [assignee] : [];
+    }
 
     const timestamps = calculateTaskTimestamps(nextStatus, nextColumn, task.startAt, task.endAt, now);
     if (timestamps.startAt !== undefined) updatePayload.startAt = timestamps.startAt;
