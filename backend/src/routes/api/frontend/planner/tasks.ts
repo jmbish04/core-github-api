@@ -91,8 +91,8 @@ async function performGithubAction<T>(
     }
 
     if (logOptions) {
-        const resolvedIssueId = isDynamicId && result ? (githubIssueId as (res: T) => number)(result) : issueNum;
-        const resolvedDetails = typeof logOptions.details === 'function' && result ? logOptions.details(result) : logOptions.details;
+        const resolvedIssueId = typeof githubIssueId === 'function' ? (result ? githubIssueId(result) : null) : issueNum;
+        const resolvedDetails = typeof logOptions.details === 'function' ? (result ? logOptions.details(result) : null) : logOptions.details;
         const details = actionError ? { error: actionError, ...resolvedDetails } : resolvedDetails;
         await logTaskEvent(
             db,
@@ -350,37 +350,35 @@ tasksApi.patch('/tasks/:id', async (c) => {
     }
 
     // Prepare DB Update Payload and GitHub Updates simultaneously
-    const updatePayload: any = {
-        updatedAt: now
-    };
+    const updatePayload: any = { updatedAt: now };
     const githubUpdates: any = {};
 
-    if (nextStatus !== undefined && nextStatus !== currentStatus) {
-        updatePayload.status = nextStatus;
-    }
-    if (nextColumn !== undefined && nextColumn !== currentColumn) {
-        updatePayload.kanbanColumn = nextColumn;
-    }
-    if (position !== undefined && position !== task.position) {
-        updatePayload.position = position;
-    }
-    if (title !== undefined && title !== task.title) {
-        updatePayload.title = title;
-        if (task.githubIssueId) githubUpdates.title = title;
-    }
-    if (description !== undefined && description !== task.description) {
-        updatePayload.description = description;
-        if (task.githubIssueId) githubUpdates.body = description;
-    }
-    if (assignee !== undefined && assignee !== task.assignee) {
-        updatePayload.assignee = assignee;
-        if (task.githubIssueId) githubUpdates.assignees = assignee ? [assignee] : [];
-    }
+    const syncField = (
+        val: any,
+        current: any,
+        dbField: string,
+        ghField?: string,
+        ghValueFn?: (v: any) => any
+    ) => {
+        if (val !== undefined && val !== current) {
+            updatePayload[dbField] = val;
+            if (task.githubIssueId && ghField) {
+                githubUpdates[ghField] = ghValueFn ? ghValueFn(val) : val;
+            }
+        }
+    };
+
+    syncField(nextStatus, currentStatus, 'status');
+    syncField(nextColumn, currentColumn, 'kanbanColumn');
+    syncField(position, task.position, 'position');
+    syncField(title, task.title, 'title', 'title');
+    syncField(description, task.description, 'description', 'body');
+    syncField(assignee, task.assignee, 'assignee', 'assignees', v => v ? [v] : []);
 
     // Calculate timestamps
     const { startAt, endAt } = calculateTaskTimestamps(nextStatus, nextColumn, now, task.startAt, task.endAt);
-    if (startAt !== undefined && startAt !== task.startAt) updatePayload.startAt = startAt;
-    if (endAt !== undefined && endAt !== task.endAt) updatePayload.endAt = endAt;
+    syncField(startAt, task.startAt, 'startAt');
+    syncField(endAt, task.endAt, 'endAt');
 
     // GitHub state depends on the target status
     if (task.githubIssueId && nextStatus !== currentStatus) {
