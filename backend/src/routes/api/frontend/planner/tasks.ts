@@ -95,11 +95,30 @@ function calculateTaskTimestamps(status: TaskStatus, column: KanbanColumn, curre
 
     if (status === TaskStatus.DONE || column === KanbanColumn.DONE) {
         endAt = now;
-    } else if (status !== TaskStatus.DONE && column !== KanbanColumn.DONE && endAt) {
+    } else if (endAt) {
         endAt = null;
     }
 
     return { startAt, endAt };
+}
+
+async function executeGithubAction<T>(
+    db: any,
+    requestId: string,
+    taskId: string | null,
+    issueNumber: number | null,
+    eventType: string,
+    action: () => Promise<T>,
+    details?: any
+): Promise<T | null> {
+    try {
+        const result = await action();
+        await logTaskEvent(db, requestId, taskId, issueNumber, eventType, result ? 'success' : 'failed', { ...details, result });
+        return result;
+    } catch (e: any) {
+        await logTaskEvent(db, requestId, taskId, issueNumber, eventType, 'failed', { error: e.message, ...details });
+        return null;
+    }
 }
 
 const tasksApi = new Hono<{ Bindings: Env }>();
@@ -197,13 +216,14 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
     }
 
     // 1. Create GitHub Issue
-    const issue = await createGitHubIssue(c.env, owner, repo, title, description, assignee ? [assignee] : undefined);
+    const issue = await executeGithubAction(
+        db, requestId, null, null, 'github_issue_create',
+        () => createGitHubIssue(c.env, owner, repo, title, description, assignee ? [assignee] : undefined)
+    );
 
     if (!issue) {
-        await logTaskEvent(db, requestId, null, null, 'github_issue_create', 'failed');
         return c.json({ success: false, error: 'Failed to create GitHub issue' }, 500);
     }
-    await logTaskEvent(db, requestId, null, issue.number, 'github_issue_create', 'success', { html_url: issue.html_url });
 
     // 2. Create Local Task
     const newId = generateUuid();
@@ -274,8 +294,11 @@ tasksApi.patch('/tasks/:id', async (c) => {
         if (assignee !== undefined) updates.assignees = assignee ? [assignee] : [];
 
         if (Object.keys(updates).length > 0) {
-            const ghResult = await updateGitHubIssue(c.env, owner, name, issueNumber, updates);
-            await logTaskEvent(db, requestId, id, issueNumber, 'github_issue_update', ghResult ? 'success' : 'failed', updates);
+            await executeGithubAction(
+                db, requestId, id, issueNumber, 'github_issue_update',
+                () => updateGitHubIssue(c.env, owner, name, issueNumber, updates),
+                updates
+            );
         }
     }
 
@@ -340,11 +363,13 @@ tasksApi.post('/tasks/:id/comments', async (c) => {
     const ghContext = await getGitHubContext(db, task);
     if (ghContext) {
         const { owner, name, issueNumber } = ghContext;
-        const comment = await createGitHubComment(c.env, owner, name, issueNumber, `**${author || 'User'}**: ${content}`);
+        const comment = await executeGithubAction(
+            db, requestId, id, issueNumber, 'github_comment_create',
+            () => createGitHubComment(c.env, owner, name, issueNumber, `**${author || 'User'}**: ${content}`)
+        );
         if (comment) {
             githubCommentId = comment.id;
         }
-        await logTaskEvent(db, requestId, id, issueNumber, 'github_comment_create', comment ? 'success' : 'failed');
     }
 
     // Save Local
@@ -373,8 +398,10 @@ tasksApi.delete('/tasks/:id', async (c) => {
         const ghContext = await getGitHubContext(db, task);
         if (ghContext) {
             const { owner, name, issueNumber } = ghContext;
-            await updateGitHubIssue(c.env, owner, name, issueNumber, { state: 'closed' });
-            await logTaskEvent(db, requestId, id, issueNumber, 'github_issue_close', 'success');
+            await executeGithubAction(
+                db, requestId, id, issueNumber, 'github_issue_close',
+                () => updateGitHubIssue(c.env, owner, name, issueNumber, { state: 'closed' })
+            );
         }
     }
 
