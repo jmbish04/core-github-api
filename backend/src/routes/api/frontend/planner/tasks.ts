@@ -353,16 +353,6 @@ tasksApi.patch('/tasks/:id', async (c) => {
     const updatePayload: any = { updatedAt: now };
     const githubUpdates: any = {};
 
-    if (nextStatus !== currentStatus) {
-        updatePayload.status = nextStatus;
-        if (nextStatus === TaskStatus.DONE) githubUpdates.state = 'closed';
-        else githubUpdates.state = 'open';
-    }
-
-    if (nextColumn !== currentColumn) {
-        updatePayload.kanbanColumn = nextColumn;
-    }
-
     // Helper to process generic updates
     const processUpdate = <K extends keyof typeof updatePayload, G extends keyof typeof githubUpdates>(
         inputVal: any,
@@ -379,6 +369,8 @@ tasksApi.patch('/tasks/:id', async (c) => {
         }
     };
 
+    processUpdate(nextStatus, currentStatus, 'status', 'state', v => v === TaskStatus.DONE ? 'closed' : 'open');
+    processUpdate(nextColumn, currentColumn, 'kanbanColumn');
     processUpdate(position, task.position, 'position');
     processUpdate(title, task.title, 'title', 'title');
     processUpdate(description, task.description, 'description', 'body');
