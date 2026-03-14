@@ -93,8 +93,7 @@ async function executeGithubAction(
  */
 async function performTaskGithubAction(
     db: any,
-    repoId: string,
-    githubIssueId: number | null,
+    task: any,
     actionFn: (owner: string, repoName: string, issueNumber: number) => Promise<any>,
     logOptions?: {
         requestId: string;
@@ -103,14 +102,14 @@ async function performTaskGithubAction(
         details?: any;
     }
 ) {
-    if (!githubIssueId) return null;
+    if (!task || !task.githubIssueId) return null;
 
-    const repo = await getRepoById(db, repoId);
+    const repo = await getRepoById(db, task.repoId);
     if (!repo) return null;
 
     const { owner, name } = repo;
 
-    return executeGithubAction(db, () => actionFn(owner, name, githubIssueId), logOptions ? { ...logOptions, githubIssueId } : undefined);
+    return executeGithubAction(db, () => actionFn(owner, name, task.githubIssueId), logOptions ? { ...logOptions, githubIssueId: task.githubIssueId } : undefined);
 }
 
 async function getRepoById(db: any, id: string) {
@@ -126,6 +125,33 @@ async function getRepoByOwnerAndName(db: any, owner: string, name: string) {
 async function getTaskById(db: any, id: string) {
     const rows = await db.select().from(tasks).where(eq(tasks.id, id)).limit(1);
     return rows[0] || null;
+}
+
+
+function calculateTaskTimestamps(
+    status: TaskStatus,
+    column: KanbanColumn,
+    now: string,
+    currentStartAt?: string | null,
+    currentEndAt?: string | null
+) {
+    const isActive = status === TaskStatus.IN_PROGRESS || column === KanbanColumn.IN_PROGRESS;
+    const isDone = status === TaskStatus.DONE || column === KanbanColumn.DONE;
+
+    let startAt = currentStartAt;
+    let endAt = currentEndAt;
+
+    if (isActive && !startAt) {
+        startAt = now;
+    }
+
+    if (isDone) {
+        endAt = now;
+    } else if (!isDone && endAt) {
+        endAt = null;
+    }
+
+    return { startAt, endAt };
 }
 
 const tasksApi = new Hono<{ Bindings: Env }>();
@@ -246,12 +272,7 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
     const initialStatus = (status as TaskStatus) || TaskStatus.TODO;
     const initialColumn = StatusMapper.mapStatusToColumn(initialStatus);
 
-    let startAt: string | undefined;
-
-    // If initial status implies progress, set startAt
-    if (initialStatus === TaskStatus.IN_PROGRESS || initialColumn === KanbanColumn.IN_PROGRESS) {
-        startAt = now;
-    }
+    const { startAt } = calculateTaskTimestamps(initialStatus, initialColumn, now);
 
     let saveError: any = null;
     try {
@@ -306,30 +327,6 @@ tasksApi.patch('/tasks/:id', async (c) => {
     }
     await logTaskEvent(db, requestId, id, task.githubIssueId, 'api_request_update_task', 'pending', body);
 
-    // Determines updates for GitHub
-    // Sync to GitHub if linked
-    if (task.githubIssueId) {
-        const updates: any = {};
-        const targetStatus = (status as TaskStatus) || task.status as TaskStatus;
-
-        if (targetStatus === TaskStatus.DONE) updates.state = 'closed';
-        else updates.state = 'open';
-
-        if (title) updates.title = title;
-        if (description) updates.body = description;
-        if (assignee !== undefined) updates.assignees = assignee ? [assignee] : [];
-
-        if (Object.keys(updates).length > 0) {
-            await performTaskGithubAction(
-                db,
-                task.repoId,
-                task.githubIssueId,
-                async (owner, name, issueNumber) => await updateGitHubIssue(c.env, owner, name, issueNumber, updates),
-                { requestId, taskId: id, eventType: 'github_issue_update', details: updates }
-            );
-        }
-    }
-
     // Determine final Status and KanbanColumn using Mapper
     const currentStatus = task.status as TaskStatus;
     const currentColumn = task.kanbanColumn as KanbanColumn;
@@ -342,40 +339,62 @@ tasksApi.patch('/tasks/:id', async (c) => {
         const syncedStatus = StatusMapper.getSyncStatus(nextStatus, nextColumn);
         if (syncedStatus) nextStatus = syncedStatus;
     }
-    // 2. If Status Changed, does Column need to sync? (Priority driven by what was passed)
-    // If BOTH passed, Mapper shouldn't override explicit values unless strictly invalid? 
-    // Let's assume explicit input wins, but if only one passed, we sync the other.
+    // 2. If Status Changed, does Column need to sync?
     else if (status && status !== currentStatus) {
         const syncedColumn = StatusMapper.getSyncColumn(nextColumn, nextStatus);
         if (syncedColumn) nextColumn = syncedColumn;
     }
 
-    // Prepare DB Update Payload
-    const updatePayload: any = {
-        updatedAt: now
-    };
+    // Prepare Update Payloads (Local & GitHub)
+    const updatePayload: any = { updatedAt: now };
+    const githubUpdates: any = {};
 
-    if (nextStatus !== currentStatus) updatePayload.status = nextStatus;
+    if (nextStatus !== currentStatus) {
+        updatePayload.status = nextStatus;
+        githubUpdates.state = nextStatus === TaskStatus.DONE ? 'closed' : 'open';
+    } else if (task.githubIssueId && status && status === TaskStatus.DONE) {
+        githubUpdates.state = 'closed'; // Ensure it's closed if explicitly passing DONE
+    } else if (task.githubIssueId && status && status !== TaskStatus.DONE) {
+        githubUpdates.state = 'open'; // Ensure it's opened if explicitly passing not DONE
+    }
+
+    // We should sync state regardless if targetStatus is passed, mimicking old behavior
+    if (status !== undefined) {
+        const targetStatus = (status as TaskStatus) || task.status as TaskStatus;
+        githubUpdates.state = targetStatus === TaskStatus.DONE ? 'closed' : 'open';
+    }
+
     if (nextColumn !== currentColumn) updatePayload.kanbanColumn = nextColumn;
 
     if (position !== undefined) updatePayload.position = position;
-    if (title !== undefined) updatePayload.title = title;
-    if (description !== undefined) updatePayload.description = description;
-    if (assignee !== undefined) updatePayload.assignee = assignee;
 
-    // Logic: Set startAt if moving to active state and not set
-    const isActive = nextStatus === TaskStatus.IN_PROGRESS || nextColumn === KanbanColumn.IN_PROGRESS;
-    const isDone = (nextStatus as TaskStatus) === TaskStatus.DONE || (nextColumn as KanbanColumn) === KanbanColumn.DONE;
-
-    if (isActive && !task.startAt) {
-        updatePayload.startAt = now;
+    if (title !== undefined) {
+        updatePayload.title = title;
+        githubUpdates.title = title;
     }
 
-    if (isDone) {
-        updatePayload.endAt = now;
-    } else if (!isDone && task.endAt) {
-        // If moving OUT of done, reset endAt
-        updatePayload.endAt = null;
+    if (description !== undefined) {
+        updatePayload.description = description;
+        githubUpdates.body = description;
+    }
+
+    if (assignee !== undefined) {
+        updatePayload.assignee = assignee;
+        githubUpdates.assignees = assignee ? [assignee] : [];
+    }
+
+    const { startAt, endAt } = calculateTaskTimestamps(nextStatus, nextColumn, now, task.startAt, task.endAt);
+    if (startAt !== task.startAt) updatePayload.startAt = startAt;
+    if (endAt !== task.endAt) updatePayload.endAt = endAt;
+
+    // Sync to GitHub if linked
+    if (task.githubIssueId && Object.keys(githubUpdates).length > 0) {
+        await performTaskGithubAction(
+            db,
+            task,
+            async (owner, name, issueNumber) => await updateGitHubIssue(c.env, owner, name, issueNumber, githubUpdates),
+            { requestId, taskId: id, eventType: 'github_issue_update', details: githubUpdates }
+        );
     }
 
     // Update Local
@@ -401,8 +420,7 @@ tasksApi.post('/tasks/:id/comments', async (c) => {
     let githubCommentId: number | null = null;
     await performTaskGithubAction(
         db,
-        task.repoId,
-        task.githubIssueId,
+        task,
         async (owner, name, issueNumber) => {
             const comment = await createGitHubComment(c.env, owner, name, issueNumber, `**${author || 'User'}**: ${content}`);
             if (comment) githubCommentId = comment.id;
@@ -437,8 +455,7 @@ tasksApi.delete('/tasks/:id', async (c) => {
     if (task.githubIssueId) {
         await performTaskGithubAction(
             db,
-            task.repoId,
-            task.githubIssueId,
+            task,
             async (owner, name, issueNumber) => await updateGitHubIssue(c.env, owner, name, issueNumber, { state: 'closed' }),
             { requestId, taskId: id, eventType: 'github_issue_close' }
         );
