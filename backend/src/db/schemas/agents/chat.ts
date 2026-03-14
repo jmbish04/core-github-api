@@ -20,11 +20,3 @@ export const chatMessages = sqliteTable("chat_messages", {
 });
 
 // chat_tags table
-export const chatTags = sqliteTable("chat_tags", {
-    threadId: text("thread_id").notNull().references(() => chatThreads.id, { onDelete: "cascade" }),
-    chatId: integer("chat_id").notNull().references(() => chatMessages.id, { onDelete: "cascade" }),
-    tag: text("tag").notNull(),
-    notes: text("notes"),
-}, (table) => ({
-    pk: primaryKey({ columns: [table.threadId, table.chatId, table.tag] })
-}));
