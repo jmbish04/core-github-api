@@ -101,7 +101,7 @@ async function executeGithubAction<T>(
     }
 }
 
-function getBaseContext(c: Context) {
+function getBaseContext(c: Context<{ Bindings: Bindings }>) {
     return {
         db: getDb(c.env.DB),
         requestId: generateUuid(),
