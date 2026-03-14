@@ -22,6 +22,7 @@ timelineApi.post('/ops/:operationId/timeline', async (c) => {
     const body = await c.req.json();
     const { step, status, details } = body as any;
     const db = getDb(c.env.DB);
+    const now = new Date().toISOString();
 
     await db.insert(agentActivities).values({
         id: generateUuid(),
@@ -29,7 +30,7 @@ timelineApi.post('/ops/:operationId/timeline', async (c) => {
         stepName: step,
         status,
         details: typeof details === 'string' ? details : JSON.stringify(details),
-        timestamp: new Date().toISOString()
+        timestamp: now
     });
 
     return c.json({ success: true });

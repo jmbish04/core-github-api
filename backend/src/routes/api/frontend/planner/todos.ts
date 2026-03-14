@@ -39,31 +39,35 @@ todosApi.get('/', async (c) => {
         .limit(200);
 
     const todoIds = allTodos.map(t => t.id);
-    const tagMap: Record<string, any[]> = {};
-    const linkMap: Record<string, any[]> = {};
-    const insightMap: Record<string, any[]> = {};
+    let tagMap: Record<string, any[]> = {};
+    let linkMap: Record<string, any[]> = {};
+    let insightMap: Record<string, any[]> = {};
 
     if (todoIds.length > 0) {
         const tags = await db.select({ todoId: todoTagMap.todoId, tag: todoTags })
             .from(todoTagMap)
             .innerJoin(todoTags, eq(todoTagMap.tagId, todoTags.id))
             .where(inArray(todoTagMap.todoId, todoIds));
-        tags.forEach(row => {
-            if (!tagMap[row.todoId]) tagMap[row.todoId] = [];
-            tagMap[row.todoId].push(row.tag);
-        });
+
+        tagMap = tags.reduce((acc, row) => {
+            if (!acc[row.todoId]) acc[row.todoId] = [];
+            acc[row.todoId].push(row.tag);
+            return acc;
+        }, {} as Record<string, any[]>);
 
         const links = await db.select().from(todoLinks).where(inArray(todoLinks.todoId, todoIds));
-        links.forEach(link => {
-            if (!linkMap[link.todoId]) linkMap[link.todoId] = [];
-            linkMap[link.todoId].push(link);
-        });
+        linkMap = links.reduce((acc, link) => {
+            if (!acc[link.todoId]) acc[link.todoId] = [];
+            acc[link.todoId].push(link);
+            return acc;
+        }, {} as Record<string, any[]>);
 
         const insights = await db.select().from(todoAiInsights).where(inArray(todoAiInsights.todoId, todoIds));
-        insights.forEach(insight => {
-            if (!insightMap[insight.todoId]) insightMap[insight.todoId] = [];
-            insightMap[insight.todoId].push(insight);
-        });
+        insightMap = insights.reduce((acc, insight) => {
+            if (!acc[insight.todoId]) acc[insight.todoId] = [];
+            acc[insight.todoId].push(insight);
+            return acc;
+        }, {} as Record<string, any[]>);
     }
 
     const result = allTodos.map(todo => ({
@@ -119,8 +123,9 @@ todosApi.patch('/:id', async (c) => {
     const { id } = c.req.param();
     const body = await c.req.json() as any;
     const db = getDb(c.env.DB);
+    const now = new Date().toISOString();
 
-    const patch: Record<string, any> = { updatedAt: new Date().toISOString() };
+    const patch: Record<string, any> = { updatedAt: now };
 
     if (body.title     !== undefined) patch.title     = body.title;
     if (body.content   !== undefined) patch.content   = typeof body.content === 'object' ? JSON.stringify(body.content) : body.content;
@@ -137,9 +142,9 @@ todosApi.patch('/:id', async (c) => {
     if (body.status !== undefined) {
         patch.status = body.status;
         if (body.status === 'done') {
-            patch.completedAt = new Date().toISOString();
+            patch.completedAt = now;
             patch.isActive = 0;
-            patch.dateCompleted = new Date().toISOString();
+            patch.dateCompleted = now;
         } else {
             patch.completedAt = null;
             patch.isActive = 1;
@@ -151,7 +156,7 @@ todosApi.patch('/:id', async (c) => {
     if (body.isActive !== undefined) {
         patch.isActive = body.isActive ? 1 : 0;
         if (!body.isActive) {
-            patch.dateCompleted = patch.dateCompleted ?? new Date().toISOString();
+            patch.dateCompleted = patch.dateCompleted ?? now;
         } else {
             patch.dateCompleted = null;
         }
@@ -167,7 +172,8 @@ todosApi.patch('/:id', async (c) => {
 todosApi.delete('/:id', async (c) => {
     const { id } = c.req.param();
     const db = getDb(c.env.DB);
-    await db.update(todos).set({ isDeleted: 1, updatedAt: new Date().toISOString() }).where(eq(todos.id, id));
+    const now = new Date().toISOString();
+    await db.update(todos).set({ isDeleted: 1, updatedAt: now }).where(eq(todos.id, id));
     return c.json({ success: true });
 });
 
@@ -220,8 +226,9 @@ todosApi.patch('/labels/:id', async (c) => {
     const { id } = c.req.param();
     const body = await c.req.json() as any;
     const db = getDb(c.env.DB);
+    const now = new Date().toISOString();
 
-    const patch: Record<string, any> = { updatedAt: new Date().toISOString() };
+    const patch: Record<string, any> = { updatedAt: now };
     if (body.text     !== undefined) patch.text     = String(body.text).trim();
     if (body.posX     !== undefined) patch.posX     = body.posX;
     if (body.posY     !== undefined) patch.posY     = body.posY;
@@ -237,8 +244,9 @@ todosApi.patch('/labels/:id', async (c) => {
 todosApi.delete('/labels/:id', async (c) => {
     const { id } = c.req.param();
     const db = getDb(c.env.DB);
+    const now = new Date().toISOString();
     await db.update(corkboardLabels)
-        .set({ isDeleted: 1, updatedAt: new Date().toISOString() })
+        .set({ isDeleted: 1, updatedAt: now })
         .where(eq(corkboardLabels.id, id));
     return c.json({ success: true });
 });
