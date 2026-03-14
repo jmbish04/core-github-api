@@ -57,9 +57,9 @@ async function logTaskEvent(
 /**
  * Core functionality to execute a GitHub Action and log it.
  */
-async function executeGithubAction(
+async function executeGithubAction<T>(
     db: ReturnType<typeof getDb>,
-    actionFn: () => Promise<any>,
+    actionFn: () => Promise<T>,
     logOptions: {
         requestId: string;
         taskId: string | null;
@@ -67,8 +67,8 @@ async function executeGithubAction(
         eventType: string;
         details?: any;
     }
-) {
-    let result = null;
+): Promise<T | null> {
+    let result: T | null = null;
     let actionError = null;
     let isSuccess = false;
 
@@ -96,18 +96,18 @@ async function executeGithubAction(
 /**
  * Execute a GitHub Action if the task is linked to a repository.
  */
-async function performGithubAction(
+async function performGithubAction<T>(
     db: ReturnType<typeof getDb>,
     repoId: string,
     githubIssueId: number | null,
-    actionFn: (owner: string, repoName: string, issueNumber: number) => Promise<any>,
+    actionFn: (owner: string, repoName: string, issueNumber: number) => Promise<T>,
     logOptions?: {
         requestId: string;
         taskId: string | null;
         eventType: string;
         details?: any;
     }
-) {
+): Promise<T | null> {
     if (!githubIssueId) return null;
 
     const repoRecord = await getRepoById(db, repoId);
