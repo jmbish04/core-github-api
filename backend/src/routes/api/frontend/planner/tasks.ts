@@ -149,16 +149,20 @@ async function executeGithubAction(
     actionFn: () => Promise<any>,
     details?: any
 ) {
+    let result = null;
+    let errorMsg = null;
     try {
-        const result = await actionFn();
-        const finalIssueNumber = actionName === 'github_issue_create' && result ? result.number : issueNumber;
-        const successDetails = result?.html_url ? { html_url: result.html_url, ...details } : details;
-        await logTaskEvent(db, requestId, taskId, finalIssueNumber, actionName, result ? 'success' : 'failed', successDetails);
-        return result;
+        result = await actionFn();
     } catch (e: any) {
-        await logTaskEvent(db, requestId, taskId, issueNumber, actionName, 'failed', { error: e.message, ...details });
-        return null;
+        errorMsg = e.message;
     }
+
+    const finalIssueNumber = actionName === 'github_issue_create' && result ? result.number : issueNumber;
+    const finalDetails = errorMsg ? { error: errorMsg, ...details } : (result?.html_url ? { html_url: result.html_url, ...details } : details);
+
+    await logTaskEvent(db, requestId, taskId, finalIssueNumber, actionName, errorMsg || !result ? 'failed' : 'success', finalDetails);
+
+    return result;
 }
 
 
@@ -255,6 +259,7 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
 
     const { startAt, endAt } = calculateTaskTimestamps(null, null, initialStatus, initialColumn, now);
 
+    let dbErrorMsg = null;
     try {
         await db.insert(tasks).values({
             id: newId,
@@ -271,9 +276,13 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
             startAt,
             endAt
         });
-        await logTaskEvent(db, requestId, newId, issue.number, 'db_task_create', 'success');
     } catch (e: any) {
-        await logTaskEvent(db, requestId, newId, issue.number, 'db_task_create', 'failed', { error: e.message });
+        dbErrorMsg = e.message;
+    }
+
+    await logTaskEvent(db, requestId, newId, issue.number, 'db_task_create', dbErrorMsg ? 'failed' : 'success', dbErrorMsg ? { error: dbErrorMsg } : undefined);
+
+    if (dbErrorMsg) {
         return c.json({ success: false, error: 'Failed to save local task' }, 500);
     }
 
@@ -326,12 +335,8 @@ tasksApi.patch('/tasks/:id', async (c) => {
         }
     };
 
-    if (nextStatus !== currentStatus) {
-        updatePayload.status = nextStatus;
-        githubUpdates.state = nextStatus === TaskStatus.DONE ? 'closed' : 'open';
-    }
-    if (nextColumn !== currentColumn) updatePayload.kanbanColumn = nextColumn;
-
+    processUpdate(nextStatus, 'status', 'status', 'state', nextStatus === TaskStatus.DONE ? 'closed' : 'open');
+    processUpdate(nextColumn, 'kanbanColumn', 'kanbanColumn');
     processUpdate(title, 'title', 'title', 'title');
     processUpdate(description, 'description', 'description', 'body');
     processUpdate(assignee, 'assignee', 'assignee', 'assignees', assignee ? [assignee] : []);
@@ -396,13 +401,11 @@ tasksApi.post('/tasks/:id/comments', async (c) => {
 tasksApi.delete('/tasks/:id', async (c) => {
     const { id, db, requestId, now, task } = await getBaseContext(c, true, false);
 
-    if (task) {
-        await syncWithGitHubIssue(db, task, async (owner, name, issueNumber) => {
-            await executeGithubAction(db, requestId, id, issueNumber, 'github_issue_close',
-                () => updateGitHubIssue(c.env, owner, name, issueNumber, { state: 'closed' })
-            );
-        });
-    }
+    await syncWithGitHubIssue(db, task, async (owner, name, issueNumber) => {
+        await executeGithubAction(db, requestId, id, issueNumber, 'github_issue_close',
+            () => updateGitHubIssue(c.env, owner, name, issueNumber, { state: 'closed' })
+        );
+    });
 
     await db.update(tasks)
         .set({
