@@ -1,5 +1,5 @@
 // src/routes/api/tasks.ts
-import { Hono } from 'hono';
+import { Hono, Context } from 'hono';
 import { Bindings } from '@utils/hono';
 import { getDb } from '@db';
 import { tasks, taskEvents, taskComments } from '@db/schemas/projects/tasks';
@@ -58,41 +58,69 @@ async function logTaskEvent(
 /**
  * Execute a GitHub Action if the task is linked to a repository.
  */
-async function performGithubAction(
+async function executeGithubAction<T>(
     db: ReturnType<typeof getDb>,
     repoId: string,
-    githubIssueId: number | null,
-    actionFn: (owner: string, repoName: string, issueNumber: number) => Promise<any>,
+    actionFn: (owner: string, repoName: string) => Promise<T>,
     logOptions?: {
         requestId: string;
         taskId: string | null;
+        issueNumber: number | ((res: T) => number) | null;
         eventType: string;
         details?: any;
     }
-) {
-    if (!githubIssueId) return null;
-
+): Promise<T | null> {
     const repoRecord = await getRepoById(db, repoId);
     if (!repoRecord) return null;
 
     const { owner, name } = repoRecord;
 
-    let result = null;
+    let result: T | null = null;
     let status: 'success' | 'failed' = 'failed';
     let details = logOptions?.details;
 
     try {
-        result = await actionFn(owner, name, githubIssueId);
+        result = await actionFn(owner, name);
         status = result ? 'success' : 'failed';
     } catch (e: any) {
         details = { error: e.message, ...details };
     }
 
     if (logOptions) {
-        await logTaskEvent(db, logOptions.requestId, logOptions.taskId, githubIssueId, logOptions.eventType, status, details);
+        let issueId: number | null = null;
+        if (typeof logOptions.issueNumber === 'function' && result) {
+            issueId = logOptions.issueNumber(result);
+        } else if (typeof logOptions.issueNumber === 'number') {
+            issueId = logOptions.issueNumber;
+        }
+
+        await logTaskEvent(
+            db,
+            logOptions.requestId,
+            logOptions.taskId,
+            issueId,
+            logOptions.eventType,
+            status,
+            details
+        );
     }
 
     return result;
+}
+
+function processUpdate<K extends keyof any, G extends keyof any>(
+    target: Partial<Record<K, any>>,
+    ghTarget: Partial<Record<G, any>>,
+    updates: Array<{ key: K, val: any, curr: any, ghKey?: G, ghVal?: any }>
+) {
+    for (const { key, val, curr, ghKey, ghVal } of updates) {
+        if (val !== undefined && val !== curr) {
+            target[key] = val;
+            if (ghKey) {
+                ghTarget[ghKey] = ghVal !== undefined ? ghVal : val;
+            }
+        }
+    }
 }
 
 async function getRepoByOwnerAndName(db: ReturnType<typeof getDb>, owner: string, name: string) {
@@ -133,7 +161,7 @@ export function calculateTaskTimestamps(
     return result;
 }
 
-function getRequestContext(c: any) {
+function getRequestContext(c: Context<{ Bindings: Env }>) {
     return {
         db: getDb(c.env.DB),
         requestId: generateUuid(),
@@ -141,21 +169,38 @@ function getRequestContext(c: any) {
     };
 }
 
+async function getRepoContext(c: Context<{ Bindings: Env }>) {
+    const { owner, repo } = c.req.param();
+    const ctx = getRequestContext(c);
+
+    const repoRecord = await getRepoByOwnerAndName(ctx.db, owner, repo);
+    if (!repoRecord) {
+        return { error: 'Repo not found', status: 404, ...ctx, owner, repo, repoRecord: null };
+    }
+
+    return { error: null, owner, repo, repoRecord, ...ctx };
+}
+
+async function getTaskContext(c: Context<{ Bindings: Env }>) {
+    const { id } = c.req.param();
+    const ctx = getRequestContext(c);
+
+    const task = await getTaskById(ctx.db, id);
+    if (!task) {
+        return { error: 'Task not found', status: 404, ...ctx, task: null, id };
+    }
+
+    return { error: null, task, id, ...ctx };
+}
+
 const tasksApi = new Hono<{ Bindings: Env }>();
 
 // GET /api/repos/:owner/:repo/tasks
 tasksApi.get('/repos/:owner/:repo/tasks', async (c) => {
-    const { owner, repo } = c.req.param();
-    const { db } = getRequestContext(c);
+    const ctx = await getRepoContext(c);
+    if (ctx.error) return c.json({ success: false, error: ctx.error }, ctx.status as any);
 
-    // Resolve repo ID
-    const repoRecord = await getRepoByOwnerAndName(db, owner, repo);
-
-    if (!repoRecord) {
-        return c.json({ success: false, error: 'Repo not found' }, 404);
-    }
-
-    const rows = await db.select().from(tasks).where(and(eq(tasks.repoId, repoRecord.id), eq(tasks.isDeleted, 0)));
+    const rows = await ctx.db.select().from(tasks).where(and(eq(tasks.repoId, ctx.repoRecord!.id), eq(tasks.isDeleted, 0)));
     return c.json({
         success: true,
         tasks: rows,
@@ -215,25 +260,23 @@ tasksApi.get('/', async (c) => {
 
 // POST /api/repos/:owner/:repo/tasks (Create Task & Issue)
 tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
-    const { owner, repo } = c.req.param();
+    const ctx = await getRepoContext(c);
     const body = await c.req.json();
     const { title, description, status, assignee } = body as any;
-    const { db, requestId, now } = getRequestContext(c);
 
     // Log API Request
-    await logTaskEvent(db, requestId, null, null, 'api_request_create_task', 'pending', { owner, repo, body });
+    await logTaskEvent(ctx.db, ctx.requestId, null, null, 'api_request_create_task', 'pending', { owner: ctx.owner, repo: ctx.repo, body });
 
-    const repoRecord = await getRepoByOwnerAndName(db, owner, repo);
-    if (!repoRecord) {
-        await logTaskEvent(db, requestId, null, null, 'api_request_create_task', 'failed', { error: 'Repo not found' });
-        return c.json({ success: false, error: 'Repo not found' }, 404);
+    if (ctx.error) {
+        await logTaskEvent(ctx.db, ctx.requestId, null, null, 'api_request_create_task', 'failed', { error: ctx.error });
+        return c.json({ success: false, error: ctx.error }, ctx.status as any);
     }
 
     // 1. Create GitHub Issue
-    const issue = await createGitHubIssue(c.env, owner, repo, title, description, assignee ? [assignee] : undefined);
+    const issue = await createGitHubIssue(c.env, ctx.owner!, ctx.repo!, title, description, assignee ? [assignee] : undefined);
 
     await logTaskEvent(
-        db, requestId, null, issue?.number || null, 'github_issue_create',
+        ctx.db, ctx.requestId, null, issue?.number || null, 'github_issue_create',
         issue ? 'success' : 'failed',
         issue ? { html_url: issue.html_url } : undefined
     );
@@ -249,13 +292,13 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
     const initialStatus = (status as TaskStatus) || TaskStatus.TODO;
     const initialColumn = StatusMapper.mapStatusToColumn(initialStatus);
 
-    const { startAt } = calculateTaskTimestamps(initialStatus, initialColumn, null, null, now);
+    const { startAt } = calculateTaskTimestamps(initialStatus, initialColumn, null, null, ctx.now);
 
     let dbError: any = null;
     try {
-        await db.insert(tasks).values({
+        await ctx.db.insert(tasks).values({
             id: newId,
-            repoId: repoRecord.id,
+            repoId: ctx.repoRecord!.id,
             title,
             description,
             status: initialStatus,
@@ -263,8 +306,8 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
             assignee,
             githubIssueId: issue.number,
             githubHtmlUrl: issue.html_url,
-            createdAt: now,
-            updatedAt: now,
+            createdAt: ctx.now,
+            updatedAt: ctx.now,
             startAt: startAt
         });
     } catch (e: any) {
@@ -272,7 +315,7 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
     }
 
     await logTaskEvent(
-        db, requestId, newId, issue.number, 'db_task_create',
+        ctx.db, ctx.requestId, newId, issue.number, 'db_task_create',
         dbError ? 'failed' : 'success',
         dbError ? { error: dbError.message } : undefined
     );
@@ -286,20 +329,14 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
 
 // PATCH /api/tasks/:id
 tasksApi.patch('/tasks/:id', async (c) => {
-    const { id } = c.req.param();
+    const ctx = await getTaskContext(c);
+    if (ctx.error) return c.json({ success: false, error: ctx.error }, ctx.status as any);
+
     const body = await c.req.json();
     const { status, position, title, description, assignee, kanbanColumn } = body as any;
-    const { db, requestId, now } = getRequestContext(c);
+    const task = ctx.task!;
 
-    // Get current task
-    const task = await getTaskById(db, id);
-    
-    // Check if it's a workshop task
-    if (!task) {
-        return c.json({ success: false, error: 'Task not found' }, 404);
-    }
-
-    await logTaskEvent(db, requestId, id, task.githubIssueId, 'api_request_update_task', 'pending', body);
+    await logTaskEvent(ctx.db, ctx.requestId, ctx.id, task.githubIssueId, 'api_request_update_task', 'pending', body);
 
     // Determine final Status and KanbanColumn using Mapper
     const currentStatus = task.status as TaskStatus;
@@ -320,8 +357,8 @@ tasksApi.patch('/tasks/:id', async (c) => {
     }
 
     // Consolidate DB Update and GitHub Sync Payloads
-    const updatePayload: any = { updatedAt: now };
-    const ghUpdates: any = {};
+    const updatePayload: typeof tasks.$inferInsert = { id: task.id, repoId: task.repoId, title: task.title, updatedAt: ctx.now };
+    const ghUpdates: Parameters<typeof updateGitHubIssue>[4] = {};
 
     if (nextStatus !== currentStatus) {
         updatePayload.status = nextStatus;
@@ -331,79 +368,71 @@ tasksApi.patch('/tasks/:id', async (c) => {
         updatePayload.kanbanColumn = nextColumn;
     }
 
-    const fields: Array<{ key: string, val: any, curr: any, ghKey?: string, ghVal?: any }> = [
+    processUpdate<keyof typeof updatePayload, keyof typeof ghUpdates>(updatePayload, ghUpdates, [
         { key: 'title', val: title, curr: task.title, ghKey: 'title' },
         { key: 'description', val: description, curr: task.description, ghKey: 'body' },
         { key: 'assignee', val: assignee, curr: task.assignee, ghKey: 'assignees', ghVal: assignee ? [assignee] : [] },
         { key: 'position', val: position, curr: task.position }
-    ];
-
-    for (const { key, val, curr, ghKey, ghVal } of fields) {
-        if (val !== undefined && val !== curr) {
-            updatePayload[key as keyof typeof updatePayload] = val;
-            if (ghKey) ghUpdates[ghKey] = ghVal !== undefined ? ghVal : val;
-        }
-    }
+    ]);
 
     // Timestamps
-    const timestamps = calculateTaskTimestamps(nextStatus, nextColumn, task.startAt, task.endAt, now);
+    const timestamps = calculateTaskTimestamps(nextStatus, nextColumn, task.startAt, task.endAt, ctx.now);
     if (timestamps.startAt !== undefined) updatePayload.startAt = timestamps.startAt;
     if (timestamps.endAt !== undefined) updatePayload.endAt = timestamps.endAt;
 
     // Sync to GitHub if linked
     if (task.githubIssueId && Object.keys(ghUpdates).length > 0) {
-        await performGithubAction(
-            db,
+        await executeGithubAction(
+            ctx.db,
             task.repoId,
-            task.githubIssueId,
-            (owner, name, issueNumber) => updateGitHubIssue(c.env, owner, name, issueNumber, ghUpdates),
-            { requestId, taskId: id, eventType: 'github_issue_update', details: ghUpdates }
+            (owner, name) => updateGitHubIssue(c.env, owner, name, task.githubIssueId!, ghUpdates),
+            { requestId: ctx.requestId, taskId: ctx.id, issueNumber: task.githubIssueId, eventType: 'github_issue_update', details: ghUpdates }
         );
     }
 
     // Update Local
-    await db.update(tasks)
+    await ctx.db.update(tasks)
         .set(updatePayload)
-        .where(eq(tasks.id, id));
+        .where(eq(tasks.id, ctx.id));
 
-    await logTaskEvent(db, requestId, id, task.githubIssueId, 'db_task_update', 'success');
+    await logTaskEvent(ctx.db, ctx.requestId, ctx.id, task.githubIssueId, 'db_task_update', 'success');
 
     return c.json({ success: true });
 });
 
 // POST /api/tasks/:id/comments
 tasksApi.post('/tasks/:id/comments', async (c) => {
-    const { id } = c.req.param();
-    const { content, author } = await c.req.json() as any;
-    const { db, requestId, now } = getRequestContext(c);
+    const ctx = await getTaskContext(c);
+    if (ctx.error) return c.json({ success: false, error: ctx.error }, ctx.status as any);
 
-    const task = await getTaskById(db, id);
-    if (!task) return c.json({ success: false, error: 'Task not found' }, 404);
+    const { content, author } = await c.req.json() as any;
+    const task = ctx.task!;
 
     // Sync to GitHub
     let githubCommentId: number | null = null;
-    await performGithubAction(
-        db,
-        task.repoId,
-        task.githubIssueId,
-        async (owner, name, issueNumber) => {
-            const comment = await createGitHubComment(c.env, owner, name, issueNumber, `**${author || 'User'}**: ${content}`);
-            if (comment) githubCommentId = comment.id;
-            return comment;
-        },
-        { requestId, taskId: id, eventType: 'github_comment_create' }
-    );
+    if (task.githubIssueId) {
+        await executeGithubAction(
+            ctx.db,
+            task.repoId,
+            async (owner, name) => {
+                const comment = await createGitHubComment(c.env, owner, name, task.githubIssueId!, `**${author || 'User'}**: ${content}`);
+                if (comment) githubCommentId = comment.id;
+                return comment;
+            },
+            { requestId: ctx.requestId, taskId: ctx.id, issueNumber: task.githubIssueId, eventType: 'github_comment_create' }
+        );
+    }
 
     // Save Local
     const commentId = generateUuid();
-    await db.insert(taskComments).values({
+    await ctx.db.insert(taskComments).values({
         id: commentId,
-        taskId: id,
+        taskId: ctx.id,
         content,
         author: author || 'system',
         githubCommentId,
-        createdAt: now,
-        updatedAt: now
+        createdAt: ctx.now,
+        updatedAt: ctx.now
     });
 
     return c.json({ success: true, id: commentId });
@@ -411,30 +440,28 @@ tasksApi.post('/tasks/:id/comments', async (c) => {
 
 // DELETE /api/tasks/:id (Soft delete)
 tasksApi.delete('/tasks/:id', async (c) => {
-    const { id } = c.req.param();
-    const { db, requestId, now } = getRequestContext(c);
+    const ctx = await getTaskContext(c);
+    if (ctx.error) return c.json({ success: false, error: ctx.error }, ctx.status as any);
 
-    const task = await getTaskById(db, id);
-    if (!task) return c.json({ success: false, error: 'Task not found' }, 404);
+    const task = ctx.task!;
 
     if (task.githubIssueId) {
-        await performGithubAction(
-            db,
+        await executeGithubAction(
+            ctx.db,
             task.repoId,
-            task.githubIssueId,
-            (owner, name, issueNumber) => updateGitHubIssue(c.env, owner, name, issueNumber, { state: 'closed' }),
-            { requestId, taskId: id, eventType: 'github_issue_close' }
+            (owner, name) => updateGitHubIssue(c.env, owner, name, task.githubIssueId!, { state: 'closed' }),
+            { requestId: ctx.requestId, taskId: ctx.id, issueNumber: task.githubIssueId, eventType: 'github_issue_close' }
         );
     }
 
-    await db.update(tasks)
+    await ctx.db.update(tasks)
         .set({
             isDeleted: 1,
-            updatedAt: now
+            updatedAt: ctx.now
         })
-        .where(eq(tasks.id, id));
+        .where(eq(tasks.id, ctx.id));
 
-    await logTaskEvent(db, requestId, id, task.githubIssueId, 'db_task_soft_delete', 'success');
+    await logTaskEvent(ctx.db, ctx.requestId, ctx.id, task.githubIssueId, 'db_task_soft_delete', 'success');
 
     return c.json({ success: true });
 });
