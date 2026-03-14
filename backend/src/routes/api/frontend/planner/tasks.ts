@@ -1,5 +1,5 @@
 // src/routes/api/tasks.ts
-import { Hono } from 'hono';
+import { Hono, Context } from 'hono';
 import { Bindings } from '@utils/hono';
 import { getDb } from '@db';
 import { tasks, taskEvents, taskComments } from '@db/schemas/projects/tasks';
@@ -148,11 +148,20 @@ function calculateTaskTimestamps(
 
 const tasksApi = new Hono<{ Bindings: Env }>();
 
-function getBaseContext(c: any) {
+function getBaseContext(c: Context<{ Bindings: Env }>) {
     const db = getDb(c.env.DB);
     const requestId = generateUuid();
     const now = new Date().toISOString();
     return { db, requestId, now };
+}
+
+async function getTaskContext(c: Context<{ Bindings: Env }>, id: string) {
+    const baseCtx = getBaseContext(c);
+    const task = await getTaskById(baseCtx.db, id);
+    if (!task) {
+        return { error: 'Task not found', status: 404 } as const;
+    }
+    return { ...baseCtx, task };
 }
 
 // GET /api/repos/:owner/:repo/tasks
@@ -187,10 +196,8 @@ tasksApi.get('/', async (c) => {
     const workshopRows = await db.select().from(tasks).where(eq(tasks.taskType, 'workshop_project')).limit(100);
     const mappedWorkshop = workshopRows.flatMap(w => {
         const context = (w.taskContext || {}) as any;
-        if (!context.phases || !Array.isArray(context.phases)) return [];
-        return context.phases.flatMap((p: any) => {
-            if (!p.tasks || !Array.isArray(p.tasks)) return [];
-            return p.tasks.map((t: any) => {
+        return (Array.isArray(context.phases) ? context.phases : []).flatMap((p: any) => {
+            return (Array.isArray(p.tasks) ? p.tasks : []).map((t: any) => {
                 const mappedStatus = t.status === 'not_started' ? TaskStatus.TODO :
                                      t.status === 'in_progress' ? TaskStatus.IN_PROGRESS : TaskStatus.DONE;
 
@@ -315,14 +322,10 @@ tasksApi.patch('/tasks/:id', async (c) => {
     const { id } = c.req.param();
     const body = await c.req.json();
     const { status, position, title, description, assignee, kanbanColumn } = body as any;
-    const { db, requestId, now } = getBaseContext(c);
 
-    // Get current task
-    const task = await getTaskById(db, id);
-    
-    if (!task) {
-        return c.json({ success: false, error: 'Task not found' }, 404);
-    }
+    const ctx = await getTaskContext(c, id);
+    if ('error' in ctx) return c.json({ success: false, error: ctx.error }, ctx.status);
+    const { db, requestId, now, task } = ctx;
 
     await logTaskEvent(db, requestId, id, task.githubIssueId, 'api_request_update_task', 'pending', body);
 
@@ -352,26 +355,32 @@ tasksApi.patch('/tasks/:id', async (c) => {
     };
     const githubUpdates: any = {};
 
-    const checkAndUpdate = (field: any, taskField: any, dbKey: string, ghKey?: string, transformGh?: (v: any) => any) => {
-        if (field !== undefined && field !== taskField) {
-            updatePayload[dbKey] = field;
-            if (task.githubIssueId && ghKey) {
-                githubUpdates[ghKey] = transformGh ? transformGh(field) : field;
-            }
-        }
-    };
-
-    checkAndUpdate(nextStatus, currentStatus, 'status');
-    checkAndUpdate(nextColumn, currentColumn, 'kanbanColumn');
-    checkAndUpdate(position, task.position, 'position');
-    checkAndUpdate(title, task.title, 'title', 'title');
-    checkAndUpdate(description, task.description, 'description', 'body');
-    checkAndUpdate(assignee, task.assignee, 'assignee', 'assignees', (v) => v ? [v] : []);
+    if (nextStatus !== undefined && nextStatus !== currentStatus) {
+        updatePayload.status = nextStatus;
+    }
+    if (nextColumn !== undefined && nextColumn !== currentColumn) {
+        updatePayload.kanbanColumn = nextColumn;
+    }
+    if (position !== undefined && position !== task.position) {
+        updatePayload.position = position;
+    }
+    if (title !== undefined && title !== task.title) {
+        updatePayload.title = title;
+        if (task.githubIssueId) githubUpdates.title = title;
+    }
+    if (description !== undefined && description !== task.description) {
+        updatePayload.description = description;
+        if (task.githubIssueId) githubUpdates.body = description;
+    }
+    if (assignee !== undefined && assignee !== task.assignee) {
+        updatePayload.assignee = assignee;
+        if (task.githubIssueId) githubUpdates.assignees = assignee ? [assignee] : [];
+    }
 
     // Calculate timestamps
     const { startAt, endAt } = calculateTaskTimestamps(nextStatus, nextColumn, now, task.startAt, task.endAt);
-    checkAndUpdate(startAt, task.startAt, 'startAt');
-    checkAndUpdate(endAt, task.endAt, 'endAt');
+    if (startAt !== undefined && startAt !== task.startAt) updatePayload.startAt = startAt;
+    if (endAt !== undefined && endAt !== task.endAt) updatePayload.endAt = endAt;
 
     // GitHub state depends on the target status
     if (task.githubIssueId && nextStatus !== currentStatus) {
@@ -403,10 +412,10 @@ tasksApi.patch('/tasks/:id', async (c) => {
 tasksApi.post('/tasks/:id/comments', async (c) => {
     const { id } = c.req.param();
     const { content, author } = await c.req.json() as any;
-    const { db, requestId, now } = getBaseContext(c);
 
-    const task = await getTaskById(db, id);
-    if (!task) return c.json({ success: false, error: 'Task not found' }, 404);
+    const ctx = await getTaskContext(c, id);
+    if ('error' in ctx) return c.json({ success: false, error: ctx.error }, ctx.status);
+    const { db, requestId, now, task } = ctx;
 
     // Sync to GitHub
     const comment = await performGithubAction(
@@ -436,10 +445,10 @@ tasksApi.post('/tasks/:id/comments', async (c) => {
 // DELETE /api/tasks/:id (Soft delete)
 tasksApi.delete('/tasks/:id', async (c) => {
     const { id } = c.req.param();
-    const { db, requestId, now } = getBaseContext(c);
 
-    const task = await getTaskById(db, id);
-    if (!task) return c.json({ success: false, error: 'Task not found' }, 404);
+    const ctx = await getTaskContext(c, id);
+    if ('error' in ctx) return c.json({ success: false, error: ctx.error }, ctx.status);
+    const { db, requestId, now, task } = ctx;
 
     if (task.githubIssueId) {
         await performGithubAction(
