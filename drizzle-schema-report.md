@@ -94,26 +94,6 @@
 - trending_repos
 - webhook_deliveries
 
-### Unmapped / Orphaned Schema Tables
-*(Suspicious AI Slop: Defined in code but no CRUD operations with a known D1 env var detected)*
-- audit_logs
-- automation_runs
-- chat_tags
-- code_review_comment_enrichments
-- code_review_comments
-- code_review_runs
-- container_logs
-- events
-- operation_logs
-- organization_settings
-- repo_ai_context
-- repo_drafts
-- repo_infra
-- repo_tags
-- repo_tech_stack
-- research_files
-- secrets_config
-
 ---
 
 ## Code Files Interacting with D1 Tables
@@ -253,14 +233,11 @@
 ### `backend/src/config/jules-standards.ts`
 - **Tables Imported:** sessions, tasks
 
-### `backend/src/db/ops/repos.ts`
-- **Tables Imported:** projects, repo_infra, repo_metrics, repo_tags, repo_tech_stack, repositories, tags
-
 ### `backend/src/db/schemas/agents/budget.ts`
 - **Tables Imported:** ai_cost_logs, alerts, budget_events
 
 ### `backend/src/db/schemas/agents/chat.ts`
-- **Tables Imported:** chat_messages, chat_tags, chat_threads, repositories
+- **Tables Imported:** chat_messages, chat_threads, repositories
 
 ### `backend/src/db/schemas/agents/cloudflare-docs-interactions.ts`
 - **Tables Imported:** cloudflare_docs_interactions
@@ -278,7 +255,7 @@
 - **Tables Imported:** prompt_revisions
 
 ### `backend/src/db/schemas/agents/research.ts`
-- **Tables Imported:** analysis_artifacts, repo_scores, research_files, research_sessions, sessions
+- **Tables Imported:** analysis_artifacts, repo_scores, research_sessions, sessions
 
 ### `backend/src/db/schemas/app/alerts.ts`
 - **Tables Imported:** alerts
@@ -313,14 +290,8 @@
 ### `backend/src/db/schemas/app/tags.ts`
 - **Tables Imported:** tags
 
-### `backend/src/db/schemas/containers/index.ts`
-- **Tables Imported:** container_logs
-
 ### `backend/src/db/schemas/discord/index.ts`
 - **Tables Imported:** discord_messages, discord_scan_log
-
-### `backend/src/db/schemas/github/drafts.ts`
-- **Tables Imported:** repo_drafts, repositories
 
 ### `backend/src/db/schemas/github/favorites.ts`
 - **Tables Imported:** project_favorites
@@ -364,9 +335,6 @@
 ### `backend/src/db/schemas/jules/webhook-events.ts`
 - **Tables Imported:** alerts, jules_webhook_events
 
-### `backend/src/db/schemas/logs/audit.ts`
-- **Tables Imported:** audit_logs
-
 ### `backend/src/db/schemas/logs/health.ts`
 - **Tables Imported:** health_results, health_runs, health_test_definitions
 
@@ -375,9 +343,6 @@
 
 ### `backend/src/db/schemas/logs/system.ts`
 - **Tables Imported:** system_logs
-
-### `backend/src/db/schemas/ops/secrets.ts`
-- **Tables Imported:** secrets_config
 
 ### `backend/src/db/schemas/projects/hierarchy.ts`
 - **Tables Imported:** pm_epics, pm_projects, pm_stories, pm_tasks, tasks
