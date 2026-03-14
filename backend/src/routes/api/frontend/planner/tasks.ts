@@ -135,7 +135,7 @@ async function getRepoContext(c: Context<{ Bindings: Bindings }>, owner: string,
     const repoRecord = await getRepoByOwnerAndName(baseCtx.db, owner, repo);
 
     if (!repoRecord) {
-        return { error: 'Repo not found', status: 404 as const };
+        return { ...baseCtx, error: 'Repo not found', status: 404 as const };
     }
 
     return { ...baseCtx, repoRecord };
@@ -146,7 +146,7 @@ async function getTaskContext(c: Context<{ Bindings: Bindings }>, id: string) {
     const task = await getTaskById(baseCtx.db, id);
 
     if (!task) {
-        return { error: 'Task not found', status: 404 as const };
+        return { ...baseCtx, error: 'Task not found', status: 404 as const };
     }
 
     return { ...baseCtx, task };
@@ -211,10 +211,8 @@ tasksApi.get('/', async (c) => {
     const workshopRows = await db.select().from(tasks).where(eq(tasks.taskType, 'workshop_project')).limit(100);
     const mappedWorkshop = workshopRows.flatMap(w => {
         const context = (w.taskContext || {}) as any;
-        if (!context.phases || !Array.isArray(context.phases)) return [];
-        return context.phases.flatMap((p: any) => {
-            if (!p.tasks || !Array.isArray(p.tasks)) return [];
-            return p.tasks.map((t: any) => {
+        return (Array.isArray(context?.phases) ? context.phases : []).flatMap((p: any) => {
+            return (Array.isArray(p?.tasks) ? p.tasks : []).map((t: any) => {
                 const mappedStatus = t.status === 'not_started' ? TaskStatus.TODO :
                                      t.status === 'in_progress' ? TaskStatus.IN_PROGRESS : TaskStatus.DONE;
 
@@ -260,14 +258,11 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
 
     const ctx = await getRepoContext(c as any, owner, repo);
 
-    // Fallback context just for logging if repo not found
-    const logCtx = 'error' in ctx ? getBaseContext(c as any) : ctx;
-
     // Log API Request
-    await logTaskEvent(logCtx.db, logCtx.requestId, null, null, 'api_request_create_task', 'pending', { owner, repo, body });
+    await logTaskEvent(ctx.db, ctx.requestId, null, null, 'api_request_create_task', 'pending', { owner, repo, body });
 
     if ('error' in ctx) {
-        await logTaskEvent(logCtx.db, logCtx.requestId, null, null, 'api_request_create_task', 'failed', { error: ctx.error });
+        await logTaskEvent(ctx.db, ctx.requestId, null, null, 'api_request_create_task', 'failed', { error: ctx.error });
         return c.json({ success: false, error: ctx.error }, ctx.status);
     }
 
@@ -379,27 +374,37 @@ tasksApi.patch('/tasks/:id', async (c) => {
     const updatePayload: any = { updatedAt: now };
     const githubUpdates: any = {};
 
-    const processUpdate = <K extends string, G extends string>(
-        field: any,
-        currentValue: any,
-        dbKey: K,
-        ghKey?: G,
-        transformGh: (val: any) => any = (v) => v
-    ) => {
-        if (field !== undefined && field !== currentValue) {
-            updatePayload[dbKey] = field;
-            if (ghKey) {
-                githubUpdates[ghKey] = transformGh(field);
-            }
-        }
+    const processUpdate = (val: any, current: any, assign: () => void) => {
+        if (val !== undefined && val !== current) assign();
     };
 
-    processUpdate(nextStatus, currentStatus, 'status', 'state', (v) => v === TaskStatus.DONE ? 'closed' : 'open');
-    processUpdate(nextColumn, currentColumn, 'kanbanColumn');
-    processUpdate(position, task.position, 'position');
-    processUpdate(title, task.title, 'title', 'title');
-    processUpdate(description, task.description, 'description', 'body');
-    processUpdate(assignee, task.assignee, 'assignee', 'assignees', (v) => v ? [v] : []);
+    processUpdate(nextStatus, currentStatus, () => {
+        updatePayload.status = nextStatus;
+        githubUpdates.state = nextStatus === TaskStatus.DONE ? 'closed' : 'open';
+    });
+
+    processUpdate(nextColumn, currentColumn, () => {
+        updatePayload.kanbanColumn = nextColumn;
+    });
+
+    processUpdate(position, task.position, () => {
+        updatePayload.position = position;
+    });
+
+    processUpdate(title, task.title, () => {
+        updatePayload.title = title;
+        githubUpdates.title = title;
+    });
+
+    processUpdate(description, task.description, () => {
+        updatePayload.description = description;
+        githubUpdates.body = description;
+    });
+
+    processUpdate(assignee, task.assignee, () => {
+        updatePayload.assignee = assignee;
+        githubUpdates.assignees = assignee ? [assignee] : [];
+    });
 
     // Sync to GitHub if linked and there are relevant updates
     if (task.githubIssueId && Object.keys(githubUpdates).length > 0) {
