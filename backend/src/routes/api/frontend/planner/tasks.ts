@@ -345,18 +345,8 @@ tasksApi.patch('/tasks/:id', async (c) => {
     const updatePayload: any = { updatedAt: now };
     const githubUpdates: any = {};
 
-    const processUpdate = <K extends keyof typeof task, G extends string>(
-        field: K,
-        value: any,
-        githubField?: G,
-        githubValue?: any
-    ) => {
-        if (value !== undefined && value !== task[field]) {
-            updatePayload[field] = value;
-            if (githubField) {
-                githubUpdates[githubField] = githubValue !== undefined ? githubValue : value;
-            }
-        }
+    const processUpdate = (value: any, current: any, assign: () => void) => {
+        if (value !== undefined && value !== current) assign();
     };
 
     if (nextStatus !== currentStatus) {
@@ -366,9 +356,20 @@ tasksApi.patch('/tasks/:id', async (c) => {
     if (nextColumn !== currentColumn) updatePayload.kanbanColumn = nextColumn;
     if (position !== undefined) updatePayload.position = position;
 
-    processUpdate('title', title, 'title');
-    processUpdate('description', description, 'body');
-    processUpdate('assignee', assignee, 'assignees', assignee ? [assignee] : []);
+    processUpdate(title, task.title, () => {
+        updatePayload.title = title;
+        githubUpdates.title = title;
+    });
+
+    processUpdate(description, task.description, () => {
+        updatePayload.description = description;
+        githubUpdates.body = description;
+    });
+
+    processUpdate(assignee, task.assignee, () => {
+        updatePayload.assignee = assignee;
+        githubUpdates.assignees = assignee ? [assignee] : [];
+    });
 
     // Sync to GitHub if linked and relevant fields changed
     if (task.githubIssueId && Object.keys(githubUpdates).length > 0) {
