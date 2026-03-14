@@ -4,7 +4,7 @@ import { Bindings } from '@utils/hono';
 import { getDb } from '@db';
 import { tasks, taskEvents, taskComments } from '@db/schemas/projects/tasks';
 import { repos } from '@db/schemas/github/repos';
-import { eq, and, or } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { createGitHubIssue, updateGitHubIssue, createGitHubComment } from '@/ai/mcp/tools/github/github';
 
 import { TaskStatus, KanbanColumn } from '@/types/project-management/enums';
