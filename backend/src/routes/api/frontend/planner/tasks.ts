@@ -244,19 +244,11 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
     // 1. Create GitHub Issue
     const issue = await createGitHubIssue(c.env, owner, repo, title, description, assignee ? [assignee] : undefined);
 
-    await logTaskEvent(
-        db,
-        requestId,
-        null,
-        issue?.number || null,
-        'github_issue_create',
-        issue ? 'success' : 'failed',
-        issue ? { html_url: issue.html_url } : undefined
-    );
-
     if (!issue) {
+        await logTaskEvent(db, requestId, null, null, 'github_issue_create', 'failed');
         return c.json({ success: false, error: 'Failed to create GitHub issue' }, 500);
     }
+    await logTaskEvent(db, requestId, null, issue.number, 'github_issue_create', 'success', { html_url: issue.html_url });
 
     // 2. Create Local Task
     const newId = generateUuid();
@@ -266,9 +258,6 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
     const initialColumn = StatusMapper.mapStatusToColumn(initialStatus);
 
     const { startAt, endAt } = calculateTaskTimestamps(initialStatus, initialColumn, null, null, now);
-
-    let dbSuccess = true;
-    let dbError = null;
 
     try {
         await db.insert(tasks).values({
@@ -287,23 +276,10 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
             endAt: endAt || null
         });
     } catch (e: any) {
-        dbSuccess = false;
-        dbError = e.message;
-    }
-
-    await logTaskEvent(
-        db,
-        requestId,
-        newId,
-        issue.number,
-        'db_task_create',
-        dbSuccess ? 'success' : 'failed',
-        dbError ? { error: dbError } : undefined
-    );
-
-    if (!dbSuccess) {
+        await logTaskEvent(db, requestId, newId, issue.number, 'db_task_create', 'failed', { error: e.message });
         return c.json({ success: false, error: 'Failed to save local task' }, 500);
     }
+    await logTaskEvent(db, requestId, newId, issue.number, 'db_task_create', 'success');
 
     return c.json({ success: true, id: newId });
 });
