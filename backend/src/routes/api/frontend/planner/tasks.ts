@@ -70,7 +70,7 @@ async function performGithubAction(
 ) {
     if (!task.githubIssueId) return null;
 
-    const repoRecord = await db.select().from(repos).where(eq(repos.id, task.repoId)).limit(1).then(res => res[0] || null);
+    const repoRecord = await getRepoById(db, task.repoId);
     if (!repoRecord) return null;
 
     const { owner, name } = repoRecord;
@@ -103,6 +103,10 @@ async function performGithubAction(
 
 async function getRepoByOwnerAndName(db: ReturnType<typeof getDb>, owner: string, name: string) {
     return await db.select().from(repos).where(and(eq(repos.owner, owner), eq(repos.name, name))).limit(1).then(res => res[0] || null);
+}
+
+async function getRepoById(db: ReturnType<typeof getDb>, id: string) {
+    return await db.select().from(repos).where(eq(repos.id, id)).limit(1).then(res => res[0] || null);
 }
 
 async function getTaskById(db: ReturnType<typeof getDb>, id: string) {
@@ -184,10 +188,8 @@ tasksApi.get('/', async (c) => {
     const workshopRows = await db.select().from(tasks).where(eq(tasks.taskType, 'workshop_project')).limit(100);
     const mappedWorkshop = workshopRows.flatMap(w => {
         const context = (w.taskContext || {}) as any;
-        if (!context.phases || !Array.isArray(context.phases)) return [];
-        return context.phases.flatMap((p: any) => {
-            if (!p.tasks || !Array.isArray(p.tasks)) return [];
-            return p.tasks.map((t: any) => {
+        return (context.phases || []).flatMap((p: any) =>
+            (p.tasks || []).map((t: any) => {
                 const mappedStatus = t.status === 'not_started' ? TaskStatus.TODO : (t.status === 'in_progress' ? TaskStatus.IN_PROGRESS : TaskStatus.DONE);
                 return {
                     id: `${w.id}-${p.phase_number}-${t.task_number}`,
@@ -205,8 +207,8 @@ tasksApi.get('/', async (c) => {
                     endAt: null,
                     isDeleted: 0
                 };
-            });
-        });
+            })
+        );
     });
 
     // Combine and sort
@@ -348,10 +350,8 @@ tasksApi.patch('/tasks/:id', async (c) => {
     // Determines updates for GitHub
     // Sync to GitHub if linked
     if (task.githubIssueId && Object.keys(githubUpdates).length > 0) {
-        // If state is not updated but needed, add it
-        if (!githubUpdates.state) {
-            githubUpdates.state = nextStatus === TaskStatus.DONE ? 'closed' : 'open';
-        }
+        // Ensure state is always included if updates are being pushed
+        githubUpdates.state = githubUpdates.state || (nextStatus === TaskStatus.DONE ? 'closed' : 'open');
 
         await performGithubAction(
             db,
@@ -376,17 +376,13 @@ tasksApi.post('/tasks/:id/comments', async (c) => {
     if (!task) return c.json({ success: false, error: 'Task not found' }, 404);
 
     // Sync to GitHub
-    let githubCommentId: number | null = null;
-    await performGithubAction(
+    const comment = await performGithubAction(
         db,
         task,
-        async (owner, name, issueNumber) => {
-            const comment = await createGitHubComment(c.env, owner, name, issueNumber, `**${author || 'User'}**: ${content}`);
-            if (comment) githubCommentId = comment.id;
-            return comment;
-        },
+        (owner, name, issueNumber) => createGitHubComment(c.env, owner, name, issueNumber, `**${author || 'User'}**: ${content}`),
         { requestId, eventType: 'github_comment_create' }
     );
+    const githubCommentId = comment?.id || null;
 
     // Save Local
     const commentId = generateUuid();
