@@ -2,7 +2,8 @@
 import { Hono } from 'hono';
 import { Bindings } from '@utils/hono';
 import { getDb } from '@db';
-import { tasks, repos, taskEvents, taskComments, workshopProjectTasks } from '@db/schema';
+import { tasks, taskEvents, taskComments } from '@db/schemas/projects/tasks';
+import { repos } from '@db/schemas/github/repos';
 import { eq, and } from 'drizzle-orm';
 import { createGitHubIssue, updateGitHubIssue, createGitHubComment } from '@/ai/mcp/tools/github/github';
 
@@ -84,16 +85,16 @@ tasksApi.get('/', async (c) => {
     const rows = await db.select().from(tasks).where(eq(tasks.isDeleted, 0)).limit(100).orderBy(tasks.updatedAt);
     
     // Also fetch workshop tasks for global view
-    const workshopRows = await db.select().from(workshopProjectTasks).limit(100);
+    const workshopRows = await db.select().from(tasks).where(eq(tasks.taskType, 'workshop_project')).limit(100);
     const mappedWorkshop: any[] = [];
     workshopRows.forEach(w => {
-        if (!w.phases || !Array.isArray(w.phases)) return;
-        w.phases.forEach((p: any) => {
+        if (!((w.taskContext || {}) as any).phases || !Array.isArray(((w.taskContext || {}) as any).phases)) return;
+        ((w.taskContext || {}) as any).phases.forEach((p: any) => {
             if (!p.tasks || !Array.isArray(p.tasks)) return;
             p.tasks.forEach((t: any) => {
                 mappedWorkshop.push({
                     id: `${w.id}-${p.phase_number}-${t.task_number}`,
-                    repoId: w.projectId,
+                    repoId: w.repoId,
                     title: `[Phase ${p.phase_number}] ${t.task_title}`,
                     description: t.task_description || '',
                     status: t.status === 'not_started' ? TaskStatus.TODO :

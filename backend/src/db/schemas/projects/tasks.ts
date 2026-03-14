@@ -51,6 +51,9 @@ export const tasks = sqliteTable(
         kanbanColumn: text("kanban_column")
             .notNull()
             .default(KanbanColumn.BACKLOG),
+
+        taskType: text("task_type").notNull().default("github_kanban"), // github_kanban, workshop_project, pm_task
+        taskContext: text("task_context", { mode: 'json' }), // Optional JSON context depending on taskType
     },
     (table) => ({
         repoIdx: index("idx_tasks_repo").on(table.repoId),
