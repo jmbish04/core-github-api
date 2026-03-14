@@ -359,7 +359,7 @@ tasksApi.patch('/tasks/:id', async (c) => {
         await performGithubAction(
             db,
             task,
-            async (owner, name, issueNumber) => await updateGitHubIssue(c.env, owner, name, issueNumber, githubUpdates),
+            (owner, name, issueNumber) => updateGitHubIssue(c.env, owner, name, issueNumber, githubUpdates),
             { requestId, eventType: 'github_issue_update', details: githubUpdates }
         );
     }
@@ -411,7 +411,7 @@ tasksApi.delete('/tasks/:id', async (c) => {
     await performGithubAction(
         db,
         task,
-        async (owner, name, issueNumber) => await updateGitHubIssue(c.env, owner, name, issueNumber, { state: 'closed' }),
+        (owner, name, issueNumber) => updateGitHubIssue(c.env, owner, name, issueNumber, { state: 'closed' }),
         { requestId, eventType: 'github_issue_close' }
     );
 
