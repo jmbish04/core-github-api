@@ -172,11 +172,15 @@ tasksApi.get('/', async (c) => {
     const workshopRows = await db.select().from(tasks).where(eq(tasks.taskType, 'workshop_project')).limit(100);
     const mappedWorkshop = workshopRows.flatMap(w => {
         const context = (w.taskContext || {}) as any;
-        if (!context.phases || !Array.isArray(context.phases)) return [];
+        if (!Array.isArray(context.phases)) return [];
+
         return context.phases.flatMap((p: any) => {
-            if (!p.tasks || !Array.isArray(p.tasks)) return [];
+            if (!Array.isArray(p.tasks)) return [];
+
             return p.tasks.map((t: any) => {
-                const mappedStatus = t.status === 'not_started' ? TaskStatus.TODO : (t.status === 'in_progress' ? TaskStatus.IN_PROGRESS : TaskStatus.DONE);
+                const mappedStatus = t.status === 'not_started' ? TaskStatus.TODO
+                    : (t.status === 'in_progress' ? TaskStatus.IN_PROGRESS : TaskStatus.DONE);
+
                 return {
                     id: `${w.id}-${p.phase_number}-${t.task_number}`,
                     repoId: w.repoId,
@@ -230,11 +234,19 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
     // 1. Create GitHub Issue
     const issue = await createGitHubIssue(c.env, owner, repo, title, description, assignee ? [assignee] : undefined);
 
+    await logTaskEvent(
+        db,
+        requestId,
+        null,
+        issue?.number || null,
+        'github_issue_create',
+        issue ? 'success' : 'failed',
+        issue ? { html_url: issue.html_url } : undefined
+    );
+
     if (!issue) {
-        await logTaskEvent(db, requestId, null, null, 'github_issue_create', 'failed');
         return c.json({ success: false, error: 'Failed to create GitHub issue' }, 500);
     }
-    await logTaskEvent(db, requestId, null, issue.number, 'github_issue_create', 'success', { html_url: issue.html_url });
 
     // 2. Create Local Task
     const newId = generateUuid();
@@ -245,6 +257,7 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
 
     const { startAt, endAt } = calculateTaskTimestamps(initialStatus, initialColumn, now);
 
+    let dbError = null;
     try {
         await db.insert(tasks).values({
             id: newId,
@@ -261,9 +274,21 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
             startAt,
             endAt
         });
-        await logTaskEvent(db, requestId, newId, issue.number, 'db_task_create', 'success');
     } catch (e: any) {
-        await logTaskEvent(db, requestId, newId, issue.number, 'db_task_create', 'failed', { error: e.message });
+        dbError = e.message;
+    } finally {
+        await logTaskEvent(
+            db,
+            requestId,
+            newId,
+            issue.number,
+            'db_task_create',
+            dbError ? 'failed' : 'success',
+            dbError ? { error: dbError } : undefined
+        );
+    }
+
+    if (dbError) {
         return c.json({ success: false, error: 'Failed to save local task' }, 500);
     }
 
@@ -318,17 +343,18 @@ tasksApi.patch('/tasks/:id', async (c) => {
     if (endAt !== task.endAt) updatePayload.endAt = endAt;
     if (position !== undefined) updatePayload.position = position;
 
-    if (title !== undefined) {
-        updatePayload.title = title;
-        ghUpdates.title = title;
-    }
-    if (description !== undefined) {
-        updatePayload.description = description;
-        ghUpdates.body = description;
-    }
-    if (assignee !== undefined) {
-        updatePayload.assignee = assignee;
-        ghUpdates.assignees = assignee ? [assignee] : [];
+    // Merge duplicate payload construction
+    const syncFields = [
+        { field: 'title', val: title, ghField: 'title' },
+        { field: 'description', val: description, ghField: 'body' },
+        { field: 'assignee', val: assignee, ghField: 'assignees', ghTransform: (v: any) => v ? [v] : [] }
+    ];
+
+    for (const { field, val, ghField, ghTransform } of syncFields) {
+        if (val !== undefined) {
+            updatePayload[field] = val;
+            ghUpdates[ghField] = ghTransform ? ghTransform(val) : val;
+        }
     }
 
     // Sync to GitHub if linked
