@@ -314,40 +314,22 @@ tasksApi.patch('/tasks/:id', async (c) => {
         if (val !== undefined && val !== current) assign();
     };
 
-    processUpdate(nextStatus, currentStatus, () => {
-        updatePayload.status = nextStatus;
-    });
+    processUpdate(nextStatus, currentStatus, () => { updatePayload.status = nextStatus; });
+    if (status) githubUpdates.state = nextStatus === TaskStatus.DONE ? 'closed' : 'open';
 
-    if (status) {
-        githubUpdates.state = nextStatus === TaskStatus.DONE ? 'closed' : 'open';
-    }
-
-    processUpdate(nextColumn, currentColumn, () => {
-        updatePayload.kanbanColumn = nextColumn;
-    });
-
-    processUpdate(startAt, task.startAt, () => {
-        updatePayload.startAt = startAt;
-    });
-
-    processUpdate(endAt, task.endAt, () => {
-        updatePayload.endAt = endAt;
-    });
-
-    processUpdate(position, task.position, () => {
-        updatePayload.position = position;
-    });
+    processUpdate(nextColumn, currentColumn, () => { updatePayload.kanbanColumn = nextColumn; });
+    processUpdate(startAt, task.startAt, () => { updatePayload.startAt = startAt; });
+    processUpdate(endAt, task.endAt, () => { updatePayload.endAt = endAt; });
+    processUpdate(position, task.position, () => { updatePayload.position = position; });
 
     processUpdate(title, task.title, () => {
         updatePayload.title = title;
         githubUpdates.title = title;
     });
-
     processUpdate(description, task.description, () => {
         updatePayload.description = description;
         githubUpdates.body = description;
     });
-
     processUpdate(assignee, task.assignee, () => {
         updatePayload.assignee = assignee;
         githubUpdates.assignees = assignee ? [assignee] : [];
