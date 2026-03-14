@@ -86,13 +86,13 @@ async function performGithubAction<T>(
 
     if (logOptions) {
         // Resolve callback properties if successful
-        const resolvedDetails = (isSuccess && result && typeof logOptions.details === 'function')
-            ? logOptions.details(result)
-            : (typeof logOptions.details !== 'function' ? logOptions.details : undefined);
+        const resolvedDetails = typeof logOptions.details === 'function'
+            ? (isSuccess && result ? logOptions.details(result) : undefined)
+            : logOptions.details;
 
-        const resolvedIssueId = (isSuccess && result && typeof logOptions.githubIssueId === 'function')
-            ? logOptions.githubIssueId(result)
-            : (typeof logOptions.githubIssueId === 'number' ? logOptions.githubIssueId : null);
+        const resolvedIssueId = typeof logOptions.githubIssueId === 'function'
+            ? (isSuccess && result ? logOptions.githubIssueId(result) : null)
+            : logOptions.githubIssueId || null;
 
         const details = actionError ? { error: actionError, ...resolvedDetails } : resolvedDetails;
 
@@ -374,37 +374,21 @@ tasksApi.patch('/tasks/:id', async (c) => {
     const updatePayload: any = { updatedAt: now };
     const githubUpdates: any = {};
 
-    const processUpdate = (val: any, current: any, assign: () => void) => {
-        if (val !== undefined && val !== current) assign();
+    const syncField = (val: any, current: any, dbKey: string, ghKey?: string, ghValueFn?: (v: any) => any) => {
+        if (val !== undefined && val !== current) {
+            updatePayload[dbKey] = val;
+            if (ghKey) {
+                githubUpdates[ghKey] = ghValueFn ? ghValueFn(val) : val;
+            }
+        }
     };
 
-    processUpdate(nextStatus, currentStatus, () => {
-        updatePayload.status = nextStatus;
-        githubUpdates.state = nextStatus === TaskStatus.DONE ? 'closed' : 'open';
-    });
-
-    processUpdate(nextColumn, currentColumn, () => {
-        updatePayload.kanbanColumn = nextColumn;
-    });
-
-    processUpdate(position, task.position, () => {
-        updatePayload.position = position;
-    });
-
-    processUpdate(title, task.title, () => {
-        updatePayload.title = title;
-        githubUpdates.title = title;
-    });
-
-    processUpdate(description, task.description, () => {
-        updatePayload.description = description;
-        githubUpdates.body = description;
-    });
-
-    processUpdate(assignee, task.assignee, () => {
-        updatePayload.assignee = assignee;
-        githubUpdates.assignees = assignee ? [assignee] : [];
-    });
+    syncField(nextStatus, currentStatus, 'status', 'state', v => v === TaskStatus.DONE ? 'closed' : 'open');
+    syncField(nextColumn, currentColumn, 'kanbanColumn');
+    syncField(position, task.position, 'position');
+    syncField(title, task.title, 'title', 'title');
+    syncField(description, task.description, 'description', 'body');
+    syncField(assignee, task.assignee, 'assignee', 'assignees', v => v ? [v] : []);
 
     // Sync to GitHub if linked and there are relevant updates
     if (task.githubIssueId && Object.keys(githubUpdates).length > 0) {
