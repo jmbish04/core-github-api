@@ -351,17 +351,10 @@ tasksApi.patch('/tasks/:id', async (c) => {
 
     if (nextStatus !== currentStatus) {
         updatePayload.status = nextStatus;
-        githubUpdates.state = nextStatus === TaskStatus.DONE ? 'closed' : 'open';
-    } else if (task.githubIssueId && status && status === TaskStatus.DONE) {
-        githubUpdates.state = 'closed'; // Ensure it's closed if explicitly passing DONE
-    } else if (task.githubIssueId && status && status !== TaskStatus.DONE) {
-        githubUpdates.state = 'open'; // Ensure it's opened if explicitly passing not DONE
     }
 
-    // We should sync state regardless if targetStatus is passed, mimicking old behavior
-    if (status !== undefined) {
-        const targetStatus = (status as TaskStatus) || task.status as TaskStatus;
-        githubUpdates.state = targetStatus === TaskStatus.DONE ? 'closed' : 'open';
+    if (nextStatus !== currentStatus || status !== undefined) {
+        githubUpdates.state = nextStatus === TaskStatus.DONE ? 'closed' : 'open';
     }
 
     if (nextColumn !== currentColumn) updatePayload.kanbanColumn = nextColumn;
