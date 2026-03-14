@@ -284,28 +284,6 @@ tasksApi.patch('/tasks/:id', async (c) => {
 
     await logTaskEvent(db, requestId, id, task.githubIssueId, 'api_request_update_task', 'pending', body);
 
-    // Determines updates for GitHub
-    // Sync to GitHub if linked
-    if (task.githubIssueId) {
-        const targetStatus = (status as TaskStatus) || task.status as TaskStatus;
-        const updates: any = {
-            state: targetStatus === TaskStatus.DONE ? 'closed' : 'open'
-        };
-
-        if (title) updates.title = title;
-        if (description) updates.body = description;
-        if (assignee !== undefined) updates.assignees = assignee ? [assignee] : [];
-
-        if (Object.keys(updates).length > 0) {
-            await performGithubAction(
-                db,
-                task,
-                async (owner, name, issueNumber) => await updateGitHubIssue(c.env, owner, name, issueNumber, updates),
-                { requestId, eventType: 'github_issue_update', details: updates }
-            );
-        }
-    }
-
     // Determine final Status and KanbanColumn using Mapper
     const currentStatus = task.status as TaskStatus;
     const currentColumn = task.kanbanColumn as KanbanColumn;
@@ -318,9 +296,7 @@ tasksApi.patch('/tasks/:id', async (c) => {
         const syncedStatus = StatusMapper.getSyncStatus(nextStatus, nextColumn);
         if (syncedStatus) nextStatus = syncedStatus;
     }
-    // 2. If Status Changed, does Column need to sync? (Priority driven by what was passed)
-    // If BOTH passed, Mapper shouldn't override explicit values unless strictly invalid? 
-    // Let's assume explicit input wins, but if only one passed, we sync the other.
+    // 2. If Status Changed, does Column need to sync?
     else if (status && status !== currentStatus) {
         const syncedColumn = StatusMapper.getSyncColumn(nextColumn, nextStatus);
         if (syncedColumn) nextColumn = syncedColumn;
@@ -329,17 +305,44 @@ tasksApi.patch('/tasks/:id', async (c) => {
     // Update Timestamps
     const { startAt, endAt } = calculateTaskTimestamps(nextStatus, nextColumn, now, task.startAt, task.endAt);
 
-    // Prepare DB Update Payload
+    // Prepare DB Update Payload and GitHub Updates
     const updatePayload: any = { updatedAt: now };
+    const ghUpdates: any = {};
 
-    if (nextStatus !== currentStatus) updatePayload.status = nextStatus;
+    if (nextStatus !== currentStatus) {
+        updatePayload.status = nextStatus;
+        ghUpdates.state = nextStatus === TaskStatus.DONE ? 'closed' : 'open';
+    }
     if (nextColumn !== currentColumn) updatePayload.kanbanColumn = nextColumn;
     if (startAt !== task.startAt) updatePayload.startAt = startAt;
     if (endAt !== task.endAt) updatePayload.endAt = endAt;
     if (position !== undefined) updatePayload.position = position;
-    if (title !== undefined) updatePayload.title = title;
-    if (description !== undefined) updatePayload.description = description;
-    if (assignee !== undefined) updatePayload.assignee = assignee;
+
+    if (title !== undefined) {
+        updatePayload.title = title;
+        ghUpdates.title = title;
+    }
+    if (description !== undefined) {
+        updatePayload.description = description;
+        ghUpdates.body = description;
+    }
+    if (assignee !== undefined) {
+        updatePayload.assignee = assignee;
+        ghUpdates.assignees = assignee ? [assignee] : [];
+    }
+
+    // Sync to GitHub if linked
+    if (task.githubIssueId && Object.keys(ghUpdates).length > 0) {
+        // Ensure state is explicitly set during synchronization to preserve legacy behavior
+        ghUpdates.state = nextStatus === TaskStatus.DONE ? 'closed' : 'open';
+
+        await performGithubAction(
+            db,
+            task,
+            async (owner, name, issueNumber) => await updateGitHubIssue(c.env, owner, name, issueNumber, ghUpdates),
+            { requestId, eventType: 'github_issue_update', details: ghUpdates }
+        );
+    }
 
     // Update Local
     await updateLocalTask(db, task, updatePayload, requestId, 'db_task_update');
