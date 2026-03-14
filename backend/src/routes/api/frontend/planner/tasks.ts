@@ -323,19 +323,25 @@ tasksApi.patch('/tasks/:id', async (c) => {
         updatePayload.kanbanColumn = nextColumn;
     }
 
-    if (position !== undefined && position !== task.position) updatePayload.position = position;
-    if (title !== undefined && title !== task.title) {
-        updatePayload.title = title;
-        ghUpdates.title = title;
-    }
-    if (description !== undefined && description !== task.description) {
-        updatePayload.description = description;
-        ghUpdates.body = description;
-    }
-    if (assignee !== undefined && assignee !== task.assignee) {
-        updatePayload.assignee = assignee;
-        ghUpdates.assignees = assignee ? [assignee] : [];
-    }
+    const syncField = <K extends keyof typeof updatePayload, G extends keyof typeof ghUpdates>(
+        newValue: any,
+        oldValue: any,
+        localKey: K,
+        ghKey?: G,
+        ghTransform?: (v: any) => any
+    ) => {
+        if (newValue !== undefined && newValue !== oldValue) {
+            updatePayload[localKey] = newValue;
+            if (ghKey) {
+                ghUpdates[ghKey] = ghTransform ? ghTransform(newValue) : newValue;
+            }
+        }
+    };
+
+    syncField(position, task.position, 'position');
+    syncField(title, task.title, 'title', 'title');
+    syncField(description, task.description, 'description', 'body');
+    syncField(assignee, task.assignee, 'assignee', 'assignees', (v) => v ? [v] : []);
 
     // Sync to GitHub if linked and there are changes
     if (Object.keys(ghUpdates).length > 0) {
