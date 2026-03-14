@@ -81,18 +81,22 @@ async function logTaskEvent(
 async function executeGithubAction<T>(
     db: ReturnType<typeof getDb>,
     requestId: string,
-    taskId: string,
-    issueNumber: number,
+    task: any,
     actionName: string,
-    actionFn: () => Promise<T>,
+    actionFn: (context: { owner: string, name: string, issueNumber: number }) => Promise<T>,
     updates?: Record<string, any>
 ): Promise<T | null> {
+    const ghContext = await getGitHubContext(db, task);
+    if (!ghContext) return null;
+
+    const { issueNumber } = ghContext;
+
     try {
-        const result = await actionFn();
-        await logTaskEvent(db, requestId, taskId, issueNumber, actionName, result ? 'success' : 'failed', updates);
+        const result = await actionFn(ghContext);
+        await logTaskEvent(db, requestId, task.id, issueNumber, actionName, result ? 'success' : 'failed', updates);
         return result;
     } catch (e: any) {
-        await logTaskEvent(db, requestId, taskId, issueNumber, actionName, 'failed', { error: e.message, ...updates });
+        await logTaskEvent(db, requestId, task.id, issueNumber, actionName, 'failed', { error: e.message, ...updates });
         return null;
     }
 }
@@ -275,9 +279,6 @@ tasksApi.patch('/tasks/:id', async (c) => {
 
     await logTaskEvent(db, requestId, id, task.githubIssueId, 'api_request_update_task', 'pending', body);
 
-    // Determines updates for GitHub
-    // ... (GitHub Sync Logic) ...
-    // Sync to GitHub if linked
     // Determine final Status and KanbanColumn using Mapper
     const currentStatus = task.status as TaskStatus;
     const currentColumn = task.kanbanColumn as KanbanColumn;
@@ -329,12 +330,10 @@ tasksApi.patch('/tasks/:id', async (c) => {
 
     // Sync to GitHub if linked and updates exist
     if (Object.keys(ghUpdates).length > 0) {
-        const ghContext = await getGitHubContext(db, task);
-        if (ghContext) {
-            const { owner, name, issueNumber } = ghContext;
-            await executeGithubAction(db, requestId, id, issueNumber, 'github_issue_update',
-                () => updateGitHubIssue(c.env, owner, name, issueNumber, ghUpdates), ghUpdates);
-        }
+        await executeGithubAction(db, requestId, task, 'github_issue_update',
+            ({ owner, name, issueNumber }) => updateGitHubIssue(c.env, owner, name, issueNumber, ghUpdates),
+            ghUpdates
+        );
     }
 
     // Update Local
@@ -358,15 +357,11 @@ tasksApi.post('/tasks/:id/comments', async (c) => {
 
     // Sync to GitHub
     let githubCommentId: number | null = null;
-    const ghContext = await getGitHubContext(db, task);
-    if (ghContext) {
-        const { owner, name, issueNumber } = ghContext;
-        const comment = await executeGithubAction(db, requestId, id, issueNumber, 'github_comment_create',
-            () => createGitHubComment(c.env, owner, name, issueNumber, `**${author || 'User'}**: ${content}`)
-        );
-        if (comment) {
-            githubCommentId = comment.id;
-        }
+    const comment = await executeGithubAction(db, requestId, task, 'github_comment_create',
+        ({ owner, name, issueNumber }) => createGitHubComment(c.env, owner, name, issueNumber, `**${author || 'User'}**: ${content}`)
+    );
+    if (comment) {
+        githubCommentId = comment.id;
     }
 
     // Save Local
@@ -392,13 +387,9 @@ tasksApi.delete('/tasks/:id', async (c) => {
     const task = await getTaskById(db, id);
 
     if (task) {
-        const ghContext = await getGitHubContext(db, task);
-        if (ghContext) {
-            const { owner, name, issueNumber } = ghContext;
-            await executeGithubAction(db, requestId, id, issueNumber, 'github_issue_close',
-                () => updateGitHubIssue(c.env, owner, name, issueNumber, { state: 'closed' })
-            );
-        }
+        await executeGithubAction(db, requestId, task, 'github_issue_close',
+            ({ owner, name, issueNumber }) => updateGitHubIssue(c.env, owner, name, issueNumber, { state: 'closed' })
+        );
     }
 
     await db.update(tasks)
