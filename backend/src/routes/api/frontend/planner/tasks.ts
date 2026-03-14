@@ -100,6 +100,33 @@ async function getTaskById(db: ReturnType<typeof getDb>, id: string) {
     return db.select().from(tasks).where(eq(tasks.id, id)).limit(1).then(res => res[0] || null);
 }
 
+function getBaseContext(c: any) {
+    return {
+        db: getDb(c.env.DB),
+        requestId: generateUuid(),
+        now: new Date().toISOString()
+    };
+}
+
+function calculateTaskTimestamps(status: TaskStatus, column: KanbanColumn, currentStartAt: string | null, currentEndAt: string | null, now: string) {
+    const isActive = status === TaskStatus.IN_PROGRESS || column === KanbanColumn.IN_PROGRESS;
+    const isDone = status === TaskStatus.DONE || column === KanbanColumn.DONE;
+
+    let startAt = currentStartAt;
+    if (isActive && !startAt) {
+        startAt = now;
+    }
+
+    let endAt = currentEndAt;
+    if (isDone) {
+        endAt = now;
+    } else if (endAt) {
+        endAt = null;
+    }
+
+    return { startAt, endAt };
+}
+
 function mapWorkshopTasks(workshopRows: any[]) {
     return workshopRows.flatMap(w => {
         const context = (w.taskContext || {}) as any;
@@ -139,7 +166,7 @@ const tasksApi = new Hono<{ Bindings: Env }>();
 // GET /api/repos/:owner/:repo/tasks
 tasksApi.get('/repos/:owner/:repo/tasks', async (c) => {
     const { owner, repo } = c.req.param();
-    const db = getDb(c.env.DB);
+    const { db } = getBaseContext(c);
 
     // Resolve repo ID
     const repoRecord = await getRepoByOwnerAndName(db, owner, repo);
@@ -160,7 +187,7 @@ tasksApi.get('/repos/:owner/:repo/tasks', async (c) => {
 
 // GET /api/tasks (Global list)
 tasksApi.get('/', async (c) => {
-    const db = getDb(c.env.DB);
+    const { db } = getBaseContext(c);
     // Join with repos to get context if needed, or just return flat
     const rows = await db.select().from(tasks).where(eq(tasks.isDeleted, 0)).limit(100).orderBy(tasks.updatedAt);
     
@@ -187,8 +214,7 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
     const { owner, repo } = c.req.param();
     const body = await c.req.json();
     const { title, description, status, assignee } = body as any;
-    const db = getDb(c.env.DB);
-    const requestId = generateUuid();
+    const { db, requestId, now } = getBaseContext(c);
 
     // Log API Request
     await logTaskEvent(db, requestId, null, null, 'api_request_create_task', 'pending', { owner, repo, body });
@@ -210,14 +236,11 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
 
     // 2. Create Local Task
     const newId = generateUuid();
-    const now = new Date().toISOString();
-
     // Logic: Status defaults to TODO (per schema), Mapper determines column
     const initialStatus = (status as TaskStatus) || TaskStatus.TODO;
     const initialColumn = StatusMapper.mapStatusToColumn(initialStatus);
 
-    // If initial status implies progress, set startAt
-    const startAt = (initialStatus === TaskStatus.IN_PROGRESS || initialColumn === KanbanColumn.IN_PROGRESS) ? now : undefined;
+    const { startAt } = calculateTaskTimestamps(initialStatus, initialColumn, null, null, now);
 
     let dbError: any = null;
     try {
@@ -253,8 +276,7 @@ tasksApi.patch('/tasks/:id', async (c) => {
     const { id } = c.req.param();
     const body = await c.req.json();
     const { status, position, title, description, assignee, kanbanColumn } = body as any;
-    const db = getDb(c.env.DB);
-    const requestId = generateUuid();
+    const { db, requestId, now } = getBaseContext(c);
 
     // Get current task
     const task = await getTaskById(db, id);
@@ -285,8 +307,6 @@ tasksApi.patch('/tasks/:id', async (c) => {
         const syncedColumn = StatusMapper.getSyncColumn(nextColumn, nextStatus);
         if (syncedColumn) nextColumn = syncedColumn;
     }
-
-    const now = new Date().toISOString();
 
     // Prepare DB Update Payload and GitHub Updates
     const updatePayload: any = { updatedAt: now };
@@ -323,20 +343,9 @@ tasksApi.patch('/tasks/:id', async (c) => {
         );
     }
 
-    const isActive = nextStatus === TaskStatus.IN_PROGRESS || nextColumn === KanbanColumn.IN_PROGRESS;
-    const isDone = nextStatus === TaskStatus.DONE || nextColumn === KanbanColumn.DONE;
-
-    // Logic: Set startAt if moving to active state and not set
-    if (isActive && !task.startAt) {
-        updatePayload.startAt = now;
-    }
-
-    if (isDone) {
-        updatePayload.endAt = now;
-    } else if (task.endAt) {
-        // If moving OUT of done, reset endAt
-        updatePayload.endAt = null;
-    }
+    const timestamps = calculateTaskTimestamps(nextStatus, nextColumn, task.startAt, task.endAt, now);
+    if (timestamps.startAt !== task.startAt) updatePayload.startAt = timestamps.startAt;
+    if (timestamps.endAt !== task.endAt) updatePayload.endAt = timestamps.endAt;
 
     // Update Local
     await db.update(tasks)
@@ -352,8 +361,7 @@ tasksApi.patch('/tasks/:id', async (c) => {
 tasksApi.post('/tasks/:id/comments', async (c) => {
     const { id } = c.req.param();
     const { content, author } = await c.req.json() as any;
-    const db = getDb(c.env.DB);
-    const requestId = generateUuid();
+    const { db, requestId, now } = getBaseContext(c);
 
     const task = await getTaskById(db, id);
     if (!task) return c.json({ success: false, error: 'Task not found' }, 404);
@@ -370,7 +378,6 @@ tasksApi.post('/tasks/:id/comments', async (c) => {
 
     // Save Local
     const commentId = generateUuid();
-    const now = new Date().toISOString();
     await db.insert(taskComments).values({
         id: commentId,
         taskId: id,
@@ -387,8 +394,7 @@ tasksApi.post('/tasks/:id/comments', async (c) => {
 // DELETE /api/tasks/:id (Soft delete)
 tasksApi.delete('/tasks/:id', async (c) => {
     const { id } = c.req.param();
-    const db = getDb(c.env.DB);
-    const requestId = generateUuid();
+    const { db, requestId, now } = getBaseContext(c);
 
     const task = await getTaskById(db, id);
     if (!task) return c.json({ success: false, error: 'Task not found' }, 404);
@@ -402,8 +408,6 @@ tasksApi.delete('/tasks/:id', async (c) => {
             { requestId, taskId: id, eventType: 'github_issue_close' }
         );
     }
-
-    const now = new Date().toISOString();
 
     await db.update(tasks)
         .set({
