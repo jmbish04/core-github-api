@@ -324,30 +324,6 @@ tasksApi.patch('/tasks/:id', async (c) => {
 
     await logTaskEvent(db, requestId, id, task.githubIssueId, 'api_request_update_task', 'pending', body);
 
-    // Determines updates for GitHub
-    // Sync to GitHub if linked
-    if (task.githubIssueId) {
-        const updates: any = {};
-        const targetStatus = (status as TaskStatus) || task.status as TaskStatus;
-
-        if (targetStatus === TaskStatus.DONE) updates.state = 'closed';
-        else updates.state = 'open';
-
-        if (title) updates.title = title;
-        if (description) updates.body = description;
-        if (assignee !== undefined) updates.assignees = assignee ? [assignee] : [];
-
-        if (Object.keys(updates).length > 0) {
-            await performGithubAction(
-                db,
-                task.repoId,
-                task.githubIssueId,
-                async (owner, name, issueNumber) => await updateGitHubIssue(c.env, owner, name, issueNumber, updates),
-                { requestId, taskId: id, eventType: 'github_issue_update', details: updates }
-            );
-        }
-    }
-
     // Determine final Status and KanbanColumn using Mapper
     const currentStatus = task.status as TaskStatus;
     const currentColumn = task.kanbanColumn as KanbanColumn;
@@ -368,18 +344,49 @@ tasksApi.patch('/tasks/:id', async (c) => {
         if (syncedColumn) nextColumn = syncedColumn;
     }
 
-    // Prepare DB Update Payload
-    const updatePayload: any = {
-        updatedAt: now
-    };
+    // Prepare Local DB Update Payload and GitHub Updates
+    const updatePayload: any = { updatedAt: now };
+    const githubUpdates: any = {};
 
-    if (nextStatus !== currentStatus) updatePayload.status = nextStatus;
-    if (nextColumn !== currentColumn) updatePayload.kanbanColumn = nextColumn;
+    if (nextStatus !== currentStatus) {
+        updatePayload.status = nextStatus;
+        if (nextStatus === TaskStatus.DONE) githubUpdates.state = 'closed';
+        else githubUpdates.state = 'open';
+    }
 
-    if (position !== undefined) updatePayload.position = position;
-    if (title !== undefined) updatePayload.title = title;
-    if (description !== undefined) updatePayload.description = description;
-    if (assignee !== undefined) updatePayload.assignee = assignee;
+    if (nextColumn !== currentColumn) {
+        updatePayload.kanbanColumn = nextColumn;
+    }
+
+    if (position !== undefined && position !== task.position) {
+        updatePayload.position = position;
+    }
+
+    if (title !== undefined && title !== task.title) {
+        updatePayload.title = title;
+        githubUpdates.title = title;
+    }
+
+    if (description !== undefined && description !== task.description) {
+        updatePayload.description = description;
+        githubUpdates.body = description;
+    }
+
+    if (assignee !== undefined && assignee !== task.assignee) {
+        updatePayload.assignee = assignee;
+        githubUpdates.assignees = assignee ? [assignee] : [];
+    }
+
+    // Sync to GitHub if linked and there are updates
+    if (task.githubIssueId && Object.keys(githubUpdates).length > 0) {
+        await performGithubAction(
+            db,
+            task.repoId,
+            task.githubIssueId,
+            async (owner, name, issueNumber) => await updateGitHubIssue(c.env, owner, name, issueNumber, githubUpdates),
+            { requestId, taskId: id, eventType: 'github_issue_update', details: githubUpdates }
+        );
+    }
 
     // Logic: Calculate startAt and endAt based on state
     const timestamps = calculateTaskTimestamps(nextStatus, nextColumn, now, task.startAt, task.endAt);
