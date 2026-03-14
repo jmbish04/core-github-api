@@ -186,11 +186,12 @@ tasksApi.get('/', async (c) => {
     // Also fetch workshop tasks for global view
     const workshopRows = await db.select().from(tasks).where(eq(tasks.taskType, 'workshop_project')).limit(100);
     const mappedWorkshop = workshopRows.flatMap(w => {
-        const context = (w.taskContext || {}) as any;
-        if (!context.phases || !Array.isArray(context.phases)) return [];
-        return context.phases.flatMap((p: any) => {
-            if (!p.tasks || !Array.isArray(p.tasks)) return [];
-            return p.tasks.map((t: any) => {
+        const phases = ((w.taskContext || {}) as any)?.phases;
+        if (!Array.isArray(phases)) return [];
+        return phases.flatMap((p: any) => {
+            const phaseTasks = p?.tasks;
+            if (!Array.isArray(phaseTasks)) return [];
+            return phaseTasks.map((t: any) => {
                 const mappedStatus = t.status === 'not_started' ? TaskStatus.TODO : (t.status === 'in_progress' ? TaskStatus.IN_PROGRESS : TaskStatus.DONE);
                 return {
                     id: `${w.id}-${p.phase_number}-${t.task_number}`,
@@ -335,24 +336,29 @@ tasksApi.patch('/tasks/:id', async (c) => {
         githubUpdates.state = nextStatus === TaskStatus.DONE ? 'closed' : 'open';
     }
 
-    if (nextStatus !== currentStatus) updatePayload.status = nextStatus;
-    if (nextColumn !== currentColumn) updatePayload.kanbanColumn = nextColumn;
-    if (startAt !== task.startAt) updatePayload.startAt = startAt;
-    if (endAt !== task.endAt) updatePayload.endAt = endAt;
-    if (position !== undefined && position !== task.position) updatePayload.position = position;
+    const syncField = <K extends keyof typeof updatePayload, G extends string>(
+        fieldValue: any,
+        currentValue: any,
+        localKey: K,
+        githubKey?: G,
+        githubValueMap?: (v: any) => any
+    ) => {
+        if (fieldValue !== undefined && fieldValue !== currentValue) {
+            updatePayload[localKey] = fieldValue;
+            if (githubKey) {
+                githubUpdates[githubKey] = githubValueMap ? githubValueMap(fieldValue) : fieldValue;
+            }
+        }
+    };
 
-    if (title !== undefined && title !== task.title) {
-        updatePayload.title = title;
-        githubUpdates.title = title;
-    }
-    if (description !== undefined && description !== task.description) {
-        updatePayload.description = description;
-        githubUpdates.body = description;
-    }
-    if (assignee !== undefined && assignee !== task.assignee) {
-        updatePayload.assignee = assignee;
-        githubUpdates.assignees = assignee ? [assignee] : [];
-    }
+    syncField(nextStatus, currentStatus, 'status');
+    syncField(nextColumn, currentColumn, 'kanbanColumn');
+    syncField(startAt, task.startAt, 'startAt');
+    syncField(endAt, task.endAt, 'endAt');
+    syncField(position, task.position, 'position');
+    syncField(title, task.title, 'title', 'title');
+    syncField(description, task.description, 'description', 'body');
+    syncField(assignee, task.assignee, 'assignee', 'assignees', v => (v ? [v] : []));
 
     // Sync to GitHub if linked
     if (task.githubIssueId && Object.keys(githubUpdates).length > 0) {
