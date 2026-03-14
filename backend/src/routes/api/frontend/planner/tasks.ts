@@ -57,31 +57,29 @@ async function logTaskEvent(
 /**
  * Execute a GitHub Action if the task is linked to a repository.
  */
-async function performGithubAction(
+async function performGithubAction<T>(
     db: ReturnType<typeof getDb>,
-    repoId: string,
-    githubIssueId: number | null,
-    actionFn: (owner: string, repoName: string, issueNumber: number) => Promise<any>,
+    task: { repoId: string; githubIssueId: number | null; id?: string },
+    actionFn: (owner: string, repoName: string, issueNumber: number) => Promise<T>,
     logOptions?: {
         requestId: string;
-        taskId: string | null;
         eventType: string;
         details?: any;
     }
-) {
-    if (!githubIssueId) return null;
+): Promise<T | null> {
+    if (!task.githubIssueId) return null;
 
-    const repoRecord = await getRepoById(db, repoId);
+    const repoRecord = await getRepoById(db, task.repoId);
     if (!repoRecord) return null;
 
     const { owner, name } = repoRecord;
 
-    let result = null;
+    let result: T | null = null;
     let actionError = null;
     let isSuccess = false;
 
     try {
-        result = await actionFn(owner, name, githubIssueId);
+        result = await actionFn(owner, name, task.githubIssueId);
         isSuccess = !!result;
     } catch (e: any) {
         actionError = e.message;
@@ -92,8 +90,8 @@ async function performGithubAction(
         await logTaskEvent(
             db,
             logOptions.requestId,
-            logOptions.taskId,
-            githubIssueId,
+            task.id || null,
+            task.githubIssueId,
             logOptions.eventType,
             isSuccess ? 'success' : 'failed',
             details
@@ -121,6 +119,32 @@ function getBaseContext(c: Context<{ Bindings: Bindings }>) {
         requestId: generateUuid(),
         now: new Date().toISOString()
     };
+}
+
+function calculateTaskTimestamps(
+    status: TaskStatus,
+    column: KanbanColumn,
+    now: string,
+    existingStartAt?: string | null,
+    existingEndAt?: string | null
+) {
+    const isInProgress = status === TaskStatus.IN_PROGRESS || column === KanbanColumn.IN_PROGRESS;
+    const isDone = status === TaskStatus.DONE || column === KanbanColumn.DONE;
+
+    let startAt = existingStartAt || null;
+    let endAt = existingEndAt || null;
+
+    if (isInProgress && !startAt) {
+        startAt = now;
+    }
+
+    if (isDone) {
+        endAt = now;
+    } else if (endAt) {
+        endAt = null;
+    }
+
+    return { startAt, endAt };
 }
 
 const tasksApi = new Hono<{ Bindings: Env }>();
@@ -238,12 +262,7 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
     const initialStatus = (status as TaskStatus) || TaskStatus.TODO;
     const initialColumn = StatusMapper.mapStatusToColumn(initialStatus);
 
-    let startAt: string | undefined;
-
-    // If initial status implies progress, set startAt
-    if (initialStatus === TaskStatus.IN_PROGRESS || initialColumn === KanbanColumn.IN_PROGRESS) {
-        startAt = now;
-    }
+    const { startAt } = calculateTaskTimestamps(initialStatus, initialColumn, now);
 
     try {
         await db.insert(tasks).values({
@@ -258,7 +277,7 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
             githubHtmlUrl: issue.html_url,
             createdAt: now,
             updatedAt: now,
-            startAt: startAt
+            startAt: startAt || undefined
         });
     } catch (e: any) {
         await logTaskEvent(
@@ -358,27 +377,17 @@ tasksApi.patch('/tasks/:id', async (c) => {
     if (task.githubIssueId && Object.keys(githubUpdates).length > 0) {
         await performGithubAction(
             db,
-            task.repoId,
-            task.githubIssueId,
-            async (owner, name, issueNumber) => await updateGitHubIssue(c.env, owner, name, issueNumber, githubUpdates),
-            { requestId, taskId: id, eventType: 'github_issue_update', details: githubUpdates }
+            task,
+            (owner, name, issueNumber) => updateGitHubIssue(c.env, owner, name, issueNumber, githubUpdates),
+            { requestId, eventType: 'github_issue_update', details: githubUpdates }
         );
     }
 
     // Logic: Set startAt if moving to active state and not set
-    const isInProgress = nextStatus === TaskStatus.IN_PROGRESS || nextColumn === KanbanColumn.IN_PROGRESS;
-    const isDone = nextStatus === TaskStatus.DONE || nextColumn === KanbanColumn.DONE;
+    const { startAt, endAt } = calculateTaskTimestamps(nextStatus, nextColumn, now, task.startAt, task.endAt);
 
-    if (isInProgress && !task.startAt) {
-        updatePayload.startAt = now;
-    }
-
-    if (isDone) {
-        updatePayload.endAt = now;
-    } else if (task.endAt) {
-        // If moving OUT of done, reset endAt
-        updatePayload.endAt = null;
-    }
+    if (startAt !== task.startAt) updatePayload.startAt = startAt;
+    if (endAt !== task.endAt) updatePayload.endAt = endAt;
 
     // Update Local
     await db.update(tasks)
@@ -403,14 +412,13 @@ tasksApi.post('/tasks/:id/comments', async (c) => {
     let githubCommentId: number | null = null;
     await performGithubAction(
         db,
-        task.repoId,
-        task.githubIssueId,
+        task,
         async (owner, name, issueNumber) => {
             const comment = await createGitHubComment(c.env, owner, name, issueNumber, `**${author || 'User'}**: ${content}`);
             if (comment) githubCommentId = comment.id;
             return comment;
         },
-        { requestId, taskId: id, eventType: 'github_comment_create' }
+        { requestId, eventType: 'github_comment_create' }
     );
 
     // Save Local
@@ -439,10 +447,9 @@ tasksApi.delete('/tasks/:id', async (c) => {
     if (task.githubIssueId) {
         await performGithubAction(
             db,
-            task.repoId,
-            task.githubIssueId,
-            async (owner, name, issueNumber) => await updateGitHubIssue(c.env, owner, name, issueNumber, { state: 'closed' }),
-            { requestId, taskId: id, eventType: 'github_issue_close' }
+            task,
+            (owner, name, issueNumber) => updateGitHubIssue(c.env, owner, name, issueNumber, { state: 'closed' }),
+            { requestId, eventType: 'github_issue_close' }
         );
     }
 
