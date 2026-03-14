@@ -126,6 +126,19 @@ function calculateTaskTimestamps(status: TaskStatus, column: KanbanColumn, curre
     return { startAt, endAt };
 }
 
+
+async function getTaskContext(c: Context<{ Bindings: Bindings }>) {
+    const { id } = c.req.param();
+    const base = getBaseContext(c);
+    const task = await getTaskById(base.db, id);
+
+    if (!task) {
+        return { error: 'Task not found', status: 404 as const };
+    }
+
+    return { id, task, ...base };
+}
+
 const tasksApi = new Hono<{ Bindings: Env }>();
 
 // GET /api/repos/:owner/:repo/tasks
@@ -264,18 +277,12 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
 
 // PATCH /api/tasks/:id
 tasksApi.patch('/tasks/:id', async (c) => {
-    const { id } = c.req.param();
+    const ctx = await getTaskContext(c as any);
+    if ('error' in ctx) return c.json({ success: false, error: ctx.error }, ctx.status);
+    const { id, task, db, requestId, now } = ctx;
+
     const body = await c.req.json();
     const { status, position, title, description, assignee, kanbanColumn } = body as any;
-    const { db, requestId, now } = getBaseContext(c);
-
-    // Get current task
-    const task = await getTaskById(db, id);
-    
-    // Check if it's a workshop task
-    if (!task) {
-        return c.json({ success: false, error: 'Task not found' }, 404);
-    }
 
     await logTaskEvent(db, requestId, id, task.githubIssueId, 'api_request_update_task', 'pending', body);
 
@@ -301,28 +308,25 @@ tasksApi.patch('/tasks/:id', async (c) => {
     const updatePayload: any = { updatedAt: now };
     const ghUpdates: any = {};
 
+    const processUpdate = (field: string, newValue: any, currentValue: any, ghField?: string, ghTransform?: (v: any) => any) => {
+        if (newValue !== undefined && newValue !== currentValue) {
+            updatePayload[field] = newValue;
+            if (ghField) {
+                ghUpdates[ghField] = ghTransform ? ghTransform(newValue) : newValue;
+            }
+        }
+    };
+
     if (nextStatus !== currentStatus) {
         updatePayload.status = nextStatus;
         ghUpdates.state = nextStatus === TaskStatus.DONE ? 'closed' : 'open';
     }
     if (nextColumn !== currentColumn) updatePayload.kanbanColumn = nextColumn;
 
-    if (position !== undefined && position !== task.position) updatePayload.position = position;
-
-    if (title !== undefined && title !== task.title) {
-        updatePayload.title = title;
-        ghUpdates.title = title;
-    }
-
-    if (description !== undefined && description !== task.description) {
-        updatePayload.description = description;
-        ghUpdates.body = description;
-    }
-
-    if (assignee !== undefined && assignee !== task.assignee) {
-        updatePayload.assignee = assignee;
-        ghUpdates.assignees = assignee ? [assignee] : [];
-    }
+    processUpdate('position', position, task.position);
+    processUpdate('title', title, task.title, 'title');
+    processUpdate('description', description, task.description, 'body');
+    processUpdate('assignee', assignee, task.assignee, 'assignees', v => v ? [v] : []);
 
     const { startAt, endAt } = calculateTaskTimestamps(nextStatus, nextColumn, task.startAt || null, task.endAt || null, now);
     if (startAt !== undefined && startAt !== task.startAt) updatePayload.startAt = startAt;
@@ -348,12 +352,11 @@ tasksApi.patch('/tasks/:id', async (c) => {
 
 // POST /api/tasks/:id/comments
 tasksApi.post('/tasks/:id/comments', async (c) => {
-    const { id } = c.req.param();
-    const { content, author } = await c.req.json() as any;
-    const { db, requestId, now } = getBaseContext(c);
+    const ctx = await getTaskContext(c as any);
+    if ('error' in ctx) return c.json({ success: false, error: ctx.error }, ctx.status);
+    const { id, task, db, requestId, now } = ctx;
 
-    const task = await getTaskById(db, id);
-    if (!task) return c.json({ success: false, error: 'Task not found' }, 404);
+    const { content, author } = await c.req.json() as any;
 
     // Sync to GitHub
     let githubCommentId: number | null = null;
@@ -381,16 +384,13 @@ tasksApi.post('/tasks/:id/comments', async (c) => {
 
 // DELETE /api/tasks/:id (Soft delete)
 tasksApi.delete('/tasks/:id', async (c) => {
-    const { id } = c.req.param();
-    const { db, requestId, now } = getBaseContext(c);
+    const ctx = await getTaskContext(c as any);
+    if ('error' in ctx) return c.json({ success: false, error: ctx.error }, ctx.status);
+    const { id, task, db, requestId, now } = ctx;
 
-    const task = await getTaskById(db, id);
-
-    if (task) {
-        await executeGithubAction(db, requestId, task, 'github_issue_close',
-            ({ owner, name, issueNumber }) => updateGitHubIssue(c.env, owner, name, issueNumber, { state: 'closed' })
-        );
-    }
+    await executeGithubAction(db, requestId, task, 'github_issue_close',
+        ({ owner, name, issueNumber }) => updateGitHubIssue(c.env, owner, name, issueNumber, { state: 'closed' })
+    );
 
     await db.update(tasks)
         .set({
