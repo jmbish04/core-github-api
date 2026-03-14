@@ -57,18 +57,18 @@ async function logTaskEvent(
 /**
  * Core functionality to execute a GitHub Action and log it.
  */
-async function executeGithubAction(
+async function executeGithubAction<T>(
     db: ReturnType<typeof getDb>,
-    actionFn: () => Promise<any>,
+    actionFn: () => Promise<T>,
     logOptions: {
         requestId: string;
         taskId: string | null;
-        githubIssueId: number | null;
+        githubIssueId?: number | null | ((res: T) => number | null);
         eventType: string;
-        details?: any;
+        details?: any | ((res: T) => any);
     }
-) {
-    let result = null;
+): Promise<T | null> {
+    let result: T | null = null;
     let actionError = null;
     let isSuccess = false;
 
@@ -79,15 +79,23 @@ async function executeGithubAction(
         actionError = e.message;
     }
 
-    const details = actionError ? { error: actionError, ...logOptions.details } : logOptions.details;
+    const issueId = typeof logOptions.githubIssueId === 'function'
+        ? (result ? logOptions.githubIssueId(result) : null)
+        : (logOptions.githubIssueId as number | null);
+
+    const resolvedDetails = typeof logOptions.details === 'function'
+        ? (result ? logOptions.details(result) : undefined)
+        : logOptions.details;
+
+    const finalDetails = actionError ? { error: actionError, ...resolvedDetails } : resolvedDetails;
     await logTaskEvent(
         db,
         logOptions.requestId,
         logOptions.taskId,
-        logOptions.githubIssueId,
+        issueId || null,
         logOptions.eventType,
         isSuccess ? 'success' : 'failed',
-        details
+        finalDetails
     );
 
     return result;
@@ -96,11 +104,11 @@ async function executeGithubAction(
 /**
  * Execute a GitHub Action if the task is linked to a repository.
  */
-async function performGithubAction(
+async function performGithubAction<T>(
     db: ReturnType<typeof getDb>,
     repoId: string,
     githubIssueId: number | null,
-    actionFn: (owner: string, repoName: string, issueNumber: number) => Promise<any>,
+    actionFn: (owner: string, repoName: string, issueNumber: number) => Promise<T>,
     logOptions?: {
         requestId: string;
         taskId: string | null;
@@ -270,13 +278,21 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
     }
 
     // 1. Create GitHub Issue
-    const issue = await createGitHubIssue(c.env, owner, repo, title, description, assignee ? [assignee] : undefined);
+    const issue = await executeGithubAction(
+        db,
+        () => createGitHubIssue(c.env, owner, repo, title, description, assignee ? [assignee] : undefined),
+        {
+            requestId,
+            taskId: null,
+            githubIssueId: (res: any) => res?.number || null,
+            eventType: 'github_issue_create',
+            details: (res: any) => (res ? { html_url: res.html_url } : undefined)
+        }
+    );
 
     if (!issue) {
-        await logTaskEvent(db, requestId, null, null, 'github_issue_create', 'failed');
         return c.json({ success: false, error: 'Failed to create GitHub issue' }, 500);
     }
-    await logTaskEvent(db, requestId, null, issue.number, 'github_issue_create', 'success', { html_url: issue.html_url });
 
     // 2. Create Local Task
     const newId = generateUuid();
@@ -286,9 +302,6 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
     const initialColumn = StatusMapper.mapStatusToColumn(initialStatus);
 
     const { startAt } = calculateTaskTimestamps(initialStatus, initialColumn, null, null, now);
-
-    let dbSuccess = true;
-    let dbError = null;
 
     try {
         await db.insert(tasks).values({
@@ -305,22 +318,10 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
             updatedAt: now,
             startAt: startAt
         });
+
+        await logTaskEvent(db, requestId, newId, issue.number, 'db_task_create', 'success');
     } catch (e: any) {
-        dbSuccess = false;
-        dbError = e.message;
-    }
-
-    await logTaskEvent(
-        db,
-        requestId,
-        newId,
-        issue.number,
-        'db_task_create',
-        dbSuccess ? 'success' : 'failed',
-        dbError ? { error: dbError } : undefined
-    );
-
-    if (!dbSuccess) {
+        await logTaskEvent(db, requestId, newId, issue.number, 'db_task_create', 'failed', { error: e.message });
         return c.json({ success: false, error: 'Failed to save local task' }, 500);
     }
 
@@ -424,16 +425,13 @@ tasksApi.post('/tasks/:id/comments', async (c) => {
     if (!task) return c.json({ success: false, error: 'Task not found' }, 404);
 
     // Sync to GitHub
-    let githubCommentId: number | null = null;
-    await performGithubAction(
+    const commentAuthor = author || 'system';
+
+    const githubComment = await performGithubAction(
         db,
         task.repoId,
         task.githubIssueId,
-        async (owner, name, issueNumber) => {
-            const comment = await createGitHubComment(c.env, owner, name, issueNumber, `**${author || 'User'}**: ${content}`);
-            if (comment) githubCommentId = comment.id;
-            return comment;
-        },
+        (owner, name, issueNumber) => createGitHubComment(c.env, owner, name, issueNumber, `**${author || 'User'}**: ${content}`),
         { requestId, taskId: id, eventType: 'github_comment_create' }
     );
 
@@ -443,8 +441,8 @@ tasksApi.post('/tasks/:id/comments', async (c) => {
         id: commentId,
         taskId: id,
         content,
-        author: author || 'system',
-        githubCommentId,
+        author: commentAuthor,
+        githubCommentId: githubComment?.id || null,
         createdAt: now,
         updatedAt: now
     });
