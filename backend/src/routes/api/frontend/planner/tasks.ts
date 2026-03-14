@@ -102,11 +102,11 @@ async function getTaskById(db: ReturnType<typeof getDb>, id: string) {
 
 function mapWorkshopTasks(workshopRows: any[]) {
     return workshopRows.flatMap(w => {
-        const context = (w.taskContext || {}) as any;
-        if (!context.phases || !Array.isArray(context.phases)) return [];
+        const phases = (w.taskContext as any)?.phases;
+        if (!Array.isArray(phases)) return [];
 
-        return context.phases.flatMap((p: any) => {
-            if (!p.tasks || !Array.isArray(p.tasks)) return [];
+        return phases.flatMap((p: any) => {
+            if (!Array.isArray(p.tasks)) return [];
 
             return p.tasks.map((t: any) => {
                 const isNotStarted = t.status === 'not_started';
@@ -116,10 +116,8 @@ function mapWorkshopTasks(workshopRows: any[]) {
                     repoId: w.repoId,
                     title: `[Phase ${p.phase_number}] ${t.task_title}`,
                     description: t.task_description || '',
-                    status: isNotStarted ? TaskStatus.TODO :
-                            isInProgress ? TaskStatus.IN_PROGRESS : TaskStatus.DONE,
-                    kanbanColumn: isNotStarted ? KanbanColumn.PLANNED :
-                                  isInProgress ? KanbanColumn.IN_PROGRESS : KanbanColumn.DONE,
+                    status: isNotStarted ? TaskStatus.TODO : (isInProgress ? TaskStatus.IN_PROGRESS : TaskStatus.DONE),
+                    kanbanColumn: isNotStarted ? KanbanColumn.PLANNED : (isInProgress ? KanbanColumn.IN_PROGRESS : KanbanColumn.DONE),
                     assignee: t.agent_assigned || null,
                     githubIssueId: null,
                     githubHtmlUrl: null,
@@ -189,11 +187,13 @@ tasksApi.get('/repos/:owner/:repo/tasks', async (c) => {
 // GET /api/tasks (Global list)
 tasksApi.get('/', async (c) => {
     const { db } = getBaseContext(c);
-    // Join with repos to get context if needed, or just return flat
-    const rows = await db.select().from(tasks).where(eq(tasks.isDeleted, 0)).limit(100).orderBy(tasks.updatedAt);
     
-    // Also fetch workshop tasks for global view
-    const workshopRows = await db.select().from(tasks).where(eq(tasks.taskType, 'workshop_project')).limit(100);
+    // Fetch both global tasks and workshop tasks concurrently
+    const [rows, workshopRows] = await Promise.all([
+        db.select().from(tasks).where(eq(tasks.isDeleted, 0)).limit(100).orderBy(tasks.updatedAt),
+        db.select().from(tasks).where(eq(tasks.taskType, 'workshop_project')).limit(100)
+    ]);
+
     const mappedWorkshop = mapWorkshopTasks(workshopRows);
 
     // Combine and sort
@@ -316,6 +316,13 @@ tasksApi.patch('/tasks/:id', async (c) => {
     const updatePayload: any = { updatedAt: now };
     const githubUpdates: any = {};
 
+    const syncField = (key: string, value: any, currentTaskValue: any, ghKey: string, ghValueMapper: (v: any) => any) => {
+        if (value !== undefined && value !== currentTaskValue) {
+            updatePayload[key] = value;
+            githubUpdates[ghKey] = ghValueMapper(value);
+        }
+    };
+
     if (nextStatus !== currentStatus) {
         updatePayload.status = nextStatus;
         githubUpdates.state = nextStatus === TaskStatus.DONE ? 'closed' : 'open';
@@ -323,18 +330,9 @@ tasksApi.patch('/tasks/:id', async (c) => {
     if (nextColumn !== currentColumn) updatePayload.kanbanColumn = nextColumn;
     if (position !== undefined) updatePayload.position = position;
 
-    if (title !== undefined && title !== task.title) {
-        updatePayload.title = title;
-        githubUpdates.title = title;
-    }
-    if (description !== undefined && description !== task.description) {
-        updatePayload.description = description;
-        githubUpdates.body = description;
-    }
-    if (assignee !== undefined && assignee !== task.assignee) {
-        updatePayload.assignee = assignee;
-        githubUpdates.assignees = assignee ? [assignee] : [];
-    }
+    syncField('title', title, task.title, 'title', (v) => v);
+    syncField('description', description, task.description, 'body', (v) => v);
+    syncField('assignee', assignee, task.assignee, 'assignees', (v) => v ? [v] : []);
 
     // Sync to GitHub if linked and relevant fields changed
     if (task.githubIssueId && Object.keys(githubUpdates).length > 0) {
