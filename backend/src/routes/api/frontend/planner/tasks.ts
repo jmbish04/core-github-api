@@ -1,5 +1,5 @@
 // src/routes/api/tasks.ts
-import { Hono } from 'hono';
+import { Hono, Context } from 'hono';
 import { Bindings } from '@utils/hono';
 import { getDb } from '@db';
 import { tasks, taskEvents, taskComments } from '@db/schemas/projects/tasks';
@@ -18,22 +18,19 @@ export const TASK_STATUSES = [
     { id: TaskStatus.DONE, name: "Done", color: "#10B981" },
 ];
 
-async function getRepoByOwnerAndName(db: any, owner: string, name: string) {
-    const repoRecord = await db.select().from(repos).where(and(eq(repos.owner, owner), eq(repos.name, name))).limit(1);
-    return repoRecord.length ? repoRecord[0] : null;
+async function getRepoByOwnerAndName(db: ReturnType<typeof getDb>, owner: string, name: string) {
+    return await db.select().from(repos).where(and(eq(repos.owner, owner), eq(repos.name, name))).limit(1).then(res => res[0] || null);
 }
 
-async function getRepoById(db: any, id: string) {
-    const repoRecord = await db.select().from(repos).where(eq(repos.id, id)).limit(1);
-    return repoRecord.length ? repoRecord[0] : null;
+async function getRepoById(db: ReturnType<typeof getDb>, id: string) {
+    return await db.select().from(repos).where(eq(repos.id, id)).limit(1).then(res => res[0] || null);
 }
 
-async function getTaskById(db: any, id: string) {
-    const currentTask = await db.select().from(tasks).where(eq(tasks.id, id)).limit(1);
-    return currentTask.length ? currentTask[0] : null;
+async function getTaskById(db: ReturnType<typeof getDb>, id: string) {
+    return await db.select().from(tasks).where(eq(tasks.id, id)).limit(1).then(res => res[0] || null);
 }
 
-async function getWorkshopTasks(db: any, repoId?: string) {
+async function getWorkshopTasks(db: ReturnType<typeof getDb>, repoId?: string) {
     const condition = repoId
         ? and(eq(tasks.taskType, 'workshop_project'), eq(tasks.repoId, repoId))
         : eq(tasks.taskType, 'workshop_project');
@@ -46,29 +43,32 @@ async function getWorkshopTasks(db: any, repoId?: string) {
         return phases.flatMap((p: any) => {
             const tasksList = p.tasks;
             if (!tasksList || !Array.isArray(tasksList)) return [];
-            return tasksList.map((t: any) => ({
-                id: `${w.id}-${p.phase_number}-${t.task_number}`,
-                repoId: w.repoId,
-                title: `[Phase ${p.phase_number}] ${t.task_title}`,
-                description: t.task_description || '',
-                status: t.status === 'not_started' ? TaskStatus.TODO :
-                        t.status === 'in_progress' ? TaskStatus.IN_PROGRESS : TaskStatus.DONE,
-                kanbanColumn: t.status === 'not_started' ? KanbanColumn.PLANNED :
-                              t.status === 'in_progress' ? KanbanColumn.IN_PROGRESS : KanbanColumn.DONE,
-                assignee: t.agent_assigned || null,
-                githubIssueId: null,
-                githubHtmlUrl: null,
-                createdAt: w.createdAt,
-                updatedAt: w.updatedAt,
-                startAt: null,
-                endAt: null,
-                isDeleted: 0
-            }));
+            return tasksList.map((t: any) => {
+                const mappedStatus = t.status === 'not_started' ? TaskStatus.TODO :
+                                     t.status === 'in_progress' ? TaskStatus.IN_PROGRESS : TaskStatus.DONE;
+                return {
+                    id: `${w.id}-${p.phase_number}-${t.task_number}`,
+                    repoId: w.repoId,
+                    title: `[Phase ${p.phase_number}] ${t.task_title}`,
+                    description: t.task_description || '',
+                    status: mappedStatus,
+                    kanbanColumn: mappedStatus === TaskStatus.TODO ? KanbanColumn.PLANNED :
+                                  mappedStatus === TaskStatus.IN_PROGRESS ? KanbanColumn.IN_PROGRESS : KanbanColumn.DONE,
+                    assignee: t.agent_assigned || null,
+                    githubIssueId: null,
+                    githubHtmlUrl: null,
+                    createdAt: w.createdAt,
+                    updatedAt: w.updatedAt,
+                    startAt: null,
+                    endAt: null,
+                    isDeleted: 0
+                };
+            });
         });
     });
 }
 
-async function syncWithGitHubIssue(db: any, task: any, callback: (owner: string, name: string, issueNumber: number) => Promise<void>) {
+async function syncWithGitHubIssue(db: ReturnType<typeof getDb>, task: any, callback: (owner: string, name: string, issueNumber: number) => Promise<void>) {
     if (task && task.githubIssueId) {
         const repoRecord = await getRepoById(db, task.repoId);
         if (repoRecord) {
@@ -81,7 +81,7 @@ async function syncWithGitHubIssue(db: any, task: any, callback: (owner: string,
  * Log a Task Audit Event
  */
 async function logTaskEvent(
-    db: any,
+    db: ReturnType<typeof getDb>,
     requestId: string,
     taskId: string | null,
     githubIssueId: number | null,
@@ -145,7 +145,7 @@ const tasksApi = new Hono<{ Bindings: Env }>();
 
 
 // Helper to initialize common variables for a request
-async function getBaseContext(c: any, fetchTask: boolean = false, fetchRepo: boolean = false) {
+async function getBaseContext(c: Context<{ Bindings: Bindings }>, fetchTask: boolean = false, fetchRepo: boolean = false) {
     const { owner, repo, id } = c.req.param();
     const db = getDb(c.env.DB);
     const requestId = generateUuid();
@@ -245,6 +245,7 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
 
     const { startAt, endAt } = calculateTaskTimestamps(null, null, initialStatus, initialColumn, now);
 
+    let dbError = null;
     try {
         await db.insert(tasks).values({
             id: newId,
@@ -262,11 +263,14 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
             endAt
         });
     } catch (e: any) {
-        await logTaskEvent(db, requestId, newId, issue.number, 'db_task_create', 'failed', { error: e.message });
-        return c.json({ success: false, error: 'Failed to save local task' }, 500);
+        dbError = e.message;
     }
 
-    await logTaskEvent(db, requestId, newId, issue.number, 'db_task_create', 'success');
+    await logTaskEvent(db, requestId, newId, issue.number, 'db_task_create', dbError ? 'failed' : 'success', dbError ? { error: dbError } : undefined);
+
+    if (dbError) {
+        return c.json({ success: false, error: 'Failed to save local task' }, 500);
+    }
 
     return c.json({ success: true, id: newId });
 });
@@ -304,18 +308,32 @@ tasksApi.patch('/tasks/:id', async (c) => {
         if (syncedColumn) nextColumn = syncedColumn;
     }
 
-    // Prepare DB Update Payload
+    // Prepare DB Update Payload and GH Updates
     const updatePayload: any = {
         updatedAt: now
     };
+    const ghUpdates: any = {};
 
-    if (nextStatus !== currentStatus) updatePayload.status = nextStatus;
+    if (nextStatus !== currentStatus) {
+        updatePayload.status = nextStatus;
+        if (nextStatus === TaskStatus.DONE) ghUpdates.state = 'closed';
+        else ghUpdates.state = 'open';
+    }
     if (nextColumn !== currentColumn) updatePayload.kanbanColumn = nextColumn;
 
     if (position !== undefined && position !== task.position) updatePayload.position = position;
-    if (title !== undefined && title !== task.title) updatePayload.title = title;
-    if (description !== undefined && description !== task.description) updatePayload.description = description;
-    if (assignee !== undefined && assignee !== task.assignee) updatePayload.assignee = assignee;
+    if (title !== undefined && title !== task.title) {
+        updatePayload.title = title;
+        ghUpdates.title = title;
+    }
+    if (description !== undefined && description !== task.description) {
+        updatePayload.description = description;
+        ghUpdates.body = description;
+    }
+    if (assignee !== undefined && assignee !== task.assignee) {
+        updatePayload.assignee = assignee;
+        ghUpdates.assignees = assignee ? [assignee] : [];
+    }
 
     const { startAt, endAt } = calculateTaskTimestamps(task.startAt, task.endAt, nextStatus, nextColumn, now);
     if (startAt !== undefined && startAt !== task.startAt) updatePayload.startAt = startAt;
@@ -323,20 +341,9 @@ tasksApi.patch('/tasks/:id', async (c) => {
 
     // Sync to GitHub if linked
     await syncWithGitHubIssue(db, task, async (owner, name, issueNumber) => {
-        const updates: any = {};
-
-        if (updatePayload.status) {
-            if (updatePayload.status === TaskStatus.DONE) updates.state = 'closed';
-            else updates.state = 'open';
-        }
-
-        if (updatePayload.title) updates.title = updatePayload.title;
-        if (updatePayload.description) updates.body = updatePayload.description;
-        if (updatePayload.assignee !== undefined) updates.assignees = updatePayload.assignee ? [updatePayload.assignee] : [];
-
-        if (Object.keys(updates).length > 0) {
-            const ghResult = await updateGitHubIssue(c.env, owner, name, issueNumber, updates);
-            await logTaskEvent(db, requestId, id, issueNumber, 'github_issue_update', ghResult ? 'success' : 'failed', updates);
+        if (Object.keys(ghUpdates).length > 0) {
+            const ghResult = await updateGitHubIssue(c.env, owner, name, issueNumber, ghUpdates);
+            await logTaskEvent(db, requestId, id, issueNumber, 'github_issue_update', ghResult ? 'success' : 'failed', ghUpdates);
         }
     });
 
