@@ -141,24 +141,28 @@ tasksApi.get('/', async (c) => {
         return context.phases.flatMap((p: any) => {
             if (!p.tasks || !Array.isArray(p.tasks)) return [];
 
-            return p.tasks.map((t: any) => ({
-                id: `${w.id}-${p.phase_number}-${t.task_number}`,
-                repoId: w.repoId,
-                title: `[Phase ${p.phase_number}] ${t.task_title}`,
-                description: t.task_description || '',
-                status: t.status === 'not_started' ? TaskStatus.TODO :
-                        t.status === 'in_progress' ? TaskStatus.IN_PROGRESS : TaskStatus.DONE,
-                kanbanColumn: t.status === 'not_started' ? KanbanColumn.PLANNED :
-                              t.status === 'in_progress' ? KanbanColumn.IN_PROGRESS : KanbanColumn.DONE,
-                assignee: t.agent_assigned || null,
-                githubIssueId: null,
-                githubHtmlUrl: null,
+            return p.tasks.map((t: any) => {
+                const isNotStarted = t.status === 'not_started';
+                const isInProgress = t.status === 'in_progress';
+                return {
+                    id: `${w.id}-${p.phase_number}-${t.task_number}`,
+                    repoId: w.repoId,
+                    title: `[Phase ${p.phase_number}] ${t.task_title}`,
+                    description: t.task_description || '',
+                    status: isNotStarted ? TaskStatus.TODO :
+                            isInProgress ? TaskStatus.IN_PROGRESS : TaskStatus.DONE,
+                    kanbanColumn: isNotStarted ? KanbanColumn.PLANNED :
+                                  isInProgress ? KanbanColumn.IN_PROGRESS : KanbanColumn.DONE,
+                    assignee: t.agent_assigned || null,
+                    githubIssueId: null,
+                    githubHtmlUrl: null,
                 createdAt: w.createdAt,
                 updatedAt: w.updatedAt,
-                startAt: null,
-                endAt: null,
-                isDeleted: 0
-            }));
+                    startAt: null,
+                    endAt: null,
+                    isDeleted: 0
+                };
+            });
         });
     });
 
@@ -182,7 +186,7 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
     const body = await c.req.json();
     const { title, description, status, assignee } = body as any;
     const db = getDb(c.env.DB);
-    const requestId = crypto.randomUUID();
+    const requestId = generateUuid();
 
     // Log API Request
     await logTaskEvent(db, requestId, null, null, 'api_request_create_task', 'pending', { owner, repo, body });
@@ -203,19 +207,15 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
     await logTaskEvent(db, requestId, null, issue.number, 'github_issue_create', 'success', { html_url: issue.html_url });
 
     // 2. Create Local Task
-    const newId = crypto.randomUUID();
+    const newId = generateUuid();
     const now = new Date().toISOString();
 
     // Logic: Status defaults to TODO (per schema), Mapper determines column
     const initialStatus = (status as TaskStatus) || TaskStatus.TODO;
     const initialColumn = StatusMapper.mapStatusToColumn(initialStatus);
 
-    let startAt: string | undefined;
-
     // If initial status implies progress, set startAt
-    if (initialStatus === TaskStatus.IN_PROGRESS || initialColumn === KanbanColumn.IN_PROGRESS) {
-        startAt = now;
-    }
+    const startAt = (initialStatus === TaskStatus.IN_PROGRESS || initialColumn === KanbanColumn.IN_PROGRESS) ? now : undefined;
 
     try {
         await db.insert(tasks).values({
@@ -230,7 +230,7 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
             githubHtmlUrl: issue.html_url,
             createdAt: now,
             updatedAt: now,
-            startAt: startAt
+            startAt
         });
         await logTaskEvent(db, requestId, newId, issue.number, 'db_task_create', 'success');
     } catch (e: any) {
@@ -247,7 +247,7 @@ tasksApi.patch('/tasks/:id', async (c) => {
     const body = await c.req.json();
     const { status, position, title, description, assignee, kanbanColumn } = body as any;
     const db = getDb(c.env.DB);
-    const requestId = crypto.randomUUID();
+    const requestId = generateUuid();
 
     // Get current task
     const currentTask = await getTaskById(db, id);
@@ -259,30 +259,6 @@ tasksApi.patch('/tasks/:id', async (c) => {
 
     const task = currentTask[0];
     await logTaskEvent(db, requestId, id, task.githubIssueId, 'api_request_update_task', 'pending', body);
-
-    // Determines updates for GitHub
-    // Sync to GitHub if linked
-    if (task.githubIssueId) {
-        const updates: any = {};
-        const targetStatus = (status as TaskStatus) || task.status as TaskStatus;
-
-        if (targetStatus === TaskStatus.DONE) updates.state = 'closed';
-        else updates.state = 'open';
-
-        if (title) updates.title = title;
-        if (description) updates.body = description;
-        if (assignee !== undefined) updates.assignees = assignee ? [assignee] : [];
-
-        if (Object.keys(updates).length > 0) {
-            await performGithubAction(
-                db,
-                task.repoId,
-                task.githubIssueId,
-                (owner, name, issueNumber) => updateGitHubIssue(c.env, owner, name, issueNumber, updates),
-                { requestId, taskId: id, eventType: 'github_issue_update', details: updates }
-            );
-        }
-    }
 
     // Determine final Status and KanbanColumn using Mapper
     const currentStatus = task.status as TaskStatus;
@@ -304,6 +280,28 @@ tasksApi.patch('/tasks/:id', async (c) => {
         if (syncedColumn) nextColumn = syncedColumn;
     }
 
+    // Sync to GitHub if linked and relevant fields changed
+    if (task.githubIssueId) {
+        const updates: any = {};
+
+        if (nextStatus !== currentStatus) {
+            updates.state = nextStatus === TaskStatus.DONE ? 'closed' : 'open';
+        }
+        if (title !== undefined && title !== task.title) updates.title = title;
+        if (description !== undefined && description !== task.description) updates.body = description;
+        if (assignee !== undefined && assignee !== task.assignee) updates.assignees = assignee ? [assignee] : [];
+
+        if (Object.keys(updates).length > 0) {
+            await performGithubAction(
+                db,
+                task.repoId,
+                task.githubIssueId,
+                (owner, name, issueNumber) => updateGitHubIssue(c.env, owner, name, issueNumber, updates),
+                { requestId, taskId: id, eventType: 'github_issue_update', details: updates }
+            );
+        }
+    }
+
     const now = new Date().toISOString();
 
     // Prepare DB Update Payload
@@ -319,14 +317,17 @@ tasksApi.patch('/tasks/:id', async (c) => {
     if (description !== undefined) updatePayload.description = description;
     if (assignee !== undefined) updatePayload.assignee = assignee;
 
+    const isActive = nextStatus === TaskStatus.IN_PROGRESS || nextColumn === KanbanColumn.IN_PROGRESS;
+    const isDone = nextStatus === TaskStatus.DONE || nextColumn === KanbanColumn.DONE;
+
     // Logic: Set startAt if moving to active state and not set
-    if ((nextStatus === TaskStatus.IN_PROGRESS || nextColumn === KanbanColumn.IN_PROGRESS) && !task.startAt) {
+    if (isActive && !task.startAt) {
         updatePayload.startAt = now;
     }
 
-    if ((nextStatus as TaskStatus) === TaskStatus.DONE || (nextColumn as KanbanColumn) === KanbanColumn.DONE) {
+    if (isDone) {
         updatePayload.endAt = now;
-    } else if (nextStatus !== TaskStatus.DONE && nextColumn !== KanbanColumn.DONE && task.endAt) {
+    } else if (task.endAt) {
         // If moving OUT of done, reset endAt
         updatePayload.endAt = null;
     }
@@ -346,7 +347,7 @@ tasksApi.post('/tasks/:id/comments', async (c) => {
     const { id } = c.req.param();
     const { content, author } = await c.req.json() as any;
     const db = getDb(c.env.DB);
-    const requestId = crypto.randomUUID();
+    const requestId = generateUuid();
 
     const currentTask = await getTaskById(db, id);
     if (!currentTask.length) return c.json({ success: false, error: 'Task not found' }, 404);
@@ -363,7 +364,7 @@ tasksApi.post('/tasks/:id/comments', async (c) => {
     const githubCommentId = comment?.id || null;
 
     // Save Local
-    const commentId = crypto.randomUUID();
+    const commentId = generateUuid();
     const now = new Date().toISOString();
     await db.insert(taskComments).values({
         id: commentId,
@@ -382,16 +383,17 @@ tasksApi.post('/tasks/:id/comments', async (c) => {
 tasksApi.delete('/tasks/:id', async (c) => {
     const { id } = c.req.param();
     const db = getDb(c.env.DB);
-    const requestId = crypto.randomUUID();
+    const requestId = generateUuid();
 
     const currentTask = await getTaskById(db, id);
     if (!currentTask.length) return c.json({ success: false, error: 'Task not found' }, 404);
+    const task = currentTask[0];
 
-    if (currentTask[0].githubIssueId) {
+    if (task.githubIssueId) {
         await performGithubAction(
             db,
-            currentTask[0].repoId,
-            currentTask[0].githubIssueId,
+            task.repoId,
+            task.githubIssueId,
             (owner, name, issueNumber) => updateGitHubIssue(c.env, owner, name, issueNumber, { state: 'closed' }),
             { requestId, taskId: id, eventType: 'github_issue_close' }
         );
@@ -406,7 +408,7 @@ tasksApi.delete('/tasks/:id', async (c) => {
         })
         .where(eq(tasks.id, id));
 
-    await logTaskEvent(db, requestId, id, currentTask[0]?.githubIssueId || null, 'db_task_soft_delete', 'success');
+    await logTaskEvent(db, requestId, id, task.githubIssueId || null, 'db_task_soft_delete', 'success');
 
     return c.json({ success: true });
 });
