@@ -349,12 +349,18 @@ tasksApi.patch('/tasks/:id', async (c) => {
         if (value !== undefined && value !== current) assign();
     };
 
-    if (nextStatus !== currentStatus) {
+    processUpdate(nextStatus, currentStatus, () => {
         updatePayload.status = nextStatus;
         githubUpdates.state = nextStatus === TaskStatus.DONE ? 'closed' : 'open';
-    }
-    if (nextColumn !== currentColumn) updatePayload.kanbanColumn = nextColumn;
-    if (position !== undefined) updatePayload.position = position;
+    });
+
+    processUpdate(nextColumn, currentColumn, () => {
+        updatePayload.kanbanColumn = nextColumn;
+    });
+
+    processUpdate(position, task.position, () => {
+        updatePayload.position = position;
+    });
 
     processUpdate(title, task.title, () => {
         updatePayload.title = title;
