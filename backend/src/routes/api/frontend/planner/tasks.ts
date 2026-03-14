@@ -190,11 +190,10 @@ tasksApi.get('/', async (c) => {
 
     // Also fetch workshop tasks for global view
     const mappedWorkshop = workshopRows.flatMap(w => {
-        const context = (w.taskContext || {}) as any;
-        if (!context.phases || !Array.isArray(context.phases)) return [];
-        return context.phases.flatMap((p: any) => {
-            if (!p.tasks || !Array.isArray(p.tasks)) return [];
-            return p.tasks.map((t: any) => {
+        const phases = ((w.taskContext || {}) as any).phases || [];
+        return (Array.isArray(phases) ? phases : []).flatMap((p: any) => {
+            const pTasks = p.tasks || [];
+            return (Array.isArray(pTasks) ? pTasks : []).map((t: any) => {
                 const mappedStatus = t.status === 'not_started' ? TaskStatus.TODO : (t.status === 'in_progress' ? TaskStatus.IN_PROGRESS : TaskStatus.DONE);
                 return {
                     id: `${w.id}-${p.phase_number}-${t.task_number}`,
@@ -331,26 +330,31 @@ tasksApi.patch('/tasks/:id', async (c) => {
     const updatePayload: any = { updatedAt: now };
     const githubUpdates: any = {};
 
+    const processUpdate = <K extends keyof typeof task, G extends string>(
+        newValue: any,
+        taskKey: K,
+        dbKey: string = taskKey,
+        ghKey?: G,
+        ghValue?: any
+    ) => {
+        if (newValue !== undefined && newValue !== task[taskKey]) {
+            updatePayload[dbKey] = newValue;
+            if (ghKey) githubUpdates[ghKey] = ghValue !== undefined ? ghValue : newValue;
+        }
+    };
+
     if (nextStatus !== currentStatus) {
         updatePayload.status = nextStatus;
         githubUpdates.state = nextStatus === TaskStatus.DONE ? 'closed' : 'open';
     }
     if (nextColumn !== currentColumn) updatePayload.kanbanColumn = nextColumn;
-    if (startAt !== task.startAt) updatePayload.startAt = startAt;
-    if (endAt !== task.endAt) updatePayload.endAt = endAt;
-    if (position !== undefined && position !== task.position) updatePayload.position = position;
-    if (title !== undefined && title !== task.title) {
-        updatePayload.title = title;
-        githubUpdates.title = title;
-    }
-    if (description !== undefined && description !== task.description) {
-        updatePayload.description = description;
-        githubUpdates.body = description;
-    }
-    if (assignee !== undefined && assignee !== task.assignee) {
-        updatePayload.assignee = assignee;
-        githubUpdates.assignees = assignee ? [assignee] : [];
-    }
+
+    processUpdate(startAt, 'startAt');
+    processUpdate(endAt, 'endAt');
+    processUpdate(position, 'position');
+    processUpdate(title, 'title', 'title', 'title');
+    processUpdate(description, 'description', 'description', 'body');
+    processUpdate(assignee, 'assignee', 'assignee', 'assignees', assignee ? [assignee] : []);
 
     // Determines updates for GitHub
     // Sync to GitHub if linked
