@@ -307,7 +307,6 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
 
     const { startAt, endAt } = calculateTaskTimestamps({}, initialStatus, initialColumn, now);
 
-    let dbError = null;
     try {
         await db.insert(tasks).values({
             id: newId,
@@ -324,13 +323,9 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
             startAt,
             endAt
         });
+        await logTaskEvent(db, requestId, newId, issue.number, 'db_task_create', 'success');
     } catch (e: any) {
-        dbError = e.message;
-    }
-
-    await logTaskEvent(db, requestId, newId, issue.number, 'db_task_create', dbError ? 'failed' : 'success', dbError ? { error: dbError } : undefined);
-
-    if (dbError) {
+        await logTaskEvent(db, requestId, newId, issue.number, 'db_task_create', 'failed', { error: e.message });
         return c.json({ success: false, error: 'Failed to save local task' }, 500);
     }
 
@@ -375,21 +370,22 @@ tasksApi.patch('/tasks/:id', async (c) => {
     if (nextColumn !== currentColumn) {
         updatePayload.kanbanColumn = nextColumn;
     }
-    if (title !== undefined && title !== task.title) {
-        updatePayload.title = title;
-        if (title) githubUpdates.title = title;
-    }
-    if (description !== undefined && description !== task.description) {
-        updatePayload.description = description;
-        if (description) githubUpdates.body = description;
-    }
-    if (assignee !== undefined && assignee !== task.assignee) {
-        updatePayload.assignee = assignee;
-        githubUpdates.assignees = assignee ? [assignee] : [];
-    }
-    if (position !== undefined && position !== task.position) {
-        updatePayload.position = position;
-    }
+
+    const syncField = (field: string, value: any, githubField?: string, formatGithub?: (v: any) => any, requireTruthForGithub = true) => {
+        if (value !== undefined && value !== (task as any)[field]) {
+            updatePayload[field] = value;
+            if (githubField) {
+                if (!requireTruthForGithub || value) {
+                    githubUpdates[githubField] = formatGithub ? formatGithub(value) : value;
+                }
+            }
+        }
+    };
+
+    syncField('title', title, 'title');
+    syncField('description', description, 'body');
+    syncField('assignee', assignee, 'assignees', v => (v ? [v] : []), false);
+    syncField('position', position);
 
     const { startAt, endAt } = calculateTaskTimestamps(task, nextStatus, nextColumn, now);
     if (startAt !== task.startAt) updatePayload.startAt = startAt;
