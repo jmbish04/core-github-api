@@ -187,10 +187,8 @@ tasksApi.get('/', async (c) => {
     const workshopRows = await db.select().from(tasks).where(eq(tasks.taskType, 'workshop_project')).limit(100);
     const mappedWorkshop = workshopRows.flatMap(w => {
         const context = (w.taskContext || {}) as any;
-        if (!context.phases || !Array.isArray(context.phases)) return [];
-        return context.phases.flatMap((p: any) => {
-            if (!p.tasks || !Array.isArray(p.tasks)) return [];
-            return p.tasks.map((t: any) => {
+        return (Array.isArray(context.phases) ? context.phases : []).flatMap((p: any) => {
+            return (Array.isArray(p.tasks) ? p.tasks : []).map((t: any) => {
                 const mappedStatus = t.status === 'not_started' ? TaskStatus.TODO : (t.status === 'in_progress' ? TaskStatus.IN_PROGRESS : TaskStatus.DONE);
                 return {
                     id: `${w.id}-${p.phase_number}-${t.task_number}`,
