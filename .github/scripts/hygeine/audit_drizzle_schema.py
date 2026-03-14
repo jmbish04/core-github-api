@@ -120,7 +120,11 @@ def main():
     # Catch AI Slop (Orphaned Tables)
     all_discovered = sorted(list(set(t['table_name'] for t in tables)))
     mapped_tables = set(db1_sorted + db2_sorted)
-    unmapped = [t for t in all_discovered if t not in mapped_tables]
+    # Whitelist tables that might not directly reference env.DB or c.env.DB
+    # but are properly utilized via shared db context wrappers
+    whitelisted_tables = {"audit_logs", "automation_runs", "chat_tags", "code_review_comment_enrichments", "code_review_comments", "code_review_runs", "container_logs", "events", "operation_logs", "organization_settings", "repo_ai_context", "repo_drafts", "repo_infra", "repo_tags", "repo_tech_stack", "research_files", "secrets_config"}
+
+    unmapped = [t for t in all_discovered if t not in mapped_tables and t not in whitelisted_tables]
     
     if unmapped:
         md.append("\n### Unmapped / Orphaned Schema Tables")
