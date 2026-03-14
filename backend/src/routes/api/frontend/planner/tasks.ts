@@ -295,13 +295,7 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
     const initialStatus = (status as TaskStatus) || TaskStatus.TODO;
     const initialColumn = StatusMapper.mapStatusToColumn(initialStatus);
 
-    let startAt: string | undefined;
-
-
-    // If initial status implies progress, set startAt
-    if (initialStatus === TaskStatus.IN_PROGRESS || initialColumn === KanbanColumn.IN_PROGRESS) {
-        startAt = now;
-    }
+    const { startAt, endAt } = calculateTaskTimestamps({ startAt: null, endAt: null }, initialStatus, initialColumn, now);
 
     let dbError = null;
 
@@ -318,7 +312,8 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
             githubHtmlUrl: issue.html_url,
             createdAt: now,
             updatedAt: now,
-            startAt: startAt
+            startAt: startAt,
+            endAt: endAt
         });
     } catch (e: any) {
         dbError = e.message;
@@ -373,46 +368,38 @@ tasksApi.patch('/tasks/:id', async (c) => {
     const githubUpdates: any = {};
     const updatePayload: any = { updatedAt: now };
 
-    const syncField = <K extends keyof typeof updatePayload, G extends keyof typeof githubUpdates>(
-        localValue: any,
-        localKey: K,
-        currentValue: any,
-        githubKey?: G,
-        githubTransform?: (val: any) => any
-    ) => {
-        if (localValue !== undefined && localValue !== currentValue) {
-            updatePayload[localKey] = localValue;
-            if (githubKey && localValue !== null && localValue !== '') {
-                githubUpdates[githubKey] = githubTransform ? githubTransform(localValue) : localValue;
-            } else if (githubKey && (localValue === null || localValue === '')) {
-                // To keep parity with current logic, if falsy we still run the transform or ignore?
-                // Wait, previous code checked `if (title) githubUpdates.title = title;`
-                // Let's replicate exact behavior
-                if (githubTransform) {
-                     githubUpdates[githubKey] = githubTransform(localValue);
-                }
-            }
-        }
+    const processUpdate = (val: any, current: any, assign: () => void) => {
+        if (val !== undefined && val !== current) assign();
     };
 
-    syncField(nextStatus, 'status', currentStatus, 'state', (val) => val === TaskStatus.DONE ? 'closed' : 'open');
-    syncField(nextColumn, 'kanbanColumn', currentColumn);
+    processUpdate(nextStatus, currentStatus, () => {
+        updatePayload.status = nextStatus;
+        githubUpdates.state = nextStatus === TaskStatus.DONE ? 'closed' : 'open';
+    });
 
-    // Explicit replication of previous logic
-    if (title !== undefined && title !== task.title) {
+    processUpdate(nextColumn, currentColumn, () => { updatePayload.kanbanColumn = nextColumn; });
+
+    processUpdate(title, task.title, () => {
         updatePayload.title = title;
         if (title) githubUpdates.title = title;
-    }
-    if (description !== undefined && description !== task.description) {
+    });
+
+    processUpdate(description, task.description, () => {
         updatePayload.description = description;
         if (description) githubUpdates.body = description;
-    }
-    syncField(assignee, 'assignee', task.assignee, 'assignees', (val) => val ? [val] : []);
-    syncField(position, 'position', task.position);
+    });
+
+    processUpdate(assignee, task.assignee, () => {
+        updatePayload.assignee = assignee;
+        if (assignee !== null && assignee !== '') githubUpdates.assignees = assignee ? [assignee] : [];
+        else githubUpdates.assignees = [];
+    });
+
+    processUpdate(position, task.position, () => { updatePayload.position = position; });
 
     const { startAt, endAt } = calculateTaskTimestamps(task, nextStatus, nextColumn, now);
-    syncField(startAt, 'startAt', task.startAt);
-    syncField(endAt, 'endAt', task.endAt);
+    processUpdate(startAt, task.startAt, () => { updatePayload.startAt = startAt; });
+    processUpdate(endAt, task.endAt, () => { updatePayload.endAt = endAt; });
 
     // Sync to GitHub if linked
     if (task.githubIssueId && Object.keys(githubUpdates).length > 0) {
