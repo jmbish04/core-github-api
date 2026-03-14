@@ -33,6 +33,41 @@ async function getTaskById(db: any, id: string) {
     return currentTask.length ? currentTask[0] : null;
 }
 
+async function getWorkshopTasks(db: any, repoId?: string) {
+    const condition = repoId
+        ? and(eq(tasks.taskType, 'workshop_project'), eq(tasks.repoId, repoId))
+        : eq(tasks.taskType, 'workshop_project');
+
+    const workshopRows = await db.select().from(tasks).where(condition).limit(100);
+
+    return workshopRows.flatMap((w: any) => {
+        const phases = ((w.taskContext || {}) as any).phases;
+        if (!phases || !Array.isArray(phases)) return [];
+        return phases.flatMap((p: any) => {
+            const tasksList = p.tasks;
+            if (!tasksList || !Array.isArray(tasksList)) return [];
+            return tasksList.map((t: any) => ({
+                id: `${w.id}-${p.phase_number}-${t.task_number}`,
+                repoId: w.repoId,
+                title: `[Phase ${p.phase_number}] ${t.task_title}`,
+                description: t.task_description || '',
+                status: t.status === 'not_started' ? TaskStatus.TODO :
+                        t.status === 'in_progress' ? TaskStatus.IN_PROGRESS : TaskStatus.DONE,
+                kanbanColumn: t.status === 'not_started' ? KanbanColumn.PLANNED :
+                              t.status === 'in_progress' ? KanbanColumn.IN_PROGRESS : KanbanColumn.DONE,
+                assignee: t.agent_assigned || null,
+                githubIssueId: null,
+                githubHtmlUrl: null,
+                createdAt: w.createdAt,
+                updatedAt: w.updatedAt,
+                startAt: null,
+                endAt: null,
+                isDeleted: 0
+            }));
+        });
+    });
+}
+
 async function syncWithGitHubIssue(db: any, task: any, callback: (owner: string, name: string, issueNumber: number) => Promise<void>) {
     if (task && task.githubIssueId) {
         const repoRecord = await getRepoById(db, task.repoId);
@@ -109,34 +144,7 @@ tasksApi.get('/', async (c) => {
     const rows = await db.select().from(tasks).where(eq(tasks.isDeleted, 0)).limit(100).orderBy(tasks.updatedAt);
     
     // Also fetch workshop tasks for global view
-    const workshopRows = await db.select().from(tasks).where(eq(tasks.taskType, 'workshop_project')).limit(100);
-    const mappedWorkshop: any[] = [];
-    workshopRows.forEach(w => {
-        if (!((w.taskContext || {}) as any).phases || !Array.isArray(((w.taskContext || {}) as any).phases)) return;
-        ((w.taskContext || {}) as any).phases.forEach((p: any) => {
-            if (!p.tasks || !Array.isArray(p.tasks)) return;
-            p.tasks.forEach((t: any) => {
-                mappedWorkshop.push({
-                    id: `${w.id}-${p.phase_number}-${t.task_number}`,
-                    repoId: w.repoId,
-                    title: `[Phase ${p.phase_number}] ${t.task_title}`,
-                    description: t.task_description || '',
-                    status: t.status === 'not_started' ? TaskStatus.TODO :
-                            t.status === 'in_progress' ? TaskStatus.IN_PROGRESS : TaskStatus.DONE,
-                    kanbanColumn: t.status === 'not_started' ? KanbanColumn.PLANNED :
-                                  t.status === 'in_progress' ? KanbanColumn.IN_PROGRESS : KanbanColumn.DONE,
-                    assignee: t.agent_assigned || null,
-                    githubIssueId: null,
-                    githubHtmlUrl: null,
-                    createdAt: w.createdAt,
-                    updatedAt: w.updatedAt,
-                    startAt: null,
-                    endAt: null,
-                    isDeleted: 0
-                });
-            });
-        });
-    });
+    const mappedWorkshop = await getWorkshopTasks(db);
 
     // Combine and sort
     const combined = [...rows, ...mappedWorkshop]
@@ -254,11 +262,7 @@ tasksApi.patch('/tasks/:id', async (c) => {
 
         if (Object.keys(updates).length > 0) {
             const ghResult = await updateGitHubIssue(c.env, owner, name, issueNumber, updates);
-            if (ghResult) {
-                await logTaskEvent(db, requestId, id, issueNumber, 'github_issue_update', 'success', updates);
-            } else {
-                await logTaskEvent(db, requestId, id, issueNumber, 'github_issue_update', 'failed', updates);
-            }
+            await logTaskEvent(db, requestId, id, issueNumber, 'github_issue_update', ghResult ? 'success' : 'failed', updates);
         }
     });
 
@@ -332,12 +336,8 @@ tasksApi.post('/tasks/:id/comments', async (c) => {
     let githubCommentId: number | null = null;
     await syncWithGitHubIssue(db, task, async (owner, name, issueNumber) => {
         const comment = await createGitHubComment(c.env, owner, name, issueNumber, `**${author || 'User'}**: ${content}`);
-        if (comment) {
-            githubCommentId = comment.id;
-            await logTaskEvent(db, requestId, id, issueNumber, 'github_comment_create', 'success');
-        } else {
-            await logTaskEvent(db, requestId, id, issueNumber, 'github_comment_create', 'failed');
-        }
+        if (comment) githubCommentId = comment.id;
+        await logTaskEvent(db, requestId, id, issueNumber, 'github_comment_create', comment ? 'success' : 'failed');
     });
 
     // Save Local
