@@ -123,6 +123,17 @@ function getBaseContext(c: Context<{ Bindings: Env }>) {
     };
 }
 
+async function getTaskContext(c: Context<{ Bindings: Env }>, id: string) {
+    const base = getBaseContext(c);
+    const task = await getTaskById(base.db, id);
+
+    if (!task) {
+        return { ...base, error: 'Task not found', status: 404, task: null };
+    }
+
+    return { ...base, error: null, status: 200, task };
+}
+
 function calculateTaskTimestamps(
     status: TaskStatus,
     kanbanColumn: KanbanColumn,
@@ -285,13 +296,10 @@ tasksApi.patch('/tasks/:id', async (c) => {
     const { id } = c.req.param();
     const body = await c.req.json();
     const { status, position, title, description, assignee, kanbanColumn } = body as any;
-    const { db, requestId, now } = getBaseContext(c);
+    const { db, requestId, now, task, error, status: httpStatus } = await getTaskContext(c, id);
 
-    // Get current task
-    const task = await getTaskById(db, id);
-    
-    if (!task) {
-        return c.json({ success: false, error: 'Task not found' }, 404);
+    if (error || !task) {
+        return c.json({ success: false, error }, httpStatus as 404);
     }
 
     await logTaskEvent(db, requestId, id, task.githubIssueId, 'api_request_update_task', 'pending', body);
@@ -316,18 +324,9 @@ tasksApi.patch('/tasks/:id', async (c) => {
     const updatePayload: any = { updatedAt: now, ...timestampUpdates };
     const ghUpdates: any = {};
 
-    const syncField = <K extends keyof typeof updatePayload, G extends keyof typeof ghUpdates>(
-        value: any,
-        currentValue: any,
-        dbKey: K,
-        ghKey?: G,
-        ghTransformer?: (val: any) => any
-    ) => {
+    const processUpdate = (value: any, currentValue: any, assign: () => void) => {
         if (value !== undefined && value !== currentValue) {
-            updatePayload[dbKey] = value;
-            if (ghKey) {
-                ghUpdates[ghKey] = ghTransformer ? ghTransformer(value) : value;
-            }
+            assign();
         }
     };
 
@@ -336,11 +335,11 @@ tasksApi.patch('/tasks/:id', async (c) => {
         ghUpdates.state = nextStatus === TaskStatus.DONE ? 'closed' : 'open';
     }
 
-    syncField(nextColumn, currentColumn, 'kanbanColumn');
-    syncField(position, task.position, 'position');
-    syncField(title, task.title, 'title', 'title');
-    syncField(description, task.description, 'description', 'body');
-    syncField(assignee, task.assignee, 'assignee', 'assignees', (val) => val ? [val] : []);
+    processUpdate(nextColumn, currentColumn, () => { updatePayload.kanbanColumn = nextColumn; });
+    processUpdate(position, task.position, () => { updatePayload.position = position; });
+    processUpdate(title, task.title, () => { updatePayload.title = title; ghUpdates.title = title; });
+    processUpdate(description, task.description, () => { updatePayload.description = description; ghUpdates.body = description; });
+    processUpdate(assignee, task.assignee, () => { updatePayload.assignee = assignee; ghUpdates.assignees = assignee ? [assignee] : []; });
 
     // Sync to GitHub if linked and updates exist
     if (task.githubIssueId && Object.keys(ghUpdates).length > 0) {
@@ -353,15 +352,13 @@ tasksApi.patch('/tasks/:id', async (c) => {
              }
         }
 
-        if (Object.keys(ghUpdates).length > 0) {
-            await performGithubAction(
-                db,
-                task.repoId,
-                task.githubIssueId,
-                async (owner, name, issueNumber) => await updateGitHubIssue(c.env, owner, name, issueNumber, ghUpdates),
-                { requestId, taskId: id, eventType: 'github_issue_update', details: ghUpdates }
-            );
-        }
+        await performGithubAction(
+            db,
+            task.repoId,
+            task.githubIssueId,
+            async (owner, name, issueNumber) => await updateGitHubIssue(c.env, owner, name, issueNumber, ghUpdates),
+            { requestId, taskId: id, eventType: 'github_issue_update', details: ghUpdates }
+        );
     }
 
     // Update Local
@@ -378,10 +375,9 @@ tasksApi.patch('/tasks/:id', async (c) => {
 tasksApi.post('/tasks/:id/comments', async (c) => {
     const { id } = c.req.param();
     const { content, author } = await c.req.json() as any;
-    const { db, requestId, now } = getBaseContext(c);
+    const { db, requestId, now, task, error, status: httpStatus } = await getTaskContext(c, id);
 
-    const task = await getTaskById(db, id);
-    if (!task) return c.json({ success: false, error: 'Task not found' }, 404);
+    if (error || !task) return c.json({ success: false, error }, httpStatus as 404);
 
     // Sync to GitHub
     let githubCommentId: number | null = null;
@@ -415,10 +411,9 @@ tasksApi.post('/tasks/:id/comments', async (c) => {
 // DELETE /api/tasks/:id (Soft delete)
 tasksApi.delete('/tasks/:id', async (c) => {
     const { id } = c.req.param();
-    const { db, requestId, now } = getBaseContext(c);
+    const { db, requestId, now, task, error, status: httpStatus } = await getTaskContext(c, id);
 
-    const task = await getTaskById(db, id);
-    if (!task) return c.json({ success: false, error: 'Task not found' }, 404);
+    if (error || !task) return c.json({ success: false, error }, httpStatus as 404);
 
     if (task.githubIssueId) {
         await performGithubAction(
