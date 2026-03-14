@@ -4,6 +4,7 @@ import re
 import sys
 import argparse
 from collections import defaultdict
+from datetime import datetime
 
 def get_ts_files(root_dir):
     """Recursively find all TypeScript files, ignoring build/module directories."""
@@ -20,9 +21,19 @@ def get_ts_files(root_dir):
     return ts_files
 
 def main():
+    # Generate timestamp in yyyy-mm-dd 12h time format (e.g., 2026-03-13-06-44pm)
+    now_str = datetime.now().strftime("%Y-%m-%d-%I-%M%p").lower()
+    filename = f"drizzle-schema-report-{now_str}.md"
+    
+    # User's custom report location (preserving original spelling of 'hygeine')
+    default_report_path = os.path.join(os.getcwd(), "scripts", "reports", "hygeine", filename)
+    
     parser = argparse.ArgumentParser(description="Analyze Drizzle ORM schema and D1 usage.")
-    parser.add_argument("--output", default="drizzle-schema-report.md", help="Output Markdown file path")
+    parser.add_argument("--output", default=default_report_path, help="Output Markdown file path")
     args = parser.parse_args()
+
+    # Ensure the target directory exists before executing the file scan
+    os.makedirs(os.path.dirname(args.output), exist_ok=True)
 
     root_dir = os.getcwd()
     files = get_ts_files(root_dir)
