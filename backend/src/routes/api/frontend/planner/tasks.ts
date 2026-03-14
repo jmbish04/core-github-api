@@ -1,5 +1,5 @@
 // src/routes/api/tasks.ts
-import { Hono } from 'hono';
+import { Hono, Context } from 'hono';
 import { Bindings } from '@utils/hono';
 import { getDb } from '@db';
 import { tasks, taskEvents, taskComments } from '@db/schemas/projects/tasks';
@@ -58,16 +58,16 @@ async function logTaskEvent(
 /**
  * Execute a GitHub Action if the task is linked to a repository.
  */
-async function performGithubAction(
+async function performGithubAction<T>(
     db: ReturnType<typeof getDb>,
     task: any,
-    actionFn: (owner: string, repoName: string, issueNumber: number) => Promise<any>,
+    actionFn: (owner: string, repoName: string, issueNumber: number) => Promise<T>,
     logOptions?: {
         requestId: string;
         eventType: string;
         details?: any;
     }
-) {
+): Promise<T | null> {
     if (!task.githubIssueId) return null;
 
     const repoRecord = await db.select().from(repos).where(eq(repos.id, task.repoId)).limit(1).then(res => res[0] || null);
@@ -75,7 +75,7 @@ async function performGithubAction(
 
     const { owner, name } = repoRecord;
 
-    let result = null;
+    let result: T | null = null;
     let errorMsg: string | undefined;
     let isSuccess = false;
 
@@ -109,7 +109,7 @@ async function getTaskById(db: ReturnType<typeof getDb>, id: string) {
     return await db.select().from(tasks).where(eq(tasks.id, id)).limit(1).then(res => res[0] || null);
 }
 
-function getBaseContext(c: any) {
+function getBaseContext(c: Context<{ Bindings: Bindings }>) {
     return {
         db: getDb(c.env.DB),
         requestId: generateUuid(),
@@ -134,13 +134,13 @@ function calculateTaskTimestamps(status: TaskStatus, column: KanbanColumn, now: 
     return { startAt, endAt };
 }
 
-async function getTaskContext(c: any, id: string) {
+async function getTaskContext(c: Context<{ Bindings: Bindings }>, id: string) {
     const { db, requestId, now } = getBaseContext(c);
     const currentTask = await getTaskById(db, id);
     return { db, requestId, now, task: currentTask };
 }
 
-async function getRepoContext(c: any, owner: string, repo: string) {
+async function getRepoContext(c: Context<{ Bindings: Bindings }>, owner: string, repo: string) {
     const { db, requestId, now } = getBaseContext(c);
     const repoRecord = await getRepoByOwnerAndName(db, owner, repo);
     return { db, requestId, now, repoRecord };
@@ -177,11 +177,18 @@ tasksApi.get('/repos/:owner/:repo/tasks', async (c) => {
 // GET /api/tasks (Global list)
 tasksApi.get('/', async (c) => {
     const { db } = getBaseContext(c);
-    // Join with repos to get context if needed, or just return flat
-    const rows = await db.select().from(tasks).where(eq(tasks.isDeleted, 0)).limit(100).orderBy(tasks.updatedAt);
     
+    // Fetch all relevant tasks in a single query
+    const allTasks = await db.select()
+        .from(tasks)
+        .where(eq(tasks.isDeleted, 0))
+        .limit(100)
+        .orderBy(tasks.updatedAt);
+
+    const rows = allTasks.filter(t => t.taskType !== 'workshop_project');
+    const workshopRows = allTasks.filter(t => t.taskType === 'workshop_project');
+
     // Also fetch workshop tasks for global view
-    const workshopRows = await db.select().from(tasks).where(eq(tasks.taskType, 'workshop_project')).limit(100);
     const mappedWorkshop = workshopRows.flatMap(w => {
         const context = (w.taskContext || {}) as any;
         if (!context.phases || !Array.isArray(context.phases)) return [];
@@ -376,17 +383,13 @@ tasksApi.post('/tasks/:id/comments', async (c) => {
     if (!task) return c.json({ success: false, error: 'Task not found' }, 404);
 
     // Sync to GitHub
-    let githubCommentId: number | null = null;
-    await performGithubAction(
+    const githubComment = await performGithubAction(
         db,
         task,
-        async (owner, name, issueNumber) => {
-            const comment = await createGitHubComment(c.env, owner, name, issueNumber, `**${author || 'User'}**: ${content}`);
-            if (comment) githubCommentId = comment.id;
-            return comment;
-        },
+        (owner, name, issueNumber) => createGitHubComment(c.env, owner, name, issueNumber, `**${author || 'User'}**: ${content}`),
         { requestId, eventType: 'github_comment_create' }
     );
+    const githubCommentId = githubComment?.id || null;
 
     // Save Local
     const commentId = generateUuid();
