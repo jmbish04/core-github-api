@@ -9,6 +9,7 @@
 - analysis_artifacts
 - applications
 - automation_rules
+- automation_runs
 - budget_events
 - chat_messages
 - chat_threads
@@ -19,6 +20,7 @@
 - daily_trends
 - discord_messages
 - discord_scan_log
+- events
 - golden_path_config
 - health_results
 - health_runs
@@ -41,9 +43,12 @@
 - prompt_revisions
 - pull_requests
 - repo_analysis
+- repo_infra
 - repo_metrics
 - repo_scores
 - repo_stats
+- repo_tags
+- repo_tech_stack
 - repositories
 - request_logs
 - research_briefs
@@ -97,20 +102,15 @@
 ### Unmapped / Orphaned Schema Tables
 *(Suspicious AI Slop: Defined in code but no CRUD operations with a known D1 env var detected)*
 - audit_logs
-- automation_runs
 - chat_tags
 - code_review_comment_enrichments
 - code_review_comments
 - code_review_runs
 - container_logs
-- events
 - operation_logs
 - organization_settings
 - repo_ai_context
 - repo_drafts
-- repo_infra
-- repo_tags
-- repo_tech_stack
 - research_files
 - secrets_config
 
@@ -894,6 +894,7 @@
 | **analysis_artifacts** | `backend/src/ai/agents/ResearchOrchestrator.ts` |
 | **applications** | `backend/src/ai/agents/workshop/WorkshopAgent.ts`, `backend/src/index.ts`, `backend/src/routes/api/frontend/projects/appstore.ts` |
 | **automation_rules** | `backend/src/routes/api/ops/workflows.ts`, `backend/src/routes/api/webhooks/index.ts` |
+| **automation_runs** | `backend/src/ai/agents/github/Owner.ts` |
 | **budget_events** | `backend/src/ai/utils/budget-tracker.ts` |
 | **chat_messages** | `backend/src/routes/api/frontend/ai/chat.ts` |
 | **chat_threads** | `backend/src/routes/api/frontend/ai/chat.ts` |
@@ -904,6 +905,7 @@
 | **daily_trends** | `backend/src/routes/api/frontend/research/daily-trends.ts`, `backend/src/workflows/research/topic.ts` |
 | **discord_messages** | `backend/src/workflows/discord.ts` |
 | **discord_scan_log** | `backend/src/workflows/discord.ts` |
+| **events** | `backend/src/ai/agents/github/Owner.ts`, `backend/src/ai/agents/github/Repo.ts` |
 | **golden_path_config** | `backend/src/routes/api/frontend/settings.ts` |
 | **health_results** | `backend/src/ai/agents/HealthDiagnostician.ts`, `backend/src/health/coordinator.ts` |
 | **health_runs** | `backend/src/health/coordinator.ts`, `backend/src/health/health-check.ts`, `backend/src/routes/api/health.ts` |
@@ -922,18 +924,21 @@
 | **project_favorites** | `backend/src/routes/api/frontend/projects/favorites.ts` |
 | **project_phases** | `backend/src/routes/api/frontend/projects/planner.ts` |
 | **project_plans** | `backend/src/routes/api/frontend/projects/planner.ts` |
-| **projects** | `backend/src/ai/mcp/tools/github/github.ts`, `backend/src/index.ts`, `backend/src/routes/api/frontend/planner/tasks.ts`, `backend/src/routes/api/frontend/projects/appstore.ts`, `backend/src/routes/api/frontend/projects/base.ts`, `backend/src/routes/api/frontend/projects/hierarchy.ts`, `backend/src/routes/api/frontend/projects/infrastructure.ts`, `backend/src/routes/api/frontend/projects/planner.ts`, `backend/src/routes/api/frontend/research/research-projects.ts`, `backend/src/routes/api/projects/tasks.ts`, `backend/src/services/repository-sync.ts`, `backend/src/services/standardization.ts`, `backend/src/workflows/discord.ts`, `backend/src/workflows/research/deep.ts` |
+| **projects** | `backend/src/ai/mcp/tools/github/github.ts`, `backend/src/db/ops/repos.ts`, `backend/src/index.ts`, `backend/src/routes/api/frontend/planner/tasks.ts`, `backend/src/routes/api/frontend/projects/appstore.ts`, `backend/src/routes/api/frontend/projects/base.ts`, `backend/src/routes/api/frontend/projects/hierarchy.ts`, `backend/src/routes/api/frontend/projects/infrastructure.ts`, `backend/src/routes/api/frontend/projects/planner.ts`, `backend/src/routes/api/frontend/projects/utils.ts`, `backend/src/routes/api/frontend/research/research-projects.ts`, `backend/src/routes/api/projects/tasks.ts`, `backend/src/services/repository-sync.ts`, `backend/src/services/standardization.ts`, `backend/src/workflows/discord.ts`, `backend/src/workflows/research/deep.ts` |
 | **prompt_revisions** | `backend/src/routes/api/agents/cloudflare-docs-prompt.ts`, `backend/src/routes/api/agents/cloudflare-docs-revisions.ts` |
 | **pull_requests** | `backend/src/services/github/pr-ingestion.ts`, `backend/src/services/jules/jules.ts`, `backend/src/services/jules/service.ts` |
 | **repo_analysis** | `backend/src/workflows/search.ts` |
-| **repo_metrics** | `backend/src/routes/api/frontend/projects/stars.ts` |
+| **repo_infra** | `backend/src/db/ops/repos.ts` |
+| **repo_metrics** | `backend/src/db/ops/repos.ts`, `backend/src/routes/api/frontend/projects/stars.ts` |
 | **repo_scores** | `backend/src/ai/agents/ResearchOrchestrator.ts`, `backend/src/lib/email-reports.ts` |
 | **repo_stats** | `backend/src/routes/api/frontend/stats.ts`, `backend/src/services/stats-updater.ts` |
-| **repositories** | `backend/src/ai/agents/ResearchOrchestrator.ts`, `backend/src/ai/mcp/tools/github/github.ts`, `backend/src/index.ts`, `backend/src/lib/email-reports.ts`, `backend/src/routes/api/frontend/projects/base.ts`, `backend/src/routes/api/frontend/projects/favorites.ts`, `backend/src/routes/api/frontend/projects/infrastructure.ts`, `backend/src/routes/api/frontend/projects/planner.ts`, `backend/src/routes/api/frontend/projects/stars.ts`, `backend/src/routes/api/webhooks/handlers/flows/index.ts`, `backend/src/routes/api/webhooks/workflows/gardener/index.ts`, `backend/src/services/repository-sync.ts`, `backend/src/workflows/research/deep.ts`, `backend/src/workflows/search.ts` |
+| **repo_tags** | `backend/src/db/ops/repos.ts` |
+| **repo_tech_stack** | `backend/src/db/ops/repos.ts` |
+| **repositories** | `backend/src/ai/agents/ResearchOrchestrator.ts`, `backend/src/ai/agents/github/Owner.ts`, `backend/src/ai/agents/github/Repo.ts`, `backend/src/ai/mcp/tools/github/github.ts`, `backend/src/db/ops/repos.ts`, `backend/src/index.ts`, `backend/src/lib/email-reports.ts`, `backend/src/routes/api/frontend/projects/base.ts`, `backend/src/routes/api/frontend/projects/favorites.ts`, `backend/src/routes/api/frontend/projects/infrastructure.ts`, `backend/src/routes/api/frontend/projects/planner.ts`, `backend/src/routes/api/frontend/projects/stars.ts`, `backend/src/routes/api/frontend/projects/utils.ts`, `backend/src/routes/api/webhooks/handlers/flows/index.ts`, `backend/src/routes/api/webhooks/workflows/gardener/index.ts`, `backend/src/services/repository-sync.ts`, `backend/src/workflows/research/deep.ts`, `backend/src/workflows/search.ts` |
 | **request_logs** | `backend/src/ai/fallbackLogger.ts`, `backend/src/index.ts`, `backend/src/routes/api/webhooks/handlers/flows/index.ts` |
 | **research_briefs** | `backend/src/ai/agents/TopicOrchestrator.ts`, `backend/src/index.ts`, `backend/src/routes/api/frontend/research/research.ts`, `backend/src/workflows/discord.ts`, `backend/src/workflows/research/topic.ts` |
 | **research_candidates** | `backend/src/ai/agents/TopicOrchestrator.ts`, `backend/src/routes/api/frontend/research/research.ts`, `backend/src/workflows/discord.ts`, `backend/src/workflows/research/topic.ts` |
-| **research_execution_logs** | `backend/src/routes/api/frontend/research/research.ts` |
+| **research_execution_logs** | `backend/src/lib/research-logger.ts`, `backend/src/routes/api/frontend/research/research.ts` |
 | **research_judge_logs** | `backend/src/routes/api/services/github/gh-actions.ts` |
 | **research_plans** | `backend/src/ai/agents/TopicOrchestrator.ts`, `backend/src/workflows/research/topic.ts` |
 | **research_projects** | `backend/src/routes/api/frontend/research/research-projects.ts` |
@@ -941,15 +946,15 @@
 | **research_reports** | `backend/src/routes/api/frontend/research/research-projects.ts` |
 | **research_sessions** | `backend/src/ai/agents/ResearchOrchestrator.ts`, `backend/src/lib/email-reports.ts` |
 | **searches** | `backend/src/workflows/search.ts` |
-| **sessions** | `backend/src/ai/agents/JulesOverseer.ts`, `backend/src/ai/utils/budget-tracker.ts`, `backend/src/index.ts`, `backend/src/routes/api/jules/index.ts`, `backend/src/services/jules/service.ts` |
+| **sessions** | `backend/src/ai/agents/CloudflareDocs.backup.ts`, `backend/src/ai/agents/CloudflareDocs.ts`, `backend/src/ai/agents/JulesOverseer.ts`, `backend/src/ai/utils/budget-tracker.ts`, `backend/src/index.ts`, `backend/src/routes/api/jules/index.ts`, `backend/src/services/jules/service.ts` |
 | **standardization_rules** | `backend/src/routes/api/ops/standards.ts`, `backend/src/services/standardization.ts` |
 | **starred_repos** | `backend/src/routes/api/frontend/projects/stars.ts` |
 | **system_logs** | `backend/src/lib/logger.ts` |
 | **tag_application_mapping** | `backend/src/routes/api/frontend/projects/appstore.ts` |
-| **tags** | `backend/src/index.ts`, `backend/src/lib/email-reports.ts`, `backend/src/routes/api/frontend/planner/todos.ts`, `backend/src/routes/api/frontend/projects/appstore.ts`, `backend/src/services/standardization.ts`, `backend/src/services/todoInsights.ts` |
+| **tags** | `backend/src/db/ops/repos.ts`, `backend/src/index.ts`, `backend/src/lib/crud-factory.ts`, `backend/src/lib/email-reports.ts`, `backend/src/routes/api/frontend/planner/todos.ts`, `backend/src/routes/api/frontend/projects/appstore.ts`, `backend/src/services/landing-generator/analyzer.ts`, `backend/src/services/standardization.ts`, `backend/src/services/todoInsights.ts`, `frontend/worker-configuration.d.ts`, `worker-configuration.d.ts` |
 | **task_comments** | `backend/src/routes/api/frontend/planner/tasks.ts` |
 | **task_events** | `backend/src/routes/api/frontend/planner/tasks.ts` |
-| **tasks** | `backend/src/ai/agents/HealthDiagnostician.ts`, `backend/src/ai/agents/JulesOverseer.ts`, `backend/src/ai/agents/workshop/WorkshopAgent.ts`, `backend/src/index.ts`, `backend/src/routes/api/frontend/planner/tasks.ts`, `backend/src/routes/api/frontend/projects/hierarchy.ts`, `backend/src/routes/api/frontend/projects/planner.ts`, `backend/src/routes/api/frontend/workshop.ts`, `backend/src/routes/api/projects/tasks.ts`, `backend/src/routes/api/webhooks/handlers/issues.ts` |
+| **tasks** | `backend/src/ai/agents/CloudflareDocs.backup.ts`, `backend/src/ai/agents/CloudflareDocs.ts`, `backend/src/ai/agents/HealthDiagnostician.ts`, `backend/src/ai/agents/JulesOverseer.ts`, `backend/src/ai/agents/workshop/WorkshopAgent.ts`, `backend/src/index.ts`, `backend/src/routes/api/frontend/planner/tasks.ts`, `backend/src/routes/api/frontend/projects/hierarchy.ts`, `backend/src/routes/api/frontend/projects/planner.ts`, `backend/src/routes/api/frontend/workshop.ts`, `backend/src/routes/api/projects/tasks.ts`, `backend/src/routes/api/webhooks/handlers/issues.ts`, `backend/src/services/landing-generator/analyzer.ts`, `frontend/worker-configuration.d.ts`, `worker-configuration.d.ts` |
 | **todo_ai_insights** | `backend/src/routes/api/frontend/planner/todos.ts`, `backend/src/services/todoInsights.ts` |
 | **todo_links** | `backend/src/routes/api/frontend/planner/todos.ts`, `backend/src/services/todoInsights.ts` |
 | **todo_tag_map** | `backend/src/routes/api/frontend/planner/todos.ts` |
