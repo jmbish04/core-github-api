@@ -1,5 +1,5 @@
 // src/routes/api/tasks.ts
-import { Hono } from 'hono';
+import { Hono, Context } from 'hono';
 import { Bindings } from '@utils/hono';
 import { getDb } from '@db';
 import { tasks, taskEvents, taskComments } from '@db/schemas/projects/tasks';
@@ -18,11 +18,21 @@ export const TASK_STATUSES = [
     { id: TaskStatus.DONE, name: "Done", color: "#10B981" },
 ];
 
+function getRequestContext(c: Context<{ Bindings: Env }>) {
+    return {
+        db: getDb(c.env.DB),
+        requestId: generateUuid(),
+        now: new Date().toISOString()
+    };
+}
+
+
+
 /**
  * Log a Task Audit Event
  */
 async function logTaskEvent(
-    db: any,
+    db: ReturnType<typeof getDb>,
     requestId: string,
     taskId: string | null,
     githubIssueId: number | null,
@@ -55,14 +65,11 @@ async function logTaskEvent(
     }
 }
 
-/**
- * Execute a GitHub Action if the task is linked to a repository.
- */
-async function performGithubAction(
-    db: any,
-    repoId: string,
+
+async function executeGithubAction(
+    db: ReturnType<typeof getDb>,
     githubIssueId: number | null,
-    actionFn: (owner: string, repoName: string, issueNumber: number) => Promise<any>,
+    actionFn: () => Promise<any>,
     logOptions?: {
         requestId: string;
         taskId: string | null;
@@ -70,19 +77,11 @@ async function performGithubAction(
         details?: any;
     }
 ) {
-    if (!githubIssueId) return null;
-
-    const repoRecord = await db.select().from(repos).where(eq(repos.id, repoId)).limit(1);
-    if (!repoRecord.length) return null;
-    const repo = repoRecord[0];
-
-    const { owner, name } = repo;
-
     let result = null;
     let error: any = null;
 
     try {
-        result = await actionFn(owner, name, githubIssueId);
+        result = await actionFn();
     } catch (e: any) {
         error = e;
     } finally {
@@ -96,14 +95,42 @@ async function performGithubAction(
     return result;
 }
 
-async function getRepoByOwnerAndName(db: any, owner: string, name: string) {
-    const rows = await db.select().from(repos).where(and(eq(repos.owner, owner), eq(repos.name, name))).limit(1);
-    return rows[0] || null;
+async function performTaskGithubAction(
+    db: ReturnType<typeof getDb>,
+    repoId: string,
+    githubIssueId: number | null,
+    actionFn: (owner: string, repoName: string, issueNumber: number) => Promise<any>,
+    logOptions?: {
+        requestId: string;
+        taskId: string | null;
+        eventType: string;
+        details?: any;
+    }
+) {
+    if (!githubIssueId) return null;
+
+    const repo = await getRepoById(db, repoId);
+    if (!repo) return null;
+
+    return executeGithubAction(
+        db,
+        githubIssueId,
+        () => actionFn(repo.owner, repo.name, githubIssueId),
+        logOptions
+    );
 }
 
-async function getTaskById(db: any, id: string) {
-    const rows = await db.select().from(tasks).where(eq(tasks.id, id)).limit(1);
-    return rows[0] || null;
+async function getRepoByOwnerAndName(db: ReturnType<typeof getDb>, owner: string, name: string) {
+    return db.select().from(repos).where(and(eq(repos.owner, owner), eq(repos.name, name))).limit(1).then(res => res[0] || null);
+}
+
+async function getTaskById(db: ReturnType<typeof getDb>, id: string) {
+    return db.select().from(tasks).where(eq(tasks.id, id)).limit(1).then(res => res[0] || null);
+}
+
+
+async function getRepoById(db: ReturnType<typeof getDb>, id: string) {
+    return db.select().from(repos).where(eq(repos.id, id)).limit(1).then(res => res[0] || null);
 }
 
 const tasksApi = new Hono<{ Bindings: Env }>();
@@ -111,7 +138,7 @@ const tasksApi = new Hono<{ Bindings: Env }>();
 // GET /api/repos/:owner/:repo/tasks
 tasksApi.get('/repos/:owner/:repo/tasks', async (c) => {
     const { owner, repo } = c.req.param();
-    const db = getDb(c.env.DB);
+    const { db } = getRequestContext(c);
 
     // Resolve repo ID
     const repoRecord = await getRepoByOwnerAndName(db, owner, repo);
@@ -132,7 +159,7 @@ tasksApi.get('/repos/:owner/:repo/tasks', async (c) => {
 
 // GET /api/tasks (Global list)
 tasksApi.get('/', async (c) => {
-    const db = getDb(c.env.DB);
+    const { db } = getRequestContext(c);
     // Join with repos to get context if needed, or just return flat
     const rows = await db.select().from(tasks).where(eq(tasks.isDeleted, 0)).limit(100).orderBy(tasks.updatedAt);
     
@@ -187,9 +214,7 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
     const { owner, repo } = c.req.param();
     const body = await c.req.json();
     const { title, description, status, assignee } = body as any;
-    const db = getDb(c.env.DB);
-    const requestId = generateUuid();
-    const now = new Date().toISOString();
+    const { db, requestId, now } = getRequestContext(c);
 
     // Log API Request
     await logTaskEvent(db, requestId, null, null, 'api_request_create_task', 'pending', { owner, repo, body });
@@ -201,16 +226,11 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
     }
 
     // 1. Create GitHub Issue
-    const issue = await createGitHubIssue(c.env, owner, repo, title, description, assignee ? [assignee] : undefined);
-
-    await logTaskEvent(
+    const issue = await executeGithubAction(
         db,
-        requestId,
         null,
-        issue?.number || null,
-        'github_issue_create',
-        issue ? 'success' : 'failed',
-        issue ? { html_url: issue.html_url } : undefined
+        async () => await createGitHubIssue(c.env, owner, repo, title, description, assignee ? [assignee] : undefined),
+        { requestId, taskId: null, eventType: 'github_issue_create' }
     );
 
     if (!issue) {
@@ -273,9 +293,7 @@ tasksApi.patch('/tasks/:id', async (c) => {
     const { id } = c.req.param();
     const body = await c.req.json();
     const { status, position, title, description, assignee, kanbanColumn } = body as any;
-    const db = getDb(c.env.DB);
-    const requestId = generateUuid();
-    const now = new Date().toISOString();
+    const { db, requestId, now } = getRequestContext(c);
 
     // Get current task
     const task = await getTaskById(db, id);
@@ -300,7 +318,7 @@ tasksApi.patch('/tasks/:id', async (c) => {
         if (assignee !== undefined) updates.assignees = assignee ? [assignee] : [];
 
         if (Object.keys(updates).length > 0) {
-            await performGithubAction(
+            await performTaskGithubAction(
                 db,
                 task.repoId,
                 task.githubIssueId,
@@ -372,16 +390,14 @@ tasksApi.patch('/tasks/:id', async (c) => {
 tasksApi.post('/tasks/:id/comments', async (c) => {
     const { id } = c.req.param();
     const { content, author } = await c.req.json() as any;
-    const db = getDb(c.env.DB);
-    const requestId = generateUuid();
-    const now = new Date().toISOString();
+    const { db, requestId, now } = getRequestContext(c);
 
     const task = await getTaskById(db, id);
     if (!task) return c.json({ success: false, error: 'Task not found' }, 404);
 
     // Sync to GitHub
     let githubCommentId: number | null = null;
-    await performGithubAction(
+    await performTaskGithubAction(
         db,
         task.repoId,
         task.githubIssueId,
@@ -411,15 +427,13 @@ tasksApi.post('/tasks/:id/comments', async (c) => {
 // DELETE /api/tasks/:id (Soft delete)
 tasksApi.delete('/tasks/:id', async (c) => {
     const { id } = c.req.param();
-    const db = getDb(c.env.DB);
-    const requestId = generateUuid();
-    const now = new Date().toISOString();
+    const { db, requestId, now } = getRequestContext(c);
 
     const task = await getTaskById(db, id);
     if (!task) return c.json({ success: false, error: 'Task not found' }, 404);
 
     if (task.githubIssueId) {
-        await performGithubAction(
+        await performTaskGithubAction(
             db,
             task.repoId,
             task.githubIssueId,
