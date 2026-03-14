@@ -54,6 +54,24 @@ async function logTaskEvent(
     }
 }
 
+/**
+ * Execute a GitHub Action if the task is linked to a repository.
+ */
+async function performGithubAction(
+    db: any,
+    repoId: string,
+    githubIssueId: number | null,
+    actionFn: (owner: string, repoName: string, issueNumber: number) => Promise<any>
+) {
+    if (!githubIssueId) return null;
+
+    const repoRecord = await db.select().from(repos).where(eq(repos.id, repoId)).limit(1);
+    if (!repoRecord.length) return null;
+
+    const { owner, name } = repoRecord[0];
+    return await actionFn(owner, name, githubIssueId);
+}
+
 const tasksApi = new Hono<{ Bindings: Env }>();
 
 // GET /api/repos/:owner/:repo/tasks
@@ -88,8 +106,9 @@ tasksApi.get('/', async (c) => {
     const workshopRows = await db.select().from(tasks).where(eq(tasks.taskType, 'workshop_project')).limit(100);
     const mappedWorkshop: any[] = [];
     workshopRows.forEach(w => {
-        if (!((w.taskContext || {}) as any).phases || !Array.isArray(((w.taskContext || {}) as any).phases)) return;
-        ((w.taskContext || {}) as any).phases.forEach((p: any) => {
+        const context = (w.taskContext || {}) as any;
+        if (!context.phases || !Array.isArray(context.phases)) return;
+        context.phases.forEach((p: any) => {
             if (!p.tasks || !Array.isArray(p.tasks)) return;
             p.tasks.forEach((t: any) => {
                 mappedWorkshop.push({
@@ -212,35 +231,28 @@ tasksApi.patch('/tasks/:id', async (c) => {
     await logTaskEvent(db, requestId, id, task.githubIssueId, 'api_request_update_task', 'pending', body);
 
     // Determines updates for GitHub
-    // ... (GitHub Sync Logic) ...
     // Sync to GitHub if linked
     if (task.githubIssueId) {
-        // Find repo info
-        const repoRecord = await db.select().from(repos).where(eq(repos.id, task.repoId)).limit(1);
+        const updates: any = {};
+        const targetStatus = (status as TaskStatus) || task.status as TaskStatus;
 
-        if (repoRecord.length) {
-            const { owner, name } = repoRecord[0];
-            const issueNumber = task.githubIssueId;
-            const updates: any = {};
+        if (targetStatus === TaskStatus.DONE) updates.state = 'closed';
+        else updates.state = 'open';
 
-            // Map status
-            const targetStatus = (status as TaskStatus) || task.status as TaskStatus;
+        if (title) updates.title = title;
+        if (description) updates.body = description;
+        if (assignee !== undefined) updates.assignees = assignee ? [assignee] : [];
 
-            if (targetStatus === TaskStatus.DONE) updates.state = 'closed';
-            else updates.state = 'open';
-
-            if (title) updates.title = title;
-            if (description) updates.body = description;
-            if (assignee !== undefined) updates.assignees = assignee ? [assignee] : [];
-
-            if (Object.keys(updates).length > 0) {
+        if (Object.keys(updates).length > 0) {
+            await performGithubAction(db, task.repoId, task.githubIssueId, async (owner, name, issueNumber) => {
                 const ghResult = await updateGitHubIssue(c.env, owner, name, issueNumber, updates);
                 if (ghResult) {
                     await logTaskEvent(db, requestId, id, issueNumber, 'github_issue_update', 'success', updates);
                 } else {
                     await logTaskEvent(db, requestId, id, issueNumber, 'github_issue_update', 'failed', updates);
                 }
-            }
+                return ghResult;
+            });
         }
     }
 
@@ -312,19 +324,16 @@ tasksApi.post('/tasks/:id/comments', async (c) => {
 
     // Sync to GitHub
     let githubCommentId: number | null = null;
-    if (task.githubIssueId) {
-        const repoRecord = await db.select().from(repos).where(eq(repos.id, task.repoId)).limit(1);
-        if (repoRecord.length) {
-            const { owner, name } = repoRecord[0];
-            const comment = await createGitHubComment(c.env, owner, name, task.githubIssueId, `**${author || 'User'}**: ${content}`);
-            if (comment) {
-                githubCommentId = comment.id;
-                await logTaskEvent(db, requestId, id, task.githubIssueId, 'github_comment_create', 'success');
-            } else {
-                await logTaskEvent(db, requestId, id, task.githubIssueId, 'github_comment_create', 'failed');
-            }
+    await performGithubAction(db, task.repoId, task.githubIssueId, async (owner, name, issueNumber) => {
+        const comment = await createGitHubComment(c.env, owner, name, issueNumber, `**${author || 'User'}**: ${content}`);
+        if (comment) {
+            githubCommentId = comment.id;
+            await logTaskEvent(db, requestId, id, issueNumber, 'github_comment_create', 'success');
+        } else {
+            await logTaskEvent(db, requestId, id, issueNumber, 'github_comment_create', 'failed');
         }
-    }
+        return comment;
+    });
 
     // Save Local
     const commentId = crypto.randomUUID();
@@ -349,12 +358,10 @@ tasksApi.delete('/tasks/:id', async (c) => {
 
     const currentTask = await db.select().from(tasks).where(eq(tasks.id, id)).limit(1);
     if (currentTask.length && currentTask[0].githubIssueId) {
-        const repoRecord = await db.select().from(repos).where(eq(repos.id, currentTask[0].repoId)).limit(1);
-        if (repoRecord.length) {
-            const { owner, name } = repoRecord[0];
-            await updateGitHubIssue(c.env, owner, name, currentTask[0].githubIssueId, { state: 'closed' });
-            await logTaskEvent(db, requestId, id, currentTask[0].githubIssueId, 'github_issue_close', 'success');
-        }
+        await performGithubAction(db, currentTask[0].repoId, currentTask[0].githubIssueId, async (owner, name, issueNumber) => {
+            await updateGitHubIssue(c.env, owner, name, issueNumber, { state: 'closed' });
+            await logTaskEvent(db, requestId, id, issueNumber, 'github_issue_close', 'success');
+        });
     }
 
     await db.update(tasks)
