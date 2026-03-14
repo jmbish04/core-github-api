@@ -371,13 +371,23 @@ tasksApi.patch('/tasks/:id', async (c) => {
     };
     const githubUpdates: any = {};
 
-    // Shared check for status
-    if (nextStatus !== currentStatus) {
-        updatePayload.status = nextStatus;
-        if (task.githubIssueId) {
-            githubUpdates.state = nextStatus === TaskStatus.DONE ? 'closed' : 'open';
+    const processUpdate = <K extends string, G extends string>(
+        incomingValue: any,
+        currentValue: any,
+        localKey: K,
+        githubKey: G | null,
+        githubTransform?: (val: any) => any
+    ) => {
+        if (incomingValue !== undefined && incomingValue !== currentValue) {
+            updatePayload[localKey] = incomingValue;
+            if (task.githubIssueId && githubKey) {
+                githubUpdates[githubKey] = githubTransform ? githubTransform(incomingValue) : incomingValue;
+            }
         }
-    }
+    };
+
+    // Shared check for status
+    processUpdate(nextStatus, currentStatus, 'status', 'state', (val) => val === TaskStatus.DONE ? 'closed' : 'open');
 
     if (nextColumn !== currentColumn) {
         updatePayload.kanbanColumn = nextColumn;
@@ -388,22 +398,13 @@ tasksApi.patch('/tasks/:id', async (c) => {
     }
 
     // Shared check for title
-    if (title !== undefined && title !== task.title) {
-        updatePayload.title = title;
-        if (task.githubIssueId) githubUpdates.title = title;
-    }
+    processUpdate(title, task.title, 'title', 'title');
 
     // Shared check for description
-    if (description !== undefined && description !== task.description) {
-        updatePayload.description = description;
-        if (task.githubIssueId) githubUpdates.body = description;
-    }
+    processUpdate(description, task.description, 'description', 'body');
 
     // Shared check for assignee
-    if (assignee !== undefined && assignee !== task.assignee) {
-        updatePayload.assignee = assignee;
-        if (task.githubIssueId) githubUpdates.assignees = assignee ? [assignee] : [];
-    }
+    processUpdate(assignee, task.assignee, 'assignee', 'assignees', (val) => val ? [val] : []);
 
     const timestamps = calculateTaskTimestamps(nextStatus, nextColumn, task.startAt, task.endAt, now);
     if (timestamps.startAt !== undefined) updatePayload.startAt = timestamps.startAt;
