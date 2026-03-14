@@ -285,10 +285,7 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
     const initialStatus = (status as TaskStatus) || TaskStatus.TODO;
     const initialColumn = StatusMapper.mapStatusToColumn(initialStatus);
 
-    let startAt: string | undefined;
-
-    const timestamps = calculateTaskTimestamps(initialStatus, initialColumn, null, null, now);
-    startAt = timestamps.startAt;
+    const { startAt } = calculateTaskTimestamps(initialStatus, initialColumn, null, null, now);
 
     let dbSuccess = true;
     let dbError = null;
@@ -372,9 +369,14 @@ tasksApi.patch('/tasks/:id', async (c) => {
     };
     const githubUpdates: any = {};
 
+    // Shared check for status
     if (nextStatus !== currentStatus) {
         updatePayload.status = nextStatus;
+        if (task.githubIssueId) {
+            githubUpdates.state = nextStatus === TaskStatus.DONE ? 'closed' : 'open';
+        }
     }
+
     if (nextColumn !== currentColumn) {
         updatePayload.kanbanColumn = nextColumn;
     }
@@ -399,12 +401,6 @@ tasksApi.patch('/tasks/:id', async (c) => {
     if (assignee !== undefined && assignee !== task.assignee) {
         updatePayload.assignee = assignee;
         if (task.githubIssueId) githubUpdates.assignees = assignee ? [assignee] : [];
-    }
-
-    // GitHub state depends on the target status
-    if (task.githubIssueId && nextStatus !== currentStatus) {
-        if (nextStatus === TaskStatus.DONE) githubUpdates.state = 'closed';
-        else githubUpdates.state = 'open';
     }
 
     const timestamps = calculateTaskTimestamps(nextStatus, nextColumn, task.startAt, task.endAt, now);
