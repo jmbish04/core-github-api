@@ -87,22 +87,12 @@ async function performGithubAction(
 
     if (logOptions) {
         // Resolve details either statically or dynamically from the callback result
-        let resolvedDetails: any = null;
-        if (typeof logOptions.details === 'function') {
-            resolvedDetails = isSuccess && result ? logOptions.details(result) : undefined;
-        } else {
-            resolvedDetails = logOptions.details;
-        }
+        const resolvedDetails = typeof logOptions.details === 'function' ? (isSuccess && result ? logOptions.details(result) : undefined) : logOptions.details;
 
         const details = actionError ? { error: actionError, ...resolvedDetails } : resolvedDetails;
 
         // Resolve issue ID either statically or dynamically from the callback result
-        let resolvedIssueId: number | null = null;
-        if (typeof logOptions.githubIssueId === 'function') {
-            resolvedIssueId = result ? (logOptions.githubIssueId(result) || null) : null;
-        } else if (logOptions.githubIssueId) {
-            resolvedIssueId = logOptions.githubIssueId;
-        }
+        const resolvedIssueId = typeof logOptions.githubIssueId === 'function' ? (result ? (logOptions.githubIssueId(result) || null) : null) : (logOptions.githubIssueId || null);
 
         await logTaskEvent(
             db,
@@ -348,21 +338,19 @@ tasksApi.patch('/tasks/:id', async (c) => {
         githubUpdates.state = nextStatus === TaskStatus.DONE ? 'closed' : 'open';
     }
 
-    if (nextColumn !== currentColumn) {
-        updatePayload.kanbanColumn = nextColumn;
-    }
 
-    if (position !== undefined && position !== task.position) {
-        updatePayload.position = position;
-    }
 
-    const syncField = <K extends keyof typeof task, G extends string>(field: K, ghField: G, val: any, isArray: boolean = false) => {
+    const syncField = <K extends keyof typeof task, G extends string>(field: K, ghField: G | null, val: any, isArray: boolean = false) => {
         if (val !== undefined && val !== task[field]) {
             updatePayload[field] = val;
-            githubUpdates[ghField] = isArray ? (val ? [val] : []) : val;
+            if (ghField) {
+                githubUpdates[ghField] = isArray ? (val ? [val] : []) : val;
+            }
         }
     };
 
+    syncField('kanbanColumn', null, nextColumn);
+    syncField('position', null, position);
     syncField('title', 'title', title);
     syncField('description', 'body', description);
     syncField('assignee', 'assignees', assignee, true);
@@ -402,19 +390,14 @@ tasksApi.post('/tasks/:id/comments', async (c) => {
     const { content, author } = await c.req.json() as any;
 
     // Sync to GitHub
-    let githubCommentId: number | null = null;
-    if (task.githubIssueId) {
-        await performGithubAction(
-            db,
-            task.repoId,
-            async (owner, name) => {
-                const comment = await createGitHubComment(c.env, owner, name, task.githubIssueId as number, `**${author || 'User'}**: ${content}`);
-                if (comment) githubCommentId = comment.id;
-                return comment;
-            },
-            { requestId, taskId: id, eventType: 'github_comment_create', githubIssueId: task.githubIssueId }
-        );
-    }
+    const comment = task.githubIssueId ? await performGithubAction(
+        db,
+        task.repoId,
+        async (owner, name) => await createGitHubComment(c.env, owner, name, task.githubIssueId as number, `**${author || 'User'}**: ${content}`),
+        { requestId, taskId: id, eventType: 'github_comment_create', githubIssueId: task.githubIssueId }
+    ) : null;
+
+    const githubCommentId = comment ? comment.id : null;
 
     // Save Local
     const commentId = generateUuid();
