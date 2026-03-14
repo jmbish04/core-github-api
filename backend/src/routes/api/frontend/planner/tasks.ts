@@ -354,24 +354,25 @@ tasksApi.patch('/tasks/:id', async (c) => {
         updatePayload.kanbanColumn = nextColumn;
     }
 
-    if (position !== undefined && position !== task.position) {
-        updatePayload.position = position;
-    }
+    const processUpdate = <K extends string, G extends string>(
+        newValue: any,
+        currentValue: any,
+        dbKey: K,
+        ghKey?: G,
+        ghValueTransform?: (v: any) => any
+    ) => {
+        if (newValue !== undefined && newValue !== currentValue) {
+            updatePayload[dbKey] = newValue;
+            if (ghKey) {
+                githubUpdates[ghKey] = ghValueTransform ? ghValueTransform(newValue) : newValue;
+            }
+        }
+    };
 
-    if (title !== undefined && title !== task.title) {
-        updatePayload.title = title;
-        githubUpdates.title = title;
-    }
-
-    if (description !== undefined && description !== task.description) {
-        updatePayload.description = description;
-        githubUpdates.body = description;
-    }
-
-    if (assignee !== undefined && assignee !== task.assignee) {
-        updatePayload.assignee = assignee;
-        githubUpdates.assignees = assignee ? [assignee] : [];
-    }
+    processUpdate(position, task.position, 'position');
+    processUpdate(title, task.title, 'title', 'title');
+    processUpdate(description, task.description, 'description', 'body');
+    processUpdate(assignee, task.assignee, 'assignee', 'assignees', v => v ? [v] : []);
 
     // Sync to GitHub if linked and there are relevant updates
     if (task.githubIssueId && Object.keys(githubUpdates).length > 0) {
