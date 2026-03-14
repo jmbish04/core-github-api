@@ -64,7 +64,7 @@ async function performGithubAction<T>(
     logOptions?: {
         requestId: string;
         eventType: string;
-        githubIssueId?: number | ((res: T) => number);
+        githubIssueId?: number | null | ((res: T) => number | null);
         details?: any | ((res: T) => any);
     }
 ): Promise<T | null> {
@@ -92,7 +92,7 @@ async function performGithubAction<T>(
 
         const resolvedIssueId = (isSuccess && result && typeof logOptions.githubIssueId === 'function')
             ? logOptions.githubIssueId(result)
-            : (typeof logOptions.githubIssueId === 'number' ? logOptions.githubIssueId : null);
+            : (typeof logOptions.githubIssueId === 'number' || logOptions.githubIssueId === null ? logOptions.githubIssueId : null);
 
         const details = actionError ? { error: actionError, ...resolvedDetails } : resolvedDetails;
 
