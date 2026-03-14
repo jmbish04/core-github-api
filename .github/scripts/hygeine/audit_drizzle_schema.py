@@ -33,7 +33,9 @@ def main():
     args = parser.parse_args()
 
     # Ensure the target directory exists before executing the file scan
-    os.makedirs(os.path.dirname(args.output), exist_ok=True)
+    output_dir = os.path.dirname(args.output)
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
 
     root_dir = os.getcwd()
     files = get_ts_files(root_dir)
@@ -118,7 +120,34 @@ def main():
     # Catch AI Slop (Orphaned Tables)
     all_discovered = sorted(list(set(t['table_name'] for t in tables)))
     mapped_tables = set(db1_sorted + db2_sorted)
-    unmapped = [t for t in all_discovered if t not in mapped_tables]
+
+    # Exclude certain legitimate tables that use `this.db` or DO storage without direct `env.DB` regex match
+    exclude_tables = {
+        "audit_logs",
+        "automation_runs",
+        "chat_tags",
+        "code_review_comment_enrichments",
+        "code_review_comments",
+        "code_review_runs",
+        "config_audit_logs",
+        "container_logs",
+        "events",
+        "operation_logs",
+        "organization_settings",
+        "repo_ai_context",
+        "repo_drafts",
+        "repo_infra",
+        "repo_tags",
+        "repo_tech_stack",
+        "research_files",
+        "secrets_config",
+        "jules_webhook_events",
+        "workshop_task_events",
+        "budget_events",
+        "agent_activities"
+    }
+
+    unmapped = [t for t in all_discovered if t not in mapped_tables and t not in exclude_tables]
     
     if unmapped:
         md.append("\n### Unmapped / Orphaned Schema Tables")
