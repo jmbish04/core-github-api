@@ -173,10 +173,10 @@ tasksApi.get('/', async (c) => {
     const workshopRows = await db.select().from(tasks).where(eq(tasks.taskType, 'workshop_project')).limit(100);
     const mappedWorkshop = workshopRows.flatMap(w => {
         const context = (w.taskContext || {}) as any;
-        if (!context.phases || !Array.isArray(context.phases)) return [];
-        return context.phases.flatMap((p: any) => {
-            if (!p.tasks || !Array.isArray(p.tasks)) return [];
-            return p.tasks.map((t: any) => {
+        const phases = Array.isArray(context.phases) ? context.phases : [];
+        return phases.flatMap((p: any) => {
+            const pTasks = Array.isArray(p.tasks) ? p.tasks : [];
+            return pTasks.map((t: any) => {
                 const mappedStatus = t.status === 'not_started' ? TaskStatus.TODO : (t.status === 'in_progress' ? TaskStatus.IN_PROGRESS : TaskStatus.DONE);
                 return {
                     id: `${w.id}-${p.phase_number}-${t.task_number}`,
@@ -320,18 +320,21 @@ tasksApi.patch('/tasks/:id', async (c) => {
     if (endAt !== task.endAt) updatePayload.endAt = endAt;
     if (position !== undefined) updatePayload.position = position;
 
-    if (title !== undefined) {
-        updatePayload.title = title;
-        githubUpdates.title = title;
-    }
-    if (description !== undefined) {
-        updatePayload.description = description;
-        githubUpdates.body = description;
-    }
-    if (assignee !== undefined) {
-        updatePayload.assignee = assignee;
-        githubUpdates.assignees = assignee ? [assignee] : [];
-    }
+    const syncField = <K extends keyof typeof updatePayload, G extends string>(
+        val: any,
+        localKey: K,
+        githubKey: G,
+        githubMapFn?: (v: any) => any
+    ) => {
+        if (val !== undefined) {
+            updatePayload[localKey] = val;
+            githubUpdates[githubKey] = githubMapFn ? githubMapFn(val) : val;
+        }
+    };
+
+    syncField(title, 'title', 'title');
+    syncField(description, 'description', 'body');
+    syncField(assignee, 'assignee', 'assignees', (val) => val ? [val] : []);
 
     // Sync to GitHub if linked
     if (task.githubIssueId && Object.keys(githubUpdates).length > 0) {
