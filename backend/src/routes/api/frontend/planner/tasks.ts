@@ -1,5 +1,5 @@
 // src/routes/api/tasks.ts
-import { Hono } from 'hono';
+import { Hono, Context } from 'hono';
 import { Bindings } from '@utils/hono';
 import { getDb } from '@db';
 import { tasks, taskEvents, taskComments } from '@db/schemas/projects/tasks';
@@ -115,7 +115,7 @@ function getRepoById(db: ReturnType<typeof getDb>, id: string) {
     return db.select().from(repos).where(eq(repos.id, id)).limit(1).then(res => res[0] || null);
 }
 
-function getBaseContext(c: any) {
+function getBaseContext(c: Context<{ Bindings: Bindings }>) {
     return {
         db: getDb(c.env.DB),
         requestId: generateUuid(),
@@ -245,9 +245,6 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
         startAt = now;
     }
 
-    let dbSuccess = true;
-    let dbError = null;
-
     try {
         await db.insert(tasks).values({
             id: newId,
@@ -264,8 +261,16 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
             startAt: startAt
         });
     } catch (e: any) {
-        dbSuccess = false;
-        dbError = e.message;
+        await logTaskEvent(
+            db,
+            requestId,
+            newId,
+            issue.number,
+            'db_task_create',
+            'failed',
+            { error: e.message }
+        );
+        return c.json({ success: false, error: 'Failed to save local task' }, 500);
     }
 
     await logTaskEvent(
@@ -274,13 +279,8 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
         newId,
         issue.number,
         'db_task_create',
-        dbSuccess ? 'success' : 'failed',
-        dbError ? { error: dbError } : undefined
+        'success'
     );
-
-    if (!dbSuccess) {
-        return c.json({ success: false, error: 'Failed to save local task' }, 500);
-    }
 
     return c.json({ success: true, id: newId });
 });
