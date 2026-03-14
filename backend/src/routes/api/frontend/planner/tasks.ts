@@ -135,24 +135,26 @@ tasksApi.get('/', async (c) => {
         if (!context.phases || !Array.isArray(context.phases)) return [];
         return context.phases.flatMap((p: any) => {
             if (!p.tasks || !Array.isArray(p.tasks)) return [];
-            return p.tasks.map((t: any) => ({
-                id: `${w.id}-${p.phase_number}-${t.task_number}`,
-                repoId: w.repoId,
-                title: `[Phase ${p.phase_number}] ${t.task_title}`,
-                description: t.task_description || '',
-                status: t.status === 'not_started' ? TaskStatus.TODO :
-                        t.status === 'in_progress' ? TaskStatus.IN_PROGRESS : TaskStatus.DONE,
-                kanbanColumn: t.status === 'not_started' ? KanbanColumn.PLANNED :
-                              t.status === 'in_progress' ? KanbanColumn.IN_PROGRESS : KanbanColumn.DONE,
-                assignee: t.agent_assigned || null,
-                githubIssueId: null,
-                githubHtmlUrl: null,
-                createdAt: w.createdAt,
-                updatedAt: w.updatedAt,
-                startAt: null,
-                endAt: null,
-                isDeleted: 0
-            }));
+            return p.tasks.map((t: any) => {
+                const calculatedStatus = t.status === 'not_started' ? TaskStatus.TODO :
+                                         t.status === 'in_progress' ? TaskStatus.IN_PROGRESS : TaskStatus.DONE;
+                return {
+                    id: `${w.id}-${p.phase_number}-${t.task_number}`,
+                    repoId: w.repoId,
+                    title: `[Phase ${p.phase_number}] ${t.task_title}`,
+                    description: t.task_description || '',
+                    status: calculatedStatus,
+                    kanbanColumn: StatusMapper.mapStatusToColumn(calculatedStatus),
+                    assignee: t.agent_assigned || null,
+                    githubIssueId: null,
+                    githubHtmlUrl: null,
+                    createdAt: w.createdAt,
+                    updatedAt: w.updatedAt,
+                    startAt: null,
+                    endAt: null,
+                    isDeleted: 0
+                };
+            });
         });
     });
 
@@ -313,13 +315,16 @@ tasksApi.patch('/tasks/:id', async (c) => {
     if (assignee !== undefined) updatePayload.assignee = assignee;
 
     // Logic: Set startAt if moving to active state and not set
-    if ((nextStatus === TaskStatus.IN_PROGRESS || nextColumn === KanbanColumn.IN_PROGRESS) && !task.startAt) {
+    const isNextActive = nextStatus === TaskStatus.IN_PROGRESS || nextColumn === KanbanColumn.IN_PROGRESS;
+    const isNextDone = nextStatus === TaskStatus.DONE || nextColumn === KanbanColumn.DONE;
+
+    if (isNextActive && !task.startAt) {
         updatePayload.startAt = now;
     }
 
-    if ((nextStatus as TaskStatus) === TaskStatus.DONE || (nextColumn as KanbanColumn) === KanbanColumn.DONE) {
+    if (isNextDone) {
         updatePayload.endAt = now;
-    } else if (nextStatus !== TaskStatus.DONE && nextColumn !== KanbanColumn.DONE && task.endAt) {
+    } else if (task.endAt) {
         // If moving OUT of done, reset endAt
         updatePayload.endAt = null;
     }
@@ -382,11 +387,13 @@ tasksApi.delete('/tasks/:id', async (c) => {
     const requestId = crypto.randomUUID();
 
     const currentTask = await getTaskById(db, id);
-    if (currentTask.length && currentTask[0].githubIssueId) {
+    const task = currentTask.length ? currentTask[0] : null;
+
+    if (task?.githubIssueId) {
         await performGithubAction(
             db,
-            currentTask[0].repoId,
-            currentTask[0].githubIssueId,
+            task.repoId,
+            task.githubIssueId,
             async (owner, name, issueNumber) => await updateGitHubIssue(c.env, owner, name, issueNumber, { state: 'closed' }),
             { requestId, taskId: id, eventType: 'github_issue_close' }
         );
@@ -399,7 +406,7 @@ tasksApi.delete('/tasks/:id', async (c) => {
         })
         .where(eq(tasks.id, id));
 
-    await logTaskEvent(db, requestId, id, currentTask[0]?.githubIssueId || null, 'db_task_soft_delete', 'success');
+    await logTaskEvent(db, requestId, id, task?.githubIssueId || null, 'db_task_soft_delete', 'success');
 
     return c.json({ success: true });
 });
