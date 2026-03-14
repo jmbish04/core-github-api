@@ -65,11 +65,13 @@ async function performGithubAction<T>(
     logOptions?: {
         requestId: string;
         taskId: string | null;
-        issueNumber?: number | ((res: T) => number);
+        issueNumber?: number | null | ((res: T) => number);
         eventType: string;
         details?: any | ((res: T) => any);
     }
 ) {
+    if (logOptions?.issueNumber === null) return null;
+
     const repoRecord = await getRepoById(db, repoId);
     if (!repoRecord) return null;
 
@@ -152,14 +154,14 @@ function calculateTaskTimestamps(status: TaskStatus, column: KanbanColumn, now: 
 async function getTaskContext(c: Context<{ Bindings: Bindings }>, id: string) {
     const { db, requestId, now } = getBaseContext(c);
     const currentTask = await getTaskById(db, id);
-    if (!currentTask) return { error: 'Task not found', status: 404 as const };
+    if (!currentTask) return { error: 'Task not found', status: 404 as const, db, requestId, now };
     return { db, requestId, now, task: currentTask };
 }
 
 async function getRepoContext(c: Context<{ Bindings: Bindings }>, owner: string, repo: string) {
     const { db, requestId, now } = getBaseContext(c);
     const repoRecord = await getRepoByOwnerAndName(db, owner, repo);
-    if (!repoRecord) return { error: 'Repo not found', status: 404 as const };
+    if (!repoRecord) return { error: 'Repo not found', status: 404 as const, db, requestId, now };
     return { db, requestId, now, repoRecord };
 }
 
@@ -199,12 +201,10 @@ tasksApi.get('/', async (c) => {
     const workshopRows = await db.select().from(tasks).where(eq(tasks.taskType, 'workshop_project')).limit(100);
     const mappedWorkshop = workshopRows.flatMap(w => {
         const context = (w.taskContext || {}) as any;
-        const phases = context?.phases;
-        if (!phases || !Array.isArray(phases)) return [];
+        const phases = Array.isArray(context?.phases) ? context.phases : [];
 
         return phases.flatMap((p: any) => {
-            const phaseTasks = p?.tasks;
-            if (!phaseTasks || !Array.isArray(phaseTasks)) return [];
+            const phaseTasks = Array.isArray(p?.tasks) ? p.tasks : [];
 
             return phaseTasks.map((t: any) => {
                 const mappedStatus = t.status === 'not_started' ? TaskStatus.TODO : (t.status === 'in_progress' ? TaskStatus.IN_PROGRESS : TaskStatus.DONE);
@@ -252,8 +252,7 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
 
     if ('error' in ctx) {
         // We log the failure event here before returning the error.
-        const { db, requestId } = getBaseContext(c);
-        await logTaskEvent(db, requestId, null, null, 'api_request_create_task', 'failed', { owner, repo, body, error: ctx.error });
+        await logTaskEvent(ctx.db, ctx.requestId, null, null, 'api_request_create_task', 'failed', { owner, repo, body, error: ctx.error });
         return c.json({ success: false, error: ctx.error }, ctx.status);
     }
 
