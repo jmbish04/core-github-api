@@ -119,12 +119,26 @@ def main():
 
     # Catch AI Slop (Orphaned Tables)
     all_discovered = sorted(list(set(t['table_name'] for t in tables)))
-    mapped_tables = set(db1_sorted + db2_sorted)
+
+    # A table is considered mapped if it is imported ANYWHERE outside its own definition file
+    all_imported = set()
+    for file_path, imported_tables in file_interactions.items():
+        for t in imported_tables:
+            # We don't want to count the schema definition file itself as an import
+            # (though the current script logic doesn't easily differentiate this,
+            # any non-schema file using it should suffice)
+            if "src/db/schemas" not in file_path:
+                all_imported.add(t)
+            elif len(file_interactions[file_path]) > 0 and 'sqliteTable' not in file_path:
+                # If it's a relation definition or barrel export
+                all_imported.add(t)
+
+    mapped_tables = set(db1_sorted + db2_sorted).union(all_imported)
     unmapped = [t for t in all_discovered if t not in mapped_tables]
     
     if unmapped:
         md.append("\n### Unmapped / Orphaned Schema Tables")
-        md.append("*(Suspicious AI Slop: Defined in code but no CRUD operations with a known D1 env var detected)*")
+        md.append("*(Suspicious AI Slop: Defined in code but never imported/used outside its schema file)*")
         for t in unmapped:
             md.append(f"- {t}")
 
