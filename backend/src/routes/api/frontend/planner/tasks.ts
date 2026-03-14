@@ -105,18 +105,18 @@ async function executeGithubAction<T>(
 /**
  * Execute a GitHub Action if the task is linked to a repository.
  */
-async function performGithubAction(
+async function performGithubAction<T>(
     db: ReturnType<typeof getDb>,
     repoId: string,
     githubIssueId: number | null,
-    actionFn: (owner: string, repoName: string, issueNumber: number) => Promise<any>,
+    actionFn: (owner: string, repoName: string, issueNumber: number) => Promise<T>,
     logOptions?: {
         requestId: string;
         taskId: string | null;
         eventType: string;
         details?: any;
     }
-) {
+): Promise<T | null> {
     if (!githubIssueId) return null;
 
     const repoRecord = await getRepoById(db, repoId);
@@ -388,22 +388,11 @@ tasksApi.patch('/tasks/:id', async (c) => {
         }
     };
 
-    // Shared check for status
     processUpdate(nextStatus, currentStatus, 'status', 'state', (val) => val === TaskStatus.DONE ? 'closed' : 'open');
-
-    // Shared check for kanbanColumn
     processUpdate(nextColumn, currentColumn, 'kanbanColumn', null);
-
-    // Shared check for position
     processUpdate(position, task.position, 'position', null);
-
-    // Shared check for title
     processUpdate(title, task.title, 'title', 'title');
-
-    // Shared check for description
     processUpdate(description, task.description, 'description', 'body');
-
-    // Shared check for assignee
     processUpdate(assignee, task.assignee, 'assignee', 'assignees', (val) => val ? [val] : []);
 
     const timestamps = calculateTaskTimestamps(nextStatus, nextColumn, task.startAt, task.endAt, now);
@@ -441,18 +430,14 @@ tasksApi.post('/tasks/:id/comments', async (c) => {
     const { db, requestId, now, task } = ctx;
 
     // Sync to GitHub
-    let githubCommentId: number | null = null;
-    await performGithubAction(
+    const comment = await performGithubAction(
         db,
         task.repoId,
         task.githubIssueId,
-        async (owner, name, issueNumber) => {
-            const comment = await createGitHubComment(c.env, owner, name, issueNumber, `**${author || 'User'}**: ${content}`);
-            if (comment) githubCommentId = comment.id;
-            return comment;
-        },
+        (owner, name, issueNumber) => createGitHubComment(c.env, owner, name, issueNumber, `**${author || 'User'}**: ${content}`),
         { requestId, taskId: id, eventType: 'github_comment_create' }
     );
+    const githubCommentId = comment ? comment.id : null;
 
     // Save Local
     const commentId = generateUuid();
