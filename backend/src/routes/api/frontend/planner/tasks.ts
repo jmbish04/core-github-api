@@ -304,15 +304,10 @@ tasksApi.patch('/tasks/:id', async (c) => {
     let nextStatus = status ? (status as TaskStatus) : currentStatus;
     let nextColumn = kanbanColumn ? (kanbanColumn as KanbanColumn) : currentColumn;
 
-    // 1. If Column Changed, does Status need to sync?
     if (kanbanColumn && kanbanColumn !== currentColumn) {
         const syncedStatus = StatusMapper.getSyncStatus(nextStatus, nextColumn);
         if (syncedStatus) nextStatus = syncedStatus;
-    }
-    // 2. If Status Changed, does Column need to sync? (Priority driven by what was passed)
-    // If BOTH passed, Mapper shouldn't override explicit values unless strictly invalid? 
-    // Let's assume explicit input wins, but if only one passed, we sync the other.
-    else if (status && status !== currentStatus) {
+    } else if (status && status !== currentStatus) {
         const syncedColumn = StatusMapper.getSyncColumn(nextColumn, nextStatus);
         if (syncedColumn) nextColumn = syncedColumn;
     }
@@ -324,26 +319,27 @@ tasksApi.patch('/tasks/:id', async (c) => {
     const updatePayload: any = { updatedAt: now };
     const githubUpdates: any = {};
 
+    const syncField = (field: keyof typeof task, value: any, githubField: string | null = null, transform: ((val: any) => any) | null = null) => {
+        if (value !== undefined && value !== task[field]) {
+            updatePayload[field] = value;
+            if (githubField) {
+                githubUpdates[githubField] = transform ? transform(value) : value;
+            }
+        }
+    };
+
     if (nextStatus !== currentStatus) {
         updatePayload.status = nextStatus;
         githubUpdates.state = nextStatus === TaskStatus.DONE ? 'closed' : 'open';
     }
     if (nextColumn !== currentColumn) updatePayload.kanbanColumn = nextColumn;
-    if (startAt !== task.startAt) updatePayload.startAt = startAt;
-    if (endAt !== task.endAt) updatePayload.endAt = endAt;
-    if (position !== undefined && position !== task.position) updatePayload.position = position;
-    if (title !== undefined && title !== task.title) {
-        updatePayload.title = title;
-        githubUpdates.title = title;
-    }
-    if (description !== undefined && description !== task.description) {
-        updatePayload.description = description;
-        githubUpdates.body = description;
-    }
-    if (assignee !== undefined && assignee !== task.assignee) {
-        updatePayload.assignee = assignee;
-        githubUpdates.assignees = assignee ? [assignee] : [];
-    }
+
+    syncField('startAt', startAt);
+    syncField('endAt', endAt);
+    syncField('position', position);
+    syncField('title', title, 'title');
+    syncField('description', description, 'body');
+    syncField('assignee', assignee, 'assignees', val => val ? [val] : []);
 
     // Determines updates for GitHub
     // Sync to GitHub if linked
