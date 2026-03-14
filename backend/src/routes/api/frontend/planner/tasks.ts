@@ -398,15 +398,8 @@ tasksApi.patch('/tasks/:id', async (c) => {
     syncField(nextStatus, 'status', currentStatus, 'state', (val) => val === TaskStatus.DONE ? 'closed' : 'open');
     syncField(nextColumn, 'kanbanColumn', currentColumn);
 
-    // Explicit replication of previous logic
-    if (title !== undefined && title !== task.title) {
-        updatePayload.title = title;
-        if (title) githubUpdates.title = title;
-    }
-    if (description !== undefined && description !== task.description) {
-        updatePayload.description = description;
-        if (description) githubUpdates.body = description;
-    }
+    syncField(title, 'title', task.title, 'title');
+    syncField(description, 'description', task.description, 'body');
     syncField(assignee, 'assignee', task.assignee, 'assignees', (val) => val ? [val] : []);
     syncField(position, 'position', task.position);
 
