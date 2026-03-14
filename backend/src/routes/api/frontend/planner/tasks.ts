@@ -369,35 +369,21 @@ tasksApi.patch('/tasks/:id', async (c) => {
     };
     const githubUpdates: any = {};
 
-    // Shared check for status
     if (nextStatus !== currentStatus) {
         updatePayload.status = nextStatus;
-        if (task.githubIssueId) {
-            githubUpdates.state = nextStatus === TaskStatus.DONE ? 'closed' : 'open';
-        }
+        if (task.githubIssueId) githubUpdates.state = nextStatus === TaskStatus.DONE ? 'closed' : 'open';
     }
+    if (nextColumn !== currentColumn) updatePayload.kanbanColumn = nextColumn;
+    if (position !== undefined && position !== task.position) updatePayload.position = position;
 
-    if (nextColumn !== currentColumn) {
-        updatePayload.kanbanColumn = nextColumn;
-    }
-
-    if (position !== undefined && position !== task.position) {
-        updatePayload.position = position;
-    }
-
-    // Shared check for title
     if (title !== undefined && title !== task.title) {
         updatePayload.title = title;
         if (task.githubIssueId) githubUpdates.title = title;
     }
-
-    // Shared check for description
     if (description !== undefined && description !== task.description) {
         updatePayload.description = description;
         if (task.githubIssueId) githubUpdates.body = description;
     }
-
-    // Shared check for assignee
     if (assignee !== undefined && assignee !== task.assignee) {
         updatePayload.assignee = assignee;
         if (task.githubIssueId) githubUpdates.assignees = assignee ? [assignee] : [];
