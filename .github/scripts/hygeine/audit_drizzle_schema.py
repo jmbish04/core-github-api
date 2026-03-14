@@ -119,7 +119,26 @@ def main():
 
     # Catch AI Slop (Orphaned Tables)
     all_discovered = sorted(list(set(t['table_name'] for t in tables)))
-    mapped_tables = set(db1_sorted + db2_sorted)
+
+    # Also check if any file imports the table (even without env.DB)
+    imported_tables = set()
+    for file_path in files:
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            for t in tables:
+                var_regex = re.compile(r"\b" + re.escape(t['var_name']) + r"\b")
+                # Look for the table being exported vs being imported/used elsewhere
+                if var_regex.search(content) and not re.search(r"export\s+const\s+" + re.escape(t['var_name']) + r"\b", content):
+                    imported_tables.add(t['table_name'])
+        except:
+            pass
+
+    # Track any imported tables
+    for file_path, imported_tables_set in file_interactions.items():
+        imported_tables = imported_tables.union(imported_tables_set)
+
+    mapped_tables = set(db1_sorted + db2_sorted).union(imported_tables)
     unmapped = [t for t in all_discovered if t not in mapped_tables]
     
     if unmapped:
