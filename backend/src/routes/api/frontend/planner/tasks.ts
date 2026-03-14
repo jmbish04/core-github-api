@@ -286,16 +286,12 @@ tasksApi.patch('/tasks/:id', async (c) => {
     const { status, position, title, description, assignee, kanbanColumn } = body as any;
     const { id, db, requestId, now, task } = await getBaseContext(c, true, false);
     
-    // Check if it's a workshop task
     if (!task) {
         return c.json({ success: false, error: 'Task not found' }, 404);
     }
 
     await logTaskEvent(db, requestId, id, task.githubIssueId, 'api_request_update_task', 'pending', body);
 
-    // Determines updates for GitHub
-    // ... (GitHub Sync Logic) ...
-    // Sync to GitHub if linked
     // Determine final Status and KanbanColumn using Mapper
     const currentStatus = task.status as TaskStatus;
     const currentColumn = task.kanbanColumn as KanbanColumn;
