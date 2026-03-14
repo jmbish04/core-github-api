@@ -22,7 +22,7 @@ export const TASK_STATUSES = [
  * Log a Task Audit Event
  */
 async function logTaskEvent(
-    db: any,
+    db: ReturnType<typeof getDb>,
     requestId: string,
     taskId: string | null,
     githubIssueId: number | null,
@@ -57,67 +57,74 @@ async function logTaskEvent(
 /**
  * Core execution block for any GitHub action to ensure consistent error handling and logging.
  */
-async function executeGithubAction(
-    db: any,
-    actionFn: () => Promise<any>,
+async function executeGithubAction<T>(
+    db: ReturnType<typeof getDb>,
+    actionFn: () => Promise<T>,
     logOptions?: {
         requestId: string;
         taskId: string | null;
-        githubIssueId: number | null;
+        githubIssueId?: number | null | ((res: T) => number | null);
         eventType: string;
         details?: any;
     }
-) {
-    let result = null;
-    let error: any = null;
+): Promise<T | null> {
     try {
-        result = await actionFn();
-    } catch (e: any) {
-        error = e;
-    } finally {
+        const result = await actionFn();
         if (logOptions) {
-            const status = result && !error ? 'success' : 'failed';
-            const logDetails = error ? { error: error.message, ...(logOptions.details || {}) } : { ...(logOptions.details || {}) };
+            const issueId = typeof logOptions.githubIssueId === 'function' ? (result ? logOptions.githubIssueId(result) : null) : (logOptions.githubIssueId || null);
+            const logDetails = { ...(logOptions.details || {}) };
 
-            // Merge URL detail for issue creations
-            if (result && result.html_url && !logDetails.html_url) {
-                logDetails.html_url = result.html_url;
+            if (result && (result as any).html_url && !logDetails.html_url) {
+                logDetails.html_url = (result as any).html_url;
             }
 
-            // For issue creations, capture the generated issue number
-            const issueId = (result && result.number) ? result.number : logOptions.githubIssueId;
-
-            await logTaskEvent(db, logOptions.requestId, logOptions.taskId, issueId, logOptions.eventType, status, Object.keys(logDetails).length > 0 ? logDetails : undefined);
+            await logTaskEvent(db, logOptions.requestId, logOptions.taskId, issueId, logOptions.eventType, 'success', Object.keys(logDetails).length > 0 ? logDetails : undefined);
         }
+        return result;
+    } catch (error: any) {
+        if (logOptions) {
+            const issueId = typeof logOptions.githubIssueId === 'function' ? null : (logOptions.githubIssueId || null);
+            const logDetails = { error: error.message, ...(logOptions.details || {}) };
+            await logTaskEvent(db, logOptions.requestId, logOptions.taskId, issueId, logOptions.eventType, 'failed', Object.keys(logDetails).length > 0 ? logDetails : undefined);
+        }
+        return null;
     }
-    return result;
 }
 
 /**
  * Execute a GitHub Action if the task is linked to a repository.
  */
-async function performGithubAction(
-    db: any,
-    repoId: string,
-    githubIssueId: number | null,
-    actionFn: (owner: string, repoName: string, issueNumber: number) => Promise<any>,
+async function performGithubAction<T>(
+    db: ReturnType<typeof getDb>,
+    repo: string | { owner: string; name: string; id: string },
+    githubIssueId: number | null | undefined,
+    actionFn: (owner: string, repoName: string) => Promise<T>,
     logOptions?: {
         requestId: string;
         taskId: string | null;
         eventType: string;
+        githubIssueId?: number | null | ((res: T) => number | null);
         details?: any;
     }
-) {
-    if (!githubIssueId) return null;
+): Promise<T | null> {
+    if (githubIssueId === null) return null;
 
-    const repoRecord = await db.select().from(repos).where(eq(repos.id, repoId)).limit(1);
-    if (!repoRecord.length) return null;
+    let owner: string;
+    let name: string;
 
-    const { owner, name } = repoRecord[0];
+    if (typeof repo === 'string') {
+        const repoRecord = await db.select().from(repos).where(eq(repos.id, repo)).limit(1).then((res: any[]) => res[0] || null);
+        if (!repoRecord) return null;
+        owner = repoRecord.owner;
+        name = repoRecord.name;
+    } else {
+        owner = repo.owner;
+        name = repo.name;
+    }
 
-    return executeGithubAction(db, () => actionFn(owner, name, githubIssueId), logOptions ? {
+    return executeGithubAction<T>(db, () => actionFn(owner, name), logOptions ? {
         ...logOptions,
-        githubIssueId
+        githubIssueId: logOptions.githubIssueId !== undefined ? logOptions.githubIssueId : githubIssueId || ((res: T) => (res as any)?.number || null)
     } : undefined);
 }
 
@@ -266,10 +273,12 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
     }
 
     // 1. Create GitHub Issue
-    const issue = await executeGithubAction(
+    const issue = await performGithubAction(
         db,
-        () => createGitHubIssue(c.env, owner, repo, title, description, assignee ? [assignee] : undefined),
-        { requestId, taskId: null, githubIssueId: null, eventType: 'github_issue_create' }
+        repoRecord,
+        undefined,
+        (owner, name) => createGitHubIssue(c.env, owner, name, title, description, assignee ? [assignee] : undefined),
+        { requestId, taskId: null, eventType: 'github_issue_create' }
     );
 
     if (!issue) {
@@ -368,11 +377,12 @@ tasksApi.patch('/tasks/:id', async (c) => {
 
     // Sync to GitHub if linked and relevant fields changed
     if (task.githubIssueId && Object.keys(githubUpdates).length > 0) {
+        const issueNumber = task.githubIssueId;
         await performGithubAction(
             db,
             task.repoId,
-            task.githubIssueId,
-            (owner, name, issueNumber) => updateGitHubIssue(c.env, owner, name, issueNumber, githubUpdates),
+            issueNumber,
+            (owner, name) => updateGitHubIssue(c.env, owner, name, issueNumber, githubUpdates),
             { requestId, taskId: id, eventType: 'github_issue_update', details: githubUpdates }
         );
     }
@@ -400,14 +410,15 @@ tasksApi.post('/tasks/:id/comments', async (c) => {
     const { db, requestId, now, id, task } = ctx;
 
     // Sync to GitHub
+    const issueNumber = task.githubIssueId!;
     const comment = await performGithubAction(
         db,
         task.repoId,
         task.githubIssueId,
-        (owner, name, issueNumber) => createGitHubComment(c.env, owner, name, issueNumber, `**${author || 'User'}**: ${content}`),
+        (owner, name) => createGitHubComment(c.env, owner, name, issueNumber, `**${author || 'User'}**: ${content}`),
         { requestId, taskId: id, eventType: 'github_comment_create' }
     );
-    const githubCommentId = comment?.id || null;
+    const githubCommentId = (comment as any)?.id || null;
 
     // Save Local
     const commentId = generateUuid();
@@ -431,11 +442,12 @@ tasksApi.delete('/tasks/:id', async (c) => {
     const { db, requestId, now, id, task } = ctx;
 
     if (task.githubIssueId) {
+        const issueNumber = task.githubIssueId;
         await performGithubAction(
             db,
             task.repoId,
-            task.githubIssueId,
-            (owner, name, issueNumber) => updateGitHubIssue(c.env, owner, name, issueNumber, { state: 'closed' }),
+            issueNumber,
+            (owner, name) => updateGitHubIssue(c.env, owner, name, issueNumber, { state: 'closed' }),
             { requestId, taskId: id, eventType: 'github_issue_close' }
         );
     }
