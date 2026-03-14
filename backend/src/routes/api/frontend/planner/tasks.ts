@@ -334,18 +334,22 @@ tasksApi.patch('/tasks/:id', async (c) => {
     if (nextColumn !== currentColumn) updatePayload.kanbanColumn = nextColumn;
     if (position !== undefined && position !== task.position) updatePayload.position = position;
 
-    if (title !== undefined && title !== task.title) {
-        updatePayload.title = title;
-        githubUpdates.title = title;
-    }
-    if (description !== undefined && description !== task.description) {
-        updatePayload.description = description;
-        githubUpdates.body = description;
-    }
-    if (assignee !== undefined && assignee !== task.assignee) {
-        updatePayload.assignee = assignee;
-        githubUpdates.assignees = assignee ? [assignee] : [];
-    }
+    const processUpdate = <K extends keyof typeof updatePayload, G extends keyof typeof githubUpdates>(
+        fieldValue: any,
+        currentValue: any,
+        updateKey: K,
+        ghKey: G,
+        ghValue: any
+    ) => {
+        if (fieldValue !== undefined && fieldValue !== currentValue) {
+            updatePayload[updateKey] = fieldValue;
+            githubUpdates[ghKey] = ghValue;
+        }
+    };
+
+    processUpdate(title, task.title, 'title', 'title', title);
+    processUpdate(description, task.description, 'description', 'body', description);
+    processUpdate(assignee, task.assignee, 'assignee', 'assignees', assignee ? [assignee] : []);
 
     if (startAt !== task.startAt) updatePayload.startAt = startAt;
     if (endAt !== task.endAt) updatePayload.endAt = endAt;
