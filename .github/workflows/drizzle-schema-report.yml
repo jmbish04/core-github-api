@@ -5,7 +5,7 @@ on:
     paths:
       - '**/*.ts'
       - '**/*.tsx'
-  workflow_dispatch: # Allows manual triggering from the Actions tab
+  workflow_dispatch:
 
 jobs:
   analyze-schema:
@@ -22,23 +22,20 @@ jobs:
           python-version: '3.12'
           
       - name: Ensure Script is Executable
-        run: chmod +x scripts/analyze_drizzle_schema.py
+        run: chmod +x .github/scripts/hygeine/audit_drizzle_schema.py
           
       - name: Run Schema Analysis
-        run: python scripts/analyze_drizzle_schema.py --output drizzle-schema-report.md
+        # The python script natively handles the timestamp and directory creation
+        run: python .github/scripts/hygeine/audit_drizzle_schema.py
         
       - name: Upload Report Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: drizzle-schema-report
-          path: drizzle-schema-report.md
+          name: drizzle-hygiene-reports
+          # Target the dynamically generated timestamped file
+          path: scripts/reports/hygeine/drizzle-schema-report-*.md
           retention-days: 14
 
-      # Optional: Fail the PR if unmapped/orphaned tables (AI slop) are detected. 
-      # Remove or comment out if you just want the report without blocking the PR.
       - name: Check for AI Slop
         run: |
-          if grep -q "### Unmapped / Orphaned Schema Tables" drizzle-schema-report.md; then
-            echo "::error::Orphaned Drizzle tables detected! Please review the schema for AI slop."
-            exit 1
-          fi
+          if grep -q "### Unmapped / Orphaned Schema Tables" scripts/reports/hygeine/drizzle-schema-report-*.md; then echo "::error::Orphaned Drizzle tables detected! Please review the schema for AI slop."; sh -c "exit 1"; fi
