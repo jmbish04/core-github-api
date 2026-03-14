@@ -207,6 +207,17 @@ function mapWorkshopTasks(workshopRows: any[]) {
 
 const tasksApi = new Hono<{ Bindings: Bindings }>();
 
+// Helper to format tasks response
+function getTasksResponse(c: Context, tasksList: any[]) {
+    return c.json({
+        success: true,
+        tasks: tasksList,
+        meta: {
+            columns: TASK_STATUSES
+        }
+    });
+}
+
 // GET /api/repos/:owner/:repo/tasks
 tasksApi.get('/repos/:owner/:repo/tasks', async (c) => {
     const { owner, repo } = c.req.param();
@@ -220,13 +231,7 @@ tasksApi.get('/repos/:owner/:repo/tasks', async (c) => {
     }
 
     const rows = await db.select().from(tasks).where(and(eq(tasks.repoId, repoRecord.id), eq(tasks.isDeleted, 0)));
-    return c.json({
-        success: true,
-        tasks: rows,
-        meta: {
-            columns: TASK_STATUSES
-        }
-    });
+    return getTasksResponse(c, rows);
 });
 
 // GET /api/tasks (Global list)
@@ -244,13 +249,7 @@ tasksApi.get('/', async (c) => {
         .sort((a: any, b: any) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
         .slice(0, 100);
 
-    return c.json({
-        success: true,
-        tasks: combined,
-        meta: {
-            columns: TASK_STATUSES
-        }
-    });
+    return getTasksResponse(c, combined);
 });
 
 // POST /api/repos/:owner/:repo/tasks (Create Task & Issue)
