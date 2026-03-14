@@ -79,11 +79,7 @@ async function performGithubAction(
     try {
         const result = await actionFn(owner, name, githubIssueId);
         if (logOptions) {
-            if (result) {
-                await logTaskEvent(db, logOptions.requestId, logOptions.taskId, githubIssueId, logOptions.eventType, 'success', logOptions.details);
-            } else {
-                await logTaskEvent(db, logOptions.requestId, logOptions.taskId, githubIssueId, logOptions.eventType, 'failed', logOptions.details);
-            }
+            await logTaskEvent(db, logOptions.requestId, logOptions.taskId, githubIssueId, logOptions.eventType, result ? 'success' : 'failed', logOptions.details);
         }
         return result;
     } catch (e: any) {
@@ -94,6 +90,14 @@ async function performGithubAction(
     }
 }
 
+async function getRepoByOwnerAndName(db: any, owner: string, name: string) {
+    return await db.select().from(repos).where(and(eq(repos.owner, owner), eq(repos.name, name))).limit(1);
+}
+
+async function getTaskById(db: any, id: string) {
+    return await db.select().from(tasks).where(eq(tasks.id, id)).limit(1);
+}
+
 const tasksApi = new Hono<{ Bindings: Env }>();
 
 // GET /api/repos/:owner/:repo/tasks
@@ -102,7 +106,7 @@ tasksApi.get('/repos/:owner/:repo/tasks', async (c) => {
     const db = getDb(c.env.DB);
 
     // Resolve repo ID
-    const repoRecord = await db.select().from(repos).where(and(eq(repos.owner, owner), eq(repos.name, repo))).limit(1);
+    const repoRecord = await getRepoByOwnerAndName(db, owner, repo);
 
     if (!repoRecord.length) {
         return c.json({ success: false, error: 'Repo not found' }, 404);
@@ -180,7 +184,7 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
     // Log API Request
     await logTaskEvent(db, requestId, null, null, 'api_request_create_task', 'pending', { owner, repo, body });
 
-    const repoRecord = await db.select().from(repos).where(and(eq(repos.owner, owner), eq(repos.name, repo))).limit(1);
+    const repoRecord = await getRepoByOwnerAndName(db, owner, repo);
     if (!repoRecord.length) {
         await logTaskEvent(db, requestId, null, null, 'api_request_create_task', 'failed', { error: 'Repo not found' });
         return c.json({ success: false, error: 'Repo not found' }, 404);
@@ -242,7 +246,7 @@ tasksApi.patch('/tasks/:id', async (c) => {
     const requestId = crypto.randomUUID();
 
     // Get current task
-    const currentTask = await db.select().from(tasks).where(eq(tasks.id, id)).limit(1);
+    const currentTask = await getTaskById(db, id);
     
     // Check if it's a workshop task
     if (!currentTask.length) {
@@ -338,7 +342,7 @@ tasksApi.post('/tasks/:id/comments', async (c) => {
     const db = getDb(c.env.DB);
     const requestId = crypto.randomUUID();
 
-    const currentTask = await db.select().from(tasks).where(eq(tasks.id, id)).limit(1);
+    const currentTask = await getTaskById(db, id);
     if (!currentTask.length) return c.json({ success: false, error: 'Task not found' }, 404);
     const task = currentTask[0];
 
@@ -377,7 +381,7 @@ tasksApi.delete('/tasks/:id', async (c) => {
     const db = getDb(c.env.DB);
     const requestId = crypto.randomUUID();
 
-    const currentTask = await db.select().from(tasks).where(eq(tasks.id, id)).limit(1);
+    const currentTask = await getTaskById(db, id);
     if (currentTask.length && currentTask[0].githubIssueId) {
         await performGithubAction(
             db,
