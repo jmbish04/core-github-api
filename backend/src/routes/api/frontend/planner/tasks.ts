@@ -1,5 +1,5 @@
 // src/routes/api/tasks.ts
-import { Hono } from 'hono';
+import { Hono, Context } from 'hono';
 import { Bindings } from '@utils/hono';
 import { getDb } from '@db';
 import { tasks, taskEvents, taskComments } from '@db/schemas/projects/tasks';
@@ -97,7 +97,7 @@ async function getTaskById(db: any, id: string) {
     return await db.select().from(tasks).where(eq(tasks.id, id)).limit(1);
 }
 
-function getBaseContext(c: any) {
+function getBaseContext(c: Context<{ Bindings: Bindings }>) {
     return {
         db: getDb(c.env.DB),
         requestId: generateUuid(),
@@ -122,13 +122,13 @@ function calculateTaskTimestamps(status: TaskStatus, column: KanbanColumn, now: 
     return { startAt, endAt };
 }
 
-async function getTaskContext(c: any, id: string) {
+async function getTaskContext(c: Context<{ Bindings: Bindings }>, id: string) {
     const { db, requestId, now } = getBaseContext(c);
     const currentTask = await getTaskById(db, id);
     return { db, requestId, now, task: currentTask.length ? currentTask[0] : null };
 }
 
-async function getRepoContext(c: any, owner: string, repo: string) {
+async function getRepoContext(c: Context<{ Bindings: Bindings }>, owner: string, repo: string) {
     const { db, requestId, now } = getBaseContext(c);
     const repoRecord = await getRepoByOwnerAndName(db, owner, repo);
     return { db, requestId, now, repoRecord: repoRecord.length ? repoRecord[0] : null };
@@ -171,11 +171,9 @@ tasksApi.get('/', async (c) => {
     // Also fetch workshop tasks for global view
     const workshopRows = await db.select().from(tasks).where(eq(tasks.taskType, 'workshop_project')).limit(100);
     const mappedWorkshop = workshopRows.flatMap(w => {
-        const context = (w.taskContext || {}) as any;
-        if (!context.phases || !Array.isArray(context.phases)) return [];
-        return context.phases.flatMap((p: any) => {
-            if (!p.tasks || !Array.isArray(p.tasks)) return [];
-            return p.tasks.map((t: any) => {
+        const phases = ((w.taskContext || {}) as any).phases;
+        return Array.isArray(phases) ? phases.flatMap((p: any) =>
+            Array.isArray(p.tasks) ? p.tasks.map((t: any) => {
                 const mappedStatus = t.status === 'not_started' ? TaskStatus.TODO : (t.status === 'in_progress' ? TaskStatus.IN_PROGRESS : TaskStatus.DONE);
                 return {
                     id: `${w.id}-${p.phase_number}-${t.task_number}`,
@@ -193,8 +191,8 @@ tasksApi.get('/', async (c) => {
                     endAt: null,
                     isDeleted: 0
                 };
-            });
-        });
+            }) : []
+        ) : [];
     });
 
     // Combine and sort
@@ -316,17 +314,17 @@ tasksApi.patch('/tasks/:id', async (c) => {
     if (nextColumn !== currentColumn) updatePayload.kanbanColumn = nextColumn;
     if (startAt !== task.startAt) updatePayload.startAt = startAt;
     if (endAt !== task.endAt) updatePayload.endAt = endAt;
-    if (position !== undefined) updatePayload.position = position;
+    if (position !== undefined && position !== task.position) updatePayload.position = position;
 
-    if (title !== undefined) {
+    if (title !== undefined && title !== task.title) {
         updatePayload.title = title;
         ghUpdates.title = title;
     }
-    if (description !== undefined) {
+    if (description !== undefined && description !== task.description) {
         updatePayload.description = description;
         ghUpdates.body = description;
     }
-    if (assignee !== undefined) {
+    if (assignee !== undefined && assignee !== task.assignee) {
         updatePayload.assignee = assignee;
         ghUpdates.assignees = assignee ? [assignee] : [];
     }
