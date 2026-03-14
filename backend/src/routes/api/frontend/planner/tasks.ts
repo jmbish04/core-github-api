@@ -22,7 +22,7 @@ export const TASK_STATUSES = [
  * Log a Task Audit Event
  */
 async function logTaskEvent(
-    db: any,
+    db: ReturnType<typeof getDb>,
     requestId: string,
     taskId: string | null,
     githubIssueId: number | null,
@@ -58,8 +58,12 @@ async function logTaskEvent(
 /**
  * Execute a GitHub Action if the task is linked to a repository.
  */
+async function getRepoById(db: ReturnType<typeof getDb>, id: string) {
+    return await db.select().from(repos).where(eq(repos.id, id)).limit(1);
+}
+
 async function performGithubAction(
-    db: any,
+    db: ReturnType<typeof getDb>,
     task: any,
     actionFn: (owner: string, repoName: string, issueNumber: number) => Promise<any>,
     logOptions?: {
@@ -70,7 +74,7 @@ async function performGithubAction(
 ) {
     if (!task.githubIssueId) return null;
 
-    const repoRecord = await db.select().from(repos).where(eq(repos.id, task.repoId)).limit(1);
+    const repoRecord = await getRepoById(db, task.repoId);
     if (!repoRecord.length) return null;
 
     const { owner, name } = repoRecord[0];
@@ -89,11 +93,11 @@ async function performGithubAction(
     }
 }
 
-async function getRepoByOwnerAndName(db: any, owner: string, name: string) {
+async function getRepoByOwnerAndName(db: ReturnType<typeof getDb>, owner: string, name: string) {
     return await db.select().from(repos).where(and(eq(repos.owner, owner), eq(repos.name, name))).limit(1);
 }
 
-async function getTaskById(db: any, id: string) {
+async function getTaskById(db: ReturnType<typeof getDb>, id: string) {
     return await db.select().from(tasks).where(eq(tasks.id, id)).limit(1);
 }
 
@@ -134,7 +138,7 @@ async function getRepoContext(c: Context<{ Bindings: Bindings }>, owner: string,
     return { db, requestId, now, repoRecord: repoRecord.length ? repoRecord[0] : null };
 }
 
-async function updateLocalTask(db: any, task: any, payload: any, requestId: string, eventType: string) {
+async function updateLocalTask(db: ReturnType<typeof getDb>, task: any, payload: any, requestId: string, eventType: string) {
     await db.update(tasks)
         .set(payload)
         .where(eq(tasks.id, task.id));
@@ -307,27 +311,28 @@ tasksApi.patch('/tasks/:id', async (c) => {
     const updatePayload: any = { updatedAt: now };
     const ghUpdates: any = {};
 
+    const syncField = <K extends keyof typeof updatePayload, G extends keyof typeof ghUpdates>(
+        incoming: any, current: any, dbField: K, ghField?: G, ghValueMapper?: (val: any) => any
+    ) => {
+        if (incoming !== undefined && incoming !== current) {
+            updatePayload[dbField] = incoming;
+            if (ghField) {
+                ghUpdates[ghField] = ghValueMapper ? ghValueMapper(incoming) : incoming;
+            }
+        }
+    };
+
     if (nextStatus !== currentStatus) {
         updatePayload.status = nextStatus;
         ghUpdates.state = nextStatus === TaskStatus.DONE ? 'closed' : 'open';
     }
     if (nextColumn !== currentColumn) updatePayload.kanbanColumn = nextColumn;
-    if (startAt !== task.startAt) updatePayload.startAt = startAt;
-    if (endAt !== task.endAt) updatePayload.endAt = endAt;
-    if (position !== undefined && position !== task.position) updatePayload.position = position;
-
-    if (title !== undefined && title !== task.title) {
-        updatePayload.title = title;
-        ghUpdates.title = title;
-    }
-    if (description !== undefined && description !== task.description) {
-        updatePayload.description = description;
-        ghUpdates.body = description;
-    }
-    if (assignee !== undefined && assignee !== task.assignee) {
-        updatePayload.assignee = assignee;
-        ghUpdates.assignees = assignee ? [assignee] : [];
-    }
+    syncField(startAt, task.startAt, 'startAt');
+    syncField(endAt, task.endAt, 'endAt');
+    syncField(position, task.position, 'position');
+    syncField(title, task.title, 'title', 'title');
+    syncField(description, task.description, 'description', 'body');
+    syncField(assignee, task.assignee, 'assignee', 'assignees', (val) => val ? [val] : []);
 
     // Sync to GitHub if linked
     if (task.githubIssueId && Object.keys(ghUpdates).length > 0) {
