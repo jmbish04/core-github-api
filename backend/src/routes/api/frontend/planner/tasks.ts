@@ -173,12 +173,12 @@ function calculateTaskTimestamps(status: TaskStatus, column: KanbanColumn, curre
 function mapWorkshopTasks(workshopRows: any[]) {
     return workshopRows.flatMap(w => {
         const context = (w.taskContext || {}) as any;
-        if (!context.phases || !Array.isArray(context.phases)) return [];
+        const phases = Array.isArray(context?.phases) ? context.phases : [];
 
-        return context.phases.flatMap((p: any) => {
-            if (!p.tasks || !Array.isArray(p.tasks)) return [];
+        return phases.flatMap((p: any) => {
+            const tasksList = Array.isArray(p?.tasks) ? p.tasks : [];
 
-            return p.tasks.map((t: any) => {
+            return tasksList.map((t: any) => {
                 const isNotStarted = t.status === 'not_started';
                 const isInProgress = t.status === 'in_progress';
                 return {
@@ -356,20 +356,23 @@ tasksApi.patch('/tasks/:id', async (c) => {
     if (nextColumn !== currentColumn) updatePayload.kanbanColumn = nextColumn;
     if (position !== undefined) updatePayload.position = position;
 
-    const processUpdate = <K extends string, G>(
-        key: K, ghKey: string,
-        value: any, currentValue: any,
-        transformGh?: (v: any) => G
+    const syncField = (
+        dbField: string, ghField: string,
+        newValue: any, currentValue: any,
+        requireTruthForGithub = false,
+        ghValueFn?: (v: any) => any
     ) => {
-        if (value !== undefined && value !== currentValue) {
-            updatePayload[key] = value;
-            githubUpdates[ghKey] = transformGh ? transformGh(value) : value;
+        if (newValue !== undefined && newValue !== currentValue) {
+            updatePayload[dbField] = newValue;
+            if (!requireTruthForGithub || newValue) {
+                githubUpdates[ghField] = ghValueFn ? ghValueFn(newValue) : newValue;
+            }
         }
     };
 
-    processUpdate('title', 'title', title, task.title);
-    processUpdate('description', 'body', description, task.description);
-    processUpdate('assignee', 'assignees', assignee, task.assignee, (v) => v ? [v] : []);
+    syncField('title', 'title', title, task.title);
+    syncField('description', 'body', description, task.description);
+    syncField('assignee', 'assignees', assignee, task.assignee, false, (v) => v ? [v] : []);
 
     // Sync to GitHub if linked and relevant fields changed
     if (task.githubIssueId && Object.keys(githubUpdates).length > 0) {
@@ -377,7 +380,7 @@ tasksApi.patch('/tasks/:id', async (c) => {
             ctx.db,
             task.repoId,
             (owner, name) => updateGitHubIssue(c.env, owner, name, task.githubIssueId!, githubUpdates),
-            { requestId: ctx.requestId, taskId: ctx.id, eventType: 'github_issue_update', issueNumber: task.githubIssueId, details: githubUpdates }
+            { requestId: ctx.requestId, taskId: ctx.id, eventType: 'github_issue_update', issueNumber: task.githubIssueId || undefined, details: githubUpdates }
         );
     }
 
@@ -411,7 +414,7 @@ tasksApi.post('/tasks/:id/comments', async (c) => {
             ctx.db,
             task.repoId,
             (owner, name) => createGitHubComment(c.env, owner, name, task.githubIssueId!, `**${author || 'User'}**: ${content}`),
-            { requestId: ctx.requestId, taskId: ctx.id, eventType: 'github_comment_create', issueNumber: task.githubIssueId }
+            { requestId: ctx.requestId, taskId: ctx.id, eventType: 'github_comment_create', issueNumber: task.githubIssueId || undefined }
         );
         githubCommentId = comment?.id || null;
     }
@@ -443,7 +446,7 @@ tasksApi.delete('/tasks/:id', async (c) => {
             ctx.db,
             task.repoId,
             (owner, name) => updateGitHubIssue(c.env, owner, name, task.githubIssueId!, { state: 'closed' }),
-            { requestId: ctx.requestId, taskId: ctx.id, eventType: 'github_issue_close', issueNumber: task.githubIssueId }
+            { requestId: ctx.requestId, taskId: ctx.id, eventType: 'github_issue_close', issueNumber: task.githubIssueId || undefined }
         );
     }
 
