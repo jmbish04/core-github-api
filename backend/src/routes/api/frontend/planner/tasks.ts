@@ -12,18 +12,15 @@ import { StatusMapper } from '@services/statusMapper';
 import { generateUuid } from "@/utils/common";
 
 async function getTaskById(db: ReturnType<typeof getDb>, id: string) {
-    const records = await db.select().from(tasks).where(eq(tasks.id, id)).limit(1);
-    return records.length ? records[0] : null;
+    return await db.select().from(tasks).where(eq(tasks.id, id)).limit(1).then(res => res[0] || null);
 }
 
 async function getRepoByOwnerAndName(db: ReturnType<typeof getDb>, owner: string, name: string) {
-    const records = await db.select().from(repos).where(and(eq(repos.owner, owner), eq(repos.name, name))).limit(1);
-    return records.length ? records[0] : null;
+    return await db.select().from(repos).where(and(eq(repos.owner, owner), eq(repos.name, name))).limit(1).then(res => res[0] || null);
 }
 
 async function getRepoById(db: ReturnType<typeof getDb>, id: string) {
-    const records = await db.select().from(repos).where(eq(repos.id, id)).limit(1);
-    return records.length ? records[0] : null;
+    return await db.select().from(repos).where(eq(repos.id, id)).limit(1).then(res => res[0] || null);
 }
 
 async function getGitHubContext(db: ReturnType<typeof getDb>, repoId: string, githubIssueId: number | null) {
