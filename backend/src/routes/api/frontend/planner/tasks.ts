@@ -1,5 +1,5 @@
 // src/routes/api/tasks.ts
-import { Hono } from 'hono';
+import { Hono, Context } from 'hono';
 import { Bindings } from '@utils/hono';
 import { getDb } from '@db';
 import { tasks, taskEvents, taskComments } from '@db/schemas/projects/tasks';
@@ -71,10 +71,10 @@ async function performGithubAction(
 ) {
     if (!githubIssueId) return null;
 
-    const repoRecord = await db.select().from(repos).where(eq(repos.id, repoId)).limit(1);
-    if (!repoRecord.length) return null;
+    const repoRecord = await getRepoById(db, repoId);
+    if (!repoRecord) return null;
 
-    const { owner, name } = repoRecord[0];
+    const { owner, name } = repoRecord;
 
     let result = null;
     let error: any = null;
@@ -90,6 +90,10 @@ async function performGithubAction(
         }
     }
     return result;
+}
+
+async function getRepoById(db: ReturnType<typeof getDb>, id: string) {
+    return db.select().from(repos).where(eq(repos.id, id)).limit(1).then(res => res[0] || null);
 }
 
 async function getRepoByOwnerAndName(db: ReturnType<typeof getDb>, owner: string, repo: string) {
@@ -134,7 +138,7 @@ function mapWorkshopTasks(workshopRows: any[]) {
     });
 }
 
-function getBaseContext(c: any) {
+function getBaseContext(c: Context<{ Bindings: Bindings }>) {
     return {
         db: getDb(c.env.DB),
         requestId: generateUuid(),
@@ -229,7 +233,9 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
     // 1. Create GitHub Issue
     const issue = await createGitHubIssue(c.env, owner, repo, title, description, assignee ? [assignee] : undefined);
 
-    await logTaskEvent(db, requestId, null, issue?.number || null, 'github_issue_create', issue ? 'success' : 'failed', issue ? { html_url: issue.html_url } : undefined);
+    const issueStatus = issue ? 'success' : 'failed';
+    const issueDetails = issue ? { html_url: issue.html_url } : undefined;
+    await logTaskEvent(db, requestId, null, issue?.number || null, 'github_issue_create', issueStatus, issueDetails);
 
     if (!issue) {
         return c.json({ success: false, error: 'Failed to create GitHub issue' }, 500);
@@ -264,7 +270,9 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
     } catch (e: any) {
         dbError = e;
     } finally {
-        await logTaskEvent(db, requestId, newId, issue.number, 'db_task_create', dbError ? 'failed' : 'success', dbError ? { error: dbError.message } : undefined);
+        const dbStatus = dbError ? 'failed' : 'success';
+        const dbDetails = dbError ? { error: dbError.message } : undefined;
+        await logTaskEvent(db, requestId, newId, issue.number, 'db_task_create', dbStatus, dbDetails);
     }
 
     if (dbError) {
