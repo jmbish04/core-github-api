@@ -77,26 +77,32 @@ async function logTaskEvent(
     }
 }
 
-
 async function executeGithubAction<T>(
     db: ReturnType<typeof getDb>,
     requestId: string,
-    task: any,
     actionName: string,
-    actionFn: (context: { owner: string, name: string, issueNumber: number }) => Promise<T>,
-    updates?: Record<string, any>
+    actionFn: (context?: { owner: string, name: string, issueNumber: number }) => Promise<T>,
+    logOptions?: { task?: any, updates?: Record<string, any>, logContextTransform?: (result: T) => any }
 ): Promise<T | null> {
-    const ghContext = await getGitHubContext(db, task);
-    if (!ghContext) return null;
+    const task = logOptions?.task;
+    const ghContext = task ? await getGitHubContext(db, task) : null;
 
-    const { issueNumber } = ghContext;
+    // If a task is provided but we can't resolve its context, fail early
+    if (task && !ghContext) return null;
 
     try {
-        const result = await actionFn(ghContext);
-        await logTaskEvent(db, requestId, task.id, issueNumber, actionName, result ? 'success' : 'failed', updates);
+        const result = await actionFn(ghContext || undefined);
+
+        // Handle issue creation where issueNumber is returned in result
+        const issueNumber = ghContext?.issueNumber || (result as any)?.number || null;
+        const additionalLogs = logOptions?.logContextTransform && result ? logOptions.logContextTransform(result) : undefined;
+        const finalLogs = additionalLogs || logOptions?.updates ? { ...logOptions?.updates, ...additionalLogs } : undefined;
+
+        await logTaskEvent(db, requestId, task?.id || null, issueNumber, actionName, result ? 'success' : 'failed', finalLogs);
         return result;
     } catch (e: any) {
-        await logTaskEvent(db, requestId, task.id, issueNumber, actionName, 'failed', { error: e.message, ...updates });
+        const issueNumber = ghContext?.issueNumber || null;
+        await logTaskEvent(db, requestId, task?.id || null, issueNumber, actionName, 'failed', { error: e.message, ...logOptions?.updates });
         return null;
     }
 }
@@ -174,12 +180,8 @@ tasksApi.get('/', async (c) => {
 
     const mappedWorkshop = workshopRows.flatMap(w => {
         const phases = ((w.taskContext || {}) as any).phases;
-        if (!phases || !Array.isArray(phases)) return [];
-
-        return phases.flatMap((p: any) => {
-            if (!p.tasks || !Array.isArray(p.tasks)) return [];
-
-            return p.tasks.map((t: any) => {
+        return (Array.isArray(phases) ? phases : []).flatMap((p: any) => {
+            return (Array.isArray(p.tasks) ? p.tasks : []).map((t: any) => {
                 const mappedStatus = t.status === 'not_started' ? TaskStatus.TODO :
                                      t.status === 'in_progress' ? TaskStatus.IN_PROGRESS : TaskStatus.DONE;
 
@@ -234,13 +236,14 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
     }
 
     // 1. Create GitHub Issue
-    const issue = await createGitHubIssue(c.env, owner, repo, title, description, assignee ? [assignee] : undefined);
+    const issue = await executeGithubAction(db, requestId, 'github_issue_create',
+        () => createGitHubIssue(c.env, owner, repo, title, description, assignee ? [assignee] : undefined),
+        { logContextTransform: (res) => ({ html_url: (res as any)?.html_url }) }
+    );
 
     if (!issue) {
-        await logTaskEvent(db, requestId, null, null, 'github_issue_create', 'failed');
         return c.json({ success: false, error: 'Failed to create GitHub issue' }, 500);
     }
-    await logTaskEvent(db, requestId, null, issue.number, 'github_issue_create', 'success', { html_url: issue.html_url });
 
     // 2. Create Local Task
     const newId = generateUuid();
@@ -266,11 +269,12 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
             updatedAt: now,
             startAt: startAt
         });
-        await logTaskEvent(db, requestId, newId, issue.number, 'db_task_create', 'success');
     } catch (e: any) {
         await logTaskEvent(db, requestId, newId, issue.number, 'db_task_create', 'failed', { error: e.message });
         return c.json({ success: false, error: 'Failed to save local task' }, 500);
     }
+
+    await logTaskEvent(db, requestId, newId, issue.number, 'db_task_create', 'success');
 
     return c.json({ success: true, id: newId });
 });
@@ -305,10 +309,16 @@ tasksApi.patch('/tasks/:id', async (c) => {
     }
 
     // Prepare Update Payloads (Local & GitHub)
-    const updatePayload: any = { updatedAt: now };
-    const ghUpdates: any = {};
+    const updatePayload: Partial<typeof task> = { updatedAt: now };
+    const ghUpdates: Record<string, any> = {};
 
-    const processUpdate = (field: string, newValue: any, currentValue: any, ghField?: string, ghTransform?: (v: any) => any) => {
+    const processUpdate = <K extends keyof typeof task, G extends string>(
+        field: K,
+        newValue: any,
+        currentValue: any,
+        ghField?: G,
+        ghTransform?: (v: any) => any
+    ) => {
         if (newValue !== undefined && newValue !== currentValue) {
             updatePayload[field] = newValue;
             if (ghField) {
@@ -334,9 +344,9 @@ tasksApi.patch('/tasks/:id', async (c) => {
 
     // Sync to GitHub if linked and updates exist
     if (Object.keys(ghUpdates).length > 0) {
-        await executeGithubAction(db, requestId, task, 'github_issue_update',
-            ({ owner, name, issueNumber }) => updateGitHubIssue(c.env, owner, name, issueNumber, ghUpdates),
-            ghUpdates
+        await executeGithubAction(db, requestId, 'github_issue_update',
+            (ctx) => updateGitHubIssue(c.env, ctx!.owner, ctx!.name, ctx!.issueNumber, ghUpdates),
+            { task, updates: ghUpdates }
         );
     }
 
@@ -360,8 +370,9 @@ tasksApi.post('/tasks/:id/comments', async (c) => {
 
     // Sync to GitHub
     let githubCommentId: number | null = null;
-    const comment = await executeGithubAction(db, requestId, task, 'github_comment_create',
-        ({ owner, name, issueNumber }) => createGitHubComment(c.env, owner, name, issueNumber, `**${author || 'User'}**: ${content}`)
+    const comment = await executeGithubAction(db, requestId, 'github_comment_create',
+        (ctx) => createGitHubComment(c.env, ctx!.owner, ctx!.name, ctx!.issueNumber, `**${author || 'User'}**: ${content}`),
+        { task }
     );
     if (comment) {
         githubCommentId = comment.id;
@@ -388,8 +399,9 @@ tasksApi.delete('/tasks/:id', async (c) => {
     if ('error' in ctx) return c.json({ success: false, error: ctx.error }, ctx.status);
     const { id, task, db, requestId, now } = ctx;
 
-    await executeGithubAction(db, requestId, task, 'github_issue_close',
-        ({ owner, name, issueNumber }) => updateGitHubIssue(c.env, owner, name, issueNumber, { state: 'closed' })
+    await executeGithubAction(db, requestId, 'github_issue_close',
+        (ctx) => updateGitHubIssue(c.env, ctx!.owner, ctx!.name, ctx!.issueNumber, { state: 'closed' }),
+        { task }
     );
 
     await db.update(tasks)
