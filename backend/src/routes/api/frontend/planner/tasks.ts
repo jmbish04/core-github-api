@@ -230,15 +230,12 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
     let issue;
     try {
         issue = await createGitHubIssue(c.env, owner, repo, title, description, assignee ? [assignee] : undefined);
-        if (!issue) {
-            throw new Error('Failed to create GitHub issue');
-        }
+        if (!issue) throw new Error('Failed to create GitHub issue');
+        await logTaskEvent(db, requestId, null, issue.number, 'github_issue_create', 'success', { html_url: issue.html_url });
     } catch (e: any) {
         await logTaskEvent(db, requestId, null, null, 'github_issue_create', 'failed', { error: e.message });
         return c.json({ success: false, error: 'Failed to create GitHub issue' }, 500);
     }
-
-    await logTaskEvent(db, requestId, null, issue.number, 'github_issue_create', 'success', { html_url: issue.html_url });
 
     // 2. Create Local Task
     const newId = generateUuid();
@@ -265,12 +262,11 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
             updatedAt: now,
             startAt
         });
+        await logTaskEvent(db, requestId, newId, issue.number, 'db_task_create', 'success');
     } catch (e: any) {
         await logTaskEvent(db, requestId, newId, issue.number, 'db_task_create', 'failed', { error: e.message });
         return c.json({ success: false, error: 'Failed to save local task' }, 500);
     }
-
-    await logTaskEvent(db, requestId, newId, issue.number, 'db_task_create', 'success');
 
     return c.json({ success: true, id: newId });
 });
@@ -299,17 +295,11 @@ tasksApi.patch('/tasks/:id', async (c) => {
     let nextStatus = status ? (status as TaskStatus) : currentStatus;
     let nextColumn = kanbanColumn ? (kanbanColumn as KanbanColumn) : currentColumn;
 
-    // 1. If Column Changed, does Status need to sync?
+    // Sync Column/Status state
     if (kanbanColumn && kanbanColumn !== currentColumn) {
-        const syncedStatus = StatusMapper.getSyncStatus(nextStatus, nextColumn);
-        if (syncedStatus) nextStatus = syncedStatus;
-    }
-    // 2. If Status Changed, does Column need to sync? (Priority driven by what was passed)
-    // If BOTH passed, Mapper shouldn't override explicit values unless strictly invalid? 
-    // Let's assume explicit input wins, but if only one passed, we sync the other.
-    else if (status && status !== currentStatus) {
-        const syncedColumn = StatusMapper.getSyncColumn(nextColumn, nextStatus);
-        if (syncedColumn) nextColumn = syncedColumn;
+        nextStatus = StatusMapper.getSyncStatus(nextStatus, nextColumn) || nextStatus;
+    } else if (status && status !== currentStatus) {
+        nextColumn = StatusMapper.getSyncColumn(nextColumn, nextStatus) || nextColumn;
     }
 
     // Prepare DB Update Payload and GitHub Updates
@@ -334,7 +324,7 @@ tasksApi.patch('/tasks/:id', async (c) => {
     syncField('description', description, task.description, 'body', (v) => v);
     syncField('assignee', assignee, task.assignee, 'assignees', (v) => v ? [v] : []);
 
-    // Sync to GitHub if linked and relevant fields changed
+    // Sync to GitHub if relevant fields changed
     if (task.githubIssueId && Object.keys(githubUpdates).length > 0) {
         await performGithubAction(
             db,
