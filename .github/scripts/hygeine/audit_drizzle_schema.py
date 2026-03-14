@@ -66,6 +66,10 @@ def main():
     db2_map = defaultdict(set) # For env.DB_WEBHOOKS
     
     # 2. Scan files for table imports and D1 database interactions
+    # Catch AI Slop (Orphaned Tables)
+    all_discovered = sorted(list(set(t['table_name'] for t in tables)))
+    all_imported_tables = set()
+
     for file_path in files:
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
@@ -83,6 +87,7 @@ def main():
                 # Regex boundary check for the specific Drizzle table variable
                 var_regex = re.compile(r"\b" + re.escape(t['var_name']) + r"\b")
                 
+                # Check for usage/import
                 if var_regex.search(content):
                     imported_tables.add(t['table_name'])
                     
@@ -91,6 +96,10 @@ def main():
                     if uses_db2:
                         db2_map[t['table_name']].add(rel_path)
                         
+                    # Also check if the table is used/imported vs being exported here
+                    if not re.search(r"export\s+const\s+" + re.escape(t['var_name']) + r"\b", content):
+                        all_imported_tables.add(t['table_name'])
+
             if imported_tables:
                 file_interactions[rel_path] = imported_tables
                 
@@ -117,28 +126,11 @@ def main():
     else:
         md.append("- *No tables definitively mapped to env.DB_WEBHOOKS yet*")
 
-    # Catch AI Slop (Orphaned Tables)
-    all_discovered = sorted(list(set(t['table_name'] for t in tables)))
-
-    # Also check if any file imports the table (even without env.DB)
-    imported_tables = set()
-    for file_path in files:
-        try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                content = f.read()
-            for t in tables:
-                var_regex = re.compile(r"\b" + re.escape(t['var_name']) + r"\b")
-                # Look for the table being exported vs being imported/used elsewhere
-                if var_regex.search(content) and not re.search(r"export\s+const\s+" + re.escape(t['var_name']) + r"\b", content):
-                    imported_tables.add(t['table_name'])
-        except:
-            pass
-
     # Track any imported tables
     for file_path, imported_tables_set in file_interactions.items():
-        imported_tables = imported_tables.union(imported_tables_set)
+        all_imported_tables = all_imported_tables.union(imported_tables_set)
 
-    mapped_tables = set(db1_sorted + db2_sorted).union(imported_tables)
+    mapped_tables = set(db1_sorted + db2_sorted).union(all_imported_tables)
     unmapped = [t for t in all_discovered if t not in mapped_tables]
     
     if unmapped:
