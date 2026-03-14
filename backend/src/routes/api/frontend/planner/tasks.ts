@@ -18,6 +18,30 @@ export const TASK_STATUSES = [
     { id: TaskStatus.DONE, name: "Done", color: "#10B981" },
 ];
 
+async function getRepoByOwnerAndName(db: any, owner: string, name: string) {
+    const repoRecord = await db.select().from(repos).where(and(eq(repos.owner, owner), eq(repos.name, name))).limit(1);
+    return repoRecord.length ? repoRecord[0] : null;
+}
+
+async function getRepoById(db: any, id: string) {
+    const repoRecord = await db.select().from(repos).where(eq(repos.id, id)).limit(1);
+    return repoRecord.length ? repoRecord[0] : null;
+}
+
+async function getTaskById(db: any, id: string) {
+    const currentTask = await db.select().from(tasks).where(eq(tasks.id, id)).limit(1);
+    return currentTask.length ? currentTask[0] : null;
+}
+
+async function syncWithGitHubIssue(db: any, task: any, callback: (owner: string, name: string, issueNumber: number) => Promise<void>) {
+    if (task && task.githubIssueId) {
+        const repoRecord = await getRepoById(db, task.repoId);
+        if (repoRecord) {
+            await callback(repoRecord.owner, repoRecord.name, task.githubIssueId);
+        }
+    }
+}
+
 /**
  * Log a Task Audit Event
  */
@@ -62,13 +86,13 @@ tasksApi.get('/repos/:owner/:repo/tasks', async (c) => {
     const db = getDb(c.env.DB);
 
     // Resolve repo ID
-    const repoRecord = await db.select().from(repos).where(and(eq(repos.owner, owner), eq(repos.name, repo))).limit(1);
+    const repoRecord = await getRepoByOwnerAndName(db, owner, repo);
 
-    if (!repoRecord.length) {
+    if (!repoRecord) {
         return c.json({ success: false, error: 'Repo not found' }, 404);
     }
 
-    const rows = await db.select().from(tasks).where(and(eq(tasks.repoId, repoRecord[0].id), eq(tasks.isDeleted, 0)));
+    const rows = await db.select().from(tasks).where(and(eq(tasks.repoId, repoRecord.id), eq(tasks.isDeleted, 0)));
     return c.json({
         success: true,
         tasks: rows,
@@ -139,8 +163,8 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
     // Log API Request
     await logTaskEvent(db, requestId, null, null, 'api_request_create_task', 'pending', { owner, repo, body });
 
-    const repoRecord = await db.select().from(repos).where(and(eq(repos.owner, owner), eq(repos.name, repo))).limit(1);
-    if (!repoRecord.length) {
+    const repoRecord = await getRepoByOwnerAndName(db, owner, repo);
+    if (!repoRecord) {
         await logTaskEvent(db, requestId, null, null, 'api_request_create_task', 'failed', { error: 'Repo not found' });
         return c.json({ success: false, error: 'Repo not found' }, 404);
     }
@@ -171,7 +195,7 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
     try {
         await db.insert(tasks).values({
             id: newId,
-            repoId: repoRecord[0].id,
+            repoId: repoRecord.id,
             title,
             description,
             status: initialStatus,
@@ -201,48 +225,40 @@ tasksApi.patch('/tasks/:id', async (c) => {
     const requestId = crypto.randomUUID();
 
     // Get current task
-    const currentTask = await db.select().from(tasks).where(eq(tasks.id, id)).limit(1);
+    const task = await getTaskById(db, id);
     
     // Check if it's a workshop task
-    if (!currentTask.length) {
+    if (!task) {
         return c.json({ success: false, error: 'Task not found' }, 404);
     }
 
-    const task = currentTask[0];
     await logTaskEvent(db, requestId, id, task.githubIssueId, 'api_request_update_task', 'pending', body);
 
     // Determines updates for GitHub
     // ... (GitHub Sync Logic) ...
     // Sync to GitHub if linked
-    if (task.githubIssueId) {
-        // Find repo info
-        const repoRecord = await db.select().from(repos).where(eq(repos.id, task.repoId)).limit(1);
+    await syncWithGitHubIssue(db, task, async (owner, name, issueNumber) => {
+        const updates: any = {};
 
-        if (repoRecord.length) {
-            const { owner, name } = repoRecord[0];
-            const issueNumber = task.githubIssueId;
-            const updates: any = {};
+        // Map status
+        const targetStatus = (status as TaskStatus) || task.status as TaskStatus;
 
-            // Map status
-            const targetStatus = (status as TaskStatus) || task.status as TaskStatus;
+        if (targetStatus === TaskStatus.DONE) updates.state = 'closed';
+        else updates.state = 'open';
 
-            if (targetStatus === TaskStatus.DONE) updates.state = 'closed';
-            else updates.state = 'open';
+        if (title) updates.title = title;
+        if (description) updates.body = description;
+        if (assignee !== undefined) updates.assignees = assignee ? [assignee] : [];
 
-            if (title) updates.title = title;
-            if (description) updates.body = description;
-            if (assignee !== undefined) updates.assignees = assignee ? [assignee] : [];
-
-            if (Object.keys(updates).length > 0) {
-                const ghResult = await updateGitHubIssue(c.env, owner, name, issueNumber, updates);
-                if (ghResult) {
-                    await logTaskEvent(db, requestId, id, issueNumber, 'github_issue_update', 'success', updates);
-                } else {
-                    await logTaskEvent(db, requestId, id, issueNumber, 'github_issue_update', 'failed', updates);
-                }
+        if (Object.keys(updates).length > 0) {
+            const ghResult = await updateGitHubIssue(c.env, owner, name, issueNumber, updates);
+            if (ghResult) {
+                await logTaskEvent(db, requestId, id, issueNumber, 'github_issue_update', 'success', updates);
+            } else {
+                await logTaskEvent(db, requestId, id, issueNumber, 'github_issue_update', 'failed', updates);
             }
         }
-    }
+    });
 
     // Determine final Status and KanbanColumn using Mapper
     const currentStatus = task.status as TaskStatus;
@@ -306,25 +322,20 @@ tasksApi.post('/tasks/:id/comments', async (c) => {
     const db = getDb(c.env.DB);
     const requestId = crypto.randomUUID();
 
-    const currentTask = await db.select().from(tasks).where(eq(tasks.id, id)).limit(1);
-    if (!currentTask.length) return c.json({ success: false, error: 'Task not found' }, 404);
-    const task = currentTask[0];
+    const task = await getTaskById(db, id);
+    if (!task) return c.json({ success: false, error: 'Task not found' }, 404);
 
     // Sync to GitHub
     let githubCommentId: number | null = null;
-    if (task.githubIssueId) {
-        const repoRecord = await db.select().from(repos).where(eq(repos.id, task.repoId)).limit(1);
-        if (repoRecord.length) {
-            const { owner, name } = repoRecord[0];
-            const comment = await createGitHubComment(c.env, owner, name, task.githubIssueId, `**${author || 'User'}**: ${content}`);
-            if (comment) {
-                githubCommentId = comment.id;
-                await logTaskEvent(db, requestId, id, task.githubIssueId, 'github_comment_create', 'success');
-            } else {
-                await logTaskEvent(db, requestId, id, task.githubIssueId, 'github_comment_create', 'failed');
-            }
+    await syncWithGitHubIssue(db, task, async (owner, name, issueNumber) => {
+        const comment = await createGitHubComment(c.env, owner, name, issueNumber, `**${author || 'User'}**: ${content}`);
+        if (comment) {
+            githubCommentId = comment.id;
+            await logTaskEvent(db, requestId, id, issueNumber, 'github_comment_create', 'success');
+        } else {
+            await logTaskEvent(db, requestId, id, issueNumber, 'github_comment_create', 'failed');
         }
-    }
+    });
 
     // Save Local
     const commentId = crypto.randomUUID();
@@ -347,15 +358,11 @@ tasksApi.delete('/tasks/:id', async (c) => {
     const db = getDb(c.env.DB);
     const requestId = crypto.randomUUID();
 
-    const currentTask = await db.select().from(tasks).where(eq(tasks.id, id)).limit(1);
-    if (currentTask.length && currentTask[0].githubIssueId) {
-        const repoRecord = await db.select().from(repos).where(eq(repos.id, currentTask[0].repoId)).limit(1);
-        if (repoRecord.length) {
-            const { owner, name } = repoRecord[0];
-            await updateGitHubIssue(c.env, owner, name, currentTask[0].githubIssueId, { state: 'closed' });
-            await logTaskEvent(db, requestId, id, currentTask[0].githubIssueId, 'github_issue_close', 'success');
-        }
-    }
+    const task = await getTaskById(db, id);
+    await syncWithGitHubIssue(db, task, async (owner, name, issueNumber) => {
+        await updateGitHubIssue(c.env, owner, name, issueNumber, { state: 'closed' });
+        await logTaskEvent(db, requestId, id, issueNumber, 'github_issue_close', 'success');
+    });
 
     await db.update(tasks)
         .set({
@@ -364,7 +371,7 @@ tasksApi.delete('/tasks/:id', async (c) => {
         })
         .where(eq(tasks.id, id));
 
-    await logTaskEvent(db, requestId, id, currentTask[0]?.githubIssueId || null, 'db_task_soft_delete', 'success');
+    await logTaskEvent(db, requestId, id, task?.githubIssueId || null, 'db_task_soft_delete', 'success');
 
     return c.json({ success: true });
 });
