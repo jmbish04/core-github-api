@@ -58,49 +58,48 @@ async function logTaskEvent(
 /**
  * Execute a GitHub Action if the task is linked to a repository.
  */
-async function performGithubAction(
+async function performGithubAction<T>(
     db: ReturnType<typeof getDb>,
     repoId: string,
-    actionFn: (owner: string, repoName: string) => Promise<{ result: any; customLogDetails?: any; overriddenIssueId?: number }>,
+    actionFn: (owner: string, repoName: string) => Promise<T>,
     logOptions?: {
         requestId: string;
         eventType: string;
         taskId?: string;
-        githubIssueId?: number | null;
-        details?: any;
+        githubIssueId?: number | null | ((res: T) => number | null);
+        details?: any | ((res: T) => any);
     }
-) {
+): Promise<T | null> {
     const repoRecord = await getRepoById(db, repoId);
     if (!repoRecord) return null;
 
     const { owner, name } = repoRecord;
 
-    let resultPayload: any = null;
+    let resultPayload: T | null = null;
     let errorMsg: string | undefined;
     let isSuccess = false;
-    let mergedDetails = logOptions?.details;
-    let finalIssueId = logOptions?.githubIssueId;
 
     try {
-        const payload = await actionFn(owner, name);
-        resultPayload = payload.result;
+        resultPayload = await actionFn(owner, name);
         isSuccess = !!resultPayload;
-
-        if (payload.customLogDetails) {
-            mergedDetails = { ...mergedDetails, ...payload.customLogDetails };
-        }
-        if (payload.overriddenIssueId) {
-            finalIssueId = payload.overriddenIssueId;
-        }
     } catch (e: any) {
         errorMsg = e.message;
     } finally {
         if (logOptions) {
+            let finalIssueId: number | null = null;
+            if (typeof logOptions.githubIssueId === 'function') {
+                finalIssueId = resultPayload ? logOptions.githubIssueId(resultPayload) : null;
+            } else if (logOptions.githubIssueId !== undefined) {
+                finalIssueId = logOptions.githubIssueId;
+            }
+
+            let mergedDetails = typeof logOptions.details === 'function' ? (resultPayload ? logOptions.details(resultPayload) : null) : logOptions.details;
+
             await logTaskEvent(
                 db,
                 logOptions.requestId,
                 logOptions.taskId || null,
-                finalIssueId || null,
+                finalIssueId,
                 logOptions.eventType,
                 isSuccess ? 'success' : 'failed',
                 errorMsg ? { error: errorMsg, ...mergedDetails } : mergedDetails
@@ -269,15 +268,13 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
     const issue = await performGithubAction(
         db,
         repoRecord.id,
-        async (o, n) => {
-            const res = await createGitHubIssue(c.env, o, n, title, description, assignee ? [assignee] : undefined);
-            return {
-                result: res,
-                customLogDetails: res ? { html_url: res.html_url } : undefined,
-                overriddenIssueId: res?.number
-            };
-        },
-        { requestId, eventType: 'github_issue_create' }
+        (o, n) => createGitHubIssue(c.env, o, n, title, description, assignee ? [assignee] : undefined),
+        {
+            requestId,
+            eventType: 'github_issue_create',
+            githubIssueId: (res: any) => res?.number || null,
+            details: (res: any) => (res ? { html_url: res.html_url } : null)
+        }
     );
 
     if (!issue) {
@@ -400,10 +397,7 @@ tasksApi.patch('/tasks/:id', async (c) => {
         await performGithubAction(
             db,
             task.repoId,
-            async (owner, name) => {
-                const res = await updateGitHubIssue(c.env, owner, name, issueIdToUpdate, githubUpdates);
-                return { result: res };
-            },
+            (owner, name) => updateGitHubIssue(c.env, owner, name, issueIdToUpdate, githubUpdates),
             { requestId, eventType: 'github_issue_update', taskId: task.id, githubIssueId: issueIdToUpdate, details: githubUpdates }
         );
     }
@@ -430,10 +424,7 @@ tasksApi.post('/tasks/:id/comments', async (c) => {
         const comment = await performGithubAction(
             db,
             task.repoId,
-            async (owner, name) => {
-                const res = await createGitHubComment(c.env, owner, name, issueIdToComment, `**${author || 'User'}**: ${content}`);
-                return { result: res };
-            },
+            (owner, name) => createGitHubComment(c.env, owner, name, issueIdToComment, `**${author || 'User'}**: ${content}`),
             { requestId, eventType: 'github_comment_create', taskId: task.id, githubIssueId: issueIdToComment }
         );
         githubCommentId = comment?.id || null;
@@ -467,10 +458,7 @@ tasksApi.delete('/tasks/:id', async (c) => {
         await performGithubAction(
             db,
             task.repoId,
-            async (owner, name) => {
-                const res = await updateGitHubIssue(c.env, owner, name, issueIdToClose, { state: 'closed' });
-                return { result: res };
-            },
+            (owner, name) => updateGitHubIssue(c.env, owner, name, issueIdToClose, { state: 'closed' }),
             { requestId, eventType: 'github_issue_close', taskId: task.id, githubIssueId: issueIdToClose }
         );
     }
