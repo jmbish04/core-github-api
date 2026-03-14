@@ -1,6 +1,5 @@
 // src/routes/api/tasks.ts
 import { Hono, Context } from 'hono';
-import { Bindings } from '@utils/hono';
 import { getDb } from '@db';
 import { tasks, taskEvents, taskComments } from '@db/schemas/projects/tasks';
 import { repos } from '@db/schemas/github/repos';
@@ -58,16 +57,16 @@ async function logTaskEvent(
 /**
  * Execute a GitHub Action if the task is linked to a repository.
  */
-async function performGithubAction(
+async function performGithubAction<T>(
     db: ReturnType<typeof getDb>,
     task: any,
-    actionFn: (owner: string, repoName: string, issueNumber: number) => Promise<any>,
+    actionFn: (owner: string, repoName: string, issueNumber: number) => Promise<T>,
     logOptions?: {
         requestId: string;
         eventType: string;
         details?: any;
     }
-) {
+): Promise<T | null> {
     if (!task.githubIssueId) return null;
 
     const repoRecord = await getRepoById(db, task.repoId);
@@ -75,18 +74,22 @@ async function performGithubAction(
 
     const { owner, name } = repoRecord;
 
+    let result: T | null = null;
+    let actionError: any = null;
+
     try {
-        const result = await actionFn(owner, name, task.githubIssueId);
-        if (logOptions) {
-            await logTaskEvent(db, logOptions.requestId, task.id, task.githubIssueId, logOptions.eventType, result ? 'success' : 'failed', logOptions.details);
-        }
-        return result;
+        result = await actionFn(owner, name, task.githubIssueId);
     } catch (e: any) {
-        if (logOptions) {
-            await logTaskEvent(db, logOptions.requestId, task.id, task.githubIssueId, logOptions.eventType, 'failed', { error: e.message, ...logOptions.details });
-        }
-        return null;
+        actionError = e;
     }
+
+    if (logOptions) {
+        const status = result && !actionError ? 'success' : 'failed';
+        const details = actionError ? { error: actionError.message, ...logOptions.details } : logOptions.details;
+        await logTaskEvent(db, logOptions.requestId, task.id, task.githubIssueId, logOptions.eventType, status, details);
+    }
+
+    return result;
 }
 
 async function getRepoById(db: ReturnType<typeof getDb>, id: string) {
@@ -101,7 +104,7 @@ async function getTaskById(db: ReturnType<typeof getDb>, id: string) {
     return await db.select().from(tasks).where(eq(tasks.id, id)).limit(1).then(res => res[0] || null);
 }
 
-function getBaseContext(c: Context) {
+function getBaseContext(c: Context<{ Bindings: Env }>) {
     return {
         db: getDb(c.env.DB),
         requestId: generateUuid(),
@@ -126,23 +129,31 @@ function calculateTaskTimestamps(status: TaskStatus, column: KanbanColumn, now: 
     return { startAt, endAt };
 }
 
-async function getTaskContext(c: Context, id: string) {
-    const { db, requestId, now } = getBaseContext(c);
-    const task = await getTaskById(db, id);
-    return { db, requestId, now, task };
+async function getTaskContext(c: Context<{ Bindings: Env }>, id: string) {
+    const ctx = getBaseContext(c);
+    const task = await getTaskById(ctx.db, id);
+    return { ...ctx, task };
 }
 
-async function getRepoContext(c: Context, owner: string, repo: string) {
-    const { db, requestId, now } = getBaseContext(c);
-    const repoRecord = await getRepoByOwnerAndName(db, owner, repo);
-    return { db, requestId, now, repoRecord };
+async function getRepoContext(c: Context<{ Bindings: Env }>, owner: string, repo: string) {
+    const ctx = getBaseContext(c);
+    const repoRecord = await getRepoByOwnerAndName(ctx.db, owner, repo);
+    return { ...ctx, repoRecord };
 }
 
 async function updateLocalTask(db: ReturnType<typeof getDb>, task: any, payload: any, requestId: string, eventType: string) {
-    await db.update(tasks)
-        .set(payload)
-        .where(eq(tasks.id, task.id));
-    await logTaskEvent(db, requestId, task.id, task.githubIssueId, eventType, 'success');
+    let dbError = null;
+    try {
+        await db.update(tasks)
+            .set(payload)
+            .where(eq(tasks.id, task.id));
+    } catch (e: any) {
+        dbError = e;
+    }
+
+    await logTaskEvent(db, requestId, task.id, task.githubIssueId, eventType, dbError ? 'failed' : 'success', dbError ? { error: dbError.message } : undefined);
+
+    if (dbError) throw dbError;
 }
 
 const tasksApi = new Hono<{ Bindings: Env }>();
@@ -234,11 +245,11 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
     // 1. Create GitHub Issue
     const issue = await createGitHubIssue(c.env, owner, repo, title, description, assignee ? [assignee] : undefined);
 
+    await logTaskEvent(db, requestId, null, issue?.number || null, 'github_issue_create', issue ? 'success' : 'failed', issue ? { html_url: issue.html_url } : undefined);
+
     if (!issue) {
-        await logTaskEvent(db, requestId, null, null, 'github_issue_create', 'failed');
         return c.json({ success: false, error: 'Failed to create GitHub issue' }, 500);
     }
-    await logTaskEvent(db, requestId, null, issue.number, 'github_issue_create', 'success', { html_url: issue.html_url });
 
     // 2. Create Local Task
     const newId = generateUuid();
@@ -249,6 +260,7 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
 
     const { startAt, endAt } = calculateTaskTimestamps(initialStatus, initialColumn, now);
 
+    let dbError = null;
     try {
         await db.insert(tasks).values({
             id: newId,
@@ -265,9 +277,13 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
             startAt,
             endAt
         });
-        await logTaskEvent(db, requestId, newId, issue.number, 'db_task_create', 'success');
     } catch (e: any) {
-        await logTaskEvent(db, requestId, newId, issue.number, 'db_task_create', 'failed', { error: e.message });
+        dbError = e;
+    }
+
+    await logTaskEvent(db, requestId, newId, issue.number, 'db_task_create', dbError ? 'failed' : 'success', dbError ? { error: dbError.message } : undefined);
+
+    if (dbError) {
         return c.json({ success: false, error: 'Failed to save local task' }, 500);
     }
 
@@ -323,17 +339,17 @@ tasksApi.patch('/tasks/:id', async (c) => {
     if (nextColumn !== currentColumn) updatePayload.kanbanColumn = nextColumn;
     if (startAt !== task.startAt) updatePayload.startAt = startAt;
     if (endAt !== task.endAt) updatePayload.endAt = endAt;
-    if (position !== undefined) updatePayload.position = position;
+    if (position !== undefined && position !== task.position) updatePayload.position = position;
 
-    if (title !== undefined) {
+    if (title !== undefined && title !== task.title) {
         updatePayload.title = title;
         githubUpdates.title = title;
     }
-    if (description !== undefined) {
+    if (description !== undefined && description !== task.description) {
         updatePayload.description = description;
         githubUpdates.body = description;
     }
-    if (assignee !== undefined) {
+    if (assignee !== undefined && assignee !== task.assignee) {
         updatePayload.assignee = assignee;
         githubUpdates.assignees = assignee ? [assignee] : [];
     }
@@ -363,15 +379,10 @@ tasksApi.post('/tasks/:id/comments', async (c) => {
     if (!task) return c.json({ success: false, error: 'Task not found' }, 404);
 
     // Sync to GitHub
-    let githubCommentId: number | null = null;
-    await performGithubAction(
+    const githubComment = await performGithubAction(
         db,
         task,
-        async (owner, name, issueNumber) => {
-            const comment = await createGitHubComment(c.env, owner, name, issueNumber, `**${author || 'User'}**: ${content}`);
-            if (comment) githubCommentId = comment.id;
-            return comment;
-        },
+        (owner, name, issueNumber) => createGitHubComment(c.env, owner, name, issueNumber, `**${author || 'User'}**: ${content}`),
         { requestId, eventType: 'github_comment_create' }
     );
 
@@ -382,7 +393,7 @@ tasksApi.post('/tasks/:id/comments', async (c) => {
         taskId: id,
         content,
         author: author || 'system',
-        githubCommentId,
+        githubCommentId: githubComment?.id || null,
         createdAt: now,
         updatedAt: now
     });
