@@ -79,11 +79,8 @@ async function performGithubAction(
     try {
         const result = await actionFn(owner, name, githubIssueId);
         if (logOptions) {
-            if (result) {
-                await logTaskEvent(db, logOptions.requestId, logOptions.taskId, githubIssueId, logOptions.eventType, 'success', logOptions.details);
-            } else {
-                await logTaskEvent(db, logOptions.requestId, logOptions.taskId, githubIssueId, logOptions.eventType, 'failed', logOptions.details);
-            }
+            const status = result ? 'success' : 'failed';
+            await logTaskEvent(db, logOptions.requestId, logOptions.taskId, githubIssueId, logOptions.eventType, status, logOptions.details);
         }
         return result;
     } catch (e: any) {
@@ -95,46 +92,15 @@ async function performGithubAction(
 }
 
 async function getRepoByOwnerAndName(db: ReturnType<typeof getDb>, owner: string, repo: string) {
-    return db.select().from(repos).where(and(eq(repos.owner, owner), eq(repos.name, repo))).limit(1);
+    return db.select().from(repos).where(and(eq(repos.owner, owner), eq(repos.name, repo))).limit(1).then(res => res[0] || null);
 }
 
 async function getTaskById(db: ReturnType<typeof getDb>, id: string) {
-    return db.select().from(tasks).where(eq(tasks.id, id)).limit(1);
+    return db.select().from(tasks).where(eq(tasks.id, id)).limit(1).then(res => res[0] || null);
 }
 
-const tasksApi = new Hono<{ Bindings: Env }>();
-
-// GET /api/repos/:owner/:repo/tasks
-tasksApi.get('/repos/:owner/:repo/tasks', async (c) => {
-    const { owner, repo } = c.req.param();
-    const db = getDb(c.env.DB);
-
-    // Resolve repo ID
-    const repoRecord = await getRepoByOwnerAndName(db, owner, repo);
-
-    if (!repoRecord.length) {
-        return c.json({ success: false, error: 'Repo not found' }, 404);
-    }
-
-    const rows = await db.select().from(tasks).where(and(eq(tasks.repoId, repoRecord[0].id), eq(tasks.isDeleted, 0)));
-    return c.json({
-        success: true,
-        tasks: rows,
-        meta: {
-            columns: TASK_STATUSES
-        }
-    });
-});
-
-// GET /api/tasks (Global list)
-tasksApi.get('/', async (c) => {
-    const db = getDb(c.env.DB);
-    // Join with repos to get context if needed, or just return flat
-    const rows = await db.select().from(tasks).where(eq(tasks.isDeleted, 0)).limit(100).orderBy(tasks.updatedAt);
-    
-    // Also fetch workshop tasks for global view
-    const workshopRows = await db.select().from(tasks).where(eq(tasks.taskType, 'workshop_project')).limit(100);
-    const mappedWorkshop: any[] = workshopRows.flatMap(w => {
+function mapWorkshopTasks(workshopRows: any[]) {
+    return workshopRows.flatMap(w => {
         const context = (w.taskContext || {}) as any;
         if (!context.phases || !Array.isArray(context.phases)) return [];
 
@@ -156,8 +122,8 @@ tasksApi.get('/', async (c) => {
                     assignee: t.agent_assigned || null,
                     githubIssueId: null,
                     githubHtmlUrl: null,
-                createdAt: w.createdAt,
-                updatedAt: w.updatedAt,
+                    createdAt: w.createdAt,
+                    updatedAt: w.updatedAt,
                     startAt: null,
                     endAt: null,
                     isDeleted: 0
@@ -165,6 +131,41 @@ tasksApi.get('/', async (c) => {
             });
         });
     });
+}
+
+const tasksApi = new Hono<{ Bindings: Env }>();
+
+// GET /api/repos/:owner/:repo/tasks
+tasksApi.get('/repos/:owner/:repo/tasks', async (c) => {
+    const { owner, repo } = c.req.param();
+    const db = getDb(c.env.DB);
+
+    // Resolve repo ID
+    const repoRecord = await getRepoByOwnerAndName(db, owner, repo);
+
+    if (!repoRecord) {
+        return c.json({ success: false, error: 'Repo not found' }, 404);
+    }
+
+    const rows = await db.select().from(tasks).where(and(eq(tasks.repoId, repoRecord.id), eq(tasks.isDeleted, 0)));
+    return c.json({
+        success: true,
+        tasks: rows,
+        meta: {
+            columns: TASK_STATUSES
+        }
+    });
+});
+
+// GET /api/tasks (Global list)
+tasksApi.get('/', async (c) => {
+    const db = getDb(c.env.DB);
+    // Join with repos to get context if needed, or just return flat
+    const rows = await db.select().from(tasks).where(eq(tasks.isDeleted, 0)).limit(100).orderBy(tasks.updatedAt);
+    
+    // Also fetch workshop tasks for global view
+    const workshopRows = await db.select().from(tasks).where(eq(tasks.taskType, 'workshop_project')).limit(100);
+    const mappedWorkshop = mapWorkshopTasks(workshopRows);
 
     // Combine and sort
     const combined = [...rows, ...mappedWorkshop]
@@ -192,7 +193,7 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
     await logTaskEvent(db, requestId, null, null, 'api_request_create_task', 'pending', { owner, repo, body });
 
     const repoRecord = await getRepoByOwnerAndName(db, owner, repo);
-    if (!repoRecord.length) {
+    if (!repoRecord) {
         await logTaskEvent(db, requestId, null, null, 'api_request_create_task', 'failed', { error: 'Repo not found' });
         return c.json({ success: false, error: 'Repo not found' }, 404);
     }
@@ -220,7 +221,7 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
     try {
         await db.insert(tasks).values({
             id: newId,
-            repoId: repoRecord[0].id,
+            repoId: repoRecord.id,
             title,
             description,
             status: initialStatus,
@@ -250,14 +251,13 @@ tasksApi.patch('/tasks/:id', async (c) => {
     const requestId = generateUuid();
 
     // Get current task
-    const currentTask = await getTaskById(db, id);
+    const task = await getTaskById(db, id);
     
     // Check if it's a workshop task
-    if (!currentTask.length) {
+    if (!task) {
         return c.json({ success: false, error: 'Task not found' }, 404);
     }
 
-    const task = currentTask[0];
     await logTaskEvent(db, requestId, id, task.githubIssueId, 'api_request_update_task', 'pending', body);
 
     // Determine final Status and KanbanColumn using Mapper
@@ -349,9 +349,8 @@ tasksApi.post('/tasks/:id/comments', async (c) => {
     const db = getDb(c.env.DB);
     const requestId = generateUuid();
 
-    const currentTask = await getTaskById(db, id);
-    if (!currentTask.length) return c.json({ success: false, error: 'Task not found' }, 404);
-    const task = currentTask[0];
+    const task = await getTaskById(db, id);
+    if (!task) return c.json({ success: false, error: 'Task not found' }, 404);
 
     // Sync to GitHub
     const comment = await performGithubAction(
@@ -385,9 +384,8 @@ tasksApi.delete('/tasks/:id', async (c) => {
     const db = getDb(c.env.DB);
     const requestId = generateUuid();
 
-    const currentTask = await getTaskById(db, id);
-    if (!currentTask.length) return c.json({ success: false, error: 'Task not found' }, 404);
-    const task = currentTask[0];
+    const task = await getTaskById(db, id);
+    if (!task) return c.json({ success: false, error: 'Task not found' }, 404);
 
     if (task.githubIssueId) {
         await performGithubAction(
