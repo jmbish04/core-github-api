@@ -161,10 +161,11 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
     const initialColumn = StatusMapper.mapStatusToColumn(initialStatus);
 
     let startAt: string | undefined;
+    const now = new Date().toISOString();
 
     // If initial status implies progress, set startAt
     if (initialStatus === TaskStatus.IN_PROGRESS || initialColumn === KanbanColumn.IN_PROGRESS) {
-        startAt = new Date().toISOString();
+        startAt = now;
     }
 
     try {
@@ -178,8 +179,8 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
             assignee,
             githubIssueId: issue.number,
             githubHtmlUrl: issue.html_url,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
+            createdAt: now,
+            updatedAt: now,
             startAt: startAt
         });
         await logTaskEvent(db, requestId, newId, issue.number, 'db_task_create', 'success');
@@ -234,11 +235,7 @@ tasksApi.patch('/tasks/:id', async (c) => {
 
             if (Object.keys(updates).length > 0) {
                 const ghResult = await updateGitHubIssue(c.env, owner, name, issueNumber, updates);
-                if (ghResult) {
-                    await logTaskEvent(db, requestId, id, issueNumber, 'github_issue_update', 'success', updates);
-                } else {
-                    await logTaskEvent(db, requestId, id, issueNumber, 'github_issue_update', 'failed', updates);
-                }
+                await logTaskEvent(db, requestId, id, issueNumber, 'github_issue_update', ghResult ? 'success' : 'failed', updates);
             }
         }
     }
@@ -264,25 +261,35 @@ tasksApi.patch('/tasks/:id', async (c) => {
     }
 
     // Prepare DB Update Payload
+    const now = new Date().toISOString();
     const updatePayload: any = {
-        updatedAt: new Date().toISOString()
+        updatedAt: now
     };
 
-    if (nextStatus !== currentStatus) updatePayload.status = nextStatus;
-    if (nextColumn !== currentColumn) updatePayload.kanbanColumn = nextColumn;
+    const processUpdate = <K extends keyof typeof updatePayload>(
+        key: K,
+        value: any,
+        currentValue?: any
+    ) => {
+        if (value !== undefined && value !== currentValue) {
+            updatePayload[key] = value;
+        }
+    };
 
-    if (position !== undefined) updatePayload.position = position;
-    if (title !== undefined) updatePayload.title = title;
-    if (description !== undefined) updatePayload.description = description;
-    if (assignee !== undefined) updatePayload.assignee = assignee;
+    processUpdate('status', nextStatus, currentStatus);
+    processUpdate('kanbanColumn', nextColumn, currentColumn);
+    processUpdate('position', position);
+    processUpdate('title', title);
+    processUpdate('description', description);
+    processUpdate('assignee', assignee);
 
     // Logic: Set startAt if moving to active state and not set
     if ((nextStatus === TaskStatus.IN_PROGRESS || nextColumn === KanbanColumn.IN_PROGRESS) && !task.startAt) {
-        updatePayload.startAt = new Date().toISOString();
+        updatePayload.startAt = now;
     }
 
     if ((nextStatus as TaskStatus) === TaskStatus.DONE || (nextColumn as KanbanColumn) === KanbanColumn.DONE) {
-        updatePayload.endAt = new Date().toISOString();
+        updatePayload.endAt = now;
     } else if (nextStatus !== TaskStatus.DONE && nextColumn !== KanbanColumn.DONE && task.endAt) {
         // If moving OUT of done, reset endAt
         updatePayload.endAt = null;
@@ -318,10 +325,8 @@ tasksApi.post('/tasks/:id/comments', async (c) => {
             const comment = await createGitHubComment(c.env, owner, name, task.githubIssueId, `**${author || 'User'}**: ${content}`);
             if (comment) {
                 githubCommentId = comment.id;
-                await logTaskEvent(db, requestId, id, task.githubIssueId, 'github_comment_create', 'success');
-            } else {
-                await logTaskEvent(db, requestId, id, task.githubIssueId, 'github_comment_create', 'failed');
             }
+            await logTaskEvent(db, requestId, id, task.githubIssueId, 'github_comment_create', comment ? 'success' : 'failed');
         }
     }
 
