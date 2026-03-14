@@ -108,6 +108,51 @@ function getBaseContext(c: Context<{ Bindings: Bindings }>) {
     };
 }
 
+function calculateTaskTimestamps(
+    nextStatus: TaskStatus,
+    nextColumn: KanbanColumn,
+    currentStartAt: string | null,
+    currentEndAt: string | null,
+    now: string
+): { startAt?: string; endAt?: string | null } {
+    const isActive = nextStatus === TaskStatus.IN_PROGRESS || nextColumn === KanbanColumn.IN_PROGRESS;
+    const isDone = nextStatus === TaskStatus.DONE || nextColumn === KanbanColumn.DONE;
+
+    const timestamps: { startAt?: string; endAt?: string | null } = {};
+
+    if (isActive && !currentStartAt) {
+        timestamps.startAt = now;
+    }
+
+    if (isDone) {
+        timestamps.endAt = now;
+    } else if (currentEndAt) {
+        timestamps.endAt = null;
+    }
+
+    return timestamps;
+}
+
+function calculateNextStatusAndColumn(
+    status: TaskStatus | undefined,
+    kanbanColumn: KanbanColumn | undefined,
+    currentStatus: TaskStatus,
+    currentColumn: KanbanColumn
+): { nextStatus: TaskStatus; nextColumn: KanbanColumn } {
+    let nextStatus = status ? status : currentStatus;
+    let nextColumn = kanbanColumn ? kanbanColumn : currentColumn;
+
+    if (kanbanColumn && kanbanColumn !== currentColumn) {
+        const syncedStatus = StatusMapper.getSyncStatus(nextStatus, nextColumn);
+        if (syncedStatus) nextStatus = syncedStatus;
+    } else if (status && status !== currentStatus) {
+        const syncedColumn = StatusMapper.getSyncColumn(nextColumn, nextStatus);
+        if (syncedColumn) nextColumn = syncedColumn;
+    }
+
+    return { nextStatus, nextColumn };
+}
+
 function mapWorkshopTasks(workshopRows: any[]) {
     return workshopRows.flatMap(w => {
         const context = (w.taskContext || {}) as any;
@@ -275,21 +320,12 @@ tasksApi.patch('/tasks/:id', async (c) => {
     const currentStatus = task.status as TaskStatus;
     const currentColumn = task.kanbanColumn as KanbanColumn;
 
-    let nextStatus = status ? (status as TaskStatus) : currentStatus;
-    let nextColumn = kanbanColumn ? (kanbanColumn as KanbanColumn) : currentColumn;
-
-    // 1. If Column Changed, does Status need to sync?
-    if (kanbanColumn && kanbanColumn !== currentColumn) {
-        const syncedStatus = StatusMapper.getSyncStatus(nextStatus, nextColumn);
-        if (syncedStatus) nextStatus = syncedStatus;
-    }
-    // 2. If Status Changed, does Column need to sync? (Priority driven by what was passed)
-    // If BOTH passed, Mapper shouldn't override explicit values unless strictly invalid? 
-    // Let's assume explicit input wins, but if only one passed, we sync the other.
-    else if (status && status !== currentStatus) {
-        const syncedColumn = StatusMapper.getSyncColumn(nextColumn, nextStatus);
-        if (syncedColumn) nextColumn = syncedColumn;
-    }
+    const { nextStatus, nextColumn } = calculateNextStatusAndColumn(
+        status as TaskStatus,
+        kanbanColumn as KanbanColumn,
+        currentStatus,
+        currentColumn
+    );
 
     // Prepare DB Update Payload and GitHub Updates
     const updatePayload: any = { updatedAt: now };
@@ -326,20 +362,9 @@ tasksApi.patch('/tasks/:id', async (c) => {
         );
     }
 
-    const isActive = nextStatus === TaskStatus.IN_PROGRESS || nextColumn === KanbanColumn.IN_PROGRESS;
-    const isDone = nextStatus === TaskStatus.DONE || nextColumn === KanbanColumn.DONE;
-
-    // Logic: Set startAt if moving to active state and not set
-    if (isActive && !task.startAt) {
-        updatePayload.startAt = now;
-    }
-
-    if (isDone) {
-        updatePayload.endAt = now;
-    } else if (task.endAt) {
-        // If moving OUT of done, reset endAt
-        updatePayload.endAt = null;
-    }
+    const timestamps = calculateTaskTimestamps(nextStatus, nextColumn, task.startAt, task.endAt, now);
+    if (timestamps.startAt !== undefined) updatePayload.startAt = timestamps.startAt;
+    if (timestamps.endAt !== undefined) updatePayload.endAt = timestamps.endAt;
 
     // Update Local
     await db.update(tasks)
