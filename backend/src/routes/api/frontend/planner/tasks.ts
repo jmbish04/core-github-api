@@ -61,17 +61,19 @@ async function logTaskEvent(
 async function executeGithubAction<T>(
     db: ReturnType<typeof getDb>,
     repoId: string,
+    githubIssueId: number | null | undefined,
     actionFn: (owner: string, repoName: string) => Promise<T>,
     logOptions?: {
         requestId: string;
         taskId: string | null;
-        githubIssueId?: number | null;
         eventType: string;
         details?: any;
         extractIssueId?: (result: T) => number | null;
         extractDetails?: (result: T) => any;
     }
 ): Promise<T | null> {
+    if (githubIssueId === null) return null;
+
     const repoRecord = await getRepoById(db, repoId);
     if (!repoRecord) return null;
 
@@ -90,7 +92,7 @@ async function executeGithubAction<T>(
 
     if (logOptions) {
         let details = actionError ? { error: actionError, ...logOptions.details } : { ...logOptions.details };
-        let finalIssueId = logOptions.githubIssueId ?? null;
+        let finalIssueId = githubIssueId ?? null;
 
         if (isSuccess && result) {
             if (logOptions.extractIssueId) {
@@ -271,6 +273,7 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
     const issue = await executeGithubAction(
         db,
         repoRecord.id,
+        undefined,
         async (o, n) => await createGitHubIssue(c.env, o, n, title, description, assignee ? [assignee] : undefined),
         {
             requestId,
@@ -309,14 +312,14 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
             startAt,
             endAt
         });
+
+        await logTaskEvent(db, requestId, newId, issue.number, 'db_task_create', 'success');
+
+        return c.json({ success: true, id: newId });
     } catch (e: any) {
         await logTaskEvent(db, requestId, newId, issue.number, 'db_task_create', 'failed', { error: e.message });
         return c.json({ success: false, error: 'Failed to save local task' }, 500);
     }
-
-    await logTaskEvent(db, requestId, newId, issue.number, 'db_task_create', 'success');
-
-    return c.json({ success: true, id: newId });
 });
 
 // PATCH /api/tasks/:id
@@ -350,7 +353,7 @@ tasksApi.patch('/tasks/:id', async (c) => {
     const githubUpdates: any = {};
     const updatePayload: any = { updatedAt: now };
 
-    const syncField = <K extends keyof typeof updatePayload, G extends keyof typeof githubUpdates>(
+    const syncField = <K extends keyof typeof updatePayload, G extends string>(
         value: any,
         currentValue: any,
         localKey: K,
@@ -380,12 +383,13 @@ tasksApi.patch('/tasks/:id', async (c) => {
     syncField(endAt, task.endAt, 'endAt');
 
     // Sync to GitHub if linked
-    if (task.githubIssueId && Object.keys(githubUpdates).length > 0) {
+    if (Object.keys(githubUpdates).length > 0) {
         await executeGithubAction(
             db,
             task.repoId,
+            task.githubIssueId,
             async (owner, name) => await updateGitHubIssue(c.env, owner, name, task.githubIssueId!, githubUpdates),
-            { requestId, taskId: id, githubIssueId: task.githubIssueId, eventType: 'github_issue_update', details: githubUpdates }
+            { requestId, taskId: id, eventType: 'github_issue_update', details: githubUpdates }
         );
     }
 
@@ -410,18 +414,17 @@ tasksApi.post('/tasks/:id/comments', async (c) => {
 
     // Sync to GitHub
     let githubCommentId: number | null = null;
-    if (task.githubIssueId) {
-        await executeGithubAction(
-            db,
-            task.repoId,
-            async (owner, name) => {
-                const comment = await createGitHubComment(c.env, owner, name, task.githubIssueId!, `**${author || 'User'}**: ${content}`);
-                if (comment) githubCommentId = comment.id;
-                return comment;
-            },
-            { requestId, taskId: id, githubIssueId: task.githubIssueId, eventType: 'github_comment_create' }
-        );
-    }
+    await executeGithubAction(
+        db,
+        task.repoId,
+        task.githubIssueId,
+        async (owner, name) => {
+            const comment = await createGitHubComment(c.env, owner, name, task.githubIssueId!, `**${author || 'User'}**: ${content}`);
+            if (comment) githubCommentId = comment.id;
+            return comment;
+        },
+        { requestId, taskId: id, eventType: 'github_comment_create' }
+    );
 
     // Save Local
     const commentId = generateUuid();
@@ -446,15 +449,13 @@ tasksApi.delete('/tasks/:id', async (c) => {
 
     const { db, requestId, now, id, task } = ctx as { db: ReturnType<typeof getDb>, requestId: string, now: string, id: string, task: any };
 
-    if (task.githubIssueId) {
-        await executeGithubAction(
-            db,
-            task.repoId,
-            async (owner, name) => await updateGitHubIssue(c.env, owner, name, task.githubIssueId!, { state: 'closed' }),
-            { requestId, taskId: id, githubIssueId: task.githubIssueId, eventType: 'github_issue_close' }
-        );
-    }
-
+    await executeGithubAction(
+        db,
+        task.repoId,
+        task.githubIssueId,
+        async (owner, name) => await updateGitHubIssue(c.env, owner, name, task.githubIssueId!, { state: 'closed' }),
+        { requestId, taskId: id, eventType: 'github_issue_close' }
+    );
 
     await db.update(tasks)
         .set({
