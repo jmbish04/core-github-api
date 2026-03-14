@@ -19,18 +19,15 @@ export const TASK_STATUSES = [
 ];
 
 async function getRepoByOwnerAndName(db: any, owner: string, name: string) {
-    const repoRecord = await db.select().from(repos).where(and(eq(repos.owner, owner), eq(repos.name, name))).limit(1);
-    return repoRecord.length ? repoRecord[0] : null;
+    return db.select().from(repos).where(and(eq(repos.owner, owner), eq(repos.name, name))).limit(1).then((res: any) => res[0] || null);
 }
 
 async function getRepoById(db: any, id: string) {
-    const repoRecord = await db.select().from(repos).where(eq(repos.id, id)).limit(1);
-    return repoRecord.length ? repoRecord[0] : null;
+    return db.select().from(repos).where(eq(repos.id, id)).limit(1).then((res: any) => res[0] || null);
 }
 
 async function getTaskById(db: any, id: string) {
-    const currentTask = await db.select().from(tasks).where(eq(tasks.id, id)).limit(1);
-    return currentTask.length ? currentTask[0] : null;
+    return db.select().from(tasks).where(eq(tasks.id, id)).limit(1).then((res: any) => res[0] || null);
 }
 
 async function getWorkshopTasks(db: any, repoId?: string) {
@@ -41,11 +38,9 @@ async function getWorkshopTasks(db: any, repoId?: string) {
     const workshopRows = await db.select().from(tasks).where(condition).limit(100);
 
     return workshopRows.flatMap((w: any) => {
-        const phases = ((w.taskContext || {}) as any).phases;
-        if (!phases || !Array.isArray(phases)) return [];
+        const phases = Array.isArray(w.taskContext?.phases) ? w.taskContext.phases : [];
         return phases.flatMap((p: any) => {
-            const tasksList = p.tasks;
-            if (!tasksList || !Array.isArray(tasksList)) return [];
+            const tasksList = Array.isArray(p.tasks) ? p.tasks : [];
             return tasksList.map((t: any) => {
                 const status = t.status === 'not_started' ? TaskStatus.TODO :
                                t.status === 'in_progress' ? TaskStatus.IN_PROGRESS : TaskStatus.DONE;
@@ -290,11 +285,11 @@ tasksApi.patch('/tasks/:id', async (c) => {
     const updatePayload: any = { updatedAt: now };
     const ghUpdates: any = {};
 
-    const syncField = <K extends keyof typeof task, G = any>(
+    const syncField = <K extends keyof typeof task>(
         localKey: K,
         newValue: any,
         ghKey?: string,
-        transform?: (val: any) => G
+        transform?: (val: any) => any
     ) => {
         if (newValue !== undefined && newValue !== task[localKey]) {
             updatePayload[localKey] = newValue;
