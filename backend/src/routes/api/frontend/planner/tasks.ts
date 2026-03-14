@@ -97,18 +97,39 @@ async function getTaskById(db: any, id: string) {
     return await db.select().from(tasks).where(eq(tasks.id, id)).limit(1);
 }
 
+function getBaseContext(c: any) {
+    return {
+        db: getDb(c.env.DB),
+        requestId: generateUuid(),
+        now: new Date().toISOString()
+    };
+}
+
+function calculateTaskTimestamps(status: TaskStatus, column: KanbanColumn, now: string, currentStartAt?: string | null, currentEndAt?: string | null) {
+    let startAt = currentStartAt;
+    let endAt = currentEndAt;
+
+    if ((status === TaskStatus.IN_PROGRESS || column === KanbanColumn.IN_PROGRESS) && !startAt) {
+        startAt = now;
+    }
+
+    if (status === TaskStatus.DONE || column === KanbanColumn.DONE) {
+        endAt = now;
+    } else if ((status as TaskStatus) !== TaskStatus.DONE && (column as KanbanColumn) !== KanbanColumn.DONE && endAt) {
+        endAt = null; // Reset if moving out of done
+    }
+
+    return { startAt, endAt };
+}
+
 async function getTaskContext(c: any, id: string) {
-    const db = getDb(c.env.DB);
-    const requestId = generateUuid();
-    const now = new Date().toISOString();
+    const { db, requestId, now } = getBaseContext(c);
     const currentTask = await getTaskById(db, id);
     return { db, requestId, now, task: currentTask.length ? currentTask[0] : null };
 }
 
 async function getRepoContext(c: any, owner: string, repo: string) {
-    const db = getDb(c.env.DB);
-    const requestId = generateUuid();
-    const now = new Date().toISOString();
+    const { db, requestId, now } = getBaseContext(c);
     const repoRecord = await getRepoByOwnerAndName(db, owner, repo);
     return { db, requestId, now, repoRecord: repoRecord.length ? repoRecord[0] : null };
 }
@@ -223,12 +244,7 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
     const initialStatus = (status as TaskStatus) || TaskStatus.TODO;
     const initialColumn = StatusMapper.mapStatusToColumn(initialStatus);
 
-    let startAt: string | undefined;
-
-    // If initial status implies progress, set startAt
-    if (initialStatus === TaskStatus.IN_PROGRESS || initialColumn === KanbanColumn.IN_PROGRESS) {
-        startAt = now;
-    }
+    const { startAt, endAt } = calculateTaskTimestamps(initialStatus, initialColumn, now);
 
     try {
         await db.insert(tasks).values({
@@ -243,7 +259,8 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
             githubHtmlUrl: issue.html_url,
             createdAt: now,
             updatedAt: now,
-            startAt: startAt
+            startAt,
+            endAt
         });
         await logTaskEvent(db, requestId, newId, issue.number, 'db_task_create', 'success');
     } catch (e: any) {
@@ -324,17 +341,10 @@ tasksApi.patch('/tasks/:id', async (c) => {
     if (description !== undefined) updatePayload.description = description;
     if (assignee !== undefined) updatePayload.assignee = assignee;
 
-    // Logic: Set startAt if moving to active state and not set
-    if ((nextStatus === TaskStatus.IN_PROGRESS || nextColumn === KanbanColumn.IN_PROGRESS) && !task.startAt) {
-        updatePayload.startAt = now;
-    }
-
-    if ((nextStatus as TaskStatus) === TaskStatus.DONE || (nextColumn as KanbanColumn) === KanbanColumn.DONE) {
-        updatePayload.endAt = now;
-    } else if (nextStatus !== TaskStatus.DONE && nextColumn !== KanbanColumn.DONE && task.endAt) {
-        // If moving OUT of done, reset endAt
-        updatePayload.endAt = null;
-    }
+    // Update Timestamps
+    const { startAt, endAt } = calculateTaskTimestamps(nextStatus, nextColumn, now, task.startAt, task.endAt);
+    if (startAt !== task.startAt) updatePayload.startAt = startAt;
+    if (endAt !== task.endAt) updatePayload.endAt = endAt;
 
     // Update Local
     await updateLocalTask(db, task, updatePayload, requestId, 'db_task_update');
