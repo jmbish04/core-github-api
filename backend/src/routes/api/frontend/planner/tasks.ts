@@ -76,20 +76,19 @@ async function performGithubAction(
 
     const { owner, name } = repoRecord[0];
 
-    let result = null;
-    let error: any = null;
     try {
-        result = await actionFn(owner, name, githubIssueId);
-    } catch (e: any) {
-        error = e;
-    } finally {
+        const result = await actionFn(owner, name, githubIssueId);
         if (logOptions) {
-            const status = result && !error ? 'success' : 'failed';
-            const details = error ? { error: error.message, ...logOptions.details } : logOptions.details;
-            await logTaskEvent(db, logOptions.requestId, logOptions.taskId, githubIssueId, logOptions.eventType, status, details);
+            const status = result ? 'success' : 'failed';
+            await logTaskEvent(db, logOptions.requestId, logOptions.taskId, githubIssueId, logOptions.eventType, status, logOptions.details);
         }
+        return result;
+    } catch (e: any) {
+        if (logOptions) {
+            await logTaskEvent(db, logOptions.requestId, logOptions.taskId, githubIssueId, logOptions.eventType, 'failed', { error: e.message, ...logOptions.details });
+        }
+        return null;
     }
-    return result;
 }
 
 async function getRepoByOwnerAndName(db: ReturnType<typeof getDb>, owner: string, repo: string) {
@@ -202,11 +201,11 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
     // 1. Create GitHub Issue
     const issue = await createGitHubIssue(c.env, owner, repo, title, description, assignee ? [assignee] : undefined);
 
-    await logTaskEvent(db, requestId, null, issue?.number || null, 'github_issue_create', issue ? 'success' : 'failed', issue ? { html_url: issue.html_url } : undefined);
-
     if (!issue) {
+        await logTaskEvent(db, requestId, null, null, 'github_issue_create', 'failed');
         return c.json({ success: false, error: 'Failed to create GitHub issue' }, 500);
     }
+    await logTaskEvent(db, requestId, null, issue.number, 'github_issue_create', 'success', { html_url: issue.html_url });
 
     // 2. Create Local Task
     const newId = generateUuid();
@@ -219,7 +218,6 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
     // If initial status implies progress, set startAt
     const startAt = (initialStatus === TaskStatus.IN_PROGRESS || initialColumn === KanbanColumn.IN_PROGRESS) ? now : undefined;
 
-    let dbError: any = null;
     try {
         await db.insert(tasks).values({
             id: newId,
@@ -235,13 +233,9 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
             updatedAt: now,
             startAt
         });
+        await logTaskEvent(db, requestId, newId, issue.number, 'db_task_create', 'success');
     } catch (e: any) {
-        dbError = e;
-    } finally {
-        await logTaskEvent(db, requestId, newId, issue.number, 'db_task_create', dbError ? 'failed' : 'success', dbError ? { error: dbError.message } : undefined);
-    }
-
-    if (dbError) {
+        await logTaskEvent(db, requestId, newId, issue.number, 'db_task_create', 'failed', { error: e.message });
         return c.json({ success: false, error: 'Failed to save local task' }, 500);
     }
 
@@ -299,17 +293,17 @@ tasksApi.patch('/tasks/:id', async (c) => {
     if (nextColumn !== currentColumn) updatePayload.kanbanColumn = nextColumn;
     if (position !== undefined) updatePayload.position = position;
 
-    if (title !== undefined && title !== task.title) {
+    if (title !== undefined) {
         updatePayload.title = title;
-        githubUpdates.title = title;
+        if (title !== task.title) githubUpdates.title = title;
     }
-    if (description !== undefined && description !== task.description) {
+    if (description !== undefined) {
         updatePayload.description = description;
-        githubUpdates.body = description;
+        if (description !== task.description) githubUpdates.body = description;
     }
-    if (assignee !== undefined && assignee !== task.assignee) {
+    if (assignee !== undefined) {
         updatePayload.assignee = assignee;
-        githubUpdates.assignees = assignee ? [assignee] : [];
+        if (assignee !== task.assignee) githubUpdates.assignees = assignee ? [assignee] : [];
     }
 
     // Sync to GitHub if linked and relevant fields changed

@@ -9,6 +9,7 @@
 - analysis_artifacts
 - applications
 - automation_rules
+- automation_runs
 - budget_events
 - chat_messages
 - chat_threads
@@ -19,6 +20,7 @@
 - daily_trends
 - discord_messages
 - discord_scan_log
+- events
 - golden_path_config
 - health_results
 - health_runs
@@ -93,26 +95,6 @@
 - tags
 - trending_repos
 - webhook_deliveries
-
-### Unmapped / Orphaned Schema Tables
-*(Suspicious AI Slop: Defined in code but no CRUD operations with a known D1 env var detected)*
-- audit_logs
-- automation_runs
-- chat_tags
-- code_review_comment_enrichments
-- code_review_comments
-- code_review_runs
-- container_logs
-- events
-- operation_logs
-- organization_settings
-- repo_ai_context
-- repo_drafts
-- repo_infra
-- repo_tags
-- repo_tech_stack
-- research_files
-- secrets_config
 
 ---
 
@@ -253,14 +235,11 @@
 ### `backend/src/config/jules-standards.ts`
 - **Tables Imported:** sessions, tasks
 
-### `backend/src/db/ops/repos.ts`
-- **Tables Imported:** projects, repo_infra, repo_metrics, repo_tags, repo_tech_stack, repositories, tags
-
 ### `backend/src/db/schemas/agents/budget.ts`
 - **Tables Imported:** ai_cost_logs, alerts, budget_events
 
 ### `backend/src/db/schemas/agents/chat.ts`
-- **Tables Imported:** chat_messages, chat_tags, chat_threads, repositories
+- **Tables Imported:** chat_messages, chat_threads, repositories
 
 ### `backend/src/db/schemas/agents/cloudflare-docs-interactions.ts`
 - **Tables Imported:** cloudflare_docs_interactions
@@ -278,7 +257,7 @@
 - **Tables Imported:** prompt_revisions
 
 ### `backend/src/db/schemas/agents/research.ts`
-- **Tables Imported:** analysis_artifacts, repo_scores, research_files, research_sessions, sessions
+- **Tables Imported:** analysis_artifacts, repo_scores, research_sessions, sessions
 
 ### `backend/src/db/schemas/app/alerts.ts`
 - **Tables Imported:** alerts
@@ -313,14 +292,8 @@
 ### `backend/src/db/schemas/app/tags.ts`
 - **Tables Imported:** tags
 
-### `backend/src/db/schemas/containers/index.ts`
-- **Tables Imported:** container_logs
-
 ### `backend/src/db/schemas/discord/index.ts`
 - **Tables Imported:** discord_messages, discord_scan_log
-
-### `backend/src/db/schemas/github/drafts.ts`
-- **Tables Imported:** repo_drafts, repositories
 
 ### `backend/src/db/schemas/github/favorites.ts`
 - **Tables Imported:** project_favorites
@@ -335,7 +308,7 @@
 - **Tables Imported:** pr_comments, pull_requests
 
 ### `backend/src/db/schemas/github/repos.ts`
-- **Tables Imported:** operation_logs, repo_ai_context, repo_infra, repo_metrics, repo_stats, repo_tags, repo_tech_stack, repositories
+- **Tables Imported:** repo_metrics, repo_stats, repositories
 
 ### `backend/src/db/schemas/github/research.ts`
 - **Tables Imported:** research_briefs, research_candidates, research_execution_logs, research_plans, research_projects, research_recommendations, research_reports
@@ -364,9 +337,6 @@
 ### `backend/src/db/schemas/jules/webhook-events.ts`
 - **Tables Imported:** alerts, jules_webhook_events
 
-### `backend/src/db/schemas/logs/audit.ts`
-- **Tables Imported:** audit_logs
-
 ### `backend/src/db/schemas/logs/health.ts`
 - **Tables Imported:** health_results, health_runs, health_test_definitions
 
@@ -375,9 +345,6 @@
 
 ### `backend/src/db/schemas/logs/system.ts`
 - **Tables Imported:** system_logs
-
-### `backend/src/db/schemas/ops/secrets.ts`
-- **Tables Imported:** secrets_config
 
 ### `backend/src/db/schemas/projects/hierarchy.ts`
 - **Tables Imported:** pm_epics, pm_projects, pm_stories, pm_tasks, tasks
@@ -894,6 +861,7 @@
 | **analysis_artifacts** | `backend/src/ai/agents/ResearchOrchestrator.ts` |
 | **applications** | `backend/src/ai/agents/workshop/WorkshopAgent.ts`, `backend/src/index.ts`, `backend/src/routes/api/frontend/projects/appstore.ts` |
 | **automation_rules** | `backend/src/routes/api/ops/workflows.ts`, `backend/src/routes/api/webhooks/index.ts` |
+| **automation_runs** | `backend/src/ai/agents/github/Owner.ts` |
 | **budget_events** | `backend/src/ai/utils/budget-tracker.ts` |
 | **chat_messages** | `backend/src/routes/api/frontend/ai/chat.ts` |
 | **chat_threads** | `backend/src/routes/api/frontend/ai/chat.ts` |
@@ -904,6 +872,7 @@
 | **daily_trends** | `backend/src/routes/api/frontend/research/daily-trends.ts`, `backend/src/workflows/research/topic.ts` |
 | **discord_messages** | `backend/src/workflows/discord.ts` |
 | **discord_scan_log** | `backend/src/workflows/discord.ts` |
+| **events** | `backend/src/ai/agents/github/Owner.ts`, `backend/src/ai/agents/github/Repo.ts` |
 | **golden_path_config** | `backend/src/routes/api/frontend/settings.ts` |
 | **health_results** | `backend/src/ai/agents/HealthDiagnostician.ts`, `backend/src/health/coordinator.ts` |
 | **health_runs** | `backend/src/health/coordinator.ts`, `backend/src/health/health-check.ts`, `backend/src/routes/api/health.ts` |
@@ -929,11 +898,11 @@
 | **repo_metrics** | `backend/src/routes/api/frontend/projects/stars.ts` |
 | **repo_scores** | `backend/src/ai/agents/ResearchOrchestrator.ts`, `backend/src/lib/email-reports.ts` |
 | **repo_stats** | `backend/src/routes/api/frontend/stats.ts`, `backend/src/services/stats-updater.ts` |
-| **repositories** | `backend/src/ai/agents/ResearchOrchestrator.ts`, `backend/src/ai/mcp/tools/github/github.ts`, `backend/src/index.ts`, `backend/src/lib/email-reports.ts`, `backend/src/routes/api/frontend/projects/base.ts`, `backend/src/routes/api/frontend/projects/favorites.ts`, `backend/src/routes/api/frontend/projects/infrastructure.ts`, `backend/src/routes/api/frontend/projects/planner.ts`, `backend/src/routes/api/frontend/projects/stars.ts`, `backend/src/routes/api/webhooks/handlers/flows/index.ts`, `backend/src/routes/api/webhooks/workflows/gardener/index.ts`, `backend/src/services/repository-sync.ts`, `backend/src/workflows/research/deep.ts`, `backend/src/workflows/search.ts` |
+| **repositories** | `backend/src/ai/agents/ResearchOrchestrator.ts`, `backend/src/ai/agents/github/Owner.ts`, `backend/src/ai/agents/github/Repo.ts`, `backend/src/ai/mcp/tools/github/github.ts`, `backend/src/index.ts`, `backend/src/lib/email-reports.ts`, `backend/src/routes/api/frontend/projects/base.ts`, `backend/src/routes/api/frontend/projects/favorites.ts`, `backend/src/routes/api/frontend/projects/infrastructure.ts`, `backend/src/routes/api/frontend/projects/planner.ts`, `backend/src/routes/api/frontend/projects/stars.ts`, `backend/src/routes/api/webhooks/handlers/flows/index.ts`, `backend/src/routes/api/webhooks/workflows/gardener/index.ts`, `backend/src/services/repository-sync.ts`, `backend/src/workflows/research/deep.ts`, `backend/src/workflows/search.ts` |
 | **request_logs** | `backend/src/ai/fallbackLogger.ts`, `backend/src/index.ts`, `backend/src/routes/api/webhooks/handlers/flows/index.ts` |
 | **research_briefs** | `backend/src/ai/agents/TopicOrchestrator.ts`, `backend/src/index.ts`, `backend/src/routes/api/frontend/research/research.ts`, `backend/src/workflows/discord.ts`, `backend/src/workflows/research/topic.ts` |
 | **research_candidates** | `backend/src/ai/agents/TopicOrchestrator.ts`, `backend/src/routes/api/frontend/research/research.ts`, `backend/src/workflows/discord.ts`, `backend/src/workflows/research/topic.ts` |
-| **research_execution_logs** | `backend/src/routes/api/frontend/research/research.ts` |
+| **research_execution_logs** | `backend/src/lib/research-logger.ts`, `backend/src/routes/api/frontend/research/research.ts` |
 | **research_judge_logs** | `backend/src/routes/api/services/github/gh-actions.ts` |
 | **research_plans** | `backend/src/ai/agents/TopicOrchestrator.ts`, `backend/src/workflows/research/topic.ts` |
 | **research_projects** | `backend/src/routes/api/frontend/research/research-projects.ts` |

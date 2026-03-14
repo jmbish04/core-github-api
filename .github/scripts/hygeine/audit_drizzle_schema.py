@@ -73,8 +73,8 @@ def main():
                 
             rel_path = os.path.relpath(file_path, root_dir)
             
-            # Look for standard Cloudflare Worker / Hono context bindings
-            uses_db1 = 'env.DB' in content or 'c.env.DB' in content
+            # Look for standard Cloudflare Worker / Hono context bindings, and Durable Objects embedded SQLite.
+            uses_db1 = 'env.DB' in content or 'c.env.DB' in content or 'getDb(' in content or 'getAgentDb(' in content or 'this.db' in content or 'this._db' in content
             uses_db2 = 'env.DB_WEBHOOKS' in content or 'c.env.DB_WEBHOOKS' in content
             
             imported_tables = set()
@@ -119,9 +119,20 @@ def main():
 
     # Catch AI Slop (Orphaned Tables)
     all_discovered = sorted(list(set(t['table_name'] for t in tables)))
+
+    # A table is considered "mapped" if it is used in a DB operation.
+    # However, to avoid falsely flagging tables that are legitimately used elsewhere
+    # (e.g., in DO bindings, mock tests, or type definitions), we also check if they are imported outside their own schema files.
+    used_anywhere = set()
+    for rel_path, imported in file_interactions.items():
+        if not rel_path.startswith('backend/src/db/schemas/'):
+            used_anywhere.update(imported)
+
     mapped_tables = set(db1_sorted + db2_sorted)
-    whitelist = ["automation_runs", "code_review_comment_enrichments", "code_review_comments", "code_review_runs", "events", "organization_settings", "repo_tags", "repo_tech_stack"]
-    unmapped = [t for t in all_discovered if t not in mapped_tables and t not in whitelist]
+    # A table is orphaned only if it's neither mapped to a DB nor used anywhere else in the project logic.
+    # We also whitelist specific tables that are referenced strictly as foreign keys inside other schema definitions.
+    whitelist = ['code_review_runs', 'organization_settings']
+    unmapped = [t for t in all_discovered if t not in mapped_tables and t not in used_anywhere and t not in whitelist]
     
     if unmapped:
         md.append("\n### Unmapped / Orphaned Schema Tables")

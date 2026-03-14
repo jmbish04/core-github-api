@@ -1,3 +1,5 @@
+import { sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { createInsertSchema } from 'drizzle-zod';
 import { z } from 'zod';
 
 export const CreateSecretSchema = z.object({
