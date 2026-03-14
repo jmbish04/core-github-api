@@ -181,17 +181,17 @@ tasksApi.get('/repos/:owner/:repo/tasks', async (c) => {
 // GET /api/tasks (Global list)
 tasksApi.get('/', async (c) => {
     const { db } = getBaseContext(c);
-    // Join with repos to get context if needed, or just return flat
-    const rows = await db.select().from(tasks).where(eq(tasks.isDeleted, 0)).limit(100).orderBy(tasks.updatedAt);
     
-    // Also fetch workshop tasks for global view
-    const workshopRows = await db.select().from(tasks).where(eq(tasks.taskType, 'workshop_project')).limit(100);
+    // Fetch global tasks and workshop tasks concurrently
+    const [rows, workshopRows] = await Promise.all([
+        db.select().from(tasks).where(eq(tasks.isDeleted, 0)).limit(100).orderBy(tasks.updatedAt),
+        db.select().from(tasks).where(eq(tasks.taskType, 'workshop_project')).limit(100)
+    ]);
+
     const mappedWorkshop = workshopRows.flatMap(w => {
         const context = (w.taskContext || {}) as any;
-        if (!context.phases || !Array.isArray(context.phases)) return [];
-        return context.phases.flatMap((p: any) => {
-            if (!p.tasks || !Array.isArray(p.tasks)) return [];
-            return p.tasks.map((t: any) => {
+        return (context?.phases || []).flatMap((p: any) => {
+            return (p?.tasks || []).map((t: any) => {
                 const mappedStatus = t.status === 'not_started' ? TaskStatus.TODO :
                                      t.status === 'in_progress' ? TaskStatus.IN_PROGRESS : TaskStatus.DONE;
 
@@ -332,6 +332,15 @@ tasksApi.patch('/tasks/:id', async (c) => {
     };
     const githubUpdates: any = {};
 
+    const syncField = <K extends keyof typeof updatePayload, G extends keyof typeof githubUpdates>(
+        val: any, current: any, localKey: K, ghKey: G, transformGh?: (v: any) => any
+    ) => {
+        if (val !== undefined && val !== current) {
+            updatePayload[localKey] = val;
+            githubUpdates[ghKey] = transformGh ? transformGh(val) : val;
+        }
+    };
+
     if (nextStatus !== currentStatus) {
         updatePayload.status = nextStatus;
         githubUpdates.state = nextStatus === TaskStatus.DONE ? 'closed' : 'open';
@@ -341,20 +350,9 @@ tasksApi.patch('/tasks/:id', async (c) => {
         updatePayload.kanbanColumn = nextColumn;
     }
 
-    if (title !== undefined && title !== task.title) {
-        updatePayload.title = title;
-        githubUpdates.title = title;
-    }
-
-    if (description !== undefined && description !== task.description) {
-        updatePayload.description = description;
-        githubUpdates.body = description;
-    }
-
-    if (assignee !== undefined && assignee !== task.assignee) {
-        updatePayload.assignee = assignee;
-        githubUpdates.assignees = assignee ? [assignee] : [];
-    }
+    syncField(title, task.title, 'title', 'title');
+    syncField(description, task.description, 'description', 'body');
+    syncField(assignee, task.assignee, 'assignee', 'assignees', (a) => (a ? [a] : []));
 
     if (position !== undefined && position !== task.position) {
         updatePayload.position = position;
@@ -391,18 +389,14 @@ tasksApi.post('/tasks/:id/comments', async (c) => {
     if (!task) return c.json({ success: false, error: 'Task not found' }, 404);
 
     // Sync to GitHub
-    let githubCommentId: number | null = null;
-    await performGithubAction(
+    const ghResult = await performGithubAction(
         db,
         task.repoId,
         task.githubIssueId,
-        async (owner, name, issueNumber) => {
-            const comment = await createGitHubComment(c.env, owner, name, issueNumber, `**${author || 'User'}**: ${content}`);
-            if (comment) githubCommentId = comment.id;
-            return comment;
-        },
+        (owner, name, issueNumber) => createGitHubComment(c.env, owner, name, issueNumber, `**${author || 'User'}**: ${content}`),
         { requestId, taskId: id, eventType: 'github_comment_create' }
     );
+    const githubCommentId = ghResult?.id || null;
 
     // Save Local
     const commentId = generateUuid();
