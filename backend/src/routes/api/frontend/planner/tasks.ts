@@ -332,10 +332,6 @@ tasksApi.patch('/tasks/:id', async (c) => {
     const updatePayload: any = { updatedAt: now };
     const githubUpdates: any = {};
 
-    if (status) {
-        githubUpdates.state = nextStatus === TaskStatus.DONE ? 'closed' : 'open';
-    }
-
     const syncField = <K extends keyof typeof updatePayload, G extends string>(
         fieldValue: any,
         currentValue: any,
@@ -351,7 +347,7 @@ tasksApi.patch('/tasks/:id', async (c) => {
         }
     };
 
-    syncField(nextStatus, currentStatus, 'status');
+    syncField(nextStatus, currentStatus, 'status', 'state', v => v === TaskStatus.DONE ? 'closed' : 'open');
     syncField(nextColumn, currentColumn, 'kanbanColumn');
     syncField(startAt, task.startAt, 'startAt');
     syncField(endAt, task.endAt, 'endAt');
