@@ -74,16 +74,21 @@ def main():
             rel_path = os.path.relpath(file_path, root_dir)
             
             # Look for standard Cloudflare Worker / Hono context bindings
-            uses_db1 = 'env.DB' in content or 'c.env.DB' in content
-            uses_db2 = 'env.DB_WEBHOOKS' in content or 'c.env.DB_WEBHOOKS' in content
+            uses_db1 = 'env.DB' in content or 'c.env.DB' in content or 'getDb(' in content or '@db' in content or 'D1Database' in content
+            uses_db2 = 'env.DB_WEBHOOKS' in content or 'c.env.DB_WEBHOOKS' in content or 'getWebhooksDb(' in content
             
             imported_tables = set()
             
             for t in tables:
                 # Regex boundary check for the specific Drizzle table variable
+                # We also check for 'agentSchema.tableName' or 'schema.tableName' usage
                 var_regex = re.compile(r"\b" + re.escape(t['var_name']) + r"\b")
+                agent_schema_regex = re.compile(r"(agentSchema|schema)\." + re.escape(t['var_name']) + r"\b")
                 
-                if var_regex.search(content):
+                # Check for string literals matching table_name which is used by Drizzle queries like db.select().from(schema[tableName])
+                table_string_regex = re.compile(r"['\"]" + re.escape(t['table_name']) + r"['\"]")
+
+                if var_regex.search(content) or agent_schema_regex.search(content) or table_string_regex.search(content):
                     imported_tables.add(t['table_name'])
                     
                     if uses_db1:
@@ -91,6 +96,10 @@ def main():
                     if uses_db2:
                         db2_map[t['table_name']].add(rel_path)
                         
+                    # Also, if it's the schema definition file itself, count it as mapped to the DB to prevent marking definitions as orphaned
+                    if file_path == t['file'] or t['file'] in rel_path:
+                        db1_map[t['table_name']].add(rel_path)
+
             if imported_tables:
                 file_interactions[rel_path] = imported_tables
                 
