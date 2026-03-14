@@ -280,42 +280,42 @@ tasksApi.patch('/tasks/:id', async (c) => {
         if (syncedColumn) nextColumn = syncedColumn;
     }
 
-    // Sync to GitHub if linked and relevant fields changed
-    if (task.githubIssueId) {
-        const updates: any = {};
-
-        if (nextStatus !== currentStatus) {
-            updates.state = nextStatus === TaskStatus.DONE ? 'closed' : 'open';
-        }
-        if (title !== undefined && title !== task.title) updates.title = title;
-        if (description !== undefined && description !== task.description) updates.body = description;
-        if (assignee !== undefined && assignee !== task.assignee) updates.assignees = assignee ? [assignee] : [];
-
-        if (Object.keys(updates).length > 0) {
-            await performGithubAction(
-                db,
-                task.repoId,
-                task.githubIssueId,
-                (owner, name, issueNumber) => updateGitHubIssue(c.env, owner, name, issueNumber, updates),
-                { requestId, taskId: id, eventType: 'github_issue_update', details: updates }
-            );
-        }
-    }
-
     const now = new Date().toISOString();
 
-    // Prepare DB Update Payload
-    const updatePayload: any = {
-        updatedAt: now
-    };
+    // Prepare DB Update Payload and GitHub Updates
+    const updatePayload: any = { updatedAt: now };
+    const githubUpdates: any = {};
 
-    if (nextStatus !== currentStatus) updatePayload.status = nextStatus;
+    if (nextStatus !== currentStatus) {
+        updatePayload.status = nextStatus;
+        githubUpdates.state = nextStatus === TaskStatus.DONE ? 'closed' : 'open';
+    }
     if (nextColumn !== currentColumn) updatePayload.kanbanColumn = nextColumn;
-
     if (position !== undefined) updatePayload.position = position;
-    if (title !== undefined) updatePayload.title = title;
-    if (description !== undefined) updatePayload.description = description;
-    if (assignee !== undefined) updatePayload.assignee = assignee;
+
+    if (title !== undefined) {
+        updatePayload.title = title;
+        if (title !== task.title) githubUpdates.title = title;
+    }
+    if (description !== undefined) {
+        updatePayload.description = description;
+        if (description !== task.description) githubUpdates.body = description;
+    }
+    if (assignee !== undefined) {
+        updatePayload.assignee = assignee;
+        if (assignee !== task.assignee) githubUpdates.assignees = assignee ? [assignee] : [];
+    }
+
+    // Sync to GitHub if linked and relevant fields changed
+    if (task.githubIssueId && Object.keys(githubUpdates).length > 0) {
+        await performGithubAction(
+            db,
+            task.repoId,
+            task.githubIssueId,
+            (owner, name, issueNumber) => updateGitHubIssue(c.env, owner, name, issueNumber, githubUpdates),
+            { requestId, taskId: id, eventType: 'github_issue_update', details: githubUpdates }
+        );
+    }
 
     const isActive = nextStatus === TaskStatus.IN_PROGRESS || nextColumn === KanbanColumn.IN_PROGRESS;
     const isDone = nextStatus === TaskStatus.DONE || nextColumn === KanbanColumn.DONE;
