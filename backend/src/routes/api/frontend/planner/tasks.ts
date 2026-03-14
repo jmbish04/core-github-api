@@ -107,6 +107,32 @@ async function getTaskById(db: ReturnType<typeof getDb>, id: string) {
     return await db.select().from(tasks).where(eq(tasks.id, id)).limit(1).then(res => res[0] || null);
 }
 
+
+export function calculateTaskTimestamps(
+    status: TaskStatus,
+    column: KanbanColumn,
+    currentStartAt: string | null,
+    currentEndAt: string | null,
+    now: string
+): { startAt?: string | null; endAt?: string | null } {
+    const isActive = status === TaskStatus.IN_PROGRESS || column === KanbanColumn.IN_PROGRESS;
+    const isDone = status === TaskStatus.DONE || column === KanbanColumn.DONE;
+
+    const result: { startAt?: string | null; endAt?: string | null } = {};
+
+    if (isActive && !currentStartAt) {
+        result.startAt = now;
+    }
+
+    if (isDone) {
+        result.endAt = now;
+    } else if (currentEndAt) {
+        result.endAt = null;
+    }
+
+    return result;
+}
+
 function getRequestContext(c: any) {
     return {
         db: getDb(c.env.DB),
@@ -219,12 +245,7 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
     const initialStatus = (status as TaskStatus) || TaskStatus.TODO;
     const initialColumn = StatusMapper.mapStatusToColumn(initialStatus);
 
-    let startAt: string | undefined;
-
-    // If initial status implies progress, set startAt
-    if (initialStatus === TaskStatus.IN_PROGRESS || initialColumn === KanbanColumn.IN_PROGRESS) {
-        startAt = now;
-    }
+    const { startAt } = calculateTaskTimestamps(initialStatus, initialColumn, null, null, now);
 
     try {
         await db.insert(tasks).values({
@@ -267,76 +288,66 @@ tasksApi.patch('/tasks/:id', async (c) => {
 
     await logTaskEvent(db, requestId, id, task.githubIssueId, 'api_request_update_task', 'pending', body);
 
-    // Determines updates for GitHub
-    // Sync to GitHub if linked
-    if (task.githubIssueId) {
-        const updates: any = {};
-        const targetStatus = (status as TaskStatus) || task.status as TaskStatus;
-
-        if (targetStatus === TaskStatus.DONE) updates.state = 'closed';
-        else updates.state = 'open';
-
-        if (title) updates.title = title;
-        if (description) updates.body = description;
-        if (assignee !== undefined) updates.assignees = assignee ? [assignee] : [];
-
-        if (Object.keys(updates).length > 0) {
-            await performGithubAction(
-                db,
-                task.repoId,
-                task.githubIssueId,
-                (owner, name, issueNumber) => updateGitHubIssue(c.env, owner, name, issueNumber, updates),
-                { requestId, taskId: id, eventType: 'github_issue_update', details: updates }
-            );
-        }
-    }
-
     // Determine final Status and KanbanColumn using Mapper
     const currentStatus = task.status as TaskStatus;
     const currentColumn = task.kanbanColumn as KanbanColumn;
 
-    let nextStatus = status ? (status as TaskStatus) : currentStatus;
-    let nextColumn = kanbanColumn ? (kanbanColumn as KanbanColumn) : currentColumn;
+    let nextStatus = status !== undefined ? (status as TaskStatus) : currentStatus;
+    let nextColumn = kanbanColumn !== undefined ? (kanbanColumn as KanbanColumn) : currentColumn;
 
     // 1. If Column Changed, does Status need to sync?
-    if (kanbanColumn && kanbanColumn !== currentColumn) {
+    if (kanbanColumn !== undefined && kanbanColumn !== currentColumn) {
         const syncedStatus = StatusMapper.getSyncStatus(nextStatus, nextColumn);
         if (syncedStatus) nextStatus = syncedStatus;
     }
-    // 2. If Status Changed, does Column need to sync? (Priority driven by what was passed)
-    // If BOTH passed, Mapper shouldn't override explicit values unless strictly invalid? 
-    // Let's assume explicit input wins, but if only one passed, we sync the other.
-    else if (status && status !== currentStatus) {
+    // 2. If Status Changed, does Column need to sync?
+    else if (status !== undefined && status !== currentStatus) {
         const syncedColumn = StatusMapper.getSyncColumn(nextColumn, nextStatus);
         if (syncedColumn) nextColumn = syncedColumn;
     }
 
-    // Prepare DB Update Payload
-    const updatePayload: any = {
-        updatedAt: now
-    };
+    // Consolidate DB Update and GitHub Sync Payloads
+    const updatePayload: any = { updatedAt: now };
+    const ghUpdates: any = {};
 
-    if (nextStatus !== currentStatus) updatePayload.status = nextStatus;
-    if (nextColumn !== currentColumn) updatePayload.kanbanColumn = nextColumn;
-
-    if (position !== undefined) updatePayload.position = position;
-    if (title !== undefined) updatePayload.title = title;
-    if (description !== undefined) updatePayload.description = description;
-    if (assignee !== undefined) updatePayload.assignee = assignee;
-
-    // Logic: Set startAt if moving to active state and not set
-    const isActive = nextStatus === TaskStatus.IN_PROGRESS || nextColumn === KanbanColumn.IN_PROGRESS;
-    const isDone = nextStatus === TaskStatus.DONE || nextColumn === KanbanColumn.DONE;
-
-    if (isActive && !task.startAt) {
-        updatePayload.startAt = now;
+    if (nextStatus !== currentStatus) {
+        updatePayload.status = nextStatus;
+        ghUpdates.state = nextStatus === TaskStatus.DONE ? 'closed' : 'open';
+    }
+    if (nextColumn !== currentColumn) {
+        updatePayload.kanbanColumn = nextColumn;
     }
 
-    if (isDone) {
-        updatePayload.endAt = now;
-    } else if (task.endAt) {
-        // If moving OUT of done, reset endAt
-        updatePayload.endAt = null;
+    if (title !== undefined && title !== task.title) {
+        updatePayload.title = title;
+        ghUpdates.title = title;
+    }
+    if (description !== undefined && description !== task.description) {
+        updatePayload.description = description;
+        ghUpdates.body = description;
+    }
+    if (assignee !== undefined && assignee !== task.assignee) {
+        updatePayload.assignee = assignee;
+        ghUpdates.assignees = assignee ? [assignee] : [];
+    }
+    if (position !== undefined && position !== task.position) {
+        updatePayload.position = position;
+    }
+
+    // Timestamps
+    const timestamps = calculateTaskTimestamps(nextStatus, nextColumn, task.startAt, task.endAt, now);
+    if (timestamps.startAt !== undefined) updatePayload.startAt = timestamps.startAt;
+    if (timestamps.endAt !== undefined) updatePayload.endAt = timestamps.endAt;
+
+    // Sync to GitHub if linked
+    if (task.githubIssueId && Object.keys(ghUpdates).length > 0) {
+        await performGithubAction(
+            db,
+            task.repoId,
+            task.githubIssueId,
+            (owner, name, issueNumber) => updateGitHubIssue(c.env, owner, name, issueNumber, ghUpdates),
+            { requestId, taskId: id, eventType: 'github_issue_update', details: ghUpdates }
+        );
     }
 
     // Update Local
