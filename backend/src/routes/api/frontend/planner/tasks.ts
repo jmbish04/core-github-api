@@ -311,8 +311,8 @@ tasksApi.patch('/tasks/:id', async (c) => {
     const updatePayload: any = { updatedAt: now };
     const ghUpdates: any = {};
 
-    const syncField = <K extends keyof typeof updatePayload, G extends keyof typeof ghUpdates>(
-        incoming: any, current: any, dbField: K, ghField?: G, ghValueMapper?: (val: any) => any
+    const syncField = (
+        incoming: any, current: any, dbField: string, ghField?: string, ghValueMapper?: (val: any) => any
     ) => {
         if (incoming !== undefined && incoming !== current) {
             updatePayload[dbField] = incoming;
