@@ -57,18 +57,18 @@ async function logTaskEvent(
 /**
  * Execute a GitHub Action if the task is linked to a repository.
  */
-async function performGithubAction(
+async function performGithubAction<T>(
     db: ReturnType<typeof getDb>,
     repoId: string,
     githubIssueId: number | null,
-    actionFn: (owner: string, repoName: string, issueNumber: number) => Promise<any>,
+    actionFn: (owner: string, repoName: string, issueNumber: number) => Promise<T>,
     logOptions?: {
         requestId: string;
         taskId: string | null;
         eventType: string;
         details?: any;
     }
-) {
+): Promise<T | null> {
     if (!githubIssueId) return null;
 
     const repoRecord = await getRepoById(db, repoId);
@@ -192,11 +192,8 @@ tasksApi.get('/', async (c) => {
     // Also fetch workshop tasks for global view
     const workshopRows = await db.select().from(tasks).where(eq(tasks.taskType, 'workshop_project')).limit(100);
     const mappedWorkshop = workshopRows.flatMap(w => {
-        const context = (w.taskContext || {}) as any;
-        if (!context.phases || !Array.isArray(context.phases)) return [];
-        return context.phases.flatMap((p: any) => {
-            if (!p.tasks || !Array.isArray(p.tasks)) return [];
-            return p.tasks.map((t: any) => {
+        return ((w.taskContext as any)?.phases || []).flatMap((p: any) => {
+            return (p.tasks || []).map((t: any) => {
                 const mappedStatus = t.status === 'not_started' ? TaskStatus.TODO :
                                      t.status === 'in_progress' ? TaskStatus.IN_PROGRESS : TaskStatus.DONE;
 
@@ -358,24 +355,26 @@ tasksApi.patch('/tasks/:id', async (c) => {
         updatePayload.kanbanColumn = nextColumn;
     }
 
-    if (position !== undefined && position !== task.position) {
-        updatePayload.position = position;
-    }
+    // Helper to process generic updates
+    const processUpdate = <K extends keyof typeof updatePayload, G extends keyof typeof githubUpdates>(
+        inputVal: any,
+        taskVal: any,
+        localKey: K,
+        githubKey?: G,
+        githubTransform?: (v: any) => any
+    ) => {
+        if (inputVal !== undefined && inputVal !== taskVal) {
+            updatePayload[localKey] = inputVal;
+            if (githubKey) {
+                githubUpdates[githubKey] = githubTransform ? githubTransform(inputVal) : inputVal;
+            }
+        }
+    };
 
-    if (title !== undefined && title !== task.title) {
-        updatePayload.title = title;
-        githubUpdates.title = title;
-    }
-
-    if (description !== undefined && description !== task.description) {
-        updatePayload.description = description;
-        githubUpdates.body = description;
-    }
-
-    if (assignee !== undefined && assignee !== task.assignee) {
-        updatePayload.assignee = assignee;
-        githubUpdates.assignees = assignee ? [assignee] : [];
-    }
+    processUpdate(position, task.position, 'position');
+    processUpdate(title, task.title, 'title', 'title');
+    processUpdate(description, task.description, 'description', 'body');
+    processUpdate(assignee, task.assignee, 'assignee', 'assignees', v => (v ? [v] : []));
 
     // Sync to GitHub if linked and there are updates
     if (task.githubIssueId && Object.keys(githubUpdates).length > 0) {
@@ -383,7 +382,7 @@ tasksApi.patch('/tasks/:id', async (c) => {
             db,
             task.repoId,
             task.githubIssueId,
-            async (owner, name, issueNumber) => await updateGitHubIssue(c.env, owner, name, issueNumber, githubUpdates),
+            (owner, name, issueNumber) => updateGitHubIssue(c.env, owner, name, issueNumber, githubUpdates),
             { requestId, taskId: id, eventType: 'github_issue_update', details: githubUpdates }
         );
     }
@@ -411,16 +410,11 @@ tasksApi.post('/tasks/:id/comments', async (c) => {
     if (!task) return c.json({ success: false, error: 'Task not found' }, 404);
 
     // Sync to GitHub
-    let githubCommentId: number | null = null;
-    await performGithubAction(
+    const githubComment = await performGithubAction(
         db,
         task.repoId,
         task.githubIssueId,
-        async (owner, name, issueNumber) => {
-            const comment = await createGitHubComment(c.env, owner, name, issueNumber, `**${author || 'User'}**: ${content}`);
-            if (comment) githubCommentId = comment.id;
-            return comment;
-        },
+        (owner, name, issueNumber) => createGitHubComment(c.env, owner, name, issueNumber, `**${author || 'User'}**: ${content}`),
         { requestId, taskId: id, eventType: 'github_comment_create' }
     );
 
@@ -431,7 +425,7 @@ tasksApi.post('/tasks/:id/comments', async (c) => {
         taskId: id,
         content,
         author: author || 'system',
-        githubCommentId,
+        githubCommentId: githubComment?.id || null,
         createdAt: now,
         updatedAt: now
     });
@@ -450,7 +444,7 @@ tasksApi.delete('/tasks/:id', async (c) => {
             db,
             task.repoId,
             task.githubIssueId,
-            async (owner, name, issueNumber) => await updateGitHubIssue(c.env, owner, name, issueNumber, { state: 'closed' }),
+            (owner, name, issueNumber) => updateGitHubIssue(c.env, owner, name, issueNumber, { state: 'closed' }),
             { requestId, taskId: id, eventType: 'github_issue_close' }
         );
     }
