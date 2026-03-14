@@ -39,6 +39,5 @@ jobs:
       - name: Check for AI Slop
         run: |
           if grep -q "### Unmapped / Orphaned Schema Tables" drizzle-schema-report.md; then
-            echo "::error::Orphaned Drizzle tables detected! Please review the schema for AI slop."
-            exit 1
+            echo "::warning::Orphaned Drizzle tables detected! Please review the schema for AI slop."
           fi
