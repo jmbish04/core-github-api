@@ -336,9 +336,6 @@ tasksApi.patch('/tasks/:id', async (c) => {
 
     // Sync to GitHub if linked
     if (task.githubIssueId && Object.keys(ghUpdates).length > 0) {
-        // Ensure state is explicitly set during synchronization to preserve legacy behavior
-        ghUpdates.state = nextStatus === TaskStatus.DONE ? 'closed' : 'open';
-
         await performGithubAction(
             db,
             task,
