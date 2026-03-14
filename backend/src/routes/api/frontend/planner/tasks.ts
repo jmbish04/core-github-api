@@ -232,11 +232,15 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
     // 1. Create GitHub Issue
     const issue = await createGitHubIssue(c.env, owner, repo, title, description, assignee ? [assignee] : undefined);
 
+    await logTaskEvent(
+        db, requestId, null, issue?.number || null, 'github_issue_create',
+        issue ? 'success' : 'failed',
+        issue ? { html_url: issue.html_url } : undefined
+    );
+
     if (!issue) {
-        await logTaskEvent(db, requestId, null, null, 'github_issue_create', 'failed');
         return c.json({ success: false, error: 'Failed to create GitHub issue' }, 500);
     }
-    await logTaskEvent(db, requestId, null, issue.number, 'github_issue_create', 'success', { html_url: issue.html_url });
 
     // 2. Create Local Task
     const newId = generateUuid();
@@ -247,6 +251,7 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
 
     const { startAt } = calculateTaskTimestamps(initialStatus, initialColumn, null, null, now);
 
+    let dbError: any = null;
     try {
         await db.insert(tasks).values({
             id: newId,
@@ -262,9 +267,17 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
             updatedAt: now,
             startAt: startAt
         });
-        await logTaskEvent(db, requestId, newId, issue.number, 'db_task_create', 'success');
     } catch (e: any) {
-        await logTaskEvent(db, requestId, newId, issue.number, 'db_task_create', 'failed', { error: e.message });
+        dbError = e;
+    }
+
+    await logTaskEvent(
+        db, requestId, newId, issue.number, 'db_task_create',
+        dbError ? 'failed' : 'success',
+        dbError ? { error: dbError.message } : undefined
+    );
+
+    if (dbError) {
         return c.json({ success: false, error: 'Failed to save local task' }, 500);
     }
 
@@ -318,20 +331,18 @@ tasksApi.patch('/tasks/:id', async (c) => {
         updatePayload.kanbanColumn = nextColumn;
     }
 
-    if (title !== undefined && title !== task.title) {
-        updatePayload.title = title;
-        ghUpdates.title = title;
-    }
-    if (description !== undefined && description !== task.description) {
-        updatePayload.description = description;
-        ghUpdates.body = description;
-    }
-    if (assignee !== undefined && assignee !== task.assignee) {
-        updatePayload.assignee = assignee;
-        ghUpdates.assignees = assignee ? [assignee] : [];
-    }
-    if (position !== undefined && position !== task.position) {
-        updatePayload.position = position;
+    const fields: Array<{ key: string, val: any, curr: any, ghKey?: string, ghVal?: any }> = [
+        { key: 'title', val: title, curr: task.title, ghKey: 'title' },
+        { key: 'description', val: description, curr: task.description, ghKey: 'body' },
+        { key: 'assignee', val: assignee, curr: task.assignee, ghKey: 'assignees', ghVal: assignee ? [assignee] : [] },
+        { key: 'position', val: position, curr: task.position }
+    ];
+
+    for (const { key, val, curr, ghKey, ghVal } of fields) {
+        if (val !== undefined && val !== curr) {
+            updatePayload[key as keyof typeof updatePayload] = val;
+            if (ghKey) ghUpdates[ghKey] = ghVal !== undefined ? ghVal : val;
+        }
     }
 
     // Timestamps
