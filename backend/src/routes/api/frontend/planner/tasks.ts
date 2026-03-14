@@ -71,10 +71,10 @@ async function performGithubAction<T>(
 ): Promise<T | null> {
     if (!githubIssueId) return null;
 
-    const repoRecord = await db.select().from(repos).where(eq(repos.id, repoId)).limit(1);
-    if (!repoRecord.length) return null;
+    const repoRecord = await getRepoById(db, repoId);
+    if (!repoRecord) return null;
 
-    const { owner, name } = repoRecord[0];
+    const { owner, name } = repoRecord;
 
     let result: T | null = null;
     let errorMsg: string | undefined;
@@ -92,6 +92,10 @@ async function performGithubAction<T>(
     }
 
     return result;
+}
+
+async function getRepoById(db: ReturnType<typeof getDb>, id: string) {
+    return db.select().from(repos).where(eq(repos.id, id)).limit(1).then(res => res[0] || null);
 }
 
 async function getRepoByOwnerAndName(db: ReturnType<typeof getDb>, owner: string, repo: string) {
@@ -168,7 +172,7 @@ const tasksApi = new Hono<{ Bindings: Env }>();
 // GET /api/repos/:owner/:repo/tasks
 tasksApi.get('/repos/:owner/:repo/tasks', async (c) => {
     const { owner, repo } = c.req.param();
-    const db = getDb(c.env.DB);
+    const { db } = getBaseContext(c);
 
     // Resolve repo ID
     const repoRecord = await getRepoByOwnerAndName(db, owner, repo);
@@ -189,7 +193,7 @@ tasksApi.get('/repos/:owner/:repo/tasks', async (c) => {
 
 // GET /api/tasks (Global list)
 tasksApi.get('/', async (c) => {
-    const db = getDb(c.env.DB);
+    const { db } = getBaseContext(c);
     // Join with repos to get context if needed, or just return flat
     const rows = await db.select().from(tasks).where(eq(tasks.isDeleted, 0)).limit(100).orderBy(tasks.updatedAt);
     
