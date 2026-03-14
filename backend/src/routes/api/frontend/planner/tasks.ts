@@ -187,7 +187,7 @@ tasksApi.get('/', async (c) => {
     const mappedWorkshop = workshopRows.flatMap(w => {
         const phases = Array.isArray((w.taskContext as any)?.phases) ? (w.taskContext as any).phases : [];
         return phases.flatMap((p: any) => {
-            const phaseTasks = Array.isArray(p.tasks) ? p.tasks : [];
+            const phaseTasks = Array.isArray(p?.tasks) ? p.tasks : [];
             return phaseTasks.map((t: any) => {
                 const mappedStatus = t.status === 'not_started' ? TaskStatus.TODO :
                                      t.status === 'in_progress' ? TaskStatus.IN_PROGRESS : TaskStatus.DONE;
@@ -332,29 +332,19 @@ tasksApi.patch('/tasks/:id', async (c) => {
     const updatePayload: any = { updatedAt: now };
     const githubUpdates: any = {};
 
-    if (nextStatus !== currentStatus) {
-        updatePayload.status = nextStatus;
-        githubUpdates.state = nextStatus === TaskStatus.DONE ? 'closed' : 'open';
-    }
-
-    if (nextColumn !== currentColumn) {
-        updatePayload.kanbanColumn = nextColumn;
-    }
-
-    if (position !== undefined && position !== task.position) {
-        updatePayload.position = position;
-    }
-
-    const syncField = <K extends keyof typeof task>(val: any, field: K, ghField: string, isArray: boolean = false) => {
+    const syncField = <K extends keyof typeof task>(val: any, field: K, ghField?: string, formatGh?: (v: any) => any) => {
         if (val !== undefined && val !== task[field]) {
             updatePayload[field] = val;
-            githubUpdates[ghField] = isArray ? (val ? [val] : []) : val;
+            if (ghField) githubUpdates[ghField] = formatGh ? formatGh(val) : val;
         }
     };
 
+    syncField(nextStatus, 'status', 'state', v => v === TaskStatus.DONE ? 'closed' : 'open');
+    syncField(nextColumn, 'kanbanColumn');
+    syncField(position, 'position');
     syncField(title, 'title', 'title');
     syncField(description, 'description', 'body');
-    syncField(assignee, 'assignee', 'assignees', true);
+    syncField(assignee, 'assignee', 'assignees', v => v ? [v] : []);
 
     // Sync to GitHub if linked and there are relevant updates
     if (task.githubIssueId && Object.keys(githubUpdates).length > 0) {
