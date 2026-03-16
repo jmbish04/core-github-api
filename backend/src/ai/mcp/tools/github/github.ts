@@ -65,64 +65,21 @@ async function upsertWorkflowFile(octokit: any, owner: string, repo: string, pat
 }
 
 export async function createGitHubIssue(env: Env, owner: string, repo: string, title: string, body?: string, assignees?: string[]) {
-    const logger = new Logger(env, "GitHubTool:createGitHubIssue");
-    logger.info(`Creating issue in ${owner}/${repo}`, { title, assignees });
-    
-    const octokit = await getOctokit(env);
-    try {
-        const { data } = await octokit.rest.issues.create({
-            owner,
-            repo,
-            title,
-            body,
-            assignees
-        });
-        logger.info(`Issue created successfully`, { issueNumber: data.number, html_url: data.html_url });
-        return data;
-    } catch (e: any) {
-        logger.error("Error creating GitHub issue", { error: e.message });
-        throw e;
-    }
+    return withOctokitIssue(env, owner, repo, "CreateIssue", (octokit) =>
+        octokit.rest.issues.create({ owner, repo, title, body, assignees })
+    );
 }
 
 export async function createGitHubComment(env: Env, owner: string, repo: string, issueNumber: number, body: string) {
-    const logger = new Logger(env, "GitHubTool:createGitHubComment");
-    logger.info(`Creating comment on ${owner}/${repo}#${issueNumber}`);
-
-    const octokit = await getOctokit(env);
-    try {
-        const { data } = await octokit.rest.issues.createComment({
-            owner,
-            repo,
-            issue_number: issueNumber,
-            body
-        });
-        logger.info(`Comment created successfully`, { commentId: data.id, html_url: data.html_url });
-        return data;
-    } catch (e: any) {
-        logger.error("Error creating GitHub comment", { error: e.message });
-        throw e;
-    }
+    return withOctokitIssue(env, owner, repo, "CreateComment", (octokit) =>
+        octokit.rest.issues.createComment({ owner, repo, issue_number: issueNumber, body })
+    );
 }
 
 export async function updateGitHubIssue(env: Env, owner: string, repo: string, issueNumber: number, updates: { state?: 'open' | 'closed', title?: string, body?: string, assignees?: string[] }) {
-    const logger = new Logger(env, "GitHubTool:updateGitHubIssue");
-    logger.info(`Updating issue ${owner}/${repo}#${issueNumber}`, { updates });
-
-    const octokit = await getOctokit(env);
-    try {
-        const { data } = await octokit.rest.issues.update({
-            owner,
-            repo,
-            issue_number: issueNumber,
-            ...updates
-        });
-        logger.info(`Issue updated successfully`, { html_url: data.html_url });
-        return data;
-    } catch (e: any) {
-        logger.error("Error updating GitHub issue", { error: e.message });
-        throw e;
-    }
+    return withOctokitIssue(env, owner, repo, "UpdateIssue", (octokit) =>
+        octokit.rest.issues.update({ owner, repo, issue_number: issueNumber, ...updates })
+    );
 }
 
 // --- Routes ---
@@ -421,23 +378,17 @@ export async function fetchGitHubFile(
   const branch = ref || await getDefaultBranch(env, owner, repo);
   const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
 
-  const response = await fetchGitHubApi(url, token);
-
-  if (!response.ok) {
-    logger.warn(`Failed to fetch file: ${path} (${response.status})`);
-    throw new Error(
-      `GitHub API error (${response.status}): ${await response.text()}`
-    );
+  try {
+    const data = await fetchGitHubJson<{ content: string; encoding: string }>(url, token);
+    if (data.encoding === "base64") {
+      // Decode base64 content
+      return atob(data.content.replace(/\n/g, ""));
+    }
+    return data.content || "";
+  } catch (error: any) {
+    logger.warn(`Failed to fetch file: ${path} (${error.message})`);
+    throw error;
   }
-
-  const data = (await response.json()) as { content: string; encoding: string };
-
-  if (data.encoding === "base64") {
-    // Decode base64 content
-    return atob(data.content.replace(/\n/g, ""));
-  }
-
-  return data.content || "";
 }
 
 /**
@@ -787,4 +738,19 @@ export async function createPullRequest(
   } catch (error) {
     throw new Error(`Failed to create PR: ${error}`);
   }
+}
+
+
+async function withOctokitIssue<T = any>(env: Env, owner: string, repo: string, action: string, operation: (octokit: any) => Promise<{ data: any }>): Promise<T> {
+    const logger = new Logger(env, `GitHubTool:${action}`);
+    logger.info(`${action} in ${owner}/${repo}`);
+    const octokit = await getOctokit(env);
+    try {
+        const { data } = await operation(octokit);
+        logger.info(`${action} successfully`, { html_url: data.html_url });
+        return data as T;
+    } catch (e: any) {
+        logger.error(`Error ${action.toLowerCase()}`, { error: e.message });
+        throw e;
+    }
 }
