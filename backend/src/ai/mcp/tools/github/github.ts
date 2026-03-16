@@ -540,39 +540,24 @@ export async function extractCodeSnippets(
 > {
   const logger = new Logger(env, "GitHubTool:ExtractSnippets");
   logger.info(`Extracting snippets for snippets`);
-  const token = await getToken(env);
-  const branch = ref || await getDefaultBranch(env, owner, repo);
 
-  const snippets = await Promise.all(
-    files.map(async (file) => {
-      try {
-        const content = await fetchGitHubFile(
-          env,
-          owner,
-          repo,
-          file.file_path,
-          branch
-        );
-
-        const code = extractSnippet(content, file.start_line, file.end_line);
-
-        return {
-          file_path: file.file_path,
-          code,
-          relation: file.relation_to_question,
-        };
-      } catch (error) {
-        console.error(`Error extracting snippet from ${file.file_path}:`, error);
-        return {
-          file_path: file.file_path,
-          code: `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
-          relation: file.relation_to_question,
-        };
-      }
-    })
+  // Reuse fetchGitHubFiles to avoid duplicating fetch, extraction and error handling logic
+  const fetchedFiles = await fetchGitHubFiles(
+    env,
+    owner,
+    repo,
+    files.map(f => ({ path: f.file_path, start_line: f.start_line, end_line: f.end_line })),
+    ref
   );
 
-  return snippets;
+  return files.map((file, index) => {
+    const fetched = fetchedFiles[index];
+    return {
+      file_path: file.file_path,
+      code: fetched?.snippet || fetched?.content || `Error: Missing fetched snippet data for ${file.file_path}`,
+      relation: file.relation_to_question,
+    };
+  });
 }
 
 /**
@@ -693,18 +678,16 @@ export async function createBranch(
   const token = await getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}/git/refs`;
 
-  try {
-    await fetchGitHubRaw(url, token, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ref: `refs/heads/${newBranchName}`,
-        sha: baseSha,
-      }),
-    });
-  } catch (error: any) {
+  await fetchGitHubRaw(url, token, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      ref: `refs/heads/${newBranchName}`,
+      sha: baseSha,
+    }),
+  }).catch((error: any) => {
     throw new Error(`Failed to create branch ${newBranchName}: ${error.message}`);
-  }
+  });
 }
 
 /**
@@ -739,15 +722,13 @@ export async function createOrUpdateFile(
     body.sha = sha;
   }
 
-  try {
-    await fetchGitHubRaw(url, token, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-  } catch (error: any) {
+  await fetchGitHubRaw(url, token, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  }).catch((error: any) => {
     throw new Error(`Failed to write file ${path}: ${error.message}`);
-  }
+  });
 }
 
 /**
