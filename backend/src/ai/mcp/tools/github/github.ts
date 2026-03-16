@@ -315,6 +315,15 @@ async function fetchGitHubApi(env: Env, url: string, options: RequestInit = {}):
   });
 }
 
+async function fetchGitHubJson(env: Env, url: string, options: RequestInit = {}): Promise<any> {
+  const response = await fetchGitHubApi(env, url, options);
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`GitHub API error (${response.status}): ${errorText}`);
+  }
+  return response.json();
+}
+
 /**
  * Verify GitHub Token Validity
  */
@@ -368,15 +377,13 @@ export async function getDefaultBranch(
   // logger.debug(`Getting default branch for ${owner}/${repo}`); 
 
   const url = `https://api.github.com/repos/${owner}/${repo}`;
-  const response = await fetchGitHubApi(env, url);
-
-  if (!response.ok) {
-    logger.error(`Failed to fetch repo info: ${response.status}`);
-    throw new Error(`Failed to fetch repo info: ${response.status}`);
+  try {
+    const data = await fetchGitHubJson(env, url);
+    return data.default_branch;
+  } catch (error) {
+    logger.error(`Failed to fetch repo info: ${(error as Error).message}`);
+    throw error;
   }
-
-  const data = await response.json() as any;
-  return data.default_branch;
 }
 
 /**
@@ -484,16 +491,7 @@ export async function getRepoStructure(
   const logger = new Logger(env, "GitHubTool:RepoStructure");
   const branch = ref || await getDefaultBranch(env, owner, repo);
   const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
-
-  const response = await fetchGitHubApi(env, url);
-
-  if (!response.ok) {
-    throw new Error(
-      `GitHub API error (${response.status}): ${await response.text()}`
-    );
-  }
-
-  return await response.json();
+  return await fetchGitHubJson(env, url);
 }
 
 /**
@@ -510,16 +508,7 @@ export async function searchRepoCode(
   const url = `https://api.github.com/search/code?q=${encodeURIComponent(
     query
   )}+repo:${owner}/${repo}`;
-
-  const response = await fetchGitHubApi(env, url);
-
-  if (!response.ok) {
-    throw new Error(
-      `GitHub API error (${response.status}): ${await response.text()}`
-    );
-  }
-
-  return await response.json();
+  return await fetchGitHubJson(env, url);
 }
 
 /**
@@ -692,15 +681,13 @@ export async function getRef(
   // logger.debug(`Getting ref ${ref} for ${owner}/${repo}`);
 
   const url = `https://api.github.com/repos/${owner}/${repo}/git/ref/${ref}`;
-  const response = await fetchGitHubApi(env, url);
-
-  if (!response.ok) {
-    logger.warn(`Failed to get ref ${ref}: ${response.status}`);
-    throw new Error(`Failed to get ref ${ref}: ${response.status} ${await response.text()}`);
+  try {
+    const data = await fetchGitHubJson(env, url);
+    return data.object.sha;
+  } catch (error) {
+    logger.warn(`Failed to get ref ${ref}: ${(error as Error).message}`);
+    throw error;
   }
-
-  const data = await response.json() as any;
-  return data.object.sha;
 }
 
 /**
@@ -793,7 +780,7 @@ export async function createPullRequest(
   const logger = new Logger(env, "GitHubTool:CreatePR");
   logger.info(`Creating PR: ${title}`);
   const url = `https://api.github.com/repos/${owner}/${repo}/pulls`;
-  const response = await fetchGitHubApi(env, url, {
+  const data = await fetchGitHubJson(env, url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -805,12 +792,6 @@ export async function createPullRequest(
       base,
     }),
   });
-
-  if (!response.ok) {
-    throw new Error(`Failed to create PR: ${response.status} ${await response.text()}`);
-  }
-
-  const data = await response.json() as any;
   return {
     number: data.number,
     html_url: data.html_url,
