@@ -687,7 +687,7 @@ export async function createBranch(
   logger.info(`Creating branch ${newBranchName} in ${owner}/${repo} from ${baseSha}`);
 
   const url = `https://api.github.com/repos/${owner}/${repo}/git/refs`;
-  const response = await fetchGitHubApi(env, url, {
+  await fetchGitHubJson(env, url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -696,12 +696,9 @@ export async function createBranch(
       ref: `refs/heads/${newBranchName}`,
       sha: baseSha,
     }),
+  }).catch((error) => {
+    throw new Error(`Failed to create branch ${newBranchName}: ${error.message}`);
   });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Failed to create branch ${newBranchName}: ${response.status} ${errorText}`);
-  }
 }
 
 /**
@@ -735,17 +732,15 @@ export async function createOrUpdateFile(
     body.sha = sha;
   }
 
-  const response = await fetchGitHubApi(env, url, {
+  await fetchGitHubJson(env, url, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),
+  }).catch((error) => {
+    throw new Error(`Failed to write file ${path}: ${error.message}`);
   });
-
-  if (!response.ok) {
-    throw new Error(`Failed to write file ${path}: ${response.status} ${await response.text()}`);
-  }
 }
 
 /**
