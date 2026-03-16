@@ -200,17 +200,15 @@ app.openapi(createRepoRoute, async (c) => {
     logger.info(`Fetching template files for ${infrastructure}`);
     const files = await fetchTemplateFiles(c.env, infrastructure, name);
 
-    // 3. Commit Files
-    for (const [path, content] of Object.entries(files)) {
-        await upsertWorkflowFile(octokit, owner, name, path, content, false);
+    // 3. Commit Files & 4. Add Default Workflows
+    const allWorkflows = [
+        ...Object.entries(files).map(([path, content]) => ({ path, content })),
+        ...DEFAULT_WORKFLOWS
+    ];
+    for (const wf of allWorkflows) {
+        await upsertWorkflowFile(octokit, owner, name, wf.path, wf.content, false);
     }
-    logger.info(`Committed ${Object.keys(files).length} boilerplate files`);
-
-    // 4. Add Default Workflows
-    for (const wf of DEFAULT_WORKFLOWS) {
-        await upsertWorkflowFile(octokit, owner, name, wf.path, wf.content, false)
-    }
-    logger.info(`Added default workflows`);
+    logger.info(`Committed ${Object.keys(files).length} boilerplate files and added default workflows`);
 
     // 5. Register in D1 (repos table)
     await db.insert(repositories).values({
@@ -296,7 +294,7 @@ async function getToken(env: Env): Promise<string> {
   return await env.GITHUB_TOKEN.get();
 }
 
-async function fetchWithAuth(url: string, token: string, options: RequestInit = {}) {
+export async function fetchWithAuth(url: string, token: string, options: RequestInit = {}) {
   const headers = {
     Authorization: `Bearer ${token}`,
     Accept: "application/vnd.github.v3+json",
@@ -306,7 +304,7 @@ async function fetchWithAuth(url: string, token: string, options: RequestInit = 
   return fetch(url, { ...options, headers });
 }
 
-async function fetchGitHubAPI(url: string, token: string, options: RequestInit = {}): Promise<any> {
+export async function fetchGitHubAPI(url: string, token: string, options: RequestInit = {}): Promise<any> {
   const response = await fetchWithAuth(url, token, options);
   if (!response.ok) {
     throw new Error(
