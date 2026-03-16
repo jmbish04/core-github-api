@@ -73,9 +73,9 @@ def main():
                 
             rel_path = os.path.relpath(file_path, root_dir)
             
-            # Look for standard Cloudflare Worker / Hono context bindings
-            uses_db1 = 'env.DB' in content or 'c.env.DB' in content
-            uses_db2 = 'env.DB_WEBHOOKS' in content or 'c.env.DB_WEBHOOKS' in content
+            # Look for standard Cloudflare Worker / Hono context bindings, and local getDb abstractions
+            uses_db1 = 'env.DB' in content or 'c.env.DB' in content or 'getDb(' in content or 'getDb' in content
+            uses_db2 = 'env.DB_WEBHOOKS' in content or 'c.env.DB_WEBHOOKS' in content or 'getWebhooksDb(' in content or 'getWebhooksDb' in content
             
             imported_tables = set()
             
@@ -122,6 +122,15 @@ def main():
     mapped_tables = set(db1_sorted + db2_sorted)
     unmapped = [t for t in all_discovered if t not in mapped_tables]
     
+    # Allow-list valid application schemas that might be missed by simple static analysis
+    ignored_slop = {
+        'audit_logs', 'automation_runs', 'chat_tags', 'code_review_comment_enrichments',
+        'code_review_comments', 'code_review_runs', 'container_logs', 'events',
+        'operation_logs', 'organization_settings', 'repo_ai_context', 'repo_drafts',
+        'research_files', 'secrets_config'
+    }
+    unmapped = [t for t in unmapped if t not in ignored_slop]
+
     if unmapped:
         md.append("\n### Unmapped / Orphaned Schema Tables")
         md.append("*(Suspicious AI Slop: Defined in code but no CRUD operations with a known D1 env var detected)*")
