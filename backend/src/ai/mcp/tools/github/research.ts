@@ -32,7 +32,7 @@ export async function fetchCriticalFiles(owner: string, repo: string, tree: stri
       const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/main/${path}`;
       try {
         const resp = await fetchWithAuth(rawUrl, token);
-        if (resp.ok) return { path, text: await resp.text() };
+        if (resp.ok) return await resp.text();
       } catch (error) {
         console.error(`Error fetching ${path}:`, error);
       }
@@ -40,8 +40,9 @@ export async function fetchCriticalFiles(owner: string, repo: string, tree: stri
     })
   );
 
-  for (const res of results) {
-    if (res) contents[res.path] = res.text;
+  for (let i = 0; i < results.length; i++) {
+    const text = results[i];
+    if (text) contents[foundPaths[i]] = text;
   }
 
   return contents;
