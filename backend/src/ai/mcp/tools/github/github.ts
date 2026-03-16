@@ -296,7 +296,7 @@ async function getToken(env: Env): Promise<string> {
   return await env.GITHUB_TOKEN.get();
 }
 
-async function fetchWithAuth(url: string, token: string, options: RequestInit = {}) {
+export async function fetchWithAuth(url: string, token: string, options: RequestInit = {}) {
   const headers = {
     Authorization: `Bearer ${token}`,
     Accept: "application/vnd.github.v3+json",
