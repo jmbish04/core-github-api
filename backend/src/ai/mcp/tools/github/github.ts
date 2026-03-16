@@ -415,6 +415,16 @@ export async function fetchGitHubFile(
 }
 
 /**
+ * Extract a code snippet from content based on start and end lines.
+ */
+function extractSnippet(content: string, startLine: number, endLine: number): string {
+  const lines = content.split("\n");
+  const start = Math.max(0, startLine - 1);
+  const end = Math.min(lines.length, endLine);
+  return lines.slice(start, end).join("\n");
+}
+
+/**
  * Fetch multiple files from GitHub
  */
 export async function fetchGitHubFiles(
@@ -443,18 +453,14 @@ export async function fetchGitHubFiles(
         const content = await fetchGitHubFile(env, owner, repo, file.path, branch);
 
         // Extract snippet if line numbers provided
-        let snippet: string | undefined;
-        if (file.start_line && file.end_line) {
-          const lines = content.split("\n");
-          const start = Math.max(0, file.start_line - 1);
-          const end = Math.min(lines.length, file.end_line);
-          snippet = lines.slice(start, end).join("\n");
-        }
+        const snippet = file.start_line && file.end_line
+          ? extractSnippet(content, file.start_line, file.end_line)
+          : content;
 
         return {
           path: file.path,
           content,
-          snippet: snippet || content,
+          snippet,
         };
       } catch (error) {
         logger.error(`Error fetching ${file.path}`, { error: error }); 
@@ -545,10 +551,7 @@ export async function extractCodeSnippets(
           branch
         );
 
-        const lines = content.split("\n");
-        const start = Math.max(0, file.start_line - 1);
-        const end = Math.min(lines.length, file.end_line);
-        const code = lines.slice(start, end).join("\n");
+        const code = extractSnippet(content, file.start_line, file.end_line);
 
         return {
           file_path: file.file_path,
