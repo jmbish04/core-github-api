@@ -321,6 +321,22 @@ async function getToken(env: Env): Promise<string> {
 /**
  * Verify GitHub Token Validity
  */
+export async function fetchGitHubJson<T = any>(url: string, token: string, options?: RequestInit): Promise<T> {
+  const response = await fetchWithAuth(url, token, options);
+  if (!response.ok) {
+    throw new Error(`GitHub API error (${response.status}): ${await response.text()}`);
+  }
+  return response.json() as Promise<T>;
+}
+
+export async function fetchGitHubApi(url: string, token: string, options?: RequestInit): Promise<Response> {
+  const response = await fetchWithAuth(url, token, options);
+  if (!response.ok) {
+    throw new Error(`GitHub API error (${response.status}): ${await response.text()}`);
+  }
+  return response;
+}
+
 export async function verifyGitHubToken(env: Env): Promise<{
   valid: boolean;
   user?: string;
@@ -374,14 +390,10 @@ export async function getDefaultBranch(
   const token = await getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}`;
 
-  const response = await fetchWithAuth(url, token);
-
-  if (!response.ok) {
-    logger.error(`Failed to fetch repo info: ${response.status}`);
-    throw new Error(`Failed to fetch repo info: ${response.status}`);
-  }
-
-  const data = await response.json() as any;
+  const data = await fetchGitHubJson(url, token).catch(e => {
+    logger.error(`Failed to fetch repo info: ${e.message}`);
+    throw new Error(`Failed to fetch repo info: ${e.message}`);
+  });
   return data.default_branch;
 }
 
@@ -403,16 +415,10 @@ export async function fetchGitHubFile(
   const branch = ref || await getDefaultBranch(env, owner, repo);
   const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
 
-  const response = await fetchWithAuth(url, token);
-
-  if (!response.ok) {
-    logger.warn(`Failed to fetch file: ${path} (${response.status})`);
-    throw new Error(
-      `GitHub API error (${response.status}): ${await response.text()}`
-    );
-  }
-
-  const data = (await response.json()) as { content: string; encoding: string };
+  const data = await fetchGitHubJson<{ content: string; encoding: string }>(url, token).catch(e => {
+    logger.warn(`Failed to fetch file: ${path} (${e.message})`);
+    throw e;
+  });
 
   if (data.encoding === "base64") {
     // Decode base64 content
@@ -494,15 +500,7 @@ export async function getRepoStructure(
   const branch = ref || await getDefaultBranch(env, owner, repo);
   const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
 
-  const response = await fetchWithAuth(url, token);
-
-  if (!response.ok) {
-    throw new Error(
-      `GitHub API error (${response.status}): ${await response.text()}`
-    );
-  }
-
-  return await response.json();
+  return await fetchGitHubJson(url, token);
 }
 
 /**
@@ -521,15 +519,7 @@ export async function searchRepoCode(
     query
   )}+repo:${owner}/${repo}`;
 
-  const response = await fetchWithAuth(url, token);
-
-  if (!response.ok) {
-    throw new Error(
-      `GitHub API error (${response.status}): ${await response.text()}`
-    );
-  }
-
-  return await response.json();
+  return await fetchGitHubJson(url, token);
 }
 
 /**
@@ -633,22 +623,9 @@ export async function getPRComments(
   const reviewCommentsUrl = `https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}/comments`;
   const issueCommentsUrl = `https://api.github.com/repos/${owner}/${repo}/issues/${prNumber}/comments`;
 
-  const [reviewCommentsResponse, issueCommentsResponse] = await Promise.all([
-    fetchWithAuth(reviewCommentsUrl, token),
-    fetchWithAuth(issueCommentsUrl, token)
-  ]);
-
-  for (const response of [reviewCommentsResponse, issueCommentsResponse]) {
-    if (!response.ok) {
-      throw new Error(
-        `GitHub API error (${response.status}): ${await response.text()}`
-      );
-    }
-  }
-
   const [reviewComments, issueComments] = await Promise.all([
-    reviewCommentsResponse.json() as Promise<any[]>,
-    issueCommentsResponse.json() as Promise<any[]>
+    fetchGitHubJson<any[]>(reviewCommentsUrl, token),
+    fetchGitHubJson<any[]>(issueCommentsUrl, token)
   ]);
 
   // Combine and normalize comments
@@ -703,14 +680,10 @@ export async function getRef(
 
   const token = await getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}/git/ref/${ref}`;
-  const response = await fetchWithAuth(url, token);
-
-  if (!response.ok) {
-    logger.warn(`Failed to get ref ${ref}: ${response.status}`);
-    throw new Error(`Failed to get ref ${ref}: ${response.status} ${await response.text()}`);
-  }
-
-  const data = await response.json() as any;
+  const data = await fetchGitHubJson(url, token).catch(e => {
+    logger.warn(`Failed to get ref ${ref}: ${e.message}`);
+    throw new Error(`Failed to get ref ${ref}: ${e.message}`);
+  });
   return data.object.sha;
 }
 
@@ -729,18 +702,15 @@ export async function createBranch(
 
   const token = await getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}/git/refs`;
-  const response = await fetchWithAuth(url, token, {
+  await fetchGitHubApi(url, token, {
     method: "POST",
     body: JSON.stringify({
       ref: `refs/heads/${newBranchName}`,
       sha: baseSha,
     }),
+  }).catch(e => {
+    throw new Error(`Failed to create branch ${newBranchName}: ${e.message}`);
   });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Failed to create branch ${newBranchName}: ${response.status} ${errorText}`);
-  }
 }
 
 /**
@@ -775,14 +745,12 @@ export async function createOrUpdateFile(
     body.sha = sha;
   }
 
-  const response = await fetchWithAuth(url, token, {
+  await fetchGitHubApi(url, token, {
     method: "PUT",
     body: JSON.stringify(body),
+  }).catch(e => {
+    throw new Error(`Failed to write file ${path}: ${e.message}`);
   });
-
-  if (!response.ok) {
-    throw new Error(`Failed to write file ${path}: ${response.status} ${await response.text()}`);
-  }
 }
 
 /**
@@ -801,7 +769,7 @@ export async function createPullRequest(
   logger.info(`Creating PR: ${title}`);
   const token = await getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}/pulls`;
-  const response = await fetchWithAuth(url, token, {
+  const data = await fetchGitHubJson(url, token, {
     method: "POST",
     body: JSON.stringify({
       title,
@@ -809,13 +777,10 @@ export async function createPullRequest(
       head,
       base,
     }),
+  }).catch(e => {
+    throw new Error(`Failed to create PR: ${e.message}`);
   });
 
-  if (!response.ok) {
-    throw new Error(`Failed to create PR: ${response.status} ${await response.text()}`);
-  }
-
-  const data = await response.json() as any;
   return {
     number: data.number,
     html_url: data.html_url,
