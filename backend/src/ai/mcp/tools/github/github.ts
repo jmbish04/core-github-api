@@ -300,6 +300,22 @@ async function getToken(env: Env): Promise<string> {
 }
 
 /**
+ * Internal helper for authenticated GitHub API calls
+ */
+async function fetchGitHubApi(env: Env, url: string, options: RequestInit = {}): Promise<Response> {
+  const token = await getToken(env);
+  return fetch(url, {
+    ...options,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/vnd.github.v3+json",
+      "User-Agent": "Cloudflare-Worker-MCP",
+      ...options.headers,
+    },
+  });
+}
+
+/**
  * Verify GitHub Token Validity
  */
 export async function verifyGitHubToken(env: Env): Promise<{
@@ -310,13 +326,7 @@ export async function verifyGitHubToken(env: Env): Promise<{
 }> {
   const logger = new Logger(env, "GitHubTool:VerifyToken");
   try {
-    const token = await getToken(env); // await if needed, though getToken is async
-    const response = await fetch("https://api.github.com/user", {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "User-Agent": "Cloudflare-Worker-MCP",
-      },
-    });
+    const response = await fetchGitHubApi(env, "https://api.github.com/user");
 
     if (!response.ok) {
         logger.warn(`Token verification failed: ${response.status}`);
@@ -357,16 +367,8 @@ export async function getDefaultBranch(
   const logger = new Logger(env, "GitHubTool:GetDefaultBranch");
   // logger.debug(`Getting default branch for ${owner}/${repo}`); 
 
-  const token = await getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}`;
-
-  const response = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/vnd.github.v3+json",
-      "User-Agent": "Cloudflare-Worker-MCP",
-    },
-  });
+  const response = await fetchGitHubApi(env, url);
 
   if (!response.ok) {
     logger.error(`Failed to fetch repo info: ${response.status}`);
@@ -390,18 +392,11 @@ export async function fetchGitHubFile(
   const logger = new Logger(env, "GitHubTool:FetchFile");
   // logger.debug(`Fetching file ${owner}/${repo}/${path} ref=${ref}`);
 
-  const token = await getToken(env);
   // Use provided ref or fetch default branch
   const branch = ref || await getDefaultBranch(env, owner, repo);
   const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
 
-  const response = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/vnd.github.v3+json",
-      "User-Agent": "Cloudflare-Worker-MCP",
-    },
-  });
+  const response = await fetchGitHubApi(env, url);
 
   if (!response.ok) {
     logger.warn(`Failed to fetch file: ${path} (${response.status})`);
@@ -439,7 +434,6 @@ export async function fetchGitHubFiles(
   const logger = new Logger(env, "GitHubTool:FetchFiles");
   logger.info(`Fetching ${files.length} files from ${owner}/${repo}`);
 
-  const token = await getToken(env);
   // Resolve branch once for all files if not provided
   const branch = ref || await getDefaultBranch(env, owner, repo);
 
@@ -488,17 +482,10 @@ export async function getRepoStructure(
   ref?: string
 ): Promise<any> {
   const logger = new Logger(env, "GitHubTool:RepoStructure");
-  const token = getToken(env);
   const branch = ref || await getDefaultBranch(env, owner, repo);
   const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
 
-  const response = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/vnd.github.v3+json",
-      "User-Agent": "Cloudflare-Worker-MCP",
-    },
-  });
+  const response = await fetchGitHubApi(env, url);
 
   if (!response.ok) {
     throw new Error(
@@ -520,18 +507,11 @@ export async function searchRepoCode(
 ): Promise<any> {
   const logger = new Logger(env, "GitHubTool:SearchCode");
   logger.info(`Searching code in ${owner}/${repo} query="${query}"`);
-  const token = getToken(env);
   const url = `https://api.github.com/search/code?q=${encodeURIComponent(
     query
   )}+repo:${owner}/${repo}`;
 
-  const response = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/vnd.github.v3+json",
-      "User-Agent": "Cloudflare-Worker-MCP",
-    },
-  });
+  const response = await fetchGitHubApi(env, url);
 
   if (!response.ok) {
     throw new Error(
@@ -565,7 +545,6 @@ export async function extractCodeSnippets(
 > {
   const logger = new Logger(env, "GitHubTool:ExtractSnippets");
   logger.info(`Extracting snippets for snippets`);
-  const token = getToken(env);
   const branch = ref || await getDefaultBranch(env, owner, repo);
 
   const snippets = await Promise.all(
@@ -638,16 +617,9 @@ export async function getPRComments(
 }>> {
   const logger = new Logger(env, "GitHubTool:PRComments");
   logger.info(`Fetching comments for PR ${owner}/${repo}#${prNumber}`);
-  const token = getToken(env);
   // Get review comments (inline code comments)
   const reviewCommentsUrl = `https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}/comments`;
-  const reviewCommentsResponse = await fetch(reviewCommentsUrl, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/vnd.github.v3+json",
-      "User-Agent": "Cloudflare-Worker-MCP",
-    },
-  });
+  const reviewCommentsResponse = await fetchGitHubApi(env, reviewCommentsUrl);
 
   if (!reviewCommentsResponse.ok) {
     throw new Error(
@@ -659,13 +631,7 @@ export async function getPRComments(
 
   // Get issue comments (general PR comments)
   const issueCommentsUrl = `https://api.github.com/repos/${owner}/${repo}/issues/${prNumber}/comments`;
-  const issueCommentsResponse = await fetch(issueCommentsUrl, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/vnd.github.v3+json",
-      "User-Agent": "Cloudflare-Worker-MCP",
-    },
-  });
+  const issueCommentsResponse = await fetchGitHubApi(env, issueCommentsUrl);
 
   if (!issueCommentsResponse.ok) {
     throw new Error(
@@ -725,15 +691,8 @@ export async function getRef(
   const logger = new Logger(env, "GitHubTool:GetRef");
   // logger.debug(`Getting ref ${ref} for ${owner}/${repo}`);
 
-  const token = await getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}/git/ref/${ref}`;
-  const response = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/vnd.github.v3+json",
-      "User-Agent": "Cloudflare-Worker-MCP",
-    },
-  });
+  const response = await fetchGitHubApi(env, url);
 
   if (!response.ok) {
     logger.warn(`Failed to get ref ${ref}: ${response.status}`);
@@ -757,14 +716,10 @@ export async function createBranch(
   const logger = new Logger(env, "GitHubTool:CreateBranch");
   logger.info(`Creating branch ${newBranchName} in ${owner}/${repo} from ${baseSha}`);
 
-  const token = getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}/git/refs`;
-  const response = await fetch(url, {
+  const response = await fetchGitHubApi(env, url, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/vnd.github.v3+json",
-      "User-Agent": "Cloudflare-Worker-MCP",
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
@@ -795,7 +750,6 @@ export async function createOrUpdateFile(
   const logger = new Logger(env, "GitHubTool:CreateOrUpdateFile");
   logger.info(`Writing file ${path} to ${owner}/${repo} branch=${branch}`);
 
-  const token = getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
 
   // Base64 encode content
@@ -811,12 +765,9 @@ export async function createOrUpdateFile(
     body.sha = sha;
   }
 
-  const response = await fetch(url, {
+  const response = await fetchGitHubApi(env, url, {
     method: "PUT",
     headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/vnd.github.v3+json",
-      "User-Agent": "Cloudflare-Worker-MCP",
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),
@@ -841,14 +792,10 @@ export async function createPullRequest(
 ): Promise<{ number: number; html_url: string }> {
   const logger = new Logger(env, "GitHubTool:CreatePR");
   logger.info(`Creating PR: ${title}`);
-  const token = getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}/pulls`;
-  const response = await fetch(url, {
+  const response = await fetchGitHubApi(env, url, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/vnd.github.v3+json",
-      "User-Agent": "Cloudflare-Worker-MCP",
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
