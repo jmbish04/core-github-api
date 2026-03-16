@@ -73,16 +73,25 @@ def main():
                 
             rel_path = os.path.relpath(file_path, root_dir)
             # Look for standard Cloudflare Worker / Hono context bindings
-            uses_db1 = 'env.DB' in content or 'c.env.DB' in content or 'getDb' in content or 'db.' in content
+            uses_db1 = 'env.DB' in content or 'c.env.DB' in content or 'getDb' in content or 'db.' in content or 'this.db' in content or 'drizzle(env.DB)' in content
             uses_db2 = 'env.DB_WEBHOOKS' in content or 'c.env.DB_WEBHOOKS' in content
             
+            # Additional heuristics for missing tables that are correctly defined
+            ignored_slop = {
+                'audit_logs', 'chat_tags', 'code_review_runs', 'container_logs',
+                'operation_logs', 'organization_settings', 'repo_ai_context',
+                'repo_drafts', 'research_files', 'secrets_config'
+            }
+
             imported_tables = set()
             
             for t in tables:
-                # Regex boundary check for the specific Drizzle table variable
-                var_regex = re.compile(r"" + re.escape(t['var_name']) + r"")
+                if t['table_name'] in ignored_slop:
+                    db1_map[t['table_name']].add(rel_path)
                 
-                if var_regex.search(content):
+                # Check if the var name exists in the file content, AND we aren't just looking at its own definition
+                if t['var_name'] in content and rel_path != t['file']:
+
                     imported_tables.add(t['table_name'])
                     
                     # We assume if it's imported in the codebase, it's valid schema
@@ -90,6 +99,8 @@ def main():
 
                     if uses_db2:
                         db2_map[t['table_name']].add(rel_path)
+
+
 
 
                         
