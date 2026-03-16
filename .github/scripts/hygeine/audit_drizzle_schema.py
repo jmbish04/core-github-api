@@ -122,9 +122,7 @@ def main():
     all_discovered = sorted(list(set(t['table_name'] for t in tables)))
 
     # Actually aggregate ALL imported tables from across all files
-    all_imported = set()
-    for imported_set in file_interactions.values():
-        all_imported.update(imported_set)
+    all_imported = set().union(*file_interactions.values()) if file_interactions else set()
 
     mapped_tables = set(db1_sorted + db2_sorted)
     # A table is NOT orphaned if it's imported ANYWHERE in the code
@@ -145,25 +143,20 @@ def main():
         md.append(f"### `{file_path}`")
         md.append(f"- **Tables Imported:** {tables_used}\n")
 
-    md.append("---\n\n## env.DB d1 db")
-    md.append("| Table Name | Short File Paths |")
-    md.append("|---|---|")
-    if db1_sorted:
-        for t in db1_sorted:
-            paths = ", ".join([f"`{p}`" for p in sorted(db1_map[t])])
-            md.append(f"| **{t}** | {paths} |")
-    else:
-        md.append("| *None Detected* | *N/A* |")
-
-    md.append("\n## env.DB_WEBHOOKS d1 db")
-    md.append("| Table Name | Short File Paths |")
-    md.append("|---|---|")
-    if db2_sorted:
-        for t in db2_sorted:
-            paths = ", ".join([f"`{p}`" for p in sorted(db2_map[t])])
-            md.append(f"| **{t}** | {paths} |")
-    else:
-        md.append("| *None Detected* | *N/A* |")
+    for db_name, sorted_tables, table_map in [
+        ("env.DB d1 db", db1_sorted, db1_map),
+        ("env.DB_WEBHOOKS d1 db", db2_sorted, db2_map)
+    ]:
+        prefix = "---\n\n" if db_name == "env.DB d1 db" else "\n"
+        md.append(f"{prefix}## {db_name}")
+        md.append("| Table Name | Short File Paths |")
+        md.append("|---|---|")
+        if sorted_tables:
+            for t in sorted_tables:
+                paths = ", ".join([f"`{p}`" for p in sorted(table_map[t])])
+                md.append(f"| **{t}** | {paths} |")
+        else:
+            md.append("| *None Detected* | *N/A* |")
 
     # 4. Write to disk
     try:

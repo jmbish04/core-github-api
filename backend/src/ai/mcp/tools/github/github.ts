@@ -302,17 +302,39 @@ async function getToken(env: Env): Promise<string> {
 /**
  * Internal helper for authenticated GitHub API calls
  */
-async function fetchGitHubApi(env: Env, url: string, options: RequestInit = {}): Promise<Response> {
-  const token = await getToken(env);
+export async function fetchWithAuth(url: string, token: string, options: RequestInit = {}): Promise<Response> {
   return fetch(url, {
     ...options,
     headers: {
       Authorization: `Bearer ${token}`,
+      "User-Agent": "cloudflare-repo-analyzer",
+      ...options.headers,
+    },
+  });
+}
+
+export async function fetchGitHubApi(env: Env, url: string, options: RequestInit = {}): Promise<Response> {
+  const token = await getToken(env);
+  return fetchWithAuth(url, token, {
+    ...options,
+    headers: {
       Accept: "application/vnd.github.v3+json",
       "User-Agent": "Cloudflare-Worker-MCP",
       ...options.headers,
     },
   });
+}
+
+/**
+ * Internal helper for authenticated GitHub API calls that expect a JSON response.
+ * Handles the response.ok check and parses the JSON.
+ */
+export async function fetchGitHubJson(env: Env, url: string, options: RequestInit = {}): Promise<any> {
+  const response = await fetchGitHubApi(env, url, options);
+  if (!response.ok) {
+    throw new Error(`GitHub API error (${response.status}): ${await response.text()}`);
+  }
+  return response.json();
 }
 
 /**
@@ -485,15 +507,7 @@ export async function getRepoStructure(
   const branch = ref || await getDefaultBranch(env, owner, repo);
   const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
 
-  const response = await fetchGitHubApi(env, url);
-
-  if (!response.ok) {
-    throw new Error(
-      `GitHub API error (${response.status}): ${await response.text()}`
-    );
-  }
-
-  return await response.json();
+  return fetchGitHubJson(env, url);
 }
 
 /**
@@ -511,15 +525,7 @@ export async function searchRepoCode(
     query
   )}+repo:${owner}/${repo}`;
 
-  const response = await fetchGitHubApi(env, url);
-
-  if (!response.ok) {
-    throw new Error(
-      `GitHub API error (${response.status}): ${await response.text()}`
-    );
-  }
-
-  return await response.json();
+  return fetchGitHubJson(env, url);
 }
 
 /**
@@ -617,33 +623,18 @@ export async function getPRComments(
 }>> {
   const logger = new Logger(env, "GitHubTool:PRComments");
   logger.info(`Fetching comments for PR ${owner}/${repo}#${prNumber}`);
-  // Get review comments (inline code comments)
+
   const reviewCommentsUrl = `https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}/comments`;
-  const reviewCommentsResponse = await fetchGitHubApi(env, reviewCommentsUrl);
-
-  if (!reviewCommentsResponse.ok) {
-    throw new Error(
-      `GitHub API error (${reviewCommentsResponse.status}): ${await reviewCommentsResponse.text()}`
-    );
-  }
-
-  const reviewComments = await reviewCommentsResponse.json() as any[];
-
-  // Get issue comments (general PR comments)
   const issueCommentsUrl = `https://api.github.com/repos/${owner}/${repo}/issues/${prNumber}/comments`;
-  const issueCommentsResponse = await fetchGitHubApi(env, issueCommentsUrl);
 
-  if (!issueCommentsResponse.ok) {
-    throw new Error(
-      `GitHub API error (${issueCommentsResponse.status}): ${await issueCommentsResponse.text()}`
-    );
-  }
-
-  const issueComments = await issueCommentsResponse.json() as any[];
+  const [reviewComments, issueComments] = await Promise.all([
+    fetchGitHubJson(env, reviewCommentsUrl),
+    fetchGitHubJson(env, issueCommentsUrl)
+  ]);
 
   // Combine and normalize comments
   const allComments = [
-    ...reviewComments.map((comment) => ({
+    ...(reviewComments as any[]).map((comment) => ({
       id: comment.id,
       author: comment.user?.login || "unknown",
       body: comment.body || "",
@@ -651,7 +642,7 @@ export async function getPRComments(
       line: comment.line || comment.original_line,
       comment_type: 'review' as const,
     })),
-    ...issueComments.map((comment) => ({
+    ...(issueComments as any[]).map((comment) => ({
       id: comment.id,
       author: comment.user?.login || "unknown",
       body: comment.body || "",
@@ -692,15 +683,13 @@ export async function getRef(
   // logger.debug(`Getting ref ${ref} for ${owner}/${repo}`);
 
   const url = `https://api.github.com/repos/${owner}/${repo}/git/ref/${ref}`;
-  const response = await fetchGitHubApi(env, url);
-
-  if (!response.ok) {
-    logger.warn(`Failed to get ref ${ref}: ${response.status}`);
-    throw new Error(`Failed to get ref ${ref}: ${response.status} ${await response.text()}`);
+  try {
+    const data = await fetchGitHubJson(env, url);
+    return data.object.sha;
+  } catch (error: any) {
+    logger.warn(`Failed to get ref ${ref}: ${error.message}`);
+    throw new Error(`Failed to get ref ${ref}: ${error.message}`);
   }
-
-  const data = await response.json() as any;
-  return data.object.sha;
 }
 
 /**
@@ -793,26 +782,24 @@ export async function createPullRequest(
   const logger = new Logger(env, "GitHubTool:CreatePR");
   logger.info(`Creating PR: ${title}`);
   const url = `https://api.github.com/repos/${owner}/${repo}/pulls`;
-  const response = await fetchGitHubApi(env, url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      title,
-      body,
-      head,
-      base,
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to create PR: ${response.status} ${await response.text()}`);
+  try {
+    const data = await fetchGitHubJson(env, url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        title,
+        body,
+        head,
+        base,
+      }),
+    });
+    return {
+      number: data.number,
+      html_url: data.html_url,
+    };
+  } catch (error: any) {
+    throw new Error(`Failed to create PR: ${error.message}`);
   }
-
-  const data = await response.json() as any;
-  return {
-    number: data.number,
-    html_url: data.html_url,
-  };
 }
