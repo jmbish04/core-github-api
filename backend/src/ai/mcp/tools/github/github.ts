@@ -200,17 +200,15 @@ app.openapi(createRepoRoute, async (c) => {
     logger.info(`Fetching template files for ${infrastructure}`);
     const files = await fetchTemplateFiles(c.env, infrastructure, name);
 
-    // 3. Commit Files
-    for (const [path, content] of Object.entries(files)) {
-        await upsertWorkflowFile(octokit, owner, name, path, content, false);
+    // 3. Commit Files & 4. Add Default Workflows
+    const allFiles = [
+        ...Object.entries(files).map(([path, content]) => ({ path, content })),
+        ...DEFAULT_WORKFLOWS
+    ];
+    for (const file of allFiles) {
+        await upsertWorkflowFile(octokit, owner, name, file.path, file.content, false);
     }
-    logger.info(`Committed ${Object.keys(files).length} boilerplate files`);
-
-    // 4. Add Default Workflows
-    for (const wf of DEFAULT_WORKFLOWS) {
-        await upsertWorkflowFile(octokit, owner, name, wf.path, wf.content, false)
-    }
-    logger.info(`Added default workflows`);
+    logger.info(`Committed ${Object.keys(files).length} boilerplate files and default workflows`);
 
     // 5. Register in D1 (repos table)
     await db.insert(repositories).values({
@@ -608,13 +606,10 @@ export async function getPRComments(
   const logger = new Logger(env, "GitHubTool:PRComments");
   logger.info(`Fetching comments for PR ${owner}/${repo}#${prNumber}`);
   const token = await getToken(env);
-  // Get review comments (inline code comments)
-  const reviewCommentsUrl = `https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}/comments`;
-  const reviewComments = await fetchGitHubAPI(reviewCommentsUrl, token) as any[];
-
-  // Get issue comments (general PR comments)
-  const issueCommentsUrl = `https://api.github.com/repos/${owner}/${repo}/issues/${prNumber}/comments`;
-  const issueComments = await fetchGitHubAPI(issueCommentsUrl, token) as any[];
+  const [reviewComments, issueComments] = await Promise.all([
+    fetchGitHubAPI(`https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}/comments`, token) as Promise<any[]>,
+    fetchGitHubAPI(`https://api.github.com/repos/${owner}/${repo}/issues/${prNumber}/comments`, token) as Promise<any[]>
+  ]);
 
   // Combine and normalize comments
   const allComments = [
