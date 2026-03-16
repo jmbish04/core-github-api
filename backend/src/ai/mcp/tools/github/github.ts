@@ -305,7 +305,16 @@ function extractSnippet(content: string, startLine: number, endLine: number): st
   return lines.slice(start, end).join("\n");
 }
 
-async function fetchWithAuth(url: string, token: string, options: RequestInit = {}) {
+
+export async function fetchGitHubJson(url: string, token: string, options: RequestInit = {}): Promise<any> {
+  const response = await fetchWithAuth(url, token, options);
+  if (!response.ok) {
+    throw new Error(`GitHub API error (${response.status}): ${await response.text()}`);
+  }
+  return await response.json();
+}
+
+export async function fetchWithAuth(url: string, token: string, options: RequestInit = {}) {
   const headers = {
     Authorization: `Bearer ${token}`,
     Accept: "application/vnd.github.v3+json",
@@ -372,14 +381,7 @@ export async function getDefaultBranch(
   const token = await getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}`;
 
-  const response = await fetchWithAuth(url, token);
-
-  if (!response.ok) {
-    logger.error(`Failed to fetch repo info: ${response.status}`);
-    throw new Error(`Failed to fetch repo info: ${response.status}`);
-  }
-
-  const data = await response.json() as any;
+  const data = await fetchGitHubJson(url, token);
   return data.default_branch;
 }
 
@@ -489,15 +491,7 @@ export async function getRepoStructure(
   const branch = ref || await getDefaultBranch(env, owner, repo);
   const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
 
-  const response = await fetchWithAuth(url, token);
-
-  if (!response.ok) {
-    throw new Error(
-      `GitHub API error (${response.status}): ${await response.text()}`
-    );
-  }
-
-  return await response.json();
+  return await fetchGitHubJson(url, token);
 }
 
 /**
@@ -516,15 +510,7 @@ export async function searchRepoCode(
     query
   )}+repo:${owner}/${repo}`;
 
-  const response = await fetchWithAuth(url, token);
-
-  if (!response.ok) {
-    throw new Error(
-      `GitHub API error (${response.status}): ${await response.text()}`
-    );
-  }
-
-  return await response.json();
+  return await fetchGitHubJson(url, token);
 }
 
 /**
@@ -692,14 +678,7 @@ export async function getRef(
 
   const token = await getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}/git/ref/${ref}`;
-  const response = await fetchWithAuth(url, token);
-
-  if (!response.ok) {
-    logger.warn(`Failed to get ref ${ref}: ${response.status}`);
-    throw new Error(`Failed to get ref ${ref}: ${response.status} ${await response.text()}`);
-  }
-
-  const data = await response.json() as any;
+  const data = await fetchGitHubJson(url, token);
   return data.object.sha;
 }
 
@@ -792,7 +771,7 @@ export async function createPullRequest(
   logger.info(`Creating PR: ${title}`);
   const token = await getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}/pulls`;
-  const response = await fetchWithAuth(url, token, {
+  const data = await fetchGitHubJson(url, token, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -803,11 +782,6 @@ export async function createPullRequest(
     }),
   });
 
-  if (!response.ok) {
-    throw new Error(`Failed to create PR: ${response.status} ${await response.text()}`);
-  }
-
-  const data = await response.json() as any;
   return {
     number: data.number,
     html_url: data.html_url,
