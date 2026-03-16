@@ -276,9 +276,14 @@ export default app
 
 
 
+function handleGitHubError(action: string, e: Error): never {
+  throw new Error(`Failed to ${action}: ${e.message}`);
+}
+
 /**
  * Helper to get token from Env
  */
+
 async function getToken(env: Env): Promise<string> {
   if (!env.GITHUB_TOKEN) {
     throw new Error("Missing GITHUB_TOKEN in environment");
@@ -344,7 +349,7 @@ export async function getDefaultBranch(
 
   const data = await fetchGitHubJson(url, token).catch(e => {
     logger.error(`Failed to fetch repo info: ${e.message}`);
-    throw new Error(`Failed to fetch repo info: ${e.message}`);
+    handleGitHubError("fetch repo info", e as Error);
   }) as any;
   return data.default_branch;
 }
@@ -614,7 +619,7 @@ export async function getRef(
   const url = `https://api.github.com/repos/${owner}/${repo}/git/ref/${ref}`;
   const data = await fetchGitHubJson(url, token).catch(e => {
     logger.warn(`Failed to get ref ${ref}: ${e.message}`);
-    throw new Error(`Failed to get ref ${ref}: ${e.message}`);
+    handleGitHubError(`get ref ${ref}`, e as Error);
   }) as any;
   return data.object.sha;
 }
@@ -640,9 +645,7 @@ export async function createBranch(
       ref: `refs/heads/${newBranchName}`,
       sha: baseSha,
     }),
-  }).catch((e: Error) => {
-    throw new Error(`Failed to create branch ${newBranchName}: ${e.message}`);
-  });
+  }).catch((e: Error) => handleGitHubError(`create branch ${newBranchName}`, e));
 }
 
 /**
@@ -680,9 +683,7 @@ export async function createOrUpdateFile(
   await fetchGitHubRaw(url, token, {
     method: "PUT",
     body: JSON.stringify(body),
-  }).catch((e: Error) => {
-    throw new Error(`Failed to write file ${path}: ${e.message}`);
-  });
+  }).catch((e: Error) => handleGitHubError(`write file ${path}`, e));
 }
 
 /**
@@ -709,9 +710,7 @@ export async function createPullRequest(
       head,
       base,
     }),
-  }).catch(e => {
-    throw new Error(`Failed to create PR: ${e.message}`);
-  }) as any;
+  }).catch(e => handleGitHubError("create PR", e as Error)) as any;
   return {
     number: data.number,
     html_url: data.html_url,
