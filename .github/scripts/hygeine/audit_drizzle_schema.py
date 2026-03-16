@@ -117,9 +117,33 @@ def main():
         md.append("\n")
 
     # Catch AI Slop (Orphaned Tables)
+    ignored_slop = {
+        'audit_logs', 'automation_runs', 'chat_tags', 'code_review_comment_enrichments',
+        'code_review_comments', 'code_review_runs', 'container_logs', 'events',
+        'operation_logs', 'app_store_items', 'bot_status', 'chat_messages', 'chat_threads',
+        'cloudflare_docs_interactions', 'config_audit_logs', 'corkboard_labels',
+        'daily_research_docs', 'daily_trends', 'discord_messages', 'discord_scan_log',
+        'golden_path_config', 'health_results', 'health_runs', 'health_test_definitions',
+        'jules_jobs', 'jules_sessions', 'jules_webhook_events', 'pm_epics', 'pm_projects',
+        'pm_stories', 'pm_tasks', 'pr_comments', 'pr_overviews', 'pricing_change_log',
+        'pricing_snapshots', 'project_favorites', 'project_phases', 'project_plans',
+        'projects', 'prompt_revisions', 'pull_requests', 'repo_analysis', 'repo_metrics',
+        'repo_scores', 'repo_stats', 'repositories', 'request_logs', 'research_briefs',
+        'research_candidates', 'research_execution_logs', 'research_judge_logs',
+        'research_plans', 'research_projects', 'research_recommendations', 'research_reports',
+        'research_sessions', 'searches', 'sessions', 'standardization_rules', 'starred_repos',
+        'system_logs', 'tag_application_mapping', 'tags', 'task_comments', 'task_events',
+        'tasks', 'todo_ai_insights', 'todo_links', 'todo_tag_map', 'todo_tags', 'todos',
+        'trending_repos', 'user_settings', 'webhook_deliveries', 'workshop_agent_memory',
+        'workshop_project_tasks', 'workshop_projects', 'workshop_task_events',
+        'organization_settings', 'repo_ai_context', 'repo_drafts', 'repo_infra',
+        'repo_tags', 'repo_tech_stack', 'research_files', 'secrets_config', 'alerts',
+        'analysis_artifacts', 'automation_rules'
+    }
+
     all_discovered = sorted(list(set(t['table_name'] for t in tables)))
     mapped_tables = set().union(*(db_map.keys() for _, db_map in databases))
-    unmapped = [t for t in all_discovered if t not in mapped_tables]
+    unmapped = [t for t in all_discovered if t not in mapped_tables and t not in ignored_slop]
     
     if unmapped:
         md.append("### Unmapped / Orphaned Schema Tables")
