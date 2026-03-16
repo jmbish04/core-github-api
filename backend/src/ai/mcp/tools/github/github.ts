@@ -4,7 +4,7 @@
  * @owner AI-Builder
  */
 
-import { fetchWithAuth, fetchGitHubJson } from "./fetch";
+import { fetchWithAuth, fetchGitHubJson, fetchGitHubRaw } from "./fetch";
 export { fetchGitHubJson } from "./fetch";
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
 import { getOctokit } from '@services/octokit/core'
@@ -208,17 +208,15 @@ app.openapi(createRepoRoute, async (c) => {
     logger.info(`Fetching template files for ${infrastructure}`);
     const files = await fetchTemplateFiles(c.env, infrastructure, name);
 
-    // 3. Commit Files
-    for (const [path, content] of Object.entries(files)) {
+    // 3 & 4. Commit Files & Add Default Workflows
+    const allFiles = [
+        ...Object.entries(files).map(([path, content]) => ({ path, content })),
+        ...DEFAULT_WORKFLOWS
+    ];
+    for (const { path, content } of allFiles) {
         await upsertWorkflowFile(octokit, owner, name, path, content, false);
     }
-    logger.info(`Committed ${Object.keys(files).length} boilerplate files`);
-
-    // 4. Add Default Workflows
-    for (const wf of DEFAULT_WORKFLOWS) {
-        await upsertWorkflowFile(octokit, owner, name, wf.path, wf.content, false)
-    }
-    logger.info(`Added default workflows`);
+    logger.info(`Committed ${allFiles.length} boilerplate and workflow files`);
 
     // 5. Register in D1 (repos table)
     await db.insert(repositories).values({
@@ -652,18 +650,15 @@ export async function createBranch(
 
   const token = await getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}/git/refs`;
-  const response = await fetchWithAuth(url, token, {
+  await fetchGitHubRaw(url, token, {
     method: "POST",
     body: JSON.stringify({
       ref: `refs/heads/${newBranchName}`,
       sha: baseSha,
     }),
+  }).catch((e: Error) => {
+    throw new Error(`Failed to create branch ${newBranchName}: ${e.message}`);
   });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Failed to create branch ${newBranchName}: ${response.status} ${errorText}`);
-  }
 }
 
 /**
@@ -698,14 +693,12 @@ export async function createOrUpdateFile(
     body.sha = sha;
   }
 
-  const response = await fetchWithAuth(url, token, {
+  await fetchGitHubRaw(url, token, {
     method: "PUT",
     body: JSON.stringify(body),
+  }).catch((e: Error) => {
+    throw new Error(`Failed to write file ${path}: ${e.message}`);
   });
-
-  if (!response.ok) {
-    throw new Error(`Failed to write file ${path}: ${response.status} ${await response.text()}`);
-  }
 }
 
 /**

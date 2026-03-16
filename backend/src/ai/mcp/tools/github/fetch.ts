@@ -17,12 +17,17 @@ export async function fetchWithAuth(url: string, token: string, options: Request
   });
 }
 
-export async function fetchGitHubJson(url: string, token: string, options: RequestInit = {}) {
+export async function fetchGitHubRaw(url: string, token: string, options: RequestInit = {}) {
   const response = await fetchWithAuth(url, token, options);
   if (!response.ok) {
     throw new Error(
       `GitHub API error (${response.status}): ${await response.text()}`
     );
   }
+  return response;
+}
+
+export async function fetchGitHubJson(url: string, token: string, options: RequestInit = {}) {
+  const response = await fetchGitHubRaw(url, token, options);
   return await response.json();
 }
