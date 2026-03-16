@@ -118,11 +118,8 @@ def main():
 
     # Catch AI Slop (Orphaned Tables)
     all_discovered = sorted(list(set(t['table_name'] for t in tables)))
-    mapped_tables = set().union(*(db_map.keys() for _, db_map in databases))
-
-    # Also include any table that is imported and interacted with, even if db env var mapping missed it
-    if file_interactions:
-        mapped_tables = mapped_tables.union(*file_interactions.values())
+    # Combine database mappings and any imported/interacted tables
+    mapped_tables = set().union(*(db_map.keys() for _, db_map in databases), *(file_interactions.values() if file_interactions else []))
 
     unmapped = [t for t in all_discovered if t not in mapped_tables]
     

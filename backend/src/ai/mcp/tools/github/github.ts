@@ -87,6 +87,33 @@ async function upsertWorkflowFile(octokit: any, owner: string, repo: string, pat
 /**
  * Shared helper for making API calls that expect a JSON response
  */
+
+export async function fetchGitHubJsonWithLog(
+  url: string,
+  token: string,
+  errorMessage: string,
+  options: RequestInit = {},
+  logger?: Logger,
+  isWarn = false,
+  rethrowOriginal = false
+) {
+  try {
+    return await fetchGitHubJson(url, token, options);
+  } catch (e: any) {
+    if (logger) {
+      if (isWarn) {
+        logger.warn(`${errorMessage}: ${e.message}`);
+      } else {
+        logger.error(`${errorMessage}: ${e.message}`);
+      }
+    }
+    if (rethrowOriginal) {
+      throw e;
+    }
+    throw new Error(`${errorMessage}: ${e.message}`);
+  }
+}
+
 export async function fetchGitHubJson(url: string, token: string, options: RequestInit = {}) {
   const response = await fetchWithAuth(url, token, options);
   if (!response.ok) {
@@ -389,10 +416,7 @@ export async function getDefaultBranch(
   const token = await getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}`;
 
-  const data = await fetchGitHubJson(url, token).catch(e => {
-    logger.error(`Failed to fetch repo info: ${e.message}`);
-    throw new Error(`Failed to fetch repo info: ${e.message}`);
-  }) as any;
+  const data = await fetchGitHubJsonWithLog(url, token, "Failed to fetch repo info", {}, logger) as any;
   return data.default_branch;
 }
 
@@ -414,10 +438,7 @@ export async function fetchGitHubFile(
   const branch = ref || await getDefaultBranch(env, owner, repo);
   const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
 
-  const data = await fetchGitHubJson(url, token).catch(e => {
-    logger.warn(`Failed to fetch file: ${path} (${e.message})`);
-    throw e;
-  }) as { content: string; encoding: string };
+  const data = await fetchGitHubJsonWithLog(url, token, `Failed to fetch file: ${path}`, {}, logger, true, true) as { content: string; encoding: string };
 
   if (data.encoding === "base64") {
     // Decode base64 content
@@ -659,10 +680,7 @@ export async function getRef(
 
   const token = await getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}/git/ref/${ref}`;
-  const data = await fetchGitHubJson(url, token).catch(e => {
-    logger.warn(`Failed to get ref ${ref}: ${e.message}`);
-    throw new Error(`Failed to get ref ${ref}: ${e.message}`);
-  }) as any;
+  const data = await fetchGitHubJsonWithLog(url, token, `Failed to get ref ${ref}`, {}, logger, true) as any;
   return data.object.sha;
 }
 
@@ -682,14 +700,12 @@ export async function createBranch(
   const token = await getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}/git/refs`;
 
-  await fetchGitHubJson(url, token, {
+  await fetchGitHubJsonWithLog(url, token, `Failed to create branch ${newBranchName}`, {
     method: "POST",
     body: JSON.stringify({
       ref: `refs/heads/${newBranchName}`,
       sha: baseSha,
     }),
-  }).catch((e) => {
-    throw new Error(`Failed to create branch ${newBranchName}: ${e.message}`);
   });
 }
 
@@ -725,11 +741,9 @@ export async function createOrUpdateFile(
     body.sha = sha;
   }
 
-  await fetchGitHubJson(url, token, {
+  await fetchGitHubJsonWithLog(url, token, `Failed to write file ${path}`, {
     method: "PUT",
     body: JSON.stringify(body),
-  }).catch((e) => {
-    throw new Error(`Failed to write file ${path}: ${e.message}`);
   });
 }
 
@@ -749,7 +763,7 @@ export async function createPullRequest(
   logger.info(`Creating PR: ${title}`);
   const token = await getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}/pulls`;
-  const data = await fetchGitHubJson(url, token, {
+  const data = await fetchGitHubJsonWithLog(url, token, "Failed to create PR", {
     method: "POST",
     body: JSON.stringify({
       title,
@@ -757,8 +771,6 @@ export async function createPullRequest(
       head,
       base,
     }),
-  }).catch(e => {
-    throw new Error(`Failed to create PR: ${e.message}`);
   }) as any;
   return {
     number: data.number,
