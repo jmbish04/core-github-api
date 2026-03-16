@@ -328,11 +328,11 @@ export async function verifyGitHubToken(env: Env): Promise<{
 }> {
   const logger = new Logger(env, "GitHubTool:VerifyToken");
   try {
-    const token = await getToken(env); // await if needed, though getToken is async
+    const token = await getToken(env);
     const response = await fetchWithAuth("https://api.github.com/user", token);
 
     if (!response.ok) {
-        logger.warn(`Token verification failed: ${response.status}`);
+      logger.warn(`Token verification failed: ${response.status}`);
       if (response.status === 401) {
         return { valid: false, error: "Invalid or expired token (401)" };
       }
