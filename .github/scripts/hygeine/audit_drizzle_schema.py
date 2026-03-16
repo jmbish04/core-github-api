@@ -101,29 +101,28 @@ def main():
     md = ["# Drizzle ORM Schema & D1 Analysis Report\n"]
     md.append("## Table Names by Database\n")
     
-    md.append("### env.DB")
-    db1_sorted = sorted(db1_map.keys())
-    if db1_sorted:
-        for t in db1_sorted:
-            md.append(f"- {t}")
-    else:
-        md.append("- *No tables definitively mapped to env.DB yet*")
-        
-    md.append("\n### env.DB_WEBHOOKS")
-    db2_sorted = sorted(db2_map.keys())
-    if db2_sorted:
-        for t in db2_sorted:
-            md.append(f"- {t}")
-    else:
-        md.append("- *No tables definitively mapped to env.DB_WEBHOOKS yet*")
+    databases = [
+        ("env.DB", db1_map),
+        ("env.DB_WEBHOOKS", db2_map)
+    ]
+
+    for db_name, db_map in databases:
+        md.append(f"### {db_name}")
+        db_sorted = sorted(db_map.keys())
+        if db_sorted:
+            for t in db_sorted:
+                md.append(f"- {t}")
+        else:
+            md.append(f"- *No tables definitively mapped to {db_name} yet*")
+        md.append("\n")
 
     # Catch AI Slop (Orphaned Tables)
     all_discovered = sorted(list(set(t['table_name'] for t in tables)))
-    mapped_tables = set(db1_sorted + db2_sorted)
+    mapped_tables = set().union(*(db_map.keys() for _, db_map in databases))
     unmapped = [t for t in all_discovered if t not in mapped_tables]
     
     if unmapped:
-        md.append("\n### Unmapped / Orphaned Schema Tables")
+        md.append("### Unmapped / Orphaned Schema Tables")
         md.append("*(Suspicious AI Slop: Defined in code but no CRUD operations with a known D1 env var detected)*")
         for t in unmapped:
             md.append(f"- {t}")
@@ -134,25 +133,19 @@ def main():
         md.append(f"### `{file_path}`")
         md.append(f"- **Tables Imported:** {tables_used}\n")
 
-    md.append("---\n\n## env.DB d1 db")
-    md.append("| Table Name | Short File Paths |")
-    md.append("|---|---|")
-    if db1_sorted:
-        for t in db1_sorted:
-            paths = ", ".join([f"`{p}`" for p in sorted(db1_map[t])])
-            md.append(f"| **{t}** | {paths} |")
-    else:
-        md.append("| *None Detected* | *N/A* |")
+    md.append("---\n")
 
-    md.append("\n## env.DB_WEBHOOKS d1 db")
-    md.append("| Table Name | Short File Paths |")
-    md.append("|---|---|")
-    if db2_sorted:
-        for t in db2_sorted:
-            paths = ", ".join([f"`{p}`" for p in sorted(db2_map[t])])
-            md.append(f"| **{t}** | {paths} |")
-    else:
-        md.append("| *None Detected* | *N/A* |")
+    for db_name, db_map in databases:
+        md.append(f"\n## {db_name} d1 db")
+        md.append("| Table Name | Short File Paths |")
+        md.append("|---|---|")
+        db_sorted = sorted(db_map.keys())
+        if db_sorted:
+            for t in db_sorted:
+                paths = ", ".join([f"`{p}`" for p in sorted(db_map[t])])
+                md.append(f"| **{t}** | {paths} |")
+        else:
+            md.append("| *None Detected* | *N/A* |")
 
     # 4. Write to disk
     try:
