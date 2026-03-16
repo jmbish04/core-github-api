@@ -97,65 +97,66 @@ export async function fetchGitHubJson(url: string, token: string, options: Reque
   return await response.json();
 }
 
+
+async function executeOctokitIssueOperation<T>(
+    logger: Logger,
+    env: Env,
+    operation: (octokit: any) => Promise<{ data: T }>,
+    successMessage: string,
+    getSuccessMetadata: (data: T) => Record<string, any>,
+    errorMessage: string
+): Promise<T> {
+    const octokit = await getOctokit(env);
+    try {
+        const { data } = await operation(octokit);
+        logger.info(successMessage, getSuccessMetadata(data));
+        return data;
+    } catch (e: any) {
+        logger.error(errorMessage, { error: e.message });
+        throw e;
+    }
+}
+
 export async function createGitHubIssue(env: Env, owner: string, repo: string, title: string, body?: string, assignees?: string[]) {
     const logger = new Logger(env, "GitHubTool:createGitHubIssue");
     logger.info(`Creating issue in ${owner}/${repo}`, { title, assignees });
-    
-    const octokit = await getOctokit(env);
-    try {
-        const { data } = await octokit.rest.issues.create({
-            owner,
-            repo,
-            title,
-            body,
-            assignees
-        });
-        logger.info(`Issue created successfully`, { issueNumber: data.number, html_url: data.html_url });
-        return data;
-    } catch (e: any) {
-        logger.error("Error creating GitHub issue", { error: e.message });
-        throw e;
-    }
+
+    return executeOctokitIssueOperation(
+        logger,
+        env,
+        (octokit) => octokit.rest.issues.create({ owner, repo, title, body, assignees }),
+        "Issue created successfully",
+        (data: any) => ({ issueNumber: data.number, html_url: data.html_url }),
+        "Error creating GitHub issue"
+    );
 }
 
 export async function createGitHubComment(env: Env, owner: string, repo: string, issueNumber: number, body: string) {
     const logger = new Logger(env, "GitHubTool:createGitHubComment");
     logger.info(`Creating comment on ${owner}/${repo}#${issueNumber}`);
 
-    const octokit = await getOctokit(env);
-    try {
-        const { data } = await octokit.rest.issues.createComment({
-            owner,
-            repo,
-            issue_number: issueNumber,
-            body
-        });
-        logger.info(`Comment created successfully`, { commentId: data.id, html_url: data.html_url });
-        return data;
-    } catch (e: any) {
-        logger.error("Error creating GitHub comment", { error: e.message });
-        throw e;
-    }
+    return executeOctokitIssueOperation(
+        logger,
+        env,
+        (octokit) => octokit.rest.issues.createComment({ owner, repo, issue_number: issueNumber, body }),
+        "Comment created successfully",
+        (data: any) => ({ commentId: data.id, html_url: data.html_url }),
+        "Error creating GitHub comment"
+    );
 }
 
 export async function updateGitHubIssue(env: Env, owner: string, repo: string, issueNumber: number, updates: { state?: 'open' | 'closed', title?: string, body?: string, assignees?: string[] }) {
     const logger = new Logger(env, "GitHubTool:updateGitHubIssue");
     logger.info(`Updating issue ${owner}/${repo}#${issueNumber}`, { updates });
 
-    const octokit = await getOctokit(env);
-    try {
-        const { data } = await octokit.rest.issues.update({
-            owner,
-            repo,
-            issue_number: issueNumber,
-            ...updates
-        });
-        logger.info(`Issue updated successfully`, { html_url: data.html_url });
-        return data;
-    } catch (e: any) {
-        logger.error("Error updating GitHub issue", { error: e.message });
-        throw e;
-    }
+    return executeOctokitIssueOperation(
+        logger,
+        env,
+        (octokit) => octokit.rest.issues.update({ owner, repo, issue_number: issueNumber, ...updates }),
+        "Issue updated successfully",
+        (data: any) => ({ html_url: data.html_url }),
+        "Error updating GitHub issue"
+    );
 }
 
 // --- Routes ---
@@ -680,18 +681,16 @@ export async function createBranch(
 
   const token = await getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}/git/refs`;
-  const response = await fetchWithAuth(url, token, {
+
+  await fetchGitHubJson(url, token, {
     method: "POST",
     body: JSON.stringify({
       ref: `refs/heads/${newBranchName}`,
       sha: baseSha,
     }),
+  }).catch((e) => {
+    throw new Error(`Failed to create branch ${newBranchName}: ${e.message}`);
   });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Failed to create branch ${newBranchName}: ${response.status} ${errorText}`);
-  }
 }
 
 /**
@@ -726,14 +725,12 @@ export async function createOrUpdateFile(
     body.sha = sha;
   }
 
-  const response = await fetchWithAuth(url, token, {
+  await fetchGitHubJson(url, token, {
     method: "PUT",
     body: JSON.stringify(body),
+  }).catch((e) => {
+    throw new Error(`Failed to write file ${path}: ${e.message}`);
   });
-
-  if (!response.ok) {
-    throw new Error(`Failed to write file ${path}: ${response.status} ${await response.text()}`);
-  }
 }
 
 /**
