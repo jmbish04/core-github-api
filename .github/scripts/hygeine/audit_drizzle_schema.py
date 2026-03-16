@@ -103,21 +103,16 @@ def main():
     md = ["# Drizzle ORM Schema & D1 Analysis Report\n"]
     md.append("## Table Names by Database\n")
     
-    md.append("### env.DB")
     db1_sorted = sorted(db1_map.keys())
-    if db1_sorted:
-        for t in db1_sorted:
-            md.append(f"- {t}")
-    else:
-        md.append("- *No tables definitively mapped to env.DB yet*")
-        
-    md.append("\n### env.DB_WEBHOOKS")
     db2_sorted = sorted(db2_map.keys())
-    if db2_sorted:
-        for t in db2_sorted:
-            md.append(f"- {t}")
-    else:
-        md.append("- *No tables definitively mapped to env.DB_WEBHOOKS yet*")
+    for db_name, sorted_tables in [("env.DB", db1_sorted), ("env.DB_WEBHOOKS", db2_sorted)]:
+        prefix = "\n" if db_name == "env.DB_WEBHOOKS" else ""
+        md.append(f"{prefix}### {db_name}")
+        if sorted_tables:
+            for t in sorted_tables:
+                md.append(f"- {t}")
+        else:
+            md.append(f"- *No tables definitively mapped to {db_name} yet*")
     # Catch AI Slop (Orphaned Tables)
     all_discovered = sorted(list(set(t['table_name'] for t in tables)))
 
