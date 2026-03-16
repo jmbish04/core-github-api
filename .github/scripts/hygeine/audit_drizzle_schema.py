@@ -74,8 +74,8 @@ def main():
             rel_path = os.path.relpath(file_path, root_dir)
             
             # Look for standard Cloudflare Worker / Hono context bindings
-            uses_db1 = 'env.DB' in content or 'c.env.DB' in content
-            uses_db2 = 'env.DB_WEBHOOKS' in content or 'c.env.DB_WEBHOOKS' in content
+            uses_db1 = 'env.DB' in content
+            uses_db2 = 'env.DB_WEBHOOKS' in content
             
             imported_tables = set()
             
@@ -115,8 +115,9 @@ def main():
 
     # Catch AI Slop (Orphaned Tables)
     all_discovered = sorted(list(set(t['table_name'] for t in tables)))
-    mapped_tables = set(db1_sorted + db2_sorted)
-    unmapped = [t for t in all_discovered if t not in mapped_tables]
+    # Dynamically track all explicitly imported tables from interaction mapping
+    all_imported = set().union(*file_interactions.values()) if file_interactions else set()
+    unmapped = [t for t in all_discovered if t not in all_imported]
     
     if unmapped:
         md.append("\n### Unmapped / Orphaned Schema Tables")

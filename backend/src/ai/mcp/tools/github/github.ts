@@ -299,7 +299,7 @@ async function getToken(env: Env): Promise<string> {
   return await env.GITHUB_TOKEN.get();
 }
 
-async function fetchGitHubAPI(url: string, token: string, options: RequestInit = {}, errorMessage: string = "GitHub API error", logger?: any, logLevel: 'error' | 'warn' = 'error') {
+export async function fetchGitHubAPI(url: string, token: string, options: RequestInit = {}, errorMessage: string = "GitHub API error", logger?: any, logLevel: 'error' | 'warn' = 'error') {
   const response = await fetchWithAuth(url, token, options);
   if (!response.ok) {
     const errorText = await response.text();
@@ -316,7 +316,7 @@ async function fetchGitHubAPI(url: string, token: string, options: RequestInit =
   return response;
 }
 
-async function fetchWithAuth(url: string, token: string, options: RequestInit = {}) {
+export async function fetchWithAuth(url: string, token: string, options: RequestInit = {}) {
   const headers = {
     Authorization: `Bearer ${token}`,
     Accept: "application/vnd.github.v3+json",
@@ -324,6 +324,11 @@ async function fetchWithAuth(url: string, token: string, options: RequestInit = 
     ...(options.headers || {})
   };
   return fetch(url, { ...options, headers });
+}
+
+export async function fetchGitHubJson<T>(url: string, token: string, options: RequestInit = {}, errorMessage: string = "GitHub API error", logger?: any, logLevel: 'error' | 'warn' = 'error'): Promise<T> {
+  const response = await fetchGitHubAPI(url, token, options, errorMessage, logger, logLevel);
+  return await response.json() as T;
 }
 
 
@@ -383,9 +388,8 @@ export async function getDefaultBranch(
   const token = await getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}`;
 
-  const response = await fetchGitHubAPI(url, token, {}, `Failed to fetch repo info`, logger);
+  const data = await fetchGitHubJson<any>(url, token, {}, `Failed to fetch repo info`, logger);
 
-  const data = await response.json() as any;
   return data.default_branch;
 }
 
@@ -495,9 +499,7 @@ export async function getRepoStructure(
   const branch = ref || await getDefaultBranch(env, owner, repo);
   const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
 
-  const response = await fetchGitHubAPI(url, token);
-
-  return await response.json();
+  return await fetchGitHubJson<any>(url, token);
 }
 
 /**
@@ -516,9 +518,7 @@ export async function searchRepoCode(
     query
   )}+repo:${owner}/${repo}`;
 
-  const response = await fetchGitHubAPI(url, token);
-
-  return await response.json();
+  return await fetchGitHubJson<any>(url, token);
 }
 
 /**
@@ -621,22 +621,9 @@ export async function getPRComments(
   // Get issue comments (general PR comments)
   const issueCommentsUrl = `https://api.github.com/repos/${owner}/${repo}/issues/${prNumber}/comments`;
 
-  const [reviewCommentsResponse, issueCommentsResponse] = await Promise.all([
-    fetchWithAuth(reviewCommentsUrl, token),
-    fetchWithAuth(issueCommentsUrl, token),
-  ]);
-
-  for (const response of [reviewCommentsResponse, issueCommentsResponse]) {
-    if (!response.ok) {
-      throw new Error(
-        `GitHub API error (${response.status}): ${await response.text()}`
-      );
-    }
-  }
-
   const [reviewComments, issueComments] = await Promise.all([
-    reviewCommentsResponse.json() as Promise<any[]>,
-    issueCommentsResponse.json() as Promise<any[]>
+    fetchGitHubJson<any[]>(reviewCommentsUrl, token),
+    fetchGitHubJson<any[]>(issueCommentsUrl, token),
   ]);
 
   // Combine and normalize comments
