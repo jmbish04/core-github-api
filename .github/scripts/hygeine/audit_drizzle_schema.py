@@ -115,8 +115,13 @@ def main():
 
     # Catch AI Slop (Orphaned Tables)
     all_discovered = sorted(list(set(t['table_name'] for t in tables)))
-    mapped_tables = set(db1_sorted + db2_sorted)
-    unmapped = [t for t in all_discovered if t not in mapped_tables]
+
+    # Collect all tables that are imported anywhere in the codebase
+    all_imported_tables = set()
+    for imported in file_interactions.values():
+        all_imported_tables.update(imported)
+
+    unmapped = [t for t in all_discovered if t not in all_imported_tables]
     
     if unmapped:
         md.append("\n### Unmapped / Orphaned Schema Tables")
