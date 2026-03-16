@@ -1,4 +1,4 @@
-import { fetchWithAuth } from "./fetch";
+import { fetchWithAuth, fetchGitHubJson } from "./fetch";
 /**
  * GitHub API Utilities
  */
@@ -10,10 +10,12 @@ export function parseGitHubUrl(url: string) {
 
 export async function fetchGitHubTree(owner: string, repo: string, token: string) {
   const url = `https://api.github.com/repos/${owner}/${repo}/git/trees/main?recursive=1`;
-  const response = await fetchWithAuth(url, token, { headers: { "User-Agent": "cloudflare-repo-analyzer" } });
-  if (!response.ok) return [];
-  const data: any = await response.json();
-  return data.tree?.map((f: any) => f.path) || [];
+  try {
+    const data: any = await fetchGitHubJson(url, token, { headers: { "User-Agent": "cloudflare-repo-analyzer" } });
+    return data.tree?.map((f: any) => f.path) || [];
+  } catch (error) {
+    return [];
+  }
 }
 
 export async function fetchCriticalFiles(owner: string, repo: string, tree: string[], targets: string[], token: string) {
