@@ -69,65 +69,47 @@ async function upsertWorkflowFile(octokit: any, owner: string, repo: string, pat
 }
 
 
-export async function createGitHubIssue(env: Env, owner: string, repo: string, title: string, body?: string, assignees?: string[]) {
-    const logger = new Logger(env, "GitHubTool:createGitHubIssue");
-    logger.info(`Creating issue in ${owner}/${repo}`, { title, assignees });
-    
+async function withOctokitAction(
+    env: Env,
+    actionName: string,
+    loggerName: string,
+    action: (octokit: any, logger: Logger) => Promise<any>
+) {
+    const logger = new Logger(env, loggerName);
     const octokit = await getOctokit(env);
     try {
-        const { data } = await octokit.rest.issues.create({
-            owner,
-            repo,
-            title,
-            body,
-            assignees
-        });
-        logger.info(`Issue created successfully`, { issueNumber: data.number, html_url: data.html_url });
-        return data;
+        return await action(octokit, logger);
     } catch (e: any) {
-        logger.error("Error creating GitHub issue", { error: e.message });
+        logger.error(`Error ${actionName}`, { error: e.message });
         throw e;
     }
+}
+
+export async function createGitHubIssue(env: Env, owner: string, repo: string, title: string, body?: string, assignees?: string[]) {
+    return withOctokitAction(env, "creating GitHub issue", "GitHubTool:createGitHubIssue", async (octokit, logger) => {
+        logger.info(`Creating issue in ${owner}/${repo}`, { title, assignees });
+        const { data } = await octokit.rest.issues.create({ owner, repo, title, body, assignees });
+        logger.info(`Issue created successfully`, { issueNumber: data.number, html_url: data.html_url });
+        return data;
+    });
 }
 
 export async function createGitHubComment(env: Env, owner: string, repo: string, issueNumber: number, body: string) {
-    const logger = new Logger(env, "GitHubTool:createGitHubComment");
-    logger.info(`Creating comment on ${owner}/${repo}#${issueNumber}`);
-
-    const octokit = await getOctokit(env);
-    try {
-        const { data } = await octokit.rest.issues.createComment({
-            owner,
-            repo,
-            issue_number: issueNumber,
-            body
-        });
+    return withOctokitAction(env, "creating GitHub comment", "GitHubTool:createGitHubComment", async (octokit, logger) => {
+        logger.info(`Creating comment on ${owner}/${repo}#${issueNumber}`);
+        const { data } = await octokit.rest.issues.createComment({ owner, repo, issue_number: issueNumber, body });
         logger.info(`Comment created successfully`, { commentId: data.id, html_url: data.html_url });
         return data;
-    } catch (e: any) {
-        logger.error("Error creating GitHub comment", { error: e.message });
-        throw e;
-    }
+    });
 }
 
 export async function updateGitHubIssue(env: Env, owner: string, repo: string, issueNumber: number, updates: { state?: 'open' | 'closed', title?: string, body?: string, assignees?: string[] }) {
-    const logger = new Logger(env, "GitHubTool:updateGitHubIssue");
-    logger.info(`Updating issue ${owner}/${repo}#${issueNumber}`, { updates });
-
-    const octokit = await getOctokit(env);
-    try {
-        const { data } = await octokit.rest.issues.update({
-            owner,
-            repo,
-            issue_number: issueNumber,
-            ...updates
-        });
+    return withOctokitAction(env, "updating GitHub issue", "GitHubTool:updateGitHubIssue", async (octokit, logger) => {
+        logger.info(`Updating issue ${owner}/${repo}#${issueNumber}`, { updates });
+        const { data } = await octokit.rest.issues.update({ owner, repo, issue_number: issueNumber, ...updates });
         logger.info(`Issue updated successfully`, { html_url: data.html_url });
         return data;
-    } catch (e: any) {
-        logger.error("Error updating GitHub issue", { error: e.message });
-        throw e;
-    }
+    });
 }
 
 // --- Routes ---
@@ -249,14 +231,16 @@ app.openapi(retrofitRoute, async (c) => {
 
     let targetRepos: any[] = []
     if (repos && repos.length > 0) {
-        for (const r of repos) {
+        const repoPromises = repos.map(async (r) => {
             try {
                 const { data } = await octokit.repos.get({ owner, repo: r })
-                targetRepos.push(data)
+                return data
             } catch {
-                // empty
+                return null
             }
-        }
+        });
+        const results = await Promise.all(repoPromises);
+        targetRepos = results.filter(Boolean);
     } else {
         // Limit to 100 for tool safety if no specific list
         const { data } = await octokit.repos.listForOrg({ org: owner, type: 'all', per_page: 100 })

@@ -28,5 +28,5 @@ export async function handlePullRequest({ c, payload, appId, privateKey, insertP
   }
 
   // Insert payload to DB
-  await insertPayload((eventTables as any).pullRequestEvents || {} as any, payload);
+  await insertPayload((eventTables as any).pullRequest || {} as any, payload);
 }

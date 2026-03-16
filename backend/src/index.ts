@@ -723,6 +723,8 @@ export { JulesWebhookBroadcaster } from "@/do/JulesWebhookBroadcaster";
 
 // Sandbox SDK — the Sandbox Durable Object class is provided by the SDK
 export { Sandbox } from '@cloudflare/sandbox'
+export { PRSupervisorDO, PRReviewDO, PRSummaryDO } from "@/ai/agents/pr-reviewer/do";
+
 // Scheduled Event Handler
 async function handleScheduled(event: ScheduledController, env: Env, ctx: ExecutionContext) {
   console.log('[Scheduled] Cron trigger fired:', event.cron);
