@@ -303,7 +303,7 @@ async function getToken(env: Env): Promise<string> {
 /**
  * Helper function for GitHub API requests to reduce boilerplate
  */
-async function fetchGitHubApi(url: string, token: string, options?: { method?: string; body?: any; headers?: Record<string, string> }) {
+export async function fetchGitHubApi(url: string, token: string, options?: { method?: string; body?: any; headers?: Record<string, string> }) {
   const { method = "GET", body, headers = {} } = options || {};
   const defaultHeaders: Record<string, string> = {
     Authorization: `Bearer ${token}`,
