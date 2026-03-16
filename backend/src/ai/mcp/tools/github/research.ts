@@ -1,3 +1,4 @@
+import { fetchWithAuth } from "./github";
 /**
  * GitHub API Utilities
  */
@@ -7,18 +8,9 @@ export function parseGitHubUrl(url: string) {
   return { owner: parts[0], repo: parts[1] };
 }
 
-async function fetchWithAuth(url: string, token: string, extraHeaders: Record<string, string> = {}) {
-  return fetch(url, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      ...extraHeaders
-    }
-  });
-}
-
 export async function fetchGitHubTree(owner: string, repo: string, token: string) {
   const url = `https://api.github.com/repos/${owner}/${repo}/git/trees/main?recursive=1`;
-  const response = await fetchWithAuth(url, token, { "User-Agent": "cloudflare-repo-analyzer" });
+  const response = await fetchWithAuth(url, token, { headers: { "User-Agent": "cloudflare-repo-analyzer" } });
   if (!response.ok) return [];
   const data: any = await response.json();
   return data.tree?.map((f: any) => f.path) || [];
@@ -33,7 +25,7 @@ export async function fetchCriticalFiles(owner: string, repo: string, tree: stri
     foundPaths.map(async (path) => {
       const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/main/${path}`;
       try {
-        const resp = await fetchWithAuth(rawUrl, token);
+        const resp = await fetchWithAuth(rawUrl, token, { headers: { "User-Agent": "cloudflare-repo-analyzer" } });
         if (resp.ok) {
           contents[path] = await resp.text();
         }

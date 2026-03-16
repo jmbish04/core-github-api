@@ -41,7 +41,7 @@ const RetrofitSchema = z.object({
 
 // --- Helper Functions (Shared/Refactored) ---
 
-async function fetchWithAuth(url: string, token: string, options: RequestInit = {}) {
+export async function fetchWithAuth(url: string, token: string, options: RequestInit = {}) {
   const headers = new Headers(options.headers as any || {});
   headers.set('Authorization', `Bearer ${token}`);
   if (!headers.has('Accept')) {
