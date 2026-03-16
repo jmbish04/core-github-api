@@ -7,15 +7,10 @@
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
 import { getOctokit } from '@services/octokit/core'
 
-import { DEFAULT_WORKFLOWS, shouldIncludeCloudflareWorkflow } from '@/routes/api/webhooks/handlers/flows/workflowTemplates'
+import { DEFAULT_WORKFLOWS } from '@/routes/api/webhooks/handlers/flows/workflowTemplates'
 import { encode } from '@utils/base64'
-import { getDb, schema } from '@db'
-import { projects } from '@db/schemas/projects/roadmap'
-import {
-  repositories,
-  type GitHubRepository,
-  type NewGitHubRepository
-} from '@db/schemas/github/repos';
+import { getDb } from '@db'
+import { repositories } from '@db/schemas/github/repos';
 
 import { DEFAULT_GITHUB_OWNER } from "@github-utils";
 import { Logger } from "@logging";
@@ -355,8 +350,12 @@ export async function getDefaultBranch(
 }
 
 /**
- * Fetch file content from GitHub
+ * Resolves the branch, using the provided ref or falling back to the default branch
  */
+async function resolveBranch(env: Env, owner: string, repo: string, ref?: string): Promise<string> {
+  return ref || await getDefaultBranch(env, owner, repo);
+}
+
 export async function fetchGitHubFile(
   env: Env,
   owner: string,
@@ -369,7 +368,7 @@ export async function fetchGitHubFile(
 
   const token = await getToken(env);
   // Use provided ref or fetch default branch
-  const branch = ref || await getDefaultBranch(env, owner, repo);
+  const branch = await resolveBranch(env, owner, repo, ref);
   const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
 
   try {
@@ -406,7 +405,7 @@ export async function fetchGitHubFiles(
 
   const token = await getToken(env);
   // Resolve branch once for all files if not provided
-  const branch = ref || await getDefaultBranch(env, owner, repo);
+  const branch = await resolveBranch(env, owner, repo, ref);
 
   const results = await Promise.all(
     files.map(async (file) => {
@@ -454,7 +453,7 @@ export async function getRepoStructure(
 ): Promise<any> {
   const logger = new Logger(env, "GitHubTool:RepoStructure");
   const token = await getToken(env);
-  const branch = ref || await getDefaultBranch(env, owner, repo);
+  const branch = await resolveBranch(env, owner, repo, ref);
   const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
 
   return fetchGitHubJson(url, token);
@@ -502,7 +501,7 @@ export async function extractCodeSnippets(
 > {
   const logger = new Logger(env, "GitHubTool:ExtractSnippets");
   logger.info(`Extracting snippets for snippets`);
-  const branch = ref || await getDefaultBranch(env, owner, repo);
+  const branch = await resolveBranch(env, owner, repo, ref);
 
   // Map input files to format expected by fetchGitHubFiles
   const fetchFiles = files.map((f) => ({
