@@ -27,7 +27,7 @@ export async function fetchCriticalFiles(owner: string, repo: string, tree: stri
   // Limit to top 10 most relevant files to manage token context
   const foundPaths = tree.filter(path => targets.some(t => path.endsWith(t))).slice(0, 10);
 
-  const results = await Promise.all(
+  (await Promise.all(
     foundPaths.map(async (path) => {
       const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/main/${path}`;
       try {
@@ -38,12 +38,9 @@ export async function fetchCriticalFiles(owner: string, repo: string, tree: stri
       }
       return null;
     })
-  );
-
-  for (let i = 0; i < results.length; i++) {
-    const text = results[i];
+  )).forEach((text, i) => {
     if (text) contents[foundPaths[i]] = text;
-  }
+  });
 
   return contents;
 }
