@@ -1,6 +1,7 @@
 /**
  * GitHub API Utilities
  */
+import { fetchGitHubJSON, fetchWithAuth } from "./github";
 export function parseGitHubUrl(url: string) {
   const cleanUrl = url.endsWith("/") ? url.slice(0, -1) : url;
   const parts = cleanUrl.replace("https://github.com/", "").split("/");
@@ -9,15 +10,14 @@ export function parseGitHubUrl(url: string) {
 
 export async function fetchGitHubTree(owner: string, repo: string, token: string) {
   const url = `https://api.github.com/repos/${owner}/${repo}/git/trees/main?recursive=1`;
-  const response = await fetch(url, {
-    headers: { 
-      Authorization: `Bearer ${token}`, 
-      "User-Agent": "cloudflare-repo-analyzer" 
-    }
-  });
-  if (!response.ok) return [];
-  const data: any = await response.json();
-  return data.tree?.map((f: any) => f.path) || [];
+  try {
+    const data = await fetchGitHubJSON(url, token, {
+      headers: { "User-Agent": "cloudflare-repo-analyzer" }
+    });
+    return data.tree?.map((f: any) => f.path) || [];
+  } catch (error) {
+    return [];
+  }
 }
 
 export async function fetchCriticalFiles(owner: string, repo: string, tree: string[], targets: string[], token: string) {
@@ -29,9 +29,7 @@ export async function fetchCriticalFiles(owner: string, repo: string, tree: stri
     foundPaths.map(async (path) => {
       const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/main/${path}`;
       try {
-        const resp = await fetch(rawUrl, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const resp = await fetchWithAuth(rawUrl, token);
         if (resp.ok) {
           contents[path] = await resp.text();
         }
