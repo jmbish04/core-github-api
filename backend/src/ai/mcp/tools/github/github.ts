@@ -203,17 +203,16 @@ app.openapi(createRepoRoute, async (c) => {
     logger.info(`Fetching template files for ${infrastructure}`);
     const files = await fetchTemplateFiles(c.env, infrastructure, name);
 
-    // 3. Commit Files
-    for (const [path, content] of Object.entries(files)) {
+    // 3. Commit Files & Default Workflows
+    const allFiles = [
+        ...Object.entries(files),
+        ...DEFAULT_WORKFLOWS.map(wf => [wf.path, wf.content])
+    ];
+
+    for (const [path, content] of allFiles) {
         await upsertWorkflowFile(octokit, owner, name, path, content, false);
     }
-    logger.info(`Committed ${Object.keys(files).length} boilerplate files`);
-
-    // 4. Add Default Workflows
-    for (const wf of DEFAULT_WORKFLOWS) {
-        await upsertWorkflowFile(octokit, owner, name, wf.path, wf.content, false)
-    }
-    logger.info(`Added default workflows`);
+    logger.info(`Committed ${allFiles.length} boilerplate and workflow files`);
 
     // 5. Register in D1 (repos table)
     await db.insert(repositories).values({
@@ -297,6 +296,13 @@ async function getToken(env: Env): Promise<string> {
     throw new Error("Missing GITHUB_TOKEN in environment");
   }
   return await env.GITHUB_TOKEN.get();
+}
+
+function extractSnippet(content: string, startLine: number, endLine: number): string {
+  const lines = content.split("\n");
+  const start = Math.max(0, startLine - 1);
+  const end = Math.min(lines.length, endLine);
+  return lines.slice(start, end).join("\n");
 }
 
 async function fetchWithAuth(url: string, token: string, options: RequestInit = {}) {
@@ -445,10 +451,7 @@ export async function fetchGitHubFiles(
         // Extract snippet if line numbers provided
         let snippet: string | undefined;
         if (file.start_line && file.end_line) {
-          const lines = content.split("\n");
-          const start = Math.max(0, file.start_line - 1);
-          const end = Math.min(lines.length, file.end_line);
-          snippet = lines.slice(start, end).join("\n");
+          snippet = extractSnippet(content, file.start_line, file.end_line);
         }
 
         return {
@@ -561,10 +564,7 @@ export async function extractCodeSnippets(
           branch
         );
 
-        const lines = content.split("\n");
-        const start = Math.max(0, file.start_line - 1);
-        const end = Math.min(lines.length, file.end_line);
-        const code = lines.slice(start, end).join("\n");
+        const code = extractSnippet(content, file.start_line, file.end_line);
 
         return {
           file_path: file.file_path,
@@ -621,28 +621,23 @@ export async function getPRComments(
   const logger = new Logger(env, "GitHubTool:PRComments");
   logger.info(`Fetching comments for PR ${owner}/${repo}#${prNumber}`);
   const token = await getToken(env);
-  // Get review comments (inline code comments)
   const reviewCommentsUrl = `https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}/comments`;
-  const reviewCommentsResponse = await fetchWithAuth(reviewCommentsUrl, token);
+  const issueCommentsUrl = `https://api.github.com/repos/${owner}/${repo}/issues/${prNumber}/comments`;
 
-  if (!reviewCommentsResponse.ok) {
-    throw new Error(
-      `GitHub API error (${reviewCommentsResponse.status}): ${await reviewCommentsResponse.text()}`
-    );
+  const [reviewCommentsResponse, issueCommentsResponse] = await Promise.all([
+    fetchWithAuth(reviewCommentsUrl, token),
+    fetchWithAuth(issueCommentsUrl, token)
+  ]);
+
+  for (const response of [reviewCommentsResponse, issueCommentsResponse]) {
+    if (!response.ok) {
+      throw new Error(
+        `GitHub API error (${response.status}): ${await response.text()}`
+      );
+    }
   }
 
   const reviewComments = await reviewCommentsResponse.json() as any[];
-
-  // Get issue comments (general PR comments)
-  const issueCommentsUrl = `https://api.github.com/repos/${owner}/${repo}/issues/${prNumber}/comments`;
-  const issueCommentsResponse = await fetchWithAuth(issueCommentsUrl, token);
-
-  if (!issueCommentsResponse.ok) {
-    throw new Error(
-      `GitHub API error (${issueCommentsResponse.status}): ${await issueCommentsResponse.text()}`
-    );
-  }
-
   const issueComments = await issueCommentsResponse.json() as any[];
 
   // Combine and normalize comments
