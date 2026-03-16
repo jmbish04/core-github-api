@@ -1180,3 +1180,5 @@ export { ResearchOrchestrator } from '@/ai/agents/ResearchOrchestrator';
 app.get('/health', (c) => c.json({ status: 'healthy', timestamp: new Date().toISOString() }));
 app.get('/context', (c) => c.json({ app: 'core-github-api', runtime: 'cloudflare-workers', db: 'd1', orm: 'drizzle' }));
 app.get('/docs', (c) => c.redirect('/doc'));
+
+export { PRSupervisorDO, PRReviewDO, PRSummaryDO } from './ai/agents/pr-reviewer/do';
