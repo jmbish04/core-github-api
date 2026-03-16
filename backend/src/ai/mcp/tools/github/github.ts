@@ -319,6 +319,20 @@ export async function fetchGitHubAPI(url: string, token: string, options: Reques
   return await response.json();
 }
 
+/**
+ * Send JSON data to GitHub API
+ */
+export async function sendGitHubJSON(url: string, token: string, method: string, body: any): Promise<any> {
+  const response = await fetchGitHubRaw(url, token, {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  // Empty response usually indicates success (e.g. 204 No Content) or doesn't have a JSON body
+  const text = await response.text();
+  return text ? JSON.parse(text) : undefined;
+}
+
 
 /**
  * Verify GitHub Token Validity
@@ -678,13 +692,9 @@ export async function createBranch(
   const token = await getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}/git/refs`;
 
-  await fetchGitHubRaw(url, token, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      ref: `refs/heads/${newBranchName}`,
-      sha: baseSha,
-    }),
+  await sendGitHubJSON(url, token, "POST", {
+    ref: `refs/heads/${newBranchName}`,
+    sha: baseSha,
   }).catch((error: any) => {
     throw new Error(`Failed to create branch ${newBranchName}: ${error.message}`);
   });
@@ -722,11 +732,7 @@ export async function createOrUpdateFile(
     body.sha = sha;
   }
 
-  await fetchGitHubRaw(url, token, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  }).catch((error: any) => {
+  await sendGitHubJSON(url, token, "PUT", body).catch((error: any) => {
     throw new Error(`Failed to write file ${path}: ${error.message}`);
   });
 }
@@ -747,15 +753,11 @@ export async function createPullRequest(
   logger.info(`Creating PR: ${title}`);
   const token = await getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}/pulls`;
-  const data = await fetchGitHubAPI(url, token, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      title,
-      body,
-      head,
-      base,
-    }),
+  const data = await sendGitHubJSON(url, token, "POST", {
+    title,
+    body,
+    head,
+    base,
   }) as any;
   return {
     number: data.number,
