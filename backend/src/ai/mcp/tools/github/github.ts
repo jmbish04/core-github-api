@@ -224,9 +224,9 @@ app.openapi(retrofitRoute, async (c) => {
         try {
             const rootFiles: any[] = [] // Optimization: Skip checking root files for tool simplicity or query if needed
             // For simplicity in tool, assume we try to add all default workflows
-            for (const wf of DEFAULT_WORKFLOWS) {
+            for (const { path, content } of DEFAULT_WORKFLOWS) {
                 // Check wrangler logic if strictly needed, or just try
-                await upsertWorkflowFile(octokit, owner, repo.name, wf.path, wf.content, force)
+                await upsertWorkflowFile(octokit, owner, repo.name, path, content, force)
             }
             success++
         } catch(e: any) {
@@ -583,21 +583,20 @@ export async function getPRComments(
   ]);
 
   // Combine and normalize comments
-  const allComments = [
-    ...reviewComments.map((comment) => ({
-      id: comment.id,
-      author: comment.user?.login || "unknown",
-      body: comment.body || "",
+  const mapComment = (type: 'review' | 'issue') => (comment: any) => ({
+    id: comment.id,
+    author: comment.user?.login || "unknown",
+    body: comment.body || "",
+    ...(type === 'review' ? {
       file_path: comment.path,
       line: comment.line || comment.original_line,
-      comment_type: 'review' as const,
-    })),
-    ...issueComments.map((comment) => ({
-      id: comment.id,
-      author: comment.user?.login || "unknown",
-      body: comment.body || "",
-      comment_type: 'issue' as const,
-    })),
+    } : {}),
+    comment_type: type,
+  });
+
+  const allComments = [
+    ...reviewComments.map(mapComment('review')),
+    ...issueComments.map(mapComment('issue')),
   ];
 
   return allComments;
