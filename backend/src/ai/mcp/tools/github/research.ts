@@ -7,12 +7,7 @@ export function parseGitHubUrl(url: string) {
   return { owner: parts[0], repo: parts[1] };
 }
 
-const fetchWithAuth = async (url: string, token: string) => fetch(url, {
-  headers: {
-    Authorization: `Bearer ${token}`,
-    "User-Agent": "cloudflare-repo-analyzer"
-  }
-});
+import { fetchWithAuth } from "./github";
 
 export async function fetchGitHubTree(owner: string, repo: string, token: string) {
   const url = `https://api.github.com/repos/${owner}/${repo}/git/trees/main?recursive=1`;

@@ -292,6 +292,26 @@ export default app
 /**
  * Helper to get token from Env
  */
+
+/**
+ * Shared generic wrapper for GitHub API fetches
+ */
+export const fetchWithAuth = async (url: string, token: string, options?: RequestInit) => fetch(url, {
+  ...options,
+  headers: {
+    Authorization: `Bearer ${token}`,
+    "User-Agent": "cloudflare-repo-analyzer",
+    ...options?.headers
+  }
+});
+
+export const fetchGitHubJson = async (url: string, token: string, options?: RequestInit) => {
+  const response = await fetchWithAuth(url, token, options);
+  if (!response.ok) {
+    throw new Error(`GitHub API error (${response.status}): ${await response.text()}`);
+  }
+  return response.json();
+};
 async function getToken(env: Env): Promise<string> {
   if (!env.GITHUB_TOKEN) {
     throw new Error("Missing GITHUB_TOKEN in environment");
@@ -395,22 +415,12 @@ export async function fetchGitHubFile(
   const branch = ref || await getDefaultBranch(env, owner, repo);
   const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
 
-  const response = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/vnd.github.v3+json",
-      "User-Agent": "Cloudflare-Worker-MCP",
-    },
-  });
-
-  if (!response.ok) {
-    logger.warn(`Failed to fetch file: ${path} (${response.status})`);
-    throw new Error(
-      `GitHub API error (${response.status}): ${await response.text()}`
-    );
-  }
-
-  const data = (await response.json()) as { content: string; encoding: string };
+  const data = (await fetchGitHubJson(url, token, {
+    headers: { Accept: "application/vnd.github.v3+json" },
+  }).catch((error) => {
+    logger.warn(`Failed to fetch file: ${path} (${error.message})`);
+    throw error;
+  })) as { content: string; encoding: string };
 
   if (data.encoding === "base64") {
     // Decode base64 content
@@ -488,25 +498,13 @@ export async function getRepoStructure(
   ref?: string
 ): Promise<any> {
   const logger = new Logger(env, "GitHubTool:RepoStructure");
-  const token = getToken(env);
+  const token = await getToken(env);
   const branch = ref || await getDefaultBranch(env, owner, repo);
   const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
 
-  const response = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/vnd.github.v3+json",
-      "User-Agent": "Cloudflare-Worker-MCP",
-    },
+  return fetchGitHubJson(url, token, {
+    headers: { Accept: "application/vnd.github.v3+json" },
   });
-
-  if (!response.ok) {
-    throw new Error(
-      `GitHub API error (${response.status}): ${await response.text()}`
-    );
-  }
-
-  return await response.json();
 }
 
 /**
@@ -520,26 +518,14 @@ export async function searchRepoCode(
 ): Promise<any> {
   const logger = new Logger(env, "GitHubTool:SearchCode");
   logger.info(`Searching code in ${owner}/${repo} query="${query}"`);
-  const token = getToken(env);
+  const token = await getToken(env);
   const url = `https://api.github.com/search/code?q=${encodeURIComponent(
     query
   )}+repo:${owner}/${repo}`;
 
-  const response = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/vnd.github.v3+json",
-      "User-Agent": "Cloudflare-Worker-MCP",
-    },
+  return fetchGitHubJson(url, token, {
+    headers: { Accept: "application/vnd.github.v3+json" },
   });
-
-  if (!response.ok) {
-    throw new Error(
-      `GitHub API error (${response.status}): ${await response.text()}`
-    );
-  }
-
-  return await response.json();
 }
 
 /**
@@ -565,7 +551,7 @@ export async function extractCodeSnippets(
 > {
   const logger = new Logger(env, "GitHubTool:ExtractSnippets");
   logger.info(`Extracting snippets for snippets`);
-  const token = getToken(env);
+  const token = await getToken(env);
   const branch = ref || await getDefaultBranch(env, owner, repo);
 
   const snippets = await Promise.all(
@@ -638,42 +624,15 @@ export async function getPRComments(
 }>> {
   const logger = new Logger(env, "GitHubTool:PRComments");
   logger.info(`Fetching comments for PR ${owner}/${repo}#${prNumber}`);
-  const token = getToken(env);
+  const token = await getToken(env);
   // Get review comments (inline code comments)
   const reviewCommentsUrl = `https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}/comments`;
-  const reviewCommentsResponse = await fetch(reviewCommentsUrl, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/vnd.github.v3+json",
-      "User-Agent": "Cloudflare-Worker-MCP",
-    },
-  });
-
-  if (!reviewCommentsResponse.ok) {
-    throw new Error(
-      `GitHub API error (${reviewCommentsResponse.status}): ${await reviewCommentsResponse.text()}`
-    );
-  }
-
-  const reviewComments = await reviewCommentsResponse.json() as any[];
-
-  // Get issue comments (general PR comments)
   const issueCommentsUrl = `https://api.github.com/repos/${owner}/${repo}/issues/${prNumber}/comments`;
-  const issueCommentsResponse = await fetch(issueCommentsUrl, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/vnd.github.v3+json",
-      "User-Agent": "Cloudflare-Worker-MCP",
-    },
-  });
 
-  if (!issueCommentsResponse.ok) {
-    throw new Error(
-      `GitHub API error (${issueCommentsResponse.status}): ${await issueCommentsResponse.text()}`
-    );
-  }
-
-  const issueComments = await issueCommentsResponse.json() as any[];
+  const [reviewComments, issueComments] = await Promise.all([
+    fetchGitHubJson(reviewCommentsUrl, token, { headers: { Accept: "application/vnd.github.v3+json" } }),
+    fetchGitHubJson(issueCommentsUrl, token, { headers: { Accept: "application/vnd.github.v3+json" } })
+  ]) as [any[], any[]];
 
   // Combine and normalize comments
   const allComments = [
@@ -727,20 +686,12 @@ export async function getRef(
 
   const token = await getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}/git/ref/${ref}`;
-  const response = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/vnd.github.v3+json",
-      "User-Agent": "Cloudflare-Worker-MCP",
-    },
-  });
-
-  if (!response.ok) {
-    logger.warn(`Failed to get ref ${ref}: ${response.status}`);
-    throw new Error(`Failed to get ref ${ref}: ${response.status} ${await response.text()}`);
-  }
-
-  const data = await response.json() as any;
+  const data = await fetchGitHubJson(url, token, {
+    headers: { Accept: "application/vnd.github.v3+json" },
+  }).catch((error) => {
+    logger.warn(`Failed to get ref ${ref}: ${error.message}`);
+    throw error;
+  }) as any;
   return data.object.sha;
 }
 
@@ -757,26 +708,21 @@ export async function createBranch(
   const logger = new Logger(env, "GitHubTool:CreateBranch");
   logger.info(`Creating branch ${newBranchName} in ${owner}/${repo} from ${baseSha}`);
 
-  const token = getToken(env);
+  const token = await getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}/git/refs`;
-  const response = await fetch(url, {
+  await fetchGitHubJson(url, token, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${token}`,
       Accept: "application/vnd.github.v3+json",
-      "User-Agent": "Cloudflare-Worker-MCP",
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
       ref: `refs/heads/${newBranchName}`,
       sha: baseSha,
     }),
+  }).catch((error) => {
+    throw new Error(`Failed to create branch ${newBranchName}: ${error.message}`);
   });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Failed to create branch ${newBranchName}: ${response.status} ${errorText}`);
-  }
 }
 
 /**
@@ -795,7 +741,7 @@ export async function createOrUpdateFile(
   const logger = new Logger(env, "GitHubTool:CreateOrUpdateFile");
   logger.info(`Writing file ${path} to ${owner}/${repo} branch=${branch}`);
 
-  const token = getToken(env);
+  const token = await getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
 
   // Base64 encode content
@@ -811,20 +757,16 @@ export async function createOrUpdateFile(
     body.sha = sha;
   }
 
-  const response = await fetch(url, {
+  await fetchGitHubJson(url, token, {
     method: "PUT",
     headers: {
-      Authorization: `Bearer ${token}`,
       Accept: "application/vnd.github.v3+json",
-      "User-Agent": "Cloudflare-Worker-MCP",
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),
+  }).catch((error) => {
+    throw new Error(`Failed to write file ${path}: ${error.message}`);
   });
-
-  if (!response.ok) {
-    throw new Error(`Failed to write file ${path}: ${response.status} ${await response.text()}`);
-  }
 }
 
 /**
@@ -841,14 +783,12 @@ export async function createPullRequest(
 ): Promise<{ number: number; html_url: string }> {
   const logger = new Logger(env, "GitHubTool:CreatePR");
   logger.info(`Creating PR: ${title}`);
-  const token = getToken(env);
+  const token = await getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}/pulls`;
-  const response = await fetch(url, {
+  const data = await fetchGitHubJson(url, token, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${token}`,
       Accept: "application/vnd.github.v3+json",
-      "User-Agent": "Cloudflare-Worker-MCP",
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
@@ -857,13 +797,9 @@ export async function createPullRequest(
       head,
       base,
     }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to create PR: ${response.status} ${await response.text()}`);
-  }
-
-  const data = await response.json() as any;
+  }).catch((error) => {
+    throw new Error(`Failed to create PR: ${error.message}`);
+  }) as any;
   return {
     number: data.number,
     html_url: data.html_url,

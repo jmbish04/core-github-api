@@ -117,14 +117,10 @@ def main():
     mapped_tables = set(db1_sorted + db2_sorted)
     unmapped = [t for t in all_discovered if t not in mapped_tables]
     
-    # Allow-list valid application schemas that might be missed by simple static analysis
-    ignored_slop = {
-        'audit_logs', 'automation_runs', 'chat_tags', 'code_review_comment_enrichments',
-        'code_review_comments', 'code_review_runs', 'container_logs', 'events',
-        'operation_logs', 'organization_settings', 'repo_ai_context', 'repo_drafts',
-        'research_files', 'secrets_config'
-    }
-    unmapped = [t for t in unmapped if t not in ignored_slop]
+    # Dynamically track all imported tables to avoid hardcoded ignore lists
+    dynamically_mapped = set().union(*file_interactions.values()) if file_interactions else set()
+    mapped_tables.update(dynamically_mapped)
+    unmapped = [t for t in all_discovered if t not in mapped_tables]
 
     if unmapped:
         md.append("\n### Unmapped / Orphaned Schema Tables")
