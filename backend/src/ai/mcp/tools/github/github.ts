@@ -405,23 +405,19 @@ export async function fetchGitHubFile(
   const branch = ref || await getDefaultBranch(env, owner, repo);
   const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
 
-  const response = await fetchWithAuth(url, token);
+  try {
+    const data = await fetchGitHubAPI(url, token) as { content: string; encoding: string };
 
-  if (!response.ok) {
-    logger.warn(`Failed to fetch file: ${path} (${response.status})`);
-    throw new Error(
-      `GitHub API error (${response.status}): ${await response.text()}`
-    );
+    if (data.encoding === "base64") {
+      // Decode base64 content
+      return atob(data.content.replace(/\n/g, ""));
+    }
+
+    return data.content || "";
+  } catch (error: any) {
+    logger.warn(`Failed to fetch file: ${path}`);
+    throw error;
   }
-
-  const data = (await response.json()) as { content: string; encoding: string };
-
-  if (data.encoding === "base64") {
-    // Decode base64 content
-    return atob(data.content.replace(/\n/g, ""));
-  }
-
-  return data.content || "";
 }
 
 /**
@@ -538,39 +534,33 @@ export async function extractCodeSnippets(
 > {
   const logger = new Logger(env, "GitHubTool:ExtractSnippets");
   logger.info(`Extracting snippets for snippets`);
-  const token = await getToken(env);
   const branch = ref || await getDefaultBranch(env, owner, repo);
 
-  const snippets = await Promise.all(
-    files.map(async (file) => {
-      try {
-        const content = await fetchGitHubFile(
-          env,
-          owner,
-          repo,
-          file.file_path,
-          branch
-        );
+  const fetchFilesParam = files.map(f => ({
+    path: f.file_path,
+    start_line: f.start_line,
+    end_line: f.end_line
+  }));
 
-        const code = extractSnippet(content, file.start_line, file.end_line);
+  try {
+    const results = await fetchGitHubFiles(env, owner, repo, fetchFilesParam, branch);
 
-        return {
-          file_path: file.file_path,
-          code,
-          relation: file.relation_to_question,
-        };
-      } catch (error) {
-        console.error(`Error extracting snippet from ${file.file_path}:`, error);
-        return {
-          file_path: file.file_path,
-          code: `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
-          relation: file.relation_to_question,
-        };
-      }
-    })
-  );
-
-  return snippets;
+    return files.map((file, index) => {
+      const result = results[index];
+      return {
+        file_path: file.file_path,
+        code: result.snippet || "",
+        relation: file.relation_to_question,
+      };
+    });
+  } catch (error) {
+    logger.error(`Error in extractCodeSnippets batch fetch:`, { error });
+    return files.map(file => ({
+      file_path: file.file_path,
+      code: `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
+      relation: file.relation_to_question,
+    }));
+  }
 }
 
 /**
@@ -691,18 +681,17 @@ export async function createBranch(
 
   const token = await getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}/git/refs`;
-  const response = await fetchWithAuth(url, token, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      ref: `refs/heads/${newBranchName}`,
-      sha: baseSha,
-    }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Failed to create branch ${newBranchName}: ${response.status} ${errorText}`);
+  try {
+    await fetchGitHubAPI(url, token, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ref: `refs/heads/${newBranchName}`,
+        sha: baseSha,
+      }),
+    });
+  } catch (error: any) {
+    throw new Error(`Failed to create branch ${newBranchName}: ${error.message}`);
   }
 }
 
@@ -738,14 +727,14 @@ export async function createOrUpdateFile(
     body.sha = sha;
   }
 
-  const response = await fetchWithAuth(url, token, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to write file ${path}: ${response.status} ${await response.text()}`);
+  try {
+    await fetchGitHubAPI(url, token, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  } catch (error: any) {
+    throw new Error(`Failed to write file ${path}: ${error.message}`);
   }
 }
 
