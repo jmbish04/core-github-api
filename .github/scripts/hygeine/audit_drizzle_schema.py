@@ -80,7 +80,7 @@ def main():
             
             for t in tables:
                 # Regex boundary check for the specific Drizzle table variable
-                var_regex = re.compile(r"" + re.escape(t['var_name']) + r"")
+                var_regex = re.compile(r"\b" + re.escape(t['var_name']) + r"\b")
                 
                 if var_regex.search(content):
                     imported_tables.add(t['table_name'])
