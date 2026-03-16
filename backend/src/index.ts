@@ -691,6 +691,7 @@ import { getOctokit } from "@/services/octokit/core";
 
 
 // Helper to re-export Durable Objects
+export { PRSupervisorDO, PRReviewDO, PRSummaryDO } from "@/ai/agents/pr-reviewer/do";
 export { OrchestratorAgent } from "@/ai/agents/Orchestrator";
 export { RetrofitAgent } from "@/retrofit/RetrofitAgent";
 export { RoomDO } from "@/do/RoomDO";

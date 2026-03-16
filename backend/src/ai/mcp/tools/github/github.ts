@@ -64,65 +64,68 @@ async function upsertWorkflowFile(octokit: any, owner: string, repo: string, pat
     }
 }
 
+async function executeGitHubAction<T>(
+    env: Env,
+    actionName: string,
+    operation: (octokit: any) => Promise<{ data: T }>,
+    successMessage: string,
+    errorMessage: string,
+    successLogData: (data: T) => object
+) {
+    const logger = new Logger(env, `GitHubTool:${actionName}`);
+    const octokit = await getOctokit(env);
+
+    try {
+        const { data } = await operation(octokit);
+        logger.info(successMessage, successLogData(data));
+        return data;
+    } catch (e: any) {
+        logger.error(errorMessage, { error: e.message });
+        throw e;
+    }
+}
+
+
 export async function createGitHubIssue(env: Env, owner: string, repo: string, title: string, body?: string, assignees?: string[]) {
     const logger = new Logger(env, "GitHubTool:createGitHubIssue");
     logger.info(`Creating issue in ${owner}/${repo}`, { title, assignees });
-    
-    const octokit = await getOctokit(env);
-    try {
-        const { data } = await octokit.rest.issues.create({
-            owner,
-            repo,
-            title,
-            body,
-            assignees
-        });
-        logger.info(`Issue created successfully`, { issueNumber: data.number, html_url: data.html_url });
-        return data;
-    } catch (e: any) {
-        logger.error("Error creating GitHub issue", { error: e.message });
-        throw e;
-    }
+
+    return executeGitHubAction(
+        env,
+        'createGitHubIssue',
+        (octokit) => octokit.rest.issues.create({ owner, repo, title, body, assignees }),
+        'Issue created successfully',
+        'Error creating GitHub issue',
+        (data: any) => ({ issueNumber: data.number, html_url: data.html_url })
+    );
 }
 
 export async function createGitHubComment(env: Env, owner: string, repo: string, issueNumber: number, body: string) {
     const logger = new Logger(env, "GitHubTool:createGitHubComment");
     logger.info(`Creating comment on ${owner}/${repo}#${issueNumber}`);
 
-    const octokit = await getOctokit(env);
-    try {
-        const { data } = await octokit.rest.issues.createComment({
-            owner,
-            repo,
-            issue_number: issueNumber,
-            body
-        });
-        logger.info(`Comment created successfully`, { commentId: data.id, html_url: data.html_url });
-        return data;
-    } catch (e: any) {
-        logger.error("Error creating GitHub comment", { error: e.message });
-        throw e;
-    }
+    return executeGitHubAction(
+        env,
+        'createGitHubComment',
+        (octokit) => octokit.rest.issues.createComment({ owner, repo, issue_number: issueNumber, body }),
+        'Comment created successfully',
+        'Error creating GitHub comment',
+        (data: any) => ({ commentId: data.id, html_url: data.html_url })
+    );
 }
 
 export async function updateGitHubIssue(env: Env, owner: string, repo: string, issueNumber: number, updates: { state?: 'open' | 'closed', title?: string, body?: string, assignees?: string[] }) {
     const logger = new Logger(env, "GitHubTool:updateGitHubIssue");
     logger.info(`Updating issue ${owner}/${repo}#${issueNumber}`, { updates });
 
-    const octokit = await getOctokit(env);
-    try {
-        const { data } = await octokit.rest.issues.update({
-            owner,
-            repo,
-            issue_number: issueNumber,
-            ...updates
-        });
-        logger.info(`Issue updated successfully`, { html_url: data.html_url });
-        return data;
-    } catch (e: any) {
-        logger.error("Error updating GitHub issue", { error: e.message });
-        throw e;
-    }
+    return executeGitHubAction(
+        env,
+        'updateGitHubIssue',
+        (octokit) => octokit.rest.issues.update({ owner, repo, issue_number: issueNumber, ...updates }),
+        'Issue updated successfully',
+        'Error updating GitHub issue',
+        (data: any) => ({ html_url: data.html_url })
+    );
 }
 
 // --- Routes ---
