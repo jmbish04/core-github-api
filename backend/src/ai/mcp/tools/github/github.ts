@@ -324,6 +324,21 @@ async function fetchGitHubApi(url: string, token: string, options?: { method?: s
 }
 
 /**
+ * Helper function to fetch JSON from GitHub API with standard error handling
+ */
+export async function fetchGitHubJson<T = any>(
+  url: string,
+  token: string,
+  options?: { method?: string; body?: any; headers?: Record<string, string> }
+): Promise<T> {
+  const response = await fetchGitHubApi(url, token, options);
+  if (!response.ok) {
+    throw new Error(`GitHub API error (${response.status}): ${await response.text()}`);
+  }
+  return response.json() as Promise<T>;
+}
+
+/**
  * Verify GitHub Token Validity
  */
 export async function verifyGitHubToken(env: Env): Promise<{
@@ -379,15 +394,13 @@ export async function getDefaultBranch(
   const token = await getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}`;
 
-  const response = await fetchGitHubApi(url, token);
-
-  if (!response.ok) {
-    logger.error(`Failed to fetch repo info: ${response.status}`);
-    throw new Error(`Failed to fetch repo info: ${response.status}`);
+  try {
+    const data = await fetchGitHubJson(url, token);
+    return data.default_branch;
+  } catch (error) {
+    logger.error(`Failed to fetch repo info: ${error}`);
+    throw new Error(`Failed to fetch repo info: ${error}`);
   }
-
-  const data = await response.json() as any;
-  return data.default_branch;
 }
 
 /**
@@ -499,15 +512,7 @@ export async function getRepoStructure(
   const branch = ref || await getDefaultBranch(env, owner, repo);
   const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
 
-  const response = await fetchGitHubApi(url, token);
-
-  if (!response.ok) {
-    throw new Error(
-      `GitHub API error (${response.status}): ${await response.text()}`
-    );
-  }
-
-  return await response.json();
+  return fetchGitHubJson(url, token);
 }
 
 /**
@@ -526,15 +531,7 @@ export async function searchRepoCode(
     query
   )}+repo:${owner}/${repo}`;
 
-  const response = await fetchGitHubApi(url, token);
-
-  if (!response.ok) {
-    throw new Error(
-      `GitHub API error (${response.status}): ${await response.text()}`
-    );
-  }
-
-  return await response.json();
+  return fetchGitHubJson(url, token);
 }
 
 /**
@@ -560,42 +557,22 @@ export async function extractCodeSnippets(
 > {
   const logger = new Logger(env, "GitHubTool:ExtractSnippets");
   logger.info(`Extracting snippets for snippets`);
-  const token = await getToken(env);
-  const branch = ref || await getDefaultBranch(env, owner, repo);
 
-  const snippets = await Promise.all(
-    files.map(async (file) => {
-      try {
-        const content = await fetchGitHubFile(
-          env,
-          owner,
-          repo,
-          file.file_path,
-          branch
-        );
+  // Map input files to format expected by fetchGitHubFiles
+  const fetchFiles = files.map((f) => ({
+    path: f.file_path,
+    start_line: f.start_line,
+    end_line: f.end_line,
+  }));
 
-        const lines = content.split("\n");
-        const start = Math.max(0, file.start_line - 1);
-        const end = Math.min(lines.length, file.end_line);
-        const code = lines.slice(start, end).join("\n");
+  const results = await fetchGitHubFiles(env, owner, repo, fetchFiles, ref);
 
-        return {
-          file_path: file.file_path,
-          code,
-          relation: file.relation_to_question,
-        };
-      } catch (error) {
-        console.error(`Error extracting snippet from ${file.file_path}:`, error);
-        return {
-          file_path: file.file_path,
-          code: `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
-          relation: file.relation_to_question,
-        };
-      }
-    })
-  );
-
-  return snippets;
+  // Map results back to expected output format
+  return results.map((result, index) => ({
+    file_path: result.path,
+    code: result.snippet || result.content,
+    relation: files[index].relation_to_question,
+  }));
 }
 
 /**
@@ -634,13 +611,7 @@ export async function getPRComments(
   const logger = new Logger(env, "GitHubTool:PRComments");
   logger.info(`Fetching comments for PR ${owner}/${repo}#${prNumber}`);
   const token = await getToken(env);
-  const fetchComments = async (url: string) => {
-    const response = await fetchGitHubApi(url, token);
-    if (!response.ok) {
-      throw new Error(`GitHub API error (${response.status}): ${await response.text()}`);
-    }
-    return response.json() as Promise<any[]>;
-  };
+  const fetchComments = async (url: string) => fetchGitHubJson<any[]>(url, token);
 
   const [reviewComments, issueComments] = await Promise.all([
     fetchComments(`https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}/comments`),
@@ -699,15 +670,14 @@ export async function getRef(
 
   const token = await getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}/git/ref/${ref}`;
-  const response = await fetchGitHubApi(url, token);
 
-  if (!response.ok) {
-    logger.warn(`Failed to get ref ${ref}: ${response.status}`);
-    throw new Error(`Failed to get ref ${ref}: ${response.status} ${await response.text()}`);
+  try {
+    const data = await fetchGitHubJson(url, token);
+    return data.object.sha;
+  } catch (error) {
+    logger.warn(`Failed to get ref ${ref}: ${error}`);
+    throw error;
   }
-
-  const data = await response.json() as any;
-  return data.object.sha;
 }
 
 /**
@@ -788,15 +758,14 @@ export async function createPullRequest(
   logger.info(`Creating PR: ${title}`);
   const token = await getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}/pulls`;
-  const response = await fetchGitHubApi(url, token, { method: "POST", body: { title, body, head, base } });
 
-  if (!response.ok) {
-    throw new Error(`Failed to create PR: ${response.status} ${await response.text()}`);
+  try {
+    const data = await fetchGitHubJson(url, token, { method: "POST", body: { title, body, head, base } });
+    return {
+      number: data.number,
+      html_url: data.html_url,
+    };
+  } catch (error) {
+    throw new Error(`Failed to create PR: ${error}`);
   }
-
-  const data = await response.json() as any;
-  return {
-    number: data.number,
-    html_url: data.html_url,
-  };
 }
