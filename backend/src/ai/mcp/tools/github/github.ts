@@ -296,7 +296,7 @@ async function getToken(env: Env): Promise<string> {
   return await env.GITHUB_TOKEN.get();
 }
 
-async function fetchWithAuth(url: string, token: string, options: RequestInit = {}) {
+export async function fetchWithAuth(url: string, token: string, options: RequestInit = {}) {
   const headers = {
     Authorization: `Bearer ${token}`,
     Accept: "application/vnd.github.v3+json",
@@ -306,7 +306,7 @@ async function fetchWithAuth(url: string, token: string, options: RequestInit = 
   return fetch(url, { ...options, headers });
 }
 
-async function fetchGitHubAPI(url: string, token: string, options: RequestInit = {}): Promise<any> {
+export async function fetchGitHubAPI(url: string, token: string, options: RequestInit = {}): Promise<any> {
   const response = await fetchWithAuth(url, token, options);
   if (!response.ok) {
     throw new Error(
@@ -610,11 +610,13 @@ export async function getPRComments(
   const token = await getToken(env);
   // Get review comments (inline code comments)
   const reviewCommentsUrl = `https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}/comments`;
-  const reviewComments = await fetchGitHubAPI(reviewCommentsUrl, token) as any[];
-
   // Get issue comments (general PR comments)
   const issueCommentsUrl = `https://api.github.com/repos/${owner}/${repo}/issues/${prNumber}/comments`;
-  const issueComments = await fetchGitHubAPI(issueCommentsUrl, token) as any[];
+
+  const [reviewComments, issueComments] = await Promise.all([
+    fetchGitHubAPI(reviewCommentsUrl, token) as Promise<any[]>,
+    fetchGitHubAPI(issueCommentsUrl, token) as Promise<any[]>
+  ]);
 
   // Combine and normalize comments
   const allComments = [
