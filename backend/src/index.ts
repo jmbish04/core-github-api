@@ -1175,6 +1175,7 @@ export default {
 
 // Export all Durable Objects and Workflows
 export { ResearchOrchestrator } from '@/ai/agents/ResearchOrchestrator';
+export { PRSupervisorDO, PRReviewDO, PRSummaryDO } from '@/ai/agents/pr-reviewer/do';
 
 // Fallback endpoints for required mandates
 app.get('/health', (c) => c.json({ status: 'healthy', timestamp: new Date().toISOString() }));

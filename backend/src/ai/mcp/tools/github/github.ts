@@ -350,7 +350,7 @@ export async function verifyGitHubToken(env: Env): Promise<{
     const response = await fetchGitHubApi(env, "https://api.github.com/user");
 
     if (!response.ok) {
-        logger.warn(`Token verification failed: ${response.status}`);
+      logger.warn(`Token verification failed: ${response.status}`);
       if (response.status === 401) {
         return { valid: false, error: "Invalid or expired token (401)" };
       }
@@ -389,15 +389,13 @@ export async function getDefaultBranch(
   // logger.debug(`Getting default branch for ${owner}/${repo}`); 
 
   const url = `https://api.github.com/repos/${owner}/${repo}`;
-  const response = await fetchGitHubApi(env, url);
-
-  if (!response.ok) {
-    logger.error(`Failed to fetch repo info: ${response.status}`);
-    throw new Error(`Failed to fetch repo info: ${response.status}`);
+  try {
+    const data = await fetchGitHubJson(env, url);
+    return data.default_branch;
+  } catch (error: any) {
+    logger.error(`Failed to fetch repo info: ${error.message}`);
+    throw new Error(`Failed to fetch repo info: ${error.message}`);
   }
-
-  const data = await response.json() as any;
-  return data.default_branch;
 }
 
 /**
@@ -417,23 +415,21 @@ export async function fetchGitHubFile(
   const branch = ref || await getDefaultBranch(env, owner, repo);
   const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
 
-  const response = await fetchGitHubApi(env, url);
+  try {
+    const data = (await fetchGitHubJson(env, url)) as { content: string; encoding: string };
 
-  if (!response.ok) {
-    logger.warn(`Failed to fetch file: ${path} (${response.status})`);
-    throw new Error(
-      `GitHub API error (${response.status}): ${await response.text()}`
-    );
+    if (data.encoding === "base64") {
+      // Decode base64 content
+      return atob(data.content.replace(/\n/g, ""));
+    }
+
+    return data.content || "";
+  } catch (error: any) {
+    logger.warn(`Failed to fetch file: ${path} (${error.message})`);
+    throw new Error(`Failed to fetch file ${path}: ${error.message}`);
   }
 
-  const data = (await response.json()) as { content: string; encoding: string };
 
-  if (data.encoding === "base64") {
-    // Decode base64 content
-    return atob(data.content.replace(/\n/g, ""));
-  }
-
-  return data.content || "";
 }
 
 /**
@@ -684,20 +680,19 @@ export async function createBranch(
   logger.info(`Creating branch ${newBranchName} in ${owner}/${repo} from ${baseSha}`);
 
   const url = `https://api.github.com/repos/${owner}/${repo}/git/refs`;
-  const response = await fetchGitHubApi(env, url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      ref: `refs/heads/${newBranchName}`,
-      sha: baseSha,
-    }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Failed to create branch ${newBranchName}: ${response.status} ${errorText}`);
+  try {
+    await fetchGitHubJson(env, url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        ref: `refs/heads/${newBranchName}`,
+        sha: baseSha,
+      }),
+    });
+  } catch (error: any) {
+    throw new Error(`Failed to create branch ${newBranchName}: ${error.message}`);
   }
 }
 
@@ -732,16 +727,16 @@ export async function createOrUpdateFile(
     body.sha = sha;
   }
 
-  const response = await fetchGitHubApi(env, url, {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to write file ${path}: ${response.status} ${await response.text()}`);
+  try {
+    await fetchGitHubJson(env, url, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+  } catch (error: any) {
+    throw new Error(`Failed to write file ${path}: ${error.message}`);
   }
 }
 
