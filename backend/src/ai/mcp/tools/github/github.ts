@@ -351,13 +351,8 @@ export async function getDefaultBranch(
   const token = await getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}`;
 
-  try {
-    const data = await fetchGitHubJson(url, token);
-    return data.default_branch;
-  } catch (error) {
-    logger.error(`Failed to fetch repo info: ${error}`);
-    throw new Error(`Failed to fetch repo info: ${error}`);
-  }
+  const data = await withGitHubJsonHelper(env, "FetchRepoInfo", url, token, "Failed to fetch repo info: ");
+  return data.default_branch;
 }
 
 /**
@@ -641,13 +636,8 @@ export async function getRef(
   const token = await getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}/git/ref/${ref}`;
 
-  try {
-    const data = await fetchGitHubJson(url, token);
-    return data.object.sha;
-  } catch (error) {
-    logger.warn(`Failed to get ref ${ref}: ${error}`);
-    throw error;
-  }
+  const data = await withGitHubJsonHelper(env, "GetRef", url, token, `Failed to get ref ${ref}: `);
+  return data.object.sha;
 }
 
 /**
@@ -665,11 +655,7 @@ export async function createBranch(
 
   const token = await getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}/git/refs`;
-  try {
-    await fetchGitHubJson(url, token, { method: "POST", body: { ref: `refs/heads/${newBranchName}`, sha: baseSha } });
-  } catch (error) {
-    throw new Error(`Failed to create branch ${newBranchName}: ${error instanceof Error ? error.message : String(error)}`);
-  }
+  await withGitHubJsonHelper(env, "CreateBranch", url, token, `Failed to create branch ${newBranchName}: `, { method: "POST", body: { ref: `refs/heads/${newBranchName}`, sha: baseSha } });
 }
 
 /**
@@ -704,11 +690,7 @@ export async function createOrUpdateFile(
     body.sha = sha;
   }
 
-  try {
-    await fetchGitHubJson(url, token, { method: "PUT", body });
-  } catch (error) {
-    throw new Error(`Failed to write file ${path}: ${error instanceof Error ? error.message : String(error)}`);
-  }
+  await withGitHubJsonHelper(env, "WriteFile", url, token, `Failed to write file ${path}: `, { method: "PUT", body });
 }
 
 /**
@@ -728,17 +710,32 @@ export async function createPullRequest(
   const token = await getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}/pulls`;
 
-  try {
-    const data = await fetchGitHubJson(url, token, { method: "POST", body: { title, body, head, base } });
-    return {
-      number: data.number,
-      html_url: data.html_url,
-    };
-  } catch (error) {
-    throw new Error(`Failed to create PR: ${error}`);
-  }
+  const data = await withGitHubJsonHelper(env, "CreatePR", url, token, "Failed to create PR: ", { method: "POST", body: { title, body, head, base } });
+  return {
+    number: data.number,
+    html_url: data.html_url,
+  };
 }
 
+
+
+async function withGitHubJsonHelper<T = any>(
+  env: Env,
+  action: string,
+  url: string,
+  token: string,
+  errorMessagePrefix: string,
+  options?: { method?: string; body?: any; headers?: Record<string, string> }
+): Promise<T> {
+  try {
+    return await fetchGitHubJson<T>(url, token, options);
+  } catch (error: any) {
+    const logger = new Logger(env, `GitHubTool:${action}`);
+    const finalErrorMsg = `${errorMessagePrefix}${error.message || String(error)}`;
+    logger.error(finalErrorMsg);
+    throw new Error(finalErrorMsg);
+  }
+}
 
 async function withOctokitIssue<T = any>(env: Env, owner: string, repo: string, action: string, operation: (octokit: any) => Promise<{ data: any }>): Promise<T> {
     const logger = new Logger(env, `GitHubTool:${action}`);
