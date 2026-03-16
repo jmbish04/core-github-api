@@ -59,6 +59,7 @@ async function fetchWithAuth(url: string, token: string, options: RequestInit = 
     headers,
   });
 }
+
 async function upsertWorkflowFile(octokit: any, owner: string, repo: string, path: string, content: string, force: boolean) {
     try {
         let sha: string | undefined
@@ -81,6 +82,19 @@ async function upsertWorkflowFile(octokit: any, owner: string, repo: string, pat
     } catch (e: any) {
         return { status: 'failure', message: e.message || 'Unknown error' }
     }
+}
+
+/**
+ * Shared helper for making API calls that expect a JSON response
+ */
+export async function fetchGitHubJson(url: string, token: string, options: RequestInit = {}) {
+  const response = await fetchWithAuth(url, token, options);
+  if (!response.ok) {
+    throw new Error(
+      `GitHub API error (${response.status}): ${await response.text()}`
+    );
+  }
+  return await response.json();
 }
 
 export async function createGitHubIssue(env: Env, owner: string, repo: string, title: string, body?: string, assignees?: string[]) {
@@ -374,14 +388,10 @@ export async function getDefaultBranch(
   const token = await getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}`;
 
-  const response = await fetchWithAuth(url, token);
-
-  if (!response.ok) {
-    logger.error(`Failed to fetch repo info: ${response.status}`);
-    throw new Error(`Failed to fetch repo info: ${response.status}`);
-  }
-
-  const data = await response.json() as any;
+  const data = await fetchGitHubJson(url, token).catch(e => {
+    logger.error(`Failed to fetch repo info: ${e.message}`);
+    throw new Error(`Failed to fetch repo info: ${e.message}`);
+  }) as any;
   return data.default_branch;
 }
 
@@ -403,16 +413,10 @@ export async function fetchGitHubFile(
   const branch = ref || await getDefaultBranch(env, owner, repo);
   const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
 
-  const response = await fetchWithAuth(url, token);
-
-  if (!response.ok) {
-    logger.warn(`Failed to fetch file: ${path} (${response.status})`);
-    throw new Error(
-      `GitHub API error (${response.status}): ${await response.text()}`
-    );
-  }
-
-  const data = (await response.json()) as { content: string; encoding: string };
+  const data = await fetchGitHubJson(url, token).catch(e => {
+    logger.warn(`Failed to fetch file: ${path} (${e.message})`);
+    throw e;
+  }) as { content: string; encoding: string };
 
   if (data.encoding === "base64") {
     // Decode base64 content
@@ -494,15 +498,7 @@ export async function getRepoStructure(
   const branch = ref || await getDefaultBranch(env, owner, repo);
   const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
 
-  const response = await fetchWithAuth(url, token);
-
-  if (!response.ok) {
-    throw new Error(
-      `GitHub API error (${response.status}): ${await response.text()}`
-    );
-  }
-
-  return await response.json();
+  return await fetchGitHubJson(url, token);
 }
 
 /**
@@ -521,15 +517,7 @@ export async function searchRepoCode(
     query
   )}+repo:${owner}/${repo}`;
 
-  const response = await fetchWithAuth(url, token);
-
-  if (!response.ok) {
-    throw new Error(
-      `GitHub API error (${response.status}): ${await response.text()}`
-    );
-  }
-
-  return await response.json();
+  return await fetchGitHubJson(url, token);
 }
 
 /**
@@ -554,43 +542,23 @@ export async function extractCodeSnippets(
   }>
 > {
   const logger = new Logger(env, "GitHubTool:ExtractSnippets");
-  logger.info(`Extracting snippets for snippets`);
-  const token = await getToken(env);
-  const branch = ref || await getDefaultBranch(env, owner, repo);
+  logger.info(`Extracting snippets for ${files.length} files`);
 
-  const snippets = await Promise.all(
-    files.map(async (file) => {
-      try {
-        const content = await fetchGitHubFile(
-          env,
-          owner,
-          repo,
-          file.file_path,
-          branch
-        );
+  // Map to the format expected by fetchGitHubFiles
+  const fetchInput = files.map(f => ({
+    path: f.file_path,
+    start_line: f.start_line,
+    end_line: f.end_line
+  }));
 
-        const lines = content.split("\n");
-        const start = Math.max(0, file.start_line - 1);
-        const end = Math.min(lines.length, file.end_line);
-        const code = lines.slice(start, end).join("\n");
+  const results = await fetchGitHubFiles(env, owner, repo, fetchInput, ref);
 
-        return {
-          file_path: file.file_path,
-          code,
-          relation: file.relation_to_question,
-        };
-      } catch (error) {
-        console.error(`Error extracting snippet from ${file.file_path}:`, error);
-        return {
-          file_path: file.file_path,
-          code: `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
-          relation: file.relation_to_question,
-        };
-      }
-    })
-  );
-
-  return snippets;
+  // Map the results back to the expected output format
+  return results.map((result, index) => ({
+    file_path: files[index].file_path,
+    code: result.snippet || `Error: Failed to extract snippet`,
+    relation: files[index].relation_to_question,
+  }));
 }
 
 /**
@@ -633,22 +601,9 @@ export async function getPRComments(
   const reviewCommentsUrl = `https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}/comments`;
   const issueCommentsUrl = `https://api.github.com/repos/${owner}/${repo}/issues/${prNumber}/comments`;
 
-  const [reviewCommentsResponse, issueCommentsResponse] = await Promise.all([
-    fetchWithAuth(reviewCommentsUrl, token),
-    fetchWithAuth(issueCommentsUrl, token)
-  ]);
-
-  for (const response of [reviewCommentsResponse, issueCommentsResponse]) {
-    if (!response.ok) {
-      throw new Error(
-        `GitHub API error (${response.status}): ${await response.text()}`
-      );
-    }
-  }
-
   const [reviewComments, issueComments] = await Promise.all([
-    reviewCommentsResponse.json() as Promise<any[]>,
-    issueCommentsResponse.json() as Promise<any[]>
+    fetchGitHubJson(reviewCommentsUrl, token) as Promise<any[]>,
+    fetchGitHubJson(issueCommentsUrl, token) as Promise<any[]>
   ]);
 
   // Combine and normalize comments
@@ -703,14 +658,10 @@ export async function getRef(
 
   const token = await getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}/git/ref/${ref}`;
-  const response = await fetchWithAuth(url, token);
-
-  if (!response.ok) {
-    logger.warn(`Failed to get ref ${ref}: ${response.status}`);
-    throw new Error(`Failed to get ref ${ref}: ${response.status} ${await response.text()}`);
-  }
-
-  const data = await response.json() as any;
+  const data = await fetchGitHubJson(url, token).catch(e => {
+    logger.warn(`Failed to get ref ${ref}: ${e.message}`);
+    throw new Error(`Failed to get ref ${ref}: ${e.message}`);
+  }) as any;
   return data.object.sha;
 }
 
@@ -801,7 +752,7 @@ export async function createPullRequest(
   logger.info(`Creating PR: ${title}`);
   const token = await getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}/pulls`;
-  const response = await fetchWithAuth(url, token, {
+  const data = await fetchGitHubJson(url, token, {
     method: "POST",
     body: JSON.stringify({
       title,
@@ -809,13 +760,9 @@ export async function createPullRequest(
       head,
       base,
     }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to create PR: ${response.status} ${await response.text()}`);
-  }
-
-  const data = await response.json() as any;
+  }).catch(e => {
+    throw new Error(`Failed to create PR: ${e.message}`);
+  }) as any;
   return {
     number: data.number,
     html_url: data.html_url,
