@@ -296,7 +296,7 @@ async function getToken(env: Env): Promise<string> {
   return await env.GITHUB_TOKEN.get();
 }
 
-async function fetchWithAuth(url: string, token: string, options: RequestInit = {}) {
+export async function fetchWithAuth(url: string, token: string, options: RequestInit = {}) {
   const headers = {
     Authorization: `Bearer ${token}`,
     Accept: "application/vnd.github.v3+json",
@@ -306,7 +306,7 @@ async function fetchWithAuth(url: string, token: string, options: RequestInit = 
   return fetch(url, { ...options, headers });
 }
 
-async function fetchGitHubAPI(url: string, token: string, options: RequestInit = {}): Promise<any> {
+export async function fetchGitHubAPI(url: string, token: string, options: RequestInit = {}): Promise<any> {
   const response = await fetchWithAuth(url, token, options);
   if (!response.ok) {
     throw new Error(
@@ -378,6 +378,16 @@ export async function getDefaultBranch(
 }
 
 /**
+ * Extract a code snippet based on line ranges
+ */
+export function extractSnippet(content: string, startLine: number, endLine: number): string {
+  const lines = content.split("\n");
+  const start = Math.max(0, startLine - 1);
+  const end = Math.min(lines.length, endLine);
+  return lines.slice(start, end).join("\n");
+}
+
+/**
  * Fetch file content from GitHub
  */
 export async function fetchGitHubFile(
@@ -445,10 +455,7 @@ export async function fetchGitHubFiles(
         // Extract snippet if line numbers provided
         let snippet: string | undefined;
         if (file.start_line && file.end_line) {
-          const lines = content.split("\n");
-          const start = Math.max(0, file.start_line - 1);
-          const end = Math.min(lines.length, file.end_line);
-          snippet = lines.slice(start, end).join("\n");
+          snippet = extractSnippet(content, file.start_line, file.end_line);
         }
 
         return {
@@ -545,10 +552,7 @@ export async function extractCodeSnippets(
           branch
         );
 
-        const lines = content.split("\n");
-        const start = Math.max(0, file.start_line - 1);
-        const end = Math.min(lines.length, file.end_line);
-        const code = lines.slice(start, end).join("\n");
+        const code = extractSnippet(content, file.start_line, file.end_line);
 
         return {
           file_path: file.file_path,
@@ -607,11 +611,14 @@ export async function getPRComments(
   const token = await getToken(env);
   // Get review comments (inline code comments)
   const reviewCommentsUrl = `https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}/comments`;
-  const reviewComments = await fetchGitHubAPI(reviewCommentsUrl, token) as any[];
 
   // Get issue comments (general PR comments)
   const issueCommentsUrl = `https://api.github.com/repos/${owner}/${repo}/issues/${prNumber}/comments`;
-  const issueComments = await fetchGitHubAPI(issueCommentsUrl, token) as any[];
+
+  const [reviewComments, issueComments] = await Promise.all([
+    fetchGitHubAPI(reviewCommentsUrl, token) as Promise<any[]>,
+    fetchGitHubAPI(issueCommentsUrl, token) as Promise<any[]>
+  ]);
 
   // Combine and normalize comments
   const allComments = [
