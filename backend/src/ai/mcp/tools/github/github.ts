@@ -557,40 +557,39 @@ export async function extractCodeSnippets(
 > {
   const logger = new Logger(env, "GitHubTool:ExtractSnippets");
   logger.info(`Extracting snippets for snippets`);
-  const token = await getToken(env);
   const branch = ref || await getDefaultBranch(env, owner, repo);
 
-  const snippets = await Promise.all(
-    files.map(async (file) => {
-      try {
-        const content = await fetchGitHubFile(
-          env,
-          owner,
-          repo,
-          file.file_path,
-          branch
-        );
+  // Map input files to format expected by fetchGitHubFiles
+  const fetchFiles = files.map((f) => ({
+    path: f.file_path,
+    start_line: f.start_line,
+    end_line: f.end_line,
+  }));
 
-        const lines = content.split("\n");
-        const start = Math.max(0, file.start_line - 1);
-        const end = Math.min(lines.length, file.end_line);
-        const code = lines.slice(start, end).join("\n");
+  const results = await fetchGitHubFiles(env, owner, repo, fetchFiles, branch);
 
-        return {
-          file_path: file.file_path,
-          code,
-          relation: file.relation_to_question,
-        };
-      } catch (error) {
-        console.error(`Error extracting snippet from ${file.file_path}:`, error);
-        return {
-          file_path: file.file_path,
-          code: `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
-          relation: file.relation_to_question,
-        };
+  // Map results back to expected output format, preserving input properties
+  const snippets = files.map((file, index) => {
+    try {
+      const result = results[index];
+      if (!result || result.path !== file.file_path) {
+        throw new Error("File not found in fetch results");
       }
-    })
-  );
+
+      return {
+        file_path: file.file_path,
+        code: result.snippet || result.content,
+        relation: file.relation_to_question,
+      };
+    } catch (error) {
+      console.error(`Error extracting snippet from ${file.file_path}:`, error);
+      return {
+        file_path: file.file_path,
+        code: `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
+        relation: file.relation_to_question,
+      };
+    }
+  });
 
   return snippets;
 }
