@@ -316,7 +316,7 @@ async function fetchGitHubAPI(url: string, token: string, options: RequestInit =
   return response;
 }
 
-async function fetchWithAuth(url: string, token: string, options: RequestInit = {}) {
+export async function fetchWithAuth(url: string, token: string, options: RequestInit = {}) {
   const headers = {
     Authorization: `Bearer ${token}`,
     Accept: "application/vnd.github.v3+json",
@@ -429,6 +429,35 @@ function extractSnippet(content: string, startLine: number, endLine: number): st
 /**
  * Fetch multiple files from GitHub
  */
+
+async function processGitHubFiles<T>(
+  env: Env,
+  owner: string,
+  repo: string,
+  files: Array<any>,
+  ref: string | undefined,
+  logContext: string,
+  processor: (content: string, file: any) => T,
+  errorFallback: (error: unknown, file: any) => T
+): Promise<Array<T>> {
+  const logger = new Logger(env, logContext);
+  const token = await getToken(env);
+  const branch = ref || await getDefaultBranch(env, owner, repo);
+
+  return Promise.all(
+    files.map(async (file) => {
+      try {
+        const path = file.path || file.file_path;
+        const content = await fetchGitHubFile(env, owner, repo, path, branch);
+        return processor(content, file);
+      } catch (error) {
+        logger.error(`Error processing ${file.path || file.file_path}`, { error });
+        return errorFallback(error, file);
+      }
+    })
+  );
+}
+
 export async function fetchGitHubFiles(
   env: Env,
   owner: string,
@@ -445,39 +474,21 @@ export async function fetchGitHubFiles(
   const logger = new Logger(env, "GitHubTool:FetchFiles");
   logger.info(`Fetching ${files.length} files from ${owner}/${repo}`);
 
-  const token = await getToken(env);
-  // Resolve branch once for all files if not provided
-  const branch = ref || await getDefaultBranch(env, owner, repo);
-
-  const results = await Promise.all(
-    files.map(async (file) => {
-      try {
-        const content = await fetchGitHubFile(env, owner, repo, file.path, branch);
-
-        // Extract snippet if line numbers provided
-        let snippet: string | undefined;
-        if (file.start_line && file.end_line) {
-          snippet = extractSnippet(content, file.start_line, file.end_line);
-        }
-
-        return {
-          path: file.path,
-          content,
-          snippet: snippet || content,
-        };
-      } catch (error) {
-        logger.error(`Error fetching ${file.path}`, { error: error }); 
-        // console.error(`Error fetching ${file.path}:`, error);
-        return {
-          path: file.path,
-          content: "",
-          snippet: `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
-        };
+  return processGitHubFiles(
+    env, owner, repo, files, ref, "GitHubTool:FetchFiles",
+    (content, file) => {
+      let snippet: string | undefined;
+      if (file.start_line && file.end_line) {
+        snippet = extractSnippet(content, file.start_line, file.end_line);
       }
+      return { path: file.path, content, snippet: snippet || content };
+    },
+    (error, file) => ({
+      path: file.path,
+      content: "",
+      snippet: `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
     })
   );
-
-  return results;
 }
 
 /**
@@ -524,6 +535,7 @@ export async function searchRepoCode(
 /**
  * Extract code snippets from GitHub files based on line ranges
  */
+
 export async function extractCodeSnippets(
   env: Env,
   owner: string,
@@ -544,39 +556,20 @@ export async function extractCodeSnippets(
 > {
   const logger = new Logger(env, "GitHubTool:ExtractSnippets");
   logger.info(`Extracting snippets for snippets`);
-  const token = await getToken(env);
-  const branch = ref || await getDefaultBranch(env, owner, repo);
 
-  const snippets = await Promise.all(
-    files.map(async (file) => {
-      try {
-        const content = await fetchGitHubFile(
-          env,
-          owner,
-          repo,
-          file.file_path,
-          branch
-        );
-
-        const code = extractSnippet(content, file.start_line, file.end_line);
-
-        return {
-          file_path: file.file_path,
-          code,
-          relation: file.relation_to_question,
-        };
-      } catch (error) {
-        console.error(`Error extracting snippet from ${file.file_path}:`, error);
-        return {
-          file_path: file.file_path,
-          code: `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
-          relation: file.relation_to_question,
-        };
-      }
+  return processGitHubFiles(
+    env, owner, repo, files, ref, "GitHubTool:ExtractSnippets",
+    (content, file) => ({
+      file_path: file.file_path,
+      code: extractSnippet(content, file.start_line, file.end_line),
+      relation: file.relation_to_question,
+    }),
+    (error, file) => ({
+      file_path: file.file_path,
+      code: `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
+      relation: file.relation_to_question,
     })
   );
-
-  return snippets;
 }
 
 /**
