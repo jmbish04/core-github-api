@@ -665,11 +665,10 @@ export async function createBranch(
 
   const token = await getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}/git/refs`;
-  const response = await fetchGitHubApi(url, token, { method: "POST", body: { ref: `refs/heads/${newBranchName}`, sha: baseSha } });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Failed to create branch ${newBranchName}: ${response.status} ${errorText}`);
+  try {
+    await fetchGitHubJson(url, token, { method: "POST", body: { ref: `refs/heads/${newBranchName}`, sha: baseSha } });
+  } catch (error) {
+    throw new Error(`Failed to create branch ${newBranchName}: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
@@ -705,10 +704,10 @@ export async function createOrUpdateFile(
     body.sha = sha;
   }
 
-  const response = await fetchGitHubApi(url, token, { method: "PUT", body });
-
-  if (!response.ok) {
-    throw new Error(`Failed to write file ${path}: ${response.status} ${await response.text()}`);
+  try {
+    await fetchGitHubJson(url, token, { method: "PUT", body });
+  } catch (error) {
+    throw new Error(`Failed to write file ${path}: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
