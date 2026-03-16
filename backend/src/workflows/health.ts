@@ -140,6 +140,7 @@ async function runApiChecks(env: Env) {
         issueNumber = issue.number;
 
         // B. Comment on Issue
+        if (issueNumber === null) throw new Error("Issue number is null");
         const comment = await createGitHubComment(env, owner, repo, issueNumber, 'Health check comment test.');
         if (!comment) throw new Error("Failed to comment");
         steps.push({ step: 'create_comment', status: 'success', id: comment.id });

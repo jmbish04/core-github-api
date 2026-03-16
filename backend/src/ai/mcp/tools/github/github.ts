@@ -92,65 +92,39 @@ async function upsertWorkflowFile(octokit: any, owner: string, repo: string, pat
     }
 }
 
-export async function createGitHubIssue(env: Env, owner: string, repo: string, title: string, body?: string, assignees?: string[]) {
-    const logger = new Logger(env, "GitHubTool:createGitHubIssue");
-    logger.info(`Creating issue in ${owner}/${repo}`, { title, assignees });
-    
+async function executeGithubAction(env: Env, actionName: string, actionDesc: string, actionFn: (octokit: any) => Promise<any>, requestId?: string) {
+    const logger = new Logger(env, `GitHubTool:${actionName}`);
+    logger.info(actionDesc, { requestId });
     const octokit = await getOctokit(env);
     try {
-        const { data } = await octokit.rest.issues.create({
-            owner,
-            repo,
-            title,
-            body,
-            assignees
-        });
-        logger.info(`Issue created successfully`, { issueNumber: data.number, html_url: data.html_url });
+        const { data } = await actionFn(octokit);
+        logger.info(`${actionName} successfully`, { html_url: data.html_url, id: data.id || data.number, requestId });
         return data;
     } catch (e: any) {
-        logger.error("Error creating GitHub issue", { error: e.message });
+        logger.error(`Error ${actionName.toLowerCase()}`, { error: e.message, requestId });
         throw e;
     }
 }
 
-export async function createGitHubComment(env: Env, owner: string, repo: string, issueNumber: number, body: string) {
-    const logger = new Logger(env, "GitHubTool:createGitHubComment");
-    logger.info(`Creating comment on ${owner}/${repo}#${issueNumber}`);
-
-    const octokit = await getOctokit(env);
-    try {
-        const { data } = await octokit.rest.issues.createComment({
-            owner,
-            repo,
-            issue_number: issueNumber,
-            body
-        });
-        logger.info(`Comment created successfully`, { commentId: data.id, html_url: data.html_url });
-        return data;
-    } catch (e: any) {
-        logger.error("Error creating GitHub comment", { error: e.message });
-        throw e;
-    }
+export async function createGitHubIssue(env: Env, owner: string, repo: string, title: string, body?: string, assignees?: string[], requestId?: string) {
+    return executeGithubAction(env, "createGitHubIssue", `Creating issue in ${owner}/${repo}`,
+        (octokit) => octokit.rest.issues.create({ owner, repo, title, body, assignees }),
+        requestId
+    );
 }
 
-export async function updateGitHubIssue(env: Env, owner: string, repo: string, issueNumber: number, updates: { state?: 'open' | 'closed', title?: string, body?: string, assignees?: string[] }) {
-    const logger = new Logger(env, "GitHubTool:updateGitHubIssue");
-    logger.info(`Updating issue ${owner}/${repo}#${issueNumber}`, { updates });
+export async function createGitHubComment(env: Env, owner: string, repo: string, issueNumber: number, body: string, requestId?: string) {
+    return executeGithubAction(env, "createGitHubComment", `Creating comment on ${owner}/${repo}#${issueNumber}`,
+        (octokit) => octokit.rest.issues.createComment({ owner, repo, issue_number: issueNumber, body }),
+        requestId
+    );
+}
 
-    const octokit = await getOctokit(env);
-    try {
-        const { data } = await octokit.rest.issues.update({
-            owner,
-            repo,
-            issue_number: issueNumber,
-            ...updates
-        });
-        logger.info(`Issue updated successfully`, { html_url: data.html_url });
-        return data;
-    } catch (e: any) {
-        logger.error("Error updating GitHub issue", { error: e.message });
-        throw e;
-    }
+export async function updateGitHubIssue(env: Env, owner: string, repo: string, issueNumber: number, updates: { state?: 'open' | 'closed', title?: string, body?: string, assignees?: string[] }, requestId?: string) {
+    return executeGithubAction(env, "updateGitHubIssue", `Updating issue ${owner}/${repo}#${issueNumber}`,
+        (octokit) => octokit.rest.issues.update({ owner, repo, issue_number: issueNumber, ...updates }),
+        requestId
+    );
 }
 
 // --- Routes ---
