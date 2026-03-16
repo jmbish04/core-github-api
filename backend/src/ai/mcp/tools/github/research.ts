@@ -7,14 +7,20 @@ export function parseGitHubUrl(url: string) {
   return { owner: parts[0], repo: parts[1] };
 }
 
+async function githubFetch(url: string, token: string, options: RequestInit = {}) {
+  return fetch(url, {
+    ...options,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "User-Agent": "cloudflare-repo-analyzer",
+      ...options.headers,
+    },
+  });
+}
+
 export async function fetchGitHubTree(owner: string, repo: string, token: string) {
   const url = `https://api.github.com/repos/${owner}/${repo}/git/trees/main?recursive=1`;
-  const response = await fetch(url, {
-    headers: { 
-      Authorization: `Bearer ${token}`, 
-      "User-Agent": "cloudflare-repo-analyzer" 
-    }
-  });
+  const response = await githubFetch(url, token);
   if (!response.ok) return [];
   const data: any = await response.json();
   return data.tree?.map((f: any) => f.path) || [];
@@ -29,9 +35,7 @@ export async function fetchCriticalFiles(owner: string, repo: string, tree: stri
     foundPaths.map(async (path) => {
       const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/main/${path}`;
       try {
-        const resp = await fetch(rawUrl, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const resp = await githubFetch(rawUrl, token);
         if (resp.ok) {
           const text = await resp.text();
           contents[path] = text;
