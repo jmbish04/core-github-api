@@ -558,7 +558,7 @@ export async function extractCodeSnippets(
           relation: file.relation_to_question,
         };
       } catch (error) {
-        console.error(`Error extracting snippet from ${file.file_path}:`, error);
+        logger.error(`Error extracting snippet from ${file.file_path}`, { error: error });
         return {
           file_path: file.file_path,
           code: `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
@@ -616,21 +616,17 @@ export async function getPRComments(
   ]);
 
   // Combine and normalize comments
+  const normalizeComment = (comment: any, type: 'review' | 'issue') => ({
+    id: comment.id,
+    author: comment.user?.login || "unknown",
+    body: comment.body || "",
+    ...(type === 'review' ? { file_path: comment.path, line: comment.line || comment.original_line } : {}),
+    comment_type: type,
+  });
+
   const allComments = [
-    ...reviewComments.map((comment: any) => ({
-      id: comment.id,
-      author: comment.user?.login || "unknown",
-      body: comment.body || "",
-      file_path: comment.path,
-      line: comment.line || comment.original_line,
-      comment_type: 'review' as const,
-    })),
-    ...issueComments.map((comment: any) => ({
-      id: comment.id,
-      author: comment.user?.login || "unknown",
-      body: comment.body || "",
-      comment_type: 'issue' as const,
-    })),
+    ...reviewComments.map((c: any) => normalizeComment(c, 'review')),
+    ...issueComments.map((c: any) => normalizeComment(c, 'issue')),
   ];
 
   return allComments;
