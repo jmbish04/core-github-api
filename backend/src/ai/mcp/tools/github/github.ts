@@ -395,16 +395,10 @@ export async function fetchGitHubFile(
   const branch = ref || await getDefaultBranch(env, owner, repo);
   const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
 
-  const response = await fetchWithAuth(url, token);
-
-  if (!response.ok) {
-    logger.warn(`Failed to fetch file: ${path} (${response.status})`);
-    throw new Error(
-      `GitHub API error (${response.status}): ${await response.text()}`
-    );
-  }
-
-  const data = (await response.json()) as { content: string; encoding: string };
+  const data = await fetchGitHubAPI(url, token).catch((error: any) => {
+    logger.warn(`Failed to fetch file: ${path}`);
+    throw error;
+  }) as { content: string; encoding: string };
 
   if (data.encoding === "base64") {
     // Decode base64 content
@@ -606,12 +600,10 @@ export async function getPRComments(
   logger.info(`Fetching comments for PR ${owner}/${repo}#${prNumber}`);
   const token = await getToken(env);
   // Get review comments (inline code comments)
-  const reviewCommentsUrl = `https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}/comments`;
-  const reviewComments = await fetchGitHubAPI(reviewCommentsUrl, token) as any[];
-
-  // Get issue comments (general PR comments)
-  const issueCommentsUrl = `https://api.github.com/repos/${owner}/${repo}/issues/${prNumber}/comments`;
-  const issueComments = await fetchGitHubAPI(issueCommentsUrl, token) as any[];
+  const [reviewComments, issueComments] = await Promise.all([
+    fetchGitHubAPI(`https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}/comments`, token) as Promise<any[]>,
+    fetchGitHubAPI(`https://api.github.com/repos/${owner}/${repo}/issues/${prNumber}/comments`, token) as Promise<any[]>
+  ]);
 
   // Combine and normalize comments
   const allComments = [
