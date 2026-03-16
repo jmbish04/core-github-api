@@ -4,6 +4,8 @@
  * @owner AI-Builder
  */
 
+import { fetchWithAuth, fetchGitHubJson } from "./fetch";
+export { fetchGitHubJson } from "./fetch";
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
 import { getOctokit } from '@services/octokit/core'
 
@@ -41,24 +43,6 @@ const RetrofitSchema = z.object({
 
 // --- Helper Functions (Shared/Refactored) ---
 
-export async function fetchWithAuth(url: string, token: string, options: RequestInit = {}) {
-  const headers = new Headers(options.headers as any || {});
-  headers.set('Authorization', `Bearer ${token}`);
-  if (!headers.has('Accept')) {
-    headers.set('Accept', 'application/vnd.github.v3+json');
-  }
-  if (!headers.has('User-Agent')) {
-    headers.set('User-Agent', 'Cloudflare-Worker-MCP');
-  }
-  if (options.body && !headers.has('Content-Type')) {
-    headers.set('Content-Type', 'application/json');
-  }
-
-  return fetch(url, {
-    ...options,
-    headers,
-  });
-}
 
 async function upsertWorkflowFile(octokit: any, owner: string, repo: string, path: string, content: string, force: boolean) {
     try {
@@ -84,18 +68,6 @@ async function upsertWorkflowFile(octokit: any, owner: string, repo: string, pat
     }
 }
 
-/**
- * Shared helper for making API calls that expect a JSON response
- */
-export async function fetchGitHubJson(url: string, token: string, options: RequestInit = {}) {
-  const response = await fetchWithAuth(url, token, options);
-  if (!response.ok) {
-    throw new Error(
-      `GitHub API error (${response.status}): ${await response.text()}`
-    );
-  }
-  return await response.json();
-}
 
 export async function createGitHubIssue(env: Env, owner: string, repo: string, title: string, body?: string, assignees?: string[]) {
     const logger = new Logger(env, "GitHubTool:createGitHubIssue");

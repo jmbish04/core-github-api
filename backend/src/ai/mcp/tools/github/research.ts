@@ -1,4 +1,4 @@
-import { fetchWithAuth } from "./github";
+import { fetchWithAuth } from "./fetch";
 /**
  * GitHub API Utilities
  */
