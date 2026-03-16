@@ -203,17 +203,16 @@ app.openapi(createRepoRoute, async (c) => {
     logger.info(`Fetching template files for ${infrastructure}`);
     const files = await fetchTemplateFiles(c.env, infrastructure, name);
 
-    // 3. Commit Files
-    for (const [path, content] of Object.entries(files)) {
-        await upsertWorkflowFile(octokit, owner, name, path, content, false);
-    }
-    logger.info(`Committed ${Object.keys(files).length} boilerplate files`);
+    // 3 & 4. Commit Boilerplate and Default Workflows
+    const allFilesToCommit = [
+        ...Object.entries(files).map(([path, content]) => ({ path, content })),
+        ...DEFAULT_WORKFLOWS.map(wf => ({ path: wf.path, content: wf.content }))
+    ];
 
-    // 4. Add Default Workflows
-    for (const wf of DEFAULT_WORKFLOWS) {
-        await upsertWorkflowFile(octokit, owner, name, wf.path, wf.content, false)
+    for (const file of allFilesToCommit) {
+        await upsertWorkflowFile(octokit, owner, name, file.path, file.content, false);
     }
-    logger.info(`Added default workflows`);
+    logger.info(`Committed ${allFilesToCommit.length} files and workflows`);
 
     // 5. Register in D1 (repos table)
     await db.insert(repositories).values({
@@ -551,41 +550,20 @@ export async function extractCodeSnippets(
 > {
   const logger = new Logger(env, "GitHubTool:ExtractSnippets");
   logger.info(`Extracting snippets for snippets`);
-  const branch = ref || await getDefaultBranch(env, owner, repo);
 
-  const snippets = await Promise.all(
-    files.map(async (file) => {
-      try {
-        const content = await fetchGitHubFile(
-          env,
-          owner,
-          repo,
-          file.file_path,
-          branch
-        );
+  const fetchFiles = files.map((f) => ({
+    path: f.file_path,
+    start_line: f.start_line,
+    end_line: f.end_line,
+  }));
 
-        const lines = content.split("\n");
-        const start = Math.max(0, file.start_line - 1);
-        const end = Math.min(lines.length, file.end_line);
-        const code = lines.slice(start, end).join("\n");
+  const results = await fetchGitHubFiles(env, owner, repo, fetchFiles, ref);
 
-        return {
-          file_path: file.file_path,
-          code,
-          relation: file.relation_to_question,
-        };
-      } catch (error) {
-        console.error(`Error extracting snippet from ${file.file_path}:`, error);
-        return {
-          file_path: file.file_path,
-          code: `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
-          relation: file.relation_to_question,
-        };
-      }
-    })
-  );
-
-  return snippets;
+  return results.map((result, index) => ({
+    file_path: result.path,
+    code: result.snippet || "",
+    relation: files[index].relation_to_question,
+  }));
 }
 
 /**
