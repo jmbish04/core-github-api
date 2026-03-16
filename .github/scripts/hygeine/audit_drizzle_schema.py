@@ -101,21 +101,17 @@ def main():
     md = ["# Drizzle ORM Schema & D1 Analysis Report\n"]
     md.append("## Table Names by Database\n")
     
-    md.append("### env.DB")
     db1_sorted = sorted(db1_map.keys())
-    if db1_sorted:
-        for t in db1_sorted:
-            md.append(f"- {t}")
-    else:
-        md.append("- *No tables definitively mapped to env.DB yet*")
-        
-    md.append("\n### env.DB_WEBHOOKS")
     db2_sorted = sorted(db2_map.keys())
-    if db2_sorted:
-        for t in db2_sorted:
-            md.append(f"- {t}")
-    else:
-        md.append("- *No tables definitively mapped to env.DB_WEBHOOKS yet*")
+
+    for db_name, sorted_map in [("env.DB", db1_sorted), ("env.DB_WEBHOOKS", db2_sorted)]:
+        prefix = "" if db_name == "env.DB" else "\n"
+        md.append(f"{prefix}### {db_name}")
+        if sorted_map:
+            for t in sorted_map:
+                md.append(f"- {t}")
+        else:
+            md.append(f"- *No tables definitively mapped to {db_name} yet*")
 
     # Catch AI Slop (Orphaned Tables)
     all_discovered = sorted(list(set(t['table_name'] for t in tables)))
@@ -134,25 +130,17 @@ def main():
         md.append(f"### `{file_path}`")
         md.append(f"- **Tables Imported:** {tables_used}\n")
 
-    md.append("---\n\n## env.DB d1 db")
-    md.append("| Table Name | Short File Paths |")
-    md.append("|---|---|")
-    if db1_sorted:
-        for t in db1_sorted:
-            paths = ", ".join([f"`{p}`" for p in sorted(db1_map[t])])
-            md.append(f"| **{t}** | {paths} |")
-    else:
-        md.append("| *None Detected* | *N/A* |")
-
-    md.append("\n## env.DB_WEBHOOKS d1 db")
-    md.append("| Table Name | Short File Paths |")
-    md.append("|---|---|")
-    if db2_sorted:
-        for t in db2_sorted:
-            paths = ", ".join([f"`{p}`" for p in sorted(db2_map[t])])
-            md.append(f"| **{t}** | {paths} |")
-    else:
-        md.append("| *None Detected* | *N/A* |")
+    for db_name, sorted_map, db_map in [("env.DB", db1_sorted, db1_map), ("env.DB_WEBHOOKS", db2_sorted, db2_map)]:
+        prefix = "---\n\n" if db_name == "env.DB" else "\n"
+        md.append(f"{prefix}## {db_name} d1 db")
+        md.append("| Table Name | Short File Paths |")
+        md.append("|---|---|")
+        if sorted_map:
+            for t in sorted_map:
+                paths = ", ".join([f"`{p}`" for p in sorted(db_map[t])])
+                md.append(f"| **{t}** | {paths} |")
+        else:
+            md.append("| *None Detected* | *N/A* |")
 
     # 4. Write to disk
     try:
