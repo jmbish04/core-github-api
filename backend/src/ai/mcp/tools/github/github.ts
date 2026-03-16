@@ -321,7 +321,7 @@ export async function verifyGitHubToken(env: Env): Promise<{
 }> {
   const logger = new Logger(env, "GitHubTool:VerifyToken");
   try {
-    const token = await getToken(env); // await if needed, though getToken is async
+    const token = await getToken(env);
     const response = await fetchWithAuth("https://api.github.com/user", token);
 
     if (!response.ok) {
