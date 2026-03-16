@@ -389,15 +389,13 @@ export async function getDefaultBranch(
   // logger.debug(`Getting default branch for ${owner}/${repo}`); 
 
   const url = `https://api.github.com/repos/${owner}/${repo}`;
-  const response = await fetchGitHubApi(env, url);
-
-  if (!response.ok) {
-    logger.error(`Failed to fetch repo info: ${response.status}`);
-    throw new Error(`Failed to fetch repo info: ${response.status}`);
+  try {
+    const data = await fetchGitHubJson(env, url);
+    return data.default_branch;
+  } catch (error: any) {
+    logger.error(`Failed to fetch repo info`, { error: error });
+    throw new Error(`Failed to fetch repo info: ${error.message}`);
   }
-
-  const data = await response.json() as any;
-  return data.default_branch;
 }
 
 /**
@@ -417,16 +415,13 @@ export async function fetchGitHubFile(
   const branch = ref || await getDefaultBranch(env, owner, repo);
   const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
 
-  const response = await fetchGitHubApi(env, url);
-
-  if (!response.ok) {
-    logger.warn(`Failed to fetch file: ${path} (${response.status})`);
-    throw new Error(
-      `GitHub API error (${response.status}): ${await response.text()}`
-    );
+  let data: { content: string; encoding: string };
+  try {
+    data = await fetchGitHubJson(env, url);
+  } catch (error: any) {
+    logger.warn(`Failed to fetch file: ${path} - ${error.message}`);
+    throw new Error(`Failed to fetch file ${path}: ${error.message}`);
   }
-
-  const data = (await response.json()) as { content: string; encoding: string };
 
   if (data.encoding === "base64") {
     // Decode base64 content
