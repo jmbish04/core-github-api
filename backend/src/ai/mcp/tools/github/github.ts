@@ -610,25 +610,14 @@ export async function getPRComments(
   const reviewCommentsUrl = `https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}/comments`;
   const issueCommentsUrl = `https://api.github.com/repos/${owner}/${repo}/issues/${prNumber}/comments`;
 
-  const [reviewCommentsResponse, issueCommentsResponse] = await Promise.all([
-    fetchWithAuth(reviewCommentsUrl, token),
-    fetchWithAuth(issueCommentsUrl, token)
+  const [reviewComments, issueComments] = await Promise.all([
+    fetchGitHubJson(reviewCommentsUrl, token),
+    fetchGitHubJson(issueCommentsUrl, token)
   ]);
-
-  for (const response of [reviewCommentsResponse, issueCommentsResponse]) {
-    if (!response.ok) {
-      throw new Error(
-        `GitHub API error (${response.status}): ${await response.text()}`
-      );
-    }
-  }
-
-  const reviewComments = await reviewCommentsResponse.json() as any[];
-  const issueComments = await issueCommentsResponse.json() as any[];
 
   // Combine and normalize comments
   const allComments = [
-    ...reviewComments.map((comment) => ({
+    ...reviewComments.map((comment: any) => ({
       id: comment.id,
       author: comment.user?.login || "unknown",
       body: comment.body || "",
@@ -636,7 +625,7 @@ export async function getPRComments(
       line: comment.line || comment.original_line,
       comment_type: 'review' as const,
     })),
-    ...issueComments.map((comment) => ({
+    ...issueComments.map((comment: any) => ({
       id: comment.id,
       author: comment.user?.login || "unknown",
       body: comment.body || "",
