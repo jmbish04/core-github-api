@@ -629,29 +629,27 @@ export async function getPRComments(
   const logger = new Logger(env, "GitHubTool:PRComments");
   logger.info(`Fetching comments for PR ${owner}/${repo}#${prNumber}`);
   const token = await getToken(env);
-  // Get review comments (inline code comments)
+  // Fetch both review comments (inline code) and issue comments (general PR) in parallel
   const reviewCommentsUrl = `https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}/comments`;
-  const reviewCommentsResponse = await fetchWithAuth(reviewCommentsUrl, token);
-
-  if (!reviewCommentsResponse.ok) {
-    throw new Error(
-      `GitHub API error (${reviewCommentsResponse.status}): ${await reviewCommentsResponse.text()}`
-    );
-  }
-
-  const reviewComments = await reviewCommentsResponse.json() as any[];
-
-  // Get issue comments (general PR comments)
   const issueCommentsUrl = `https://api.github.com/repos/${owner}/${repo}/issues/${prNumber}/comments`;
-  const issueCommentsResponse = await fetchWithAuth(issueCommentsUrl, token);
 
-  if (!issueCommentsResponse.ok) {
-    throw new Error(
-      `GitHub API error (${issueCommentsResponse.status}): ${await issueCommentsResponse.text()}`
-    );
+  const [reviewCommentsResponse, issueCommentsResponse] = await Promise.all([
+    fetchWithAuth(reviewCommentsUrl, token),
+    fetchWithAuth(issueCommentsUrl, token)
+  ]);
+
+  for (const response of [reviewCommentsResponse, issueCommentsResponse]) {
+    if (!response.ok) {
+      throw new Error(
+        `GitHub API error (${response.status}): ${await response.text()}`
+      );
+    }
   }
 
-  const issueComments = await issueCommentsResponse.json() as any[];
+  const [reviewComments, issueComments] = await Promise.all([
+    reviewCommentsResponse.json() as Promise<any[]>,
+    issueCommentsResponse.json() as Promise<any[]>
+  ]);
 
   // Combine and normalize comments
   const allComments = [
