@@ -303,7 +303,7 @@ async function getToken(env: Env): Promise<string> {
 /**
  * Helper function for GitHub API requests to reduce boilerplate
  */
-async function fetchGitHubApi(url: string, token: string, options?: { method?: string; body?: any; headers?: Record<string, string> }) {
+export async function fetchGitHubApi(url: string, token: string, options?: { method?: string; body?: any; headers?: Record<string, string> }) {
   const { method = "GET", body, headers = {} } = options || {};
   const defaultHeaders: Record<string, string> = {
     Authorization: `Bearer ${token}`,
@@ -388,19 +388,12 @@ export async function getDefaultBranch(
   owner: string,
   repo: string
 ): Promise<string> {
-  const logger = new Logger(env, "GitHubTool:GetDefaultBranch");
-  // logger.debug(`Getting default branch for ${owner}/${repo}`); 
 
   const token = await getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}`;
 
-  try {
-    const data = await fetchGitHubJson(url, token);
-    return data.default_branch;
-  } catch (error) {
-    logger.error(`Failed to fetch repo info: ${error}`);
-    throw new Error(`Failed to fetch repo info: ${error}`);
-  }
+  const data = await fetchGitHubJson(url, token);
+  return data.default_branch;
 }
 
 /**
@@ -413,24 +406,13 @@ export async function fetchGitHubFile(
   path: string,
   ref?: string
 ): Promise<string> {
-  const logger = new Logger(env, "GitHubTool:FetchFile");
-  // logger.debug(`Fetching file ${owner}/${repo}/${path} ref=${ref}`);
 
   const token = await getToken(env);
   // Use provided ref or fetch default branch
   const branch = ref || await getDefaultBranch(env, owner, repo);
   const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
 
-  const response = await fetchGitHubApi(url, token);
-
-  if (!response.ok) {
-    logger.warn(`Failed to fetch file: ${path} (${response.status})`);
-    throw new Error(
-      `GitHub API error (${response.status}): ${await response.text()}`
-    );
-  }
-
-  const data = (await response.json()) as { content: string; encoding: string };
+  const data = await fetchGitHubJson<{ content: string; encoding: string }>(url, token);
 
   if (data.encoding === "base64") {
     // Decode base64 content
@@ -484,7 +466,6 @@ export async function fetchGitHubFiles(
         };
       } catch (error) {
         logger.error(`Error fetching ${file.path}`, { error: error }); 
-        // console.error(`Error fetching ${file.path}:`, error);
         return {
           path: file.path,
           content: "",
@@ -507,7 +488,6 @@ export async function getRepoStructure(
   path: string = "",
   ref?: string
 ): Promise<any> {
-  const logger = new Logger(env, "GitHubTool:RepoStructure");
   const token = await getToken(env);
   const branch = ref || await getDefaultBranch(env, owner, repo);
   const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
@@ -524,8 +504,6 @@ export async function searchRepoCode(
   repo: string,
   query: string
 ): Promise<any> {
-  const logger = new Logger(env, "GitHubTool:SearchCode");
-  logger.info(`Searching code in ${owner}/${repo} query="${query}"`);
   const token = await getToken(env);
   const url = `https://api.github.com/search/code?q=${encodeURIComponent(
     query
@@ -665,19 +643,12 @@ export async function getRef(
   repo: string,
   ref: string // e.g. "heads/main" or "heads/feature-branch"
 ): Promise<string> {
-  const logger = new Logger(env, "GitHubTool:GetRef");
-  // logger.debug(`Getting ref ${ref} for ${owner}/${repo}`);
 
   const token = await getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}/git/ref/${ref}`;
 
-  try {
-    const data = await fetchGitHubJson(url, token);
-    return data.object.sha;
-  } catch (error) {
-    logger.warn(`Failed to get ref ${ref}: ${error}`);
-    throw error;
-  }
+  const data = await fetchGitHubJson(url, token);
+  return data.object.sha;
 }
 
 /**

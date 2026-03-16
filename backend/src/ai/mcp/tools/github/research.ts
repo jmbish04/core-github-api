@@ -1,3 +1,5 @@
+import { fetchGitHubApi } from "./github";
+
 /**
  * GitHub API Utilities
  */
@@ -7,15 +9,9 @@ export function parseGitHubUrl(url: string) {
   return { owner: parts[0], repo: parts[1] };
 }
 
-async function fetchWithAuth(url: string, token: string, userAgent?: string) {
-  const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
-  if (userAgent) headers["User-Agent"] = userAgent;
-  return fetch(url, { headers });
-}
-
 export async function fetchGitHubTree(owner: string, repo: string, token: string) {
   const url = `https://api.github.com/repos/${owner}/${repo}/git/trees/main?recursive=1`;
-  const response = await fetchWithAuth(url, token, "cloudflare-repo-analyzer");
+  const response = await fetchGitHubApi(url, token, { headers: { "User-Agent": "cloudflare-repo-analyzer" } });
   if (!response.ok) return [];
   const data: any = await response.json();
   return data.tree?.map((f: any) => f.path) || [];
@@ -30,7 +26,7 @@ export async function fetchCriticalFiles(owner: string, repo: string, tree: stri
     foundPaths.map(async (path) => {
       const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/main/${path}`;
       try {
-        const resp = await fetchWithAuth(rawUrl, token);
+        const resp = await fetchGitHubApi(rawUrl, token);
         if (resp.ok) contents[path] = await resp.text();
       } catch (error) {
         console.error(`Error fetching ${path}:`, error);
