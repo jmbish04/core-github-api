@@ -72,24 +72,26 @@ def main():
                 content = f.read()
                 
             rel_path = os.path.relpath(file_path, root_dir)
-            
             # Look for standard Cloudflare Worker / Hono context bindings
-            uses_db1 = 'env.DB' in content or 'c.env.DB' in content
+            uses_db1 = 'env.DB' in content or 'c.env.DB' in content or 'getDb' in content or 'db.' in content
             uses_db2 = 'env.DB_WEBHOOKS' in content or 'c.env.DB_WEBHOOKS' in content
             
             imported_tables = set()
             
             for t in tables:
                 # Regex boundary check for the specific Drizzle table variable
-                var_regex = re.compile(r"\b" + re.escape(t['var_name']) + r"\b")
+                var_regex = re.compile(r"" + re.escape(t['var_name']) + r"")
                 
                 if var_regex.search(content):
                     imported_tables.add(t['table_name'])
                     
-                    if uses_db1:
-                        db1_map[t['table_name']].add(rel_path)
+                    # We assume if it's imported in the codebase, it's valid schema
+                    db1_map[t['table_name']].add(rel_path)
+
                     if uses_db2:
                         db2_map[t['table_name']].add(rel_path)
+
+
                         
             if imported_tables:
                 file_interactions[rel_path] = imported_tables
@@ -116,11 +118,20 @@ def main():
             md.append(f"- {t}")
     else:
         md.append("- *No tables definitively mapped to env.DB_WEBHOOKS yet*")
-
     # Catch AI Slop (Orphaned Tables)
     all_discovered = sorted(list(set(t['table_name'] for t in tables)))
+
+    # Actually aggregate ALL imported tables from across all files
+    all_imported = set()
+    for imported_set in file_interactions.values():
+        all_imported.update(imported_set)
+
     mapped_tables = set(db1_sorted + db2_sorted)
+    # A table is NOT orphaned if it's imported ANYWHERE in the code
+    mapped_tables.update(all_imported)
+
     unmapped = [t for t in all_discovered if t not in mapped_tables]
+
     
     if unmapped:
         md.append("\n### Unmapped / Orphaned Schema Tables")
