@@ -29,7 +29,6 @@ export type PlanningWorkflowPayload = PlanningRequestInput & {
   requestId: string;
 };
 
-type DecisionState = "approve" | "revise" | "reject";
 
 function repoFromInput(input: PlanningWorkflowPayload) {
   if (!input.githubRepo) {
@@ -441,7 +440,7 @@ export class PlanningOrchestrator extends WorkflowEntrypoint<Env, PlanningWorkfl
           await jules.waitForState(sessionId, "awaitingPlanApproval");
           const info = await jules.getSessionInfo(sessionId);
           const snapshot = (await jules.getSessionSnapshot(sessionId, {
-            includeActivities: true,
+            activities: true,
           })) as { activities?: any[]; state?: string };
 
           const nextCapture = await captureSnapshotActivities(
@@ -502,7 +501,7 @@ export class PlanningOrchestrator extends WorkflowEntrypoint<Env, PlanningWorkfl
                 );
                 await jules.waitForState(sessionId, "awaitingPlanApproval");
                 const snapshot = (await jules.getSessionSnapshot(sessionId, {
-                  includeActivities: true,
+                  activities: true,
                 })) as { activities?: any[] };
                 capture = await captureSnapshotActivities(
                   this.env,

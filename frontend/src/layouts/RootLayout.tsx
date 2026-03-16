@@ -79,7 +79,7 @@ export default function RootLayout() {
                         <UserNav />
                     </div>
                 </header>
-                <div className="flex-1 h-full overflow-hidden relative">
+                <div className="flex-1 h-full overflow-y-auto relative">
                     <Outlet />
                 </div>
                 <GlobalConsultantModal />

@@ -61,11 +61,12 @@ export class HealthCoordinator {
 
         try {
             // 1. Create Run Record (Pending)
+            // Note: omit created_at (let D1 use CURRENT_TIMESTAMP default) and
+            // metadata (no value yet — set on the subsequent update after checks complete).
             await this.db.insert(healthRuns).values({
                 id: runId,
                 status: 'unknown',
                 trigger,
-                created_at: new Date().toISOString()
             });
             runRecordCreated = true;
 

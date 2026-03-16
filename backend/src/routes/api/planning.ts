@@ -27,6 +27,19 @@ import { getAgentByName } from "@/ai/agents/runtime/agents";
 
 const app = new Hono<{ Bindings: Env }>();
 
+app.use("*", async (c, next) => {
+  const authHeader = c.req.header("Authorization");
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return c.json({ success: false, error: "Missing or invalid Authorization header" }, 401);
+  }
+  const token = authHeader.split(" ")[1];
+  const expectedKey = (await c.env.AGENTIC_WORKER_API_KEY.get() || await c.env.WORKER_API_KEY.get()) as unknown as string;
+  if (!expectedKey || token !== expectedKey) {
+    return c.json({ success: false, error: "Unauthorized" }, 403);
+  }
+  await next();
+});
+
 function renderMarkdownHtml(title: string, markdown: string): string {
   const escaped = markdown
     .replaceAll("&", "&amp;")
@@ -77,7 +90,7 @@ function renderMarkdownHtml(title: string, markdown: string): string {
 }
 
 async function loadRequestOr404(c: Context<{ Bindings: Env }>) {
-  const requestId = c.req.param("id");
+  const requestId = c.req.param("id") as string;
   const request = await getPlanningRequest(c.env, requestId);
   if (!request) {
     return { requestId, request: null, response: c.json({ success: false, error: "Planning request not found" }, 404) };
@@ -143,7 +156,7 @@ app.post("/query/semantic", zValidator("json", PlanningSemanticQuerySchema), asy
 });
 
 app.get("/:id/ws", async (c) => {
-  const requestId = c.req.param("id");
+  const requestId = c.req.param("id") as string;
   const stubId = c.env.PLANNING_MONITOR.idFromName(requestId);
   const stub = c.env.PLANNING_MONITOR.get(stubId);
   const url = new URL(c.req.url);
@@ -174,8 +187,8 @@ app.get("/:id/artifacts", async (c) => {
 });
 
 app.get("/:id/artifacts/:artifactId", async (c) => {
-  const requestId = c.req.param("id");
-  const artifactId = c.req.param("artifactId");
+  const requestId = c.req.param("id") as string;
+  const artifactId = c.req.param("artifactId") as string;
   const artifact = await getPlanningArtifact(c.env, requestId, artifactId);
 
   if (!artifact) {

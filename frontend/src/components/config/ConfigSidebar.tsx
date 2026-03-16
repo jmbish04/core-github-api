@@ -1,7 +1,7 @@
 import React from "react";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
-import { Settings, Bot, Github, Lock, Database } from "lucide-react";
+import { Settings, Bot, Github, Lock, Database, BookOpen } from "lucide-react";
 
 interface SidebarProps {
   currentCategory?: string;
@@ -37,6 +37,12 @@ const items = [
     href: "/config/history",
     icon: Database, // or History icon
     category: "history"
+  },
+  {
+    title: "Skills",
+    href: "/config/skills",
+    icon: BookOpen,
+    category: "skills"
   },
 ];
 

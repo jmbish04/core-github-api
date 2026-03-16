@@ -6,7 +6,7 @@ export async function createUniversalGatewayClient(env: any, apiKey: string): Pr
   const aigToken = typeof env.AI_GATEWAY_TOKEN === 'object' && env.AI_GATEWAY_TOKEN?.get
     ? await env.AI_GATEWAY_TOKEN.get()
     : (env.AI_GATEWAY_TOKEN as string);
-  const baseURL = env.AI.gateway(gatewayName).url('compat');
+  const baseURL = env.AI.gateway(gatewayName).getUrl('compat');
 
   return {
     chat: {
@@ -182,7 +182,7 @@ export async function runStructuredResponseWithModelFallback(
     : (env.AI_GATEWAY_TOKEN as string);
 
   const apiKey = await getApiKeyForProvider(env, provider);
-  const baseURL = env.AI.gateway(gatewayName).url('compat');
+  const baseURL = env.AI.gateway(gatewayName).getUrl('compat');
 
   const res = await fetch(`${baseURL}/chat/completions`, {
     method: 'POST',

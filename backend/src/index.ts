@@ -13,6 +13,11 @@ import actionsApi from '@/routes/api/actions';
 import actionCallbackApi from '@/routes/api/webhooks/action-callback';
 import actionWorkerWsApi from '@/routes/api/ws/action-worker';
 import researchJudgeApi from '@/routes/api/webhooks/research-judge';
+import researchOrchestrationApi from '@/routes/api/research-orchestration';
+import aiGatewayApi from '@/routes/api/ai/gateway';
+import commentsTools from '@/ai/mcp/tools/github/comments';
+import skillsApi from '@/routes/api/skills';
+import stitchApi from '@/routes/api/stitch';
 
 type McpEnv = Pick<Env, 'STITCH_API_KEY'>;
 
@@ -55,6 +60,41 @@ function createOurMcpServer(env: McpEnv) {
       return {
         content: [{ type: 'text', text: simulatedDocs }]
       };
+    }
+  );
+
+  // Native Port: Jules Planning
+  server.tool(
+    'generate_plan',
+    'Generate a structured implementation plan using a dedicated Jules planning session',
+    {
+      description: z.string().describe('Detailed description of the plan you need generated'),
+      sourceRepo: z.string().optional().describe('GitHub repository in owner/repo format (e.g., cloudflare/workers-sdk)'),
+      baseBranch: z.string().optional().describe('Base branch for the pull request or context (e.g., main)'),
+    },
+    async ({ description, sourceRepo, baseBranch }) => {
+      try {
+        const { JulesService } = await import('@/services/jules/service');
+        const jules = JulesService.getInstance(env as any);
+        
+        let contextText = '';
+        if (sourceRepo) {
+          contextText = `Context Repository: ${sourceRepo} on branch ${baseBranch || 'main'}\n`;
+        }
+        
+        const prompt = `You are an expert software architect. Analyze the provided context and generate a comprehensive implementation plan for the following request:\n${contextText}\n${description}\n\nReturn the plan in structured markdown format.`;
+
+        // The repoless session streams progress and captures generated files without auto-pr
+        const outcome = await jules.runRepolessSession(prompt);
+
+        return {
+          content: [
+            { type: 'text', text: `Plan session completed successfully.\n\nAgent output:\n${outcome.agentMessage || 'Plan generated successfully.'}\n\nFiles Details:\n${JSON.stringify(outcome.files, null, 2)}` }
+          ]
+        };
+      } catch (e: any) {
+        return { isError: true, content: [{ type: 'text', text: `Planning failed: ${e.message}` }] };
+      }
     }
   );
 
@@ -179,6 +219,11 @@ app.route('/api/actions', actionsApi);
 app.route('/api/webhooks/action-callback', actionCallbackApi);
 app.route('/api/ws/action-worker', actionWorkerWsApi);
 app.route('/api/webhooks/research-judge', researchJudgeApi);
+app.route('/api/orchestration', researchOrchestrationApi);
+app.route('/api/ai/gateway', aiGatewayApi);
+app.route('/api/tools/comments', commentsTools);
+app.route('/api/skills', skillsApi);
+app.route('/api/stitch', stitchApi);
 
 // --- Operational Endpoints ---
 app.get('/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString() }));
@@ -254,3 +299,4 @@ export { DiscordResearchWorkflow } from '@/workflows/research/discord';
 export { ResearchOrchestrator } from '@/workflows/research/orchestrator';
 export { TopicResearchWorkflow } from '@/workflows/research/topic';
 export { PlanningOrchestrator } from '@/workflows/planning/orchestrator';
+export { AgentSessionDO } from '@/do/AgentSessionDO';

@@ -7,6 +7,7 @@ import { Loader2, Copy, Check, ExternalLink, MessageSquare, AlertCircle, CheckCi
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { handleGlobalError } from "@/lib/error-handler";
 
 interface ExtractedComment {
     id: number;
@@ -86,6 +87,7 @@ export function PrCommentExtractor({ defaultOwner, defaultRepo, defaultPrNumber 
                 };
             }
         } catch (e) {
+            console.error("Failed to parse PR URL:", JSON.stringify(e));
             return null;
         }
         return null;
@@ -118,9 +120,12 @@ export function PrCommentExtractor({ defaultOwner, defaultRepo, defaultPrNumber 
                 body: JSON.stringify(params)
             });
             
-            if (!res.ok) throw new Error("Failed to extract comments");
-            
             const data = ((await res.json()) as any) as any;
+            
+            if (!res.ok) {
+                // Throwing data.error exposes the literal string the backend sent (e.g. 404 from GitHub API)
+                throw new Error(data.error || "Failed to extract comments");
+            }
             
             if (data.success && data.extraction_id) {
                 setExtractionId(data.extraction_id);
@@ -138,15 +143,11 @@ export function PrCommentExtractor({ defaultOwner, defaultRepo, defaultPrNumber 
                     message: `Extracted ${commentsData.length} comments.`
                 });
             } else {
-                throw new Error("Extraction failed on backend");
+                throw new Error(data.error || "Extraction failed on backend");
             }
 
         } catch (error: any) {
-            setStatus({
-                type: 'error',
-                title: "Error",
-                message: error.message
-            });
+            handleGlobalError(error);
         } finally {
             setLoading(false);
         }

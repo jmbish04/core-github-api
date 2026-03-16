@@ -1,5 +1,5 @@
 import { workflow, step } from '@/ai/agents/honi';
-import type { WorkflowStep } from 'cloudflare:workers';
+import { WorkflowEntrypoint } from 'cloudflare:workers';
 import { resolveDefaultAiModel, resolveDefaultAiProvider } from '@/ai/providers/config';
 import { runStructuredResponseWithModelFallback } from '@/ai/utils/gateway-client';
 import { zodToJsonSchema } from 'zod-to-json-schema';
@@ -114,11 +114,15 @@ const BaseDiscordResearchWorkflow = workflow<Env, DiscordResearchPayload>({
   },
 });
 
-export class DiscordResearchWorkflow extends BaseDiscordResearchWorkflow {
-  async run(event: { payload: DiscordResearchPayload }, workflowStep: WorkflowStep): Promise<unknown> {
+export class DiscordResearchWorkflow extends WorkflowEntrypoint<Env, DiscordResearchPayload> {
+  async run(event: any, workflowStep: any): Promise<unknown> {
     activeEnv = this.env;
     try {
-      return await super.run(event as never, workflowStep as never);
+      const BaseClass = BaseDiscordResearchWorkflow as any;
+      const instance = new BaseClass();
+      instance.env = this.env;
+      instance.ctx = this.ctx;
+      return await instance.run(event, workflowStep);
     } finally {
       activeEnv = null;
     }

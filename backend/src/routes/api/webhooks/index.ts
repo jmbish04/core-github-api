@@ -25,6 +25,7 @@ import type { GitHubWebhookPayload } from '@/types/github/webhooks';
 import { App } from 'octokit';
 import { sanitizeRepoName } from '@/ai/mcp/tools/sandbox-sdk';
 import { AutomationRegistry } from '@/automations/core/AutomationRegistry';
+import { JulesService } from '@/services/jules/service';
 
 const webhooksApi = new Hono<{ Bindings: Env }>();
 
@@ -82,10 +83,49 @@ export async function webhookHandler(c: Context<{ Bindings: Env }>): Promise<Res
     pull_request?: { number?: number };
     issue?: { number?: number };
     action?: string;
+    check_run?: { status?: string; conclusion?: string; name?: string; details_url?: string; check_suite?: { head_branch?: string } };
   } & Record<string, unknown>;
   const action = payload.action || null;
   const repoFullName = payload.repository?.full_name;
   const installationId = payload.installation?.id || (installationTargetId ? parseInt(installationTargetId) : undefined);
+
+  if (repoFullName && !repoFullName.startsWith("jmbish04/")) {
+    console.log(`[Webhook] Ignoring repo outside jmbish04/ scope: ${repoFullName}`);
+    return c.json({ success: true, status: 'ignored_scope' });
+  }
+
+  // CI Healer: Automatically trigger Jules when a check_run fails on our repos
+  if (
+    eventName === "check_run" &&
+    action === "completed" &&
+    payload.check_run?.conclusion === "failure" &&
+    repoFullName
+  ) {
+    console.log(`[CI-Healer] Triggering Jules to fix failing check run: ${payload.check_run.name}`);
+    const branch = payload.check_run?.check_suite?.head_branch;
+    const owner = payload.repository?.owner?.login;
+    const repoName = payload.repository?.name;
+
+    if (branch && owner && repoName) {
+      c.executionCtx.waitUntil(
+        (async () => {
+          try {
+            const jules = JulesService.getInstance(c.env);
+            const session = await jules.startSession({
+              prompt: `The CI check "${payload.check_run?.name}" failed on branch \`${branch}\`.\n\nReview the logs at ${payload.check_run?.details_url} or run checks locally, then fix the code causing the failure.`,
+              repo: { owner, repo: repoName, branch },
+              autoPr: true,
+              requireApproval: false,
+              sessionRole: "implementation"
+            });
+            console.log(`[CI-Healer] Started Jules session ${session.id} for ${repoFullName} branch ${branch}`);
+          } catch (e) {
+            console.error("[CI-Healer] Failed to start Jules session:", e);
+          }
+        })()
+      );
+    }
+  }
 
   // Agent Dispatching (Kept isolated as per earlier design)
   if (repoFullName && c.env.REPO_AGENT) {
@@ -294,6 +334,43 @@ webhooksApi.get('/stats', async (c) => {
     .from(webhookDeliveries).groupBy(webhookDeliveries.event).orderBy(desc(sql`count(*)`)).limit(10).all();
 
     return c.json({ total: total?.count || 0, recent24h: recent?.count || 0, topEvents });
+});
+
+// ==========================================
+// GET /:owner/:repo/pr/:pull_number/initial : Initial PR Webhook Payload
+// ==========================================
+webhooksApi.get('/:owner/:repo/pr/:pull_number/initial', async (c) => {
+    const db = drizzle(c.env.DB_WEBHOOKS);
+    const owner = c.req.param('owner');
+    const repo = c.req.param('repo');
+    const pull_number = c.req.param('pull_number');
+    
+    const repoFullName = `${owner}/${repo}`;
+    
+    const results = await db.select()
+        .from(webhookDeliveries)
+        .where(
+            and(
+                eq(webhookDeliveries.repo_full_name, repoFullName),
+                eq(webhookDeliveries.event, 'pull_request'),
+                eq(webhookDeliveries.action, 'opened')
+            )
+        )
+        .orderBy(desc(webhookDeliveries.created_at))
+        .all();
+
+    const prNumber = parseInt(pull_number, 10);
+    const match = results.find(r => {
+        const payload = r.payload as any;
+        const p = typeof payload === 'string' ? JSON.parse(payload) : payload;
+        return p?.pull_request?.number === prNumber;
+    });
+
+    if (!match) {
+        return c.json({ success: false, error: 'Webhook payload not found for this PR' }, 404);
+    }
+
+    return c.json({ success: true, data: { payload: match.payload } });
 });
 
 export default webhooksApi;

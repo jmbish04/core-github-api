@@ -231,8 +231,8 @@ export async function getAiGatewayUrl(
      if (provider === 'anthropic') return await gateway.getUrl('anthropic');
      if (provider === 'google-ai-studio' || provider === 'gemini') return await gateway.getUrl('google-ai-studio');
      
-     // Workers AI fallback
-     return await gateway.getUrl('workers-ai');
+     // Workers AI fallback — route through /compat with workers-ai/@cf/... model prefix
+     return `${await gateway.getUrl('compat')}/chat/completions`;
   }
 
   // Modern routing based on model slug + useCase
@@ -249,21 +249,19 @@ export async function getAiGatewayUrl(
       }
       
       // Workers AI (@cf/) via OpenAI SDK -> /compat
-      const gatewayBaseUrl = await gateway.getUrl(); // Default to workers-ai or generic?
+      //const gatewayBaseUrl = `${await gateway.getUrl('compat')}/chat/completions`; // Default to workers-ai or generic?
       // Actually gateway.getUrl() usually returns the generic or workers-ai one depending on binding?
       // With AI Gateway bindings, .getUrl(provider) is standard.
       // For @cf models, we often want the 'workers-ai' provider endpoint but utilizing the OpenAI compatibility layer?
       // The original code used `await gateway.getUrl()` for compat.
-      const baseUrl = await gateway.getUrl('workers-ai'); 
+      const baseUrl = `${await gateway.getUrl('compat')}/chat/completions`; // Default to workers-ai or generic?
       const cleanBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
       return `${cleanBase}v1`;
     }
 
-    case 'worker_ai': {
-      const baseUrl = await gateway.getUrl('workers-ai');
-      const cleanBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
-      return `${cleanBase}v1`;
-    }
+    case 'worker_ai':
+      // Workers AI models use /compat endpoint; callers must pass model as `workers-ai/@cf/...`
+      return `${await gateway.getUrl('compat')}/chat/completions`;
 
     case 'google_sdk':
       return await gateway.getUrl('google-ai-studio');
@@ -288,7 +286,8 @@ export const getAiBaseUrl = getAiGatewayUrl;
  */
 export function getCompatModelName(modelSlug: string): string {
   if (modelSlug.startsWith('@cf/')) {
-    return modelSlug;
+    // When routing Workers AI models through /compat, prepend the workers-ai/ provider segment
+    return `workers-ai/${modelSlug}`;
   }
   if (modelSlug.startsWith('openai/')) {
     return modelSlug.replace('openai/', '');

@@ -4,6 +4,7 @@ import { ConfigSidebar } from "./ConfigSidebar";
 import { ConfigTable, type ConfigFieldDef } from "./ConfigTable";
 import { AuditTable, type AuditLogEntry } from "./AuditTable";
 import { SyncSecretsConfig } from "./SyncSecretsConfig";
+import { SkillsManager } from "./SkillsManager";
 import { Loader2 } from "lucide-react";
 
 interface ConfigDashboardProps {
@@ -116,13 +117,16 @@ export function ConfigDashboard({ category }: ConfigDashboardProps) {
             isHistory ? (
                 <AuditTable logs={logs} />
             ) : (
-                <div className="space-y-12">
+                <div className="space-y-6">
                   <ConfigTable data={data} fields={fields} onSave={handleSave} />
                   {category === "secrets" && (
                     <SyncSecretsConfig
                       repoSecretDefaults={(data.__repoSecretDefaults || []) as RepoSecretDefault[]}
                       onConfigChanged={fetchData}
                     />
+                  )}
+                  {category === "skills" && (
+                    <SkillsManager />
                   )}
                 </div>
             )

@@ -129,7 +129,7 @@ function resolveRepositoryCoordinates(input: {
 }
 
 async function loadSnapshotOr404(c: Context<{ Bindings: Env }>) {
-  const snapshotId = c.req.param('id');
+  const snapshotId = c.req.param('id') as string;
   const snapshot = await getReverseEngineeringSnapshot(c.env, snapshotId);
   if (!snapshot) {
     return {
@@ -339,7 +339,7 @@ app.openapi(getEventsRoute, async (c) => {
 });
 
 app.get('/snapshots/:id/ws', async (c) => {
-  const snapshotId = c.req.param('id');
+  const snapshotId = c.req.param('id') as string;
   const stubId = c.env.REVERSE_ENGINEERING_MONITOR.idFromName(snapshotId);
   const stub = c.env.REVERSE_ENGINEERING_MONITOR.get(stubId);
   return stub.fetch(

@@ -2,7 +2,7 @@ import { generateStructuredResponse } from "@/ai/providers";
 import { queryMCP } from "@/ai/mcp/mcp-client";
 import { getDb, projectPlans, workshopProjects, workshopProjectTasks } from "@db";
 import type { Phase, Task as WorkshopTask } from "@db/schemas/workshop/project_tasks";
-import type { PlanningRequestInput, PlanningWorkstream } from "@/lib/schemas/jules";
+import type { PlanningWorkstream } from "@/lib/schemas/jules";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { z } from "zod";
 
@@ -258,6 +258,11 @@ export function buildPlanningMarkdown(options: {
   sections.push("## Prompt");
   sections.push(options.prompt);
 
+  const hasFiles =
+    options.capture.diffSummaries.length > 0 ||
+    result?.outputs?.generatedFiles?.length ||
+    result?.outputs?.changeSets?.length;
+
   if (options.capture.planSteps.length > 0) {
     sections.push("## Generated Plan");
     sections.push(
@@ -267,39 +272,50 @@ export function buildPlanningMarkdown(options: {
           const title = `${index + 1}. ${step.title}`;
           return step.description ? `${title}\n   - ${step.description}` : title;
         })
-        .join("\n"),
+        .join("\n")
     );
-  }
-
-  if (options.capture.agentMessages.length > 0) {
-    sections.push("## Agent Messages");
+  } else if (hasFiles) {
+    sections.push("## Derived Plan (from File Changes)");
+    if (result?.outputs?.generatedFiles?.length) {
+      sections.push("### Generated Files");
+      sections.push(
+        result.outputs.generatedFiles
+          .map((file) => `- ${file.path}`)
+          .join("\n")
+      );
+    }
+    if (result?.outputs?.changeSets?.length) {
+      sections.push("### Change Set Files");
+      sections.push(
+        result.outputs.changeSets
+          .map((file) => `- ${file.filename}`)
+          .join("\n")
+      );
+    }
+    if (options.capture.diffSummaries.length > 0) {
+      sections.push("### Diff Summary");
+      sections.push(
+        options.capture.diffSummaries
+          .map((summary) => {
+            const files = summary.files
+              .map(
+                (file) =>
+                  `  - ${file.changeType || "modified"} ${file.path} (+${file.additions || 0}/-${
+                    file.deletions || 0
+                  })`
+              )
+              .join("\n");
+            return `- ${summary.createTime}\n${files}`;
+          })
+          .join("\n")
+      );
+    }
+  } else if (options.capture.agentMessages.length > 0) {
+    sections.push("## Derived Plan (from Agent Messages)");
     sections.push(
       options.capture.agentMessages
         .map((message) => `- ${message.createTime}: ${message.message}`)
-        .join("\n"),
-    );
-  }
-
-  if (options.capture.progressUpdates.length > 0) {
-    sections.push("## Progress Updates");
-    sections.push(
-      options.capture.progressUpdates
-        .map((update) => `- ${update.createTime}: ${update.title} — ${update.description}`)
-        .join("\n"),
-    );
-  }
-
-  if (options.capture.diffSummaries.length > 0) {
-    sections.push("## Diff Summary");
-    sections.push(
-      options.capture.diffSummaries
-        .map((summary) => {
-          const files = summary.files
-            .map((file) => `  - ${file.changeType || "modified"} ${file.path} (+${file.additions || 0}/-${file.deletions || 0})`)
-            .join("\n");
-          return `- ${summary.createTime}\n${files}`;
-        })
-        .join("\n"),
+        .join("\n")
     );
   }
 
@@ -308,25 +324,7 @@ export function buildPlanningMarkdown(options: {
     sections.push(
       result.outputs.pullRequests
         .map((pullRequest) => `- [#${pullRequest.number || "?"} ${pullRequest.title}](${pullRequest.url})`)
-        .join("\n"),
-    );
-  }
-
-  if (result?.outputs?.generatedFiles?.length) {
-    sections.push("## Generated Files");
-    sections.push(
-      result.outputs.generatedFiles
-        .map((file) => `- ${file.path}`)
-        .join("\n"),
-    );
-  }
-
-  if (result?.outputs?.changeSets?.length) {
-    sections.push("## Change Set Files");
-    sections.push(
-      result.outputs.changeSets
-        .map((file) => `- ${file.filename}`)
-        .join("\n"),
+        .join("\n")
     );
   }
 

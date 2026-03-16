@@ -437,23 +437,91 @@ export class JulesService {
 
   /**
    * Returns a snapshot of the session's current state.
-   * Activities are stripped by default to reduce payload size.
+   * Utilizes the native `.snapshot()` output with masking/filtering (`include`, `exclude`, `toMarkdown()`).
    *
    * @param sessionId - The Jules session ID.
-   * @param options.includeActivities - Set to true to include the full activity log.
-   * @returns Serialized snapshot object.
+   * @param options.format - 'json' or 'markdown'
+   * @param options.include - Whitelist fields to serialize
+   * @param options.exclude - Blacklist fields to serialize
+   * @param options.activities - Whether to preload activities metadata (heavier)
+   * @returns Serialized overview of the session, or markdown format.
    */
   async getSessionSnapshot(
     sessionId: string,
-    options?: { includeActivities?: boolean }
+    options?: { format?: 'json' | 'markdown'; include?: string[]; exclude?: string[]; activities?: boolean }
   ) {
     const session = await this.getSession(sessionId);
-    const snapshot = await session.snapshot();
-    const serialized = snapshot.toJSON();
-    if (!options?.includeActivities) {
-      delete (serialized as any).activities;
+    // Create a snapshot with activities loaded based on options
+    const snapshot = await session.snapshot({ activities: options?.activities ?? false });
+    
+    if (options?.format === 'markdown') {
+      return typeof snapshot.toMarkdown === 'function' ? snapshot.toMarkdown() : snapshot.toJSON(options as any);
     }
-    return serialized;
+    
+    return snapshot.toJSON(options as any);
+  }
+
+  /** Typed handler map for stream activities. Unspecified types are silently ignored. */
+  async logStream(session: any, handlers: Record<string, (activity: any) => void>) {
+    for await (const activity of session.stream()) {
+      const handler = handlers[activity.type];
+      if (typeof handler === 'function') {
+        handler(activity);
+      }
+    }
+  }
+
+  /**
+   * Runs a repoless Jules session securely, streams progress, and returns
+   * the agent's last message along with all generated file contents.
+   */
+  async runRepolessSession(prompt: string): Promise<{ agentMessage?: string; files: Record<string, string> }> {
+    const client = await this.getClient();
+    const tempId = crypto.randomUUID();
+    const enrichedPrompt = `${prompt}\n\n${buildWebhookInstruction(this.getWorkerHost(), tempId)}`;
+    
+    const session = await (client as any).session({ prompt: enrichedPrompt });
+
+    // Non-blocking: collect generated files from outcome
+    const outcomePromise = session.result().then((outcome: any) => {
+      console.log(`[JulesService] Session ${outcome.state}. PR: ${outcome.pullRequest?.url ?? 'none'}`);
+
+      const files: Record<string, string> = {};
+      if (outcome.generatedFiles && typeof outcome.generatedFiles().all === 'function') {
+        for (const file of outcome.generatedFiles().all()) {
+          files[file.path] = file.content;
+        }
+      }
+      return files;
+    });
+
+    // Stream progress and capture the last agent message
+    let agentMessage: string | undefined;
+    await this.logStream(session, {
+      agentMessaged: (a: any) => {
+        agentMessage = a.message;
+        console.log(`[JulesService] Agent: ${a.message.slice(0, 120)}`);
+      },
+      progressUpdated: (a: any) => console.log(`[JulesService] Progress: ${a.title}`),
+    });
+
+    const files = await outcomePromise;
+    return { agentMessage, files };
+  }
+
+  /**
+   * Expose jules.all capability for concurrent, parallel session generation.
+   */
+  async runConcurrentSessions(tasks: string[], concurrency: number = 2) {
+    const client = await this.getClient();
+    console.log(`[JulesService] Creating ${tasks.length} concurrent sessions...`);
+
+    const sessions = await (client as any).all(
+      tasks,
+      (task: string) => ({ prompt: task }),
+      { concurrency, stopOnError: false }
+    );
+    return sessions;
   }
 
   /**

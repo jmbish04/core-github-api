@@ -1,6 +1,7 @@
 import { getDb } from '@db';
 import { pullRequests, prComments } from '@db/schema';
 import { eq } from 'drizzle-orm';
+import { Logger } from '@/lib/logger';
 
 export async function processPullRequestEvent(env: Env, payload: any) {
   const pr = payload.pull_request;
@@ -101,6 +102,7 @@ export async function extractReviewCommentsAndPostReply(
     origin: string,
     octokit?: any
 ): Promise<{ success: boolean; count: number; view_url: string; extraction_id: string; error?: string }> {
+    const logger = new Logger(env, 'PR-Comment-Extractor');
     const github = octokit ?? await import('@services/octokit/core').then(m => m.getOctokit(env));
 
     // 1. Fetch Review Comments
@@ -113,7 +115,8 @@ export async function extractReviewCommentsAndPostReply(
         })
         reviewComments = result.data;
     } catch (error: any) {
-        console.error(`[comments] Failed to list review comments: ${error.message}`);
+        logger.error(`Failed to list review comments for ${owner}/${repo}#${pull_number}: ${error.message}`, { owner, repo, pull_number, originalError: error.message });
+        await logger.flush();
         return {
             success: false,
             count: 0,
@@ -148,19 +151,25 @@ export async function extractReviewCommentsAndPostReply(
         }
     })
 
+    // Generate extraction ID immediately, even if 0 comments, so frontend doesn't throw.
+    const extractionId = `${owner}-${repo}-${pull_number}-${Date.now()}`
+    const storageKey = `COMMENTS_${extractionId}`
+
     if (extractedComments.length === 0) {
+        // Save empty array so frontend resolves 0 comments properly
+        await env.COMMENTS_KV.put(storageKey, JSON.stringify([]), {
+            expirationTtl: 60 * 60 * 24 * 30 // 30 days
+        })
+
         return {
             success: true,
             count: 0,
-            view_url: '',
-            extraction_id: ''
+            view_url: `${origin}/view-comments/${extractionId}`,
+            extraction_id: extractionId
         };
     }
 
     // 3. Store in KV
-    const extractionId = `${owner}-${repo}-${pull_number}-${Date.now()}`
-    const storageKey = `COMMENTS_${extractionId}`
-
     await env.COMMENTS_KV.put(storageKey, JSON.stringify(extractedComments), {
         expirationTtl: 60 * 60 * 24 * 30 // 30 days
     })
@@ -176,8 +185,9 @@ export async function extractReviewCommentsAndPostReply(
             issue_number: pull_number,
             body: `### ✨ Code Comments Extracted\n\nI have extracted **${extractedComments.length}** code comments for easier triage.\n\n[**View Extracted Comments**](${origin}/view-comments/${owner}/${repo}/pull/${pull_number})`
         })
-    } catch (commentError) {
-        console.error(`[comments] Failed to post comment to GitHub for ${owner}/${repo}#${pull_number}:`, commentError);
+    } catch (commentError: any) {
+        logger.warn(`Failed to post comment to GitHub for ${owner}/${repo}#${pull_number}: ${commentError.message}`, { originalError: commentError.message });
+        await logger.flush();
     }
 
     return {

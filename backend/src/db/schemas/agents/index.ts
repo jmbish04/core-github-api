@@ -6,4 +6,5 @@ export * from './events';
 export * from './pricing';
 export * from './prompt-revisions';
 export * from './research';
+export * from './skills';
 // Note: stateful.ts and jules.ts are not exported here (jules has its own folder)

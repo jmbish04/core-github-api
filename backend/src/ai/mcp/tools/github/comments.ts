@@ -48,7 +48,7 @@ const GetCommentsResponseSchema = z.array(ExtractedCommentSchema)
 
 const extractRoute = createRoute({
     method: 'post',
-    path: '/comments/extract',
+    path: '/extract',
     operationId: 'extractPrComments',
     request: {
         body: {
@@ -83,7 +83,7 @@ const extractRoute = createRoute({
 
 const getCommentsRoute = createRoute({
     method: 'get',
-    path: '/comments/:id',
+    path: '/:id',
     operationId: 'getStoredComments',
     request: {
         params: z.object({
@@ -108,7 +108,7 @@ const getCommentsRoute = createRoute({
 
 const getCommentsByPrRoute = createRoute({
     method: 'get',
-    path: '/comments/:owner/:repo/:number',
+    path: '/:owner/:repo/:number',
     operationId: 'getCommentsByPr',
     request: {
         params: z.object({

@@ -43,20 +43,11 @@ export async function getAIGatewayUrl(
     env: Env,
     options: GatewayOptions
 ): Promise<string> {
-    let accountId: string = '';
     let gatewayName: string = '';
-    // Check if CLOUDFLARE_ACCOUNT_ID is available
-    try{
-      accountId = typeof env.CLOUDFLARE_ACCOUNT_ID === 'object' && 'get' in env.CLOUDFLARE_ACCOUNT_ID
-          ? await env.CLOUDFLARE_ACCOUNT_ID.get()
-          : String(env.CLOUDFLARE_ACCOUNT_ID);
-    }catch(e){
-      throw new Error(`Missing CLOUDFLARE_ACCOUNT_ID in environment variables; ${JSON.stringify(e)}`);
-    }
 
     // Check if AI_GATEWAY_NAME is available
     try{
-      gatewayName = env.AI_GATEWAY_NAME;
+      gatewayName = env.AI_GATEWAY_NAME || 'core-github-api';
     }catch(e){
       throw new Error(`Missing AI_GATEWAY_NAME in environment variables; ${JSON.stringify(e)}`);
     }

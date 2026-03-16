@@ -348,20 +348,20 @@
 				"GeminiAgent",
 				// Planning Agent for task decomposition
 				"PlannerAgent",
-				// Data Processing Container (Currently Disabled)
-				// "DataProcessor",
+				// Repository Management Agent
+				"RepoAgent",
 				// Supervisor Agent for managing container tasks
 				"Supervisor",
 				// Deep Reasoning Agent for complex logic
 				"DeepReasoningAgent",
-				// Repository Management Agent
-				"RepoAgent",
 				// Secure Sandbox Environment
 				"Sandbox",
 				// Owner/Admin Agent
 				"OwnerAgent",
 				// Research Agent for gathering information
 				"ResearchAgent",
+				// Incremental Discord channel scanner ingesting messages for analysis
+				"DiscordResearchAgent",
 				// Jules Overseer for session management
 				"JulesOverseer",
 				// Topic Research Orchestrator
@@ -371,69 +371,37 @@
 				// Judge Agent for evaluating outputs
 				"JudgeAgent",
 				// Reporting Agent for generating summaries
-				"ReportingAgent"
-			]
-		},
-		{
-			"tag": "v2",
-			"new_sqlite_classes": [
-				"LandingPageAgent"
-			]
-		},
-		{
-			"tag": "v3",
-			"new_sqlite_classes": [
+				"ReportingAgent",
+				// Agent for generating or editing landing pages
+				"LandingPageAgent",
 				// Agent for querying Cloudflare Documentation with GitHub context
-				"CloudflareDocsAgent"
-			]
-		},
-		{
-			"tag": "v4",
-			"new_sqlite_classes": [
+				"CloudflareDocsAgent",
+				// Deep Research Chat Agent built directly on Honi
+				"DeepResearchChatAgent",
 				// Autonomous agent for analyzing and remediating health check failures
 				"HealthDiagnostician",
-				"DeepResearchChatAgent"
-			]
-		},
-		{
-			"tag": "v5",
-			"new_sqlite_classes": [
-				"WorkshopAgent",
-				"CfWorkshop_AgentsSdk",
-				"JulesWebhookBroadcaster"
-			]
-		},
-		{
-			"tag": "v6",
-			"new_sqlite_classes": [
-				"StandardizationAgent"
-			]
-		},
-		{
-			"tag": "v7",
-			"new_sqlite_classes": [
-				"DiscordResearchAgent"
-			]
-		},
-		{
-			"tag": "v8",
-			"new_sqlite_classes": [
-				"PlanningMonitor"
-			]
-		},
-		{
-			"tag": "v9",
-			"new_sqlite_classes": [
-				"PlanningSupervisorAgent",
-				"PlanningOrchestratorAgent"
-			]
-		},
-		{
-			"tag": "v10",
-			"new_sqlite_classes": [
+				// WebSocket fan-out hub for Jules events
+				"JulesWebhookBroadcaster",
+				// Monitors planning sessions
+				"PlanningMonitor",
+				// Monitors reverse engineering tasks
 				"ReverseEngineeringMonitor",
+				// Supervises planning orchestrators
+				"PlanningSupervisorAgent",
+				// Orchestrates planning workflows
+				"PlanningOrchestratorAgent",
+				// Orchestrator for Honi-compatible agents
 				"HoniOrchestrator",
-				"HoniConsultant"
+				// Consultant agent running on Honi
+				"HoniConsultant",
+				// Agent for managing workshops
+				"WorkshopAgent",
+				// Workshop agent covering CF Agents SDK
+				"CfWorkshop_AgentsSdk",
+				// Ensures code and APIs meet standardized guidelines
+				"StandardizationAgent",
+				// Maintains state and chat history for agent sessions
+				"AgentSessionDO"
 			]
 		}
 	],
@@ -476,6 +444,10 @@
 		{
 			"binding": "PLAN_ARTIFACTS",
 			"bucket_name": "core-github-api-plan-artifacts"
+		},
+		{
+			"binding": "ARTIFACT_STORE",
+			"bucket_name": "core-planning-artifacts"
 		}
 	],
 	"kv_namespaces": [
@@ -502,6 +474,7 @@
 	// wrangler vectorize create core-github-api-research --dimensions=1024 --metric=cosine
 	// wrangler vectorize create core-github-api-logs --preset @cf/baai/bge-large-en-v1.5
 	// wrangler vectorize create core-github-api-plan-embeddings --dimensions=1024 --metric=cosine
+	// wrangler vectorize create core-github-api-plan-rag --dimensions=1024 --metric=cosine
 	"vectorize": [
 		{
 			"binding": "VECTORIZE",
@@ -520,7 +493,7 @@
 		},
 		{
 			"binding": "PLAN_EMBEDDINGS",
-			"index_name": "core-github-api-plan-embeddings",
+			"index_name": "core-github-api-plan-rag",
 			"remote": true
 		}
 	],
@@ -528,14 +501,14 @@
 		{
 			"binding": "DB",
 			"database_name": "core-github-api",
-			"database_id": "31a57255-f8c2-451c-82ae-57905686887a",
-			"preview_database_id": "d27edbcf-a478-44f0-ba60-e9830084916a",
+			"database_id": "fb7e274a-0a46-469b-8ae3-5a7750dd282b",
+			"preview_database_id": "178a8586-31ee-4134-a598-cca3206123e6",
 			"migrations_dir": "migrations/core"
 		},
 		{
 			"binding": "DB_WEBHOOKS",
 			"database_name": "core-github-api-webhooks",
-			"database_id": "a03ad237-66aa-4af7-b19b-c39720e9b6a6",
+			"database_id": "905b62db-b631-4133-8633-e0b8282d4cbd",
 			"migrations_dir": "migrations/webhooks"
 		}
 	],

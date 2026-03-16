@@ -9,10 +9,9 @@
  */
 import { z } from 'zod';
 import type { AgentTool as Tool } from '@/ai/agents/support/types';
-import { v4 as uuidv4 } from 'uuid';
 
 // Helper to get OpenAI client for embeddings via Gateway
-// @ts-ignore Env is global
+
 async function getEmbeddingClient(env: Env) {
   const gatewayId = env.AI_GATEWAY_NAME || 'rag';
   const gateway = env.AI.gateway(gatewayId);
@@ -48,7 +47,7 @@ function normalizeVector(vector: number[]): number[] {
  * Tool for searching the Vectorize index.
  * Generates an embedding for the query and searches the index.
  */
-// @ts-ignore Env is global
+
 export const VectorizeSearchTool = (env: Env): Tool => ({
   name: 'vectorize_search',
   description: 'Search the semantic vector index for relevant documents. Returns closest matches.',
@@ -87,7 +86,7 @@ export const VectorizeSearchTool = (env: Env): Tool => ({
  * Chunks the text, generates embeddings, and inserts them.
  * Uses langchain RecursiveCharacterTextSplitter.
  */
-// @ts-ignore Env is global
+
 export const VectorizeUpsertTool = (env: Env): Tool => ({
   name: 'vectorize_upsert',
   description: 'Chunk, embed, and upsert text into the vector index. Associates vectors with a document ID.',

@@ -177,7 +177,7 @@ YOUR DIRECTIVE:
           parameters: z.object({ sessionId: z.string() }),
           execute: async (args: Record<string, unknown>) => {
             try {
-              return await julesService.getSessionSnapshot(String(args.sessionId || ''), { includeActivities: false });
+              return await julesService.getSessionSnapshot(String(args.sessionId || ''), { activities: false });
             } catch (error: any) {
               return { error: error.message };
             }

@@ -1,5 +1,10 @@
 export function callable(_config?: unknown): any {
-  return (...args: any[]) => args[2] ?? args[1];
+  return function (value: any, context?: any, descriptor?: any) {
+    if (descriptor) {
+      return descriptor;
+    }
+    return value;
+  };
 }
 
 type DurableObjectNamespaceLike = {
