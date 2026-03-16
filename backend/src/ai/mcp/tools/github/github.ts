@@ -540,39 +540,28 @@ export async function extractCodeSnippets(
 > {
   const logger = new Logger(env, "GitHubTool:ExtractSnippets");
   logger.info(`Extracting snippets for snippets`);
-  const token = await getToken(env);
-  const branch = ref || await getDefaultBranch(env, owner, repo);
 
-  const snippets = await Promise.all(
-    files.map(async (file) => {
-      try {
-        const content = await fetchGitHubFile(
-          env,
-          owner,
-          repo,
-          file.file_path,
-          branch
-        );
+  const fileRequests = files.map(f => ({
+    path: f.file_path,
+    start_line: f.start_line,
+    end_line: f.end_line
+  }));
 
-        const code = extractSnippet(content, file.start_line, file.end_line);
+  const fetchedFiles = await fetchGitHubFiles(env, owner, repo, fileRequests, ref);
 
-        return {
-          file_path: file.file_path,
-          code,
-          relation: file.relation_to_question,
-        };
-      } catch (error) {
-        console.error(`Error extracting snippet from ${file.file_path}:`, error);
-        return {
-          file_path: file.file_path,
-          code: `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
-          relation: file.relation_to_question,
-        };
-      }
-    })
-  );
+  return files.map((file, index) => {
+    const fetched = fetchedFiles[index];
 
-  return snippets;
+    if (fetched.snippet && fetched.snippet.startsWith("Error: ")) {
+        console.error(`Error extracting snippet from ${file.file_path}:`, new Error(fetched.snippet.replace("Error: ", "")));
+    }
+
+    return {
+      file_path: file.file_path,
+      code: fetched.snippet || fetched.content,
+      relation: file.relation_to_question,
+    };
+  });
 }
 
 /**
