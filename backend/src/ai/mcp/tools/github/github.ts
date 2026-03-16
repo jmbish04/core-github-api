@@ -403,16 +403,13 @@ export async function fetchGitHubFile(
   const branch = ref || await getDefaultBranch(env, owner, repo);
   const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
 
-  const response = await fetchGitHubApi(env, url);
-
-  if (!response.ok) {
-    logger.warn(`Failed to fetch file: ${path} (${response.status})`);
-    throw new Error(
-      `GitHub API error (${response.status}): ${await response.text()}`
-    );
+  let data: { content: string; encoding: string };
+  try {
+    data = await fetchGitHubJson(env, url) as { content: string; encoding: string };
+  } catch (error) {
+    logger.warn(`Failed to fetch file: ${path} (${(error as any).message || error})`);
+    throw error;
   }
-
-  const data = (await response.json()) as { content: string; encoding: string };
 
   if (data.encoding === "base64") {
     // Decode base64 content
@@ -608,27 +605,13 @@ export async function getPRComments(
   logger.info(`Fetching comments for PR ${owner}/${repo}#${prNumber}`);
   // Get review comments (inline code comments)
   const reviewCommentsUrl = `https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}/comments`;
-  const reviewCommentsResponse = await fetchGitHubApi(env, reviewCommentsUrl);
-
-  if (!reviewCommentsResponse.ok) {
-    throw new Error(
-      `GitHub API error (${reviewCommentsResponse.status}): ${await reviewCommentsResponse.text()}`
-    );
-  }
-
-  const reviewComments = await reviewCommentsResponse.json() as any[];
+  const reviewCommentsPromise = fetchGitHubJson(env, reviewCommentsUrl) as Promise<any[]>;
 
   // Get issue comments (general PR comments)
   const issueCommentsUrl = `https://api.github.com/repos/${owner}/${repo}/issues/${prNumber}/comments`;
-  const issueCommentsResponse = await fetchGitHubApi(env, issueCommentsUrl);
+  const issueCommentsPromise = fetchGitHubJson(env, issueCommentsUrl) as Promise<any[]>;
 
-  if (!issueCommentsResponse.ok) {
-    throw new Error(
-      `GitHub API error (${issueCommentsResponse.status}): ${await issueCommentsResponse.text()}`
-    );
-  }
-
-  const issueComments = await issueCommentsResponse.json() as any[];
+  const [reviewComments, issueComments] = await Promise.all([reviewCommentsPromise, issueCommentsPromise]);
 
   // Combine and normalize comments
   const allComments = [
