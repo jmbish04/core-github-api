@@ -64,65 +64,62 @@ async function upsertWorkflowFile(octokit: any, owner: string, repo: string, pat
     }
 }
 
-export async function createGitHubIssue(env: Env, owner: string, repo: string, title: string, body?: string, assignees?: string[]) {
-    const logger = new Logger(env, "GitHubTool:createGitHubIssue");
-    logger.info(`Creating issue in ${owner}/${repo}`, { title, assignees });
-    
+async function executeGithubAction<T>(
+    env: Env,
+    loggerContext: string,
+    actionDescription: string,
+    successMessage: string,
+    requestId: string | undefined,
+    successLogDataCallback: (data: T) => any,
+    actionFn: (octokit: any) => Promise<{ data: T }>
+): Promise<T> {
+    const logger = new Logger(env, loggerContext);
+    logger.info(actionDescription, { requestId });
     const octokit = await getOctokit(env);
     try {
-        const { data } = await octokit.rest.issues.create({
-            owner,
-            repo,
-            title,
-            body,
-            assignees
-        });
-        logger.info(`Issue created successfully`, { issueNumber: data.number, html_url: data.html_url });
+        const { data } = await actionFn(octokit);
+        logger.info(successMessage, { ...successLogDataCallback(data), requestId });
         return data;
     } catch (e: any) {
-        logger.error("Error creating GitHub issue", { error: e.message });
+        logger.error(`Error ${actionDescription.toLowerCase()}`, { error: e.message, requestId });
         throw e;
     }
 }
 
-export async function createGitHubComment(env: Env, owner: string, repo: string, issueNumber: number, body: string) {
-    const logger = new Logger(env, "GitHubTool:createGitHubComment");
-    logger.info(`Creating comment on ${owner}/${repo}#${issueNumber}`);
-
-    const octokit = await getOctokit(env);
-    try {
-        const { data } = await octokit.rest.issues.createComment({
-            owner,
-            repo,
-            issue_number: issueNumber,
-            body
-        });
-        logger.info(`Comment created successfully`, { commentId: data.id, html_url: data.html_url });
-        return data;
-    } catch (e: any) {
-        logger.error("Error creating GitHub comment", { error: e.message });
-        throw e;
-    }
+export async function createGitHubIssue(env: Env, owner: string, repo: string, title: string, body?: string, assignees?: string[], requestId?: string) {
+    return executeGithubAction(
+        env,
+        "GitHubTool:createGitHubIssue",
+        `Creating issue in ${owner}/${repo}`,
+        "Issue created successfully",
+        requestId,
+        (data: any) => ({ issueNumber: data.number, html_url: data.html_url, title, assignees }),
+        (octokit) => octokit.rest.issues.create({ owner, repo, title, body, assignees })
+    );
 }
 
-export async function updateGitHubIssue(env: Env, owner: string, repo: string, issueNumber: number, updates: { state?: 'open' | 'closed', title?: string, body?: string, assignees?: string[] }) {
-    const logger = new Logger(env, "GitHubTool:updateGitHubIssue");
-    logger.info(`Updating issue ${owner}/${repo}#${issueNumber}`, { updates });
+export async function createGitHubComment(env: Env, owner: string, repo: string, issueNumber: number, body: string, requestId?: string) {
+    return executeGithubAction(
+        env,
+        "GitHubTool:createGitHubComment",
+        `Creating comment on ${owner}/${repo}#${issueNumber}`,
+        "Comment created successfully",
+        requestId,
+        (data: any) => ({ commentId: data.id, html_url: data.html_url }),
+        (octokit) => octokit.rest.issues.createComment({ owner, repo, issue_number: issueNumber, body })
+    );
+}
 
-    const octokit = await getOctokit(env);
-    try {
-        const { data } = await octokit.rest.issues.update({
-            owner,
-            repo,
-            issue_number: issueNumber,
-            ...updates
-        });
-        logger.info(`Issue updated successfully`, { html_url: data.html_url });
-        return data;
-    } catch (e: any) {
-        logger.error("Error updating GitHub issue", { error: e.message });
-        throw e;
-    }
+export async function updateGitHubIssue(env: Env, owner: string, repo: string, issueNumber: number, updates: { state?: 'open' | 'closed', title?: string, body?: string, assignees?: string[] }, requestId?: string) {
+    return executeGithubAction(
+        env,
+        "GitHubTool:updateGitHubIssue",
+        `Updating issue ${owner}/${repo}#${issueNumber}`,
+        "Issue updated successfully",
+        requestId,
+        (data: any) => ({ html_url: data.html_url, updates }),
+        (octokit) => octokit.rest.issues.update({ owner, repo, issue_number: issueNumber, ...updates })
+    );
 }
 
 // --- Routes ---
