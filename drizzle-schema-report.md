@@ -94,26 +94,6 @@
 - trending_repos
 - webhook_deliveries
 
-### Unmapped / Orphaned Schema Tables
-*(Suspicious AI Slop: Defined in code but no CRUD operations with a known D1 env var detected)*
-- audit_logs
-- automation_runs
-- chat_tags
-- code_review_comment_enrichments
-- code_review_comments
-- code_review_runs
-- container_logs
-- events
-- operation_logs
-- organization_settings
-- repo_ai_context
-- repo_drafts
-- repo_infra
-- repo_tags
-- repo_tech_stack
-- research_files
-- secrets_config
-
 ---
 
 ## Code Files Interacting with D1 Tables
