@@ -200,17 +200,12 @@ app.openapi(createRepoRoute, async (c) => {
     logger.info(`Fetching template files for ${infrastructure}`);
     const files = await fetchTemplateFiles(c.env, infrastructure, name);
 
-    // 3. Commit Files
-    for (const [path, content] of Object.entries(files)) {
-        await upsertWorkflowFile(octokit, owner, name, path, content, false);
+    // 3 & 4. Commit Boilerplate and Default Workflows
+    const allFiles = [...Object.entries(files).map(([path, content]) => ({ path, content })), ...DEFAULT_WORKFLOWS];
+    for (const file of allFiles) {
+        await upsertWorkflowFile(octokit, owner, name, file.path, file.content, false);
     }
-    logger.info(`Committed ${Object.keys(files).length} boilerplate files`);
-
-    // 4. Add Default Workflows
-    for (const wf of DEFAULT_WORKFLOWS) {
-        await upsertWorkflowFile(octokit, owner, name, wf.path, wf.content, false)
-    }
-    logger.info(`Added default workflows`);
+    logger.info(`Committed ${allFiles.length} boilerplate and workflow files`);
 
     // 5. Register in D1 (repos table)
     await db.insert(repositories).values({
@@ -306,13 +301,18 @@ export async function fetchWithAuth(url: string, token: string, options: Request
   return fetch(url, { ...options, headers });
 }
 
-export async function fetchGitHubAPI(url: string, token: string, options: RequestInit = {}): Promise<any> {
+export async function fetchGitHubRaw(url: string, token: string, options: RequestInit = {}): Promise<Response> {
   const response = await fetchWithAuth(url, token, options);
   if (!response.ok) {
     throw new Error(
       `GitHub API error (${response.status}): ${await response.text()}`
     );
   }
+  return response;
+}
+
+export async function fetchGitHubAPI(url: string, token: string, options: RequestInit = {}): Promise<any> {
+  const response = await fetchGitHubRaw(url, token, options);
   return await response.json();
 }
 
@@ -405,16 +405,10 @@ export async function fetchGitHubFile(
   const branch = ref || await getDefaultBranch(env, owner, repo);
   const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
 
-  const response = await fetchWithAuth(url, token);
-
-  if (!response.ok) {
-    logger.warn(`Failed to fetch file: ${path} (${response.status})`);
-    throw new Error(
-      `GitHub API error (${response.status}): ${await response.text()}`
-    );
-  }
-
-  const data = (await response.json()) as { content: string; encoding: string };
+  const data = await fetchGitHubAPI(url, token).catch((error) => {
+    logger.warn(`Failed to fetch file: ${path} (${error.message})`);
+    throw error;
+  }) as { content: string; encoding: string };
 
   if (data.encoding === "base64") {
     // Decode base64 content
@@ -675,19 +669,16 @@ export async function createBranch(
 
   const token = await getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}/git/refs`;
-  const response = await fetchWithAuth(url, token, {
+  await fetchGitHubRaw(url, token, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       ref: `refs/heads/${newBranchName}`,
       sha: baseSha,
     }),
+  }).catch((error) => {
+    throw new Error(`Failed to create branch ${newBranchName}: ${error.message.replace('GitHub API error', '')}`);
   });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Failed to create branch ${newBranchName}: ${response.status} ${errorText}`);
-  }
 }
 
 /**
@@ -722,15 +713,13 @@ export async function createOrUpdateFile(
     body.sha = sha;
   }
 
-  const response = await fetchWithAuth(url, token, {
+  await fetchGitHubRaw(url, token, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
+  }).catch((error) => {
+    throw new Error(`Failed to write file ${path}: ${error.message.replace('GitHub API error', '')}`);
   });
-
-  if (!response.ok) {
-    throw new Error(`Failed to write file ${path}: ${response.status} ${await response.text()}`);
-  }
 }
 
 /**
