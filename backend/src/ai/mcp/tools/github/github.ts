@@ -303,7 +303,7 @@ async function getToken(env: Env): Promise<string> {
 /**
  * Helper function for GitHub API requests to reduce boilerplate
  */
-async function fetchGitHubApi(url: string, token: string, options?: { method?: string; body?: any; headers?: Record<string, string> }) {
+export async function fetchGitHubApi(url: string, token: string, options?: { method?: string; body?: any; headers?: Record<string, string> }) {
   const { method = "GET", body, headers = {} } = options || {};
   const defaultHeaders: Record<string, string> = {
     Authorization: `Bearer ${token}`,
@@ -557,42 +557,27 @@ export async function extractCodeSnippets(
 > {
   const logger = new Logger(env, "GitHubTool:ExtractSnippets");
   logger.info(`Extracting snippets for snippets`);
-  const token = await getToken(env);
-  const branch = ref || await getDefaultBranch(env, owner, repo);
 
-  const snippets = await Promise.all(
-    files.map(async (file) => {
-      try {
-        const content = await fetchGitHubFile(
-          env,
-          owner,
-          repo,
-          file.file_path,
-          branch
-        );
+  // Map input to what fetchGitHubFiles expects
+  const filesToFetch = files.map((f) => ({
+    path: f.file_path,
+    start_line: f.start_line,
+    end_line: f.end_line,
+  }));
 
-        const lines = content.split("\n");
-        const start = Math.max(0, file.start_line - 1);
-        const end = Math.min(lines.length, file.end_line);
-        const code = lines.slice(start, end).join("\n");
+  const results = await fetchGitHubFiles(env, owner, repo, filesToFetch, ref);
 
-        return {
-          file_path: file.file_path,
-          code,
-          relation: file.relation_to_question,
-        };
-      } catch (error) {
-        console.error(`Error extracting snippet from ${file.file_path}:`, error);
-        return {
-          file_path: file.file_path,
-          code: `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
-          relation: file.relation_to_question,
-        };
-      }
-    })
-  );
-
-  return snippets;
+  // Map results back to the expected output format
+  // fetchGitHubFiles returns results in the exact same order as the input array,
+  // making it safe to map over the original files array by index.
+  return files.map((f, index) => {
+    const result = results[index];
+    return {
+      file_path: f.file_path,
+      code: result?.snippet || result?.content || "",
+      relation: f.relation_to_question,
+    };
+  });
 }
 
 /**
