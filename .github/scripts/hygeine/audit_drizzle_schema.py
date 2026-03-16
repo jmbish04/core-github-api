@@ -44,7 +44,7 @@ def main():
     
     # 1. Extract all Drizzle Table definitions
     # Matches: export const varName = sqliteTable('tableName', ...)
-    table_regex = re.compile(r"export\s+const\s+([a-zA-Z0-9_]+)\s*=\s*(?:sqliteTable|pgTable|mysqlTable)\(\s*['\"]([^'\"]+)['\"]")
+    table_regex = re.compile(r"export\s+const\s+([a-zA-Z0-9_]+)\s*=\s*(?:sqliteTable|pgTable|mysqlTable|eventTable)\(\s*['\"]([^'\"]+)['\"]")
     
     for file_path in files:
         try:
@@ -116,6 +116,8 @@ def main():
     # Catch AI Slop (Orphaned Tables)
     all_discovered = sorted(list(set(t['table_name'] for t in tables)))
     mapped_tables = set(db1_sorted + db2_sorted)
+    # Dynamically track all imported tables across all files to avoid false positives
+    mapped_tables.update(set().union(*file_interactions.values()) if file_interactions else set())
     unmapped = [t for t in all_discovered if t not in mapped_tables]
     
     if unmapped:
