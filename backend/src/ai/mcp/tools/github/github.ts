@@ -306,13 +306,18 @@ export async function fetchWithAuth(url: string, token: string, options: Request
   return fetch(url, { ...options, headers });
 }
 
-export async function fetchGitHubAPI(url: string, token: string, options: RequestInit = {}): Promise<any> {
+export async function fetchGitHubRaw(url: string, token: string, options: RequestInit = {}): Promise<Response> {
   const response = await fetchWithAuth(url, token, options);
   if (!response.ok) {
     throw new Error(
       `GitHub API error (${response.status}): ${await response.text()}`
     );
   }
+  return response;
+}
+
+export async function fetchGitHubAPI(url: string, token: string, options: RequestInit = {}): Promise<any> {
+  const response = await fetchGitHubRaw(url, token, options);
   return await response.json();
 }
 
@@ -689,18 +694,18 @@ export async function createBranch(
 
   const token = await getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}/git/refs`;
-  const response = await fetchWithAuth(url, token, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      ref: `refs/heads/${newBranchName}`,
-      sha: baseSha,
-    }),
-  });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Failed to create branch ${newBranchName}: ${response.status} ${errorText}`);
+  try {
+    await fetchGitHubRaw(url, token, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ref: `refs/heads/${newBranchName}`,
+        sha: baseSha,
+      }),
+    });
+  } catch (error: any) {
+    throw new Error(`Failed to create branch ${newBranchName}: ${error.message}`);
   }
 }
 
@@ -736,14 +741,14 @@ export async function createOrUpdateFile(
     body.sha = sha;
   }
 
-  const response = await fetchWithAuth(url, token, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to write file ${path}: ${response.status} ${await response.text()}`);
+  try {
+    await fetchGitHubRaw(url, token, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  } catch (error: any) {
+    throw new Error(`Failed to write file ${path}: ${error.message}`);
   }
 }
 
