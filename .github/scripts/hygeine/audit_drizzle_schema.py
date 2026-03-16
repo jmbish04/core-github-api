@@ -74,8 +74,8 @@ def main():
             rel_path = os.path.relpath(file_path, root_dir)
             
             # Look for standard Cloudflare Worker / Hono context bindings, and local getDb abstractions
-            uses_db1 = 'env.DB' in content or 'c.env.DB' in content or 'getDb(' in content or 'getDb' in content
-            uses_db2 = 'env.DB_WEBHOOKS' in content or 'c.env.DB_WEBHOOKS' in content or 'getWebhooksDb(' in content or 'getWebhooksDb' in content
+            uses_db1 = 'env.DB' in content or 'getDb' in content
+            uses_db2 = 'env.DB_WEBHOOKS' in content or 'getWebhooksDb' in content
             
             imported_tables = set()
             
