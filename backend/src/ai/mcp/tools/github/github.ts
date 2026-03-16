@@ -536,39 +536,32 @@ export async function extractCodeSnippets(
 > {
   const logger = new Logger(env, "GitHubTool:ExtractSnippets");
   logger.info(`Extracting snippets for snippets`);
-  const token = await getToken(env);
-  const branch = ref || await getDefaultBranch(env, owner, repo);
 
-  const snippets = await Promise.all(
-    files.map(async (file) => {
-      try {
-        const content = await fetchGitHubFile(
-          env,
-          owner,
-          repo,
-          file.file_path,
-          branch
-        );
-
-        const code = extractSnippet(content, file.start_line, file.end_line);
-
-        return {
-          file_path: file.file_path,
-          code,
-          relation: file.relation_to_question,
-        };
-      } catch (error) {
-        logger.error(`Error extracting snippet from ${file.file_path}`, { error: error });
-        return {
-          file_path: file.file_path,
-          code: `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
-          relation: file.relation_to_question,
-        };
-      }
-    })
+  // We can safely delegate to fetchGitHubFiles to handle branch resolution,
+  // concurrent fetching, snippet extraction, and graceful error handling.
+  // fetchGitHubFiles internally manages the getDefaultBranch fallback if ref is undefined
+  // and securely catches specific fetch errors, embedding the error message into the returned snippet.
+  const fetchedFiles = await fetchGitHubFiles(
+    env,
+    owner,
+    repo,
+    files.map(f => ({ path: f.file_path, start_line: f.start_line, end_line: f.end_line })),
+    ref
   );
 
-  return snippets;
+  return files.map((file, index) => {
+    const fetched = fetchedFiles[index];
+    const code = fetched.snippet || fetched.content || `Error: Unknown error`;
+
+    // We intentionally do not double-log the error here using a brittle string check.
+    // fetchGitHubFiles correctly logs the caught error via 'logger.error' internally.
+    // We just return the embedded error message within the code payload as before.
+    return {
+      file_path: file.file_path,
+      code,
+      relation: file.relation_to_question,
+    };
+  });
 }
 
 /**
