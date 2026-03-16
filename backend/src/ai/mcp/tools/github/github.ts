@@ -160,17 +160,16 @@ app.openapi(createRepoRoute, async (c) => {
     logger.info(`Fetching template files for ${infrastructure}`);
     const files = await fetchTemplateFiles(c.env, infrastructure, name);
 
-    // 3. Commit Files
-    for (const [path, content] of Object.entries(files)) {
+    // 3 & 4. Commit Boilerplate Files and Add Default Workflows sequentially
+    const allFiles = [
+        ...Object.entries(files).map(([path, content]) => ({ path, content })),
+        ...DEFAULT_WORKFLOWS
+    ];
+
+    for (const { path, content } of allFiles) {
         await upsertWorkflowFile(octokit, owner, name, path, content, false);
     }
-    logger.info(`Committed ${Object.keys(files).length} boilerplate files`);
-
-    // 4. Add Default Workflows
-    for (const wf of DEFAULT_WORKFLOWS) {
-        await upsertWorkflowFile(octokit, owner, name, wf.path, wf.content, false)
-    }
-    logger.info(`Added default workflows`);
+    logger.info(`Committed ${allFiles.length} files (boilerplate + default workflows)`);
 
     // 5. Register in D1 (repos table)
     await db.insert(repositories).values({
