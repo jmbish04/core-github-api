@@ -8,7 +8,7 @@ import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
 import { getOctokit } from '@services/octokit/core'
 
 import { DEFAULT_WORKFLOWS } from '@/routes/api/webhooks/handlers/flows/workflowTemplates'
-import { encode } from '@utils/base64'
+import { encode, decode } from '@utils/base64'
 import { getDb } from '@db'
 import { repositories } from '@db/schemas/github/repos';
 
@@ -368,7 +368,7 @@ export async function fetchGitHubFile(
   const data = await withGitHubJsonHelper<{ content: string; encoding: string }>(env, "FetchFile", url, token, `Failed to fetch file: ${path} - `);
   if (data.encoding === "base64") {
     // Decode base64 content
-    return atob(data.content.replace(/\n/g, ""));
+    return decode(data.content.replace(/\n/g, ""));
   }
   return data.content || "";
 }
@@ -653,7 +653,7 @@ export async function createOrUpdateFile(
   const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
 
   // Base64 encode content
-  const encodedContent = btoa(unescape(encodeURIComponent(content))); // Robust utf-8 -> base64
+  const encodedContent = encode(content);
 
   const body: any = {
     message,
