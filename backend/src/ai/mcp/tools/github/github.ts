@@ -360,25 +360,17 @@ export async function fetchGitHubFile(
   path: string,
   ref?: string
 ): Promise<string> {
-  const logger = new Logger(env, "GitHubTool:FetchFile");
-  // logger.debug(`Fetching file ${owner}/${repo}/${path} ref=${ref}`);
-
   const token = await getToken(env);
   // Use provided ref or fetch default branch
   const branch = await resolveBranch(env, owner, repo, ref);
   const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
 
-  try {
-    const data = await fetchGitHubJson<{ content: string; encoding: string }>(url, token);
-    if (data.encoding === "base64") {
-      // Decode base64 content
-      return atob(data.content.replace(/\n/g, ""));
-    }
-    return data.content || "";
-  } catch (error: any) {
-    logger.warn(`Failed to fetch file: ${path} (${error.message})`);
-    throw error;
+  const data = await withGitHubJsonHelper<{ content: string; encoding: string }>(env, "FetchFile", url, token, `Failed to fetch file: ${path} - `);
+  if (data.encoding === "base64") {
+    // Decode base64 content
+    return atob(data.content.replace(/\n/g, ""));
   }
+  return data.content || "";
 }
 
 /**
@@ -424,7 +416,6 @@ export async function fetchGitHubFiles(
         };
       } catch (error) {
         logger.error(`Error fetching ${file.path}`, { error: error }); 
-        // console.error(`Error fetching ${file.path}:`, error);
         return {
           path: file.path,
           content: "",
@@ -447,12 +438,11 @@ export async function getRepoStructure(
   path: string = "",
   ref?: string
 ): Promise<any> {
-  const logger = new Logger(env, "GitHubTool:RepoStructure");
   const token = await getToken(env);
   const branch = await resolveBranch(env, owner, repo, ref);
   const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
 
-  return fetchGitHubJson(url, token);
+  return withGitHubJsonHelper(env, "RepoStructure", url, token, "Failed to fetch repo structure: ");
 }
 
 /**
@@ -471,7 +461,7 @@ export async function searchRepoCode(
     query
   )}+repo:${owner}/${repo}`;
 
-  return fetchGitHubJson(url, token);
+  return withGitHubJsonHelper(env, "SearchCode", url, token, `Failed to search code for query "${query}": `);
 }
 
 /**
@@ -510,25 +500,21 @@ export async function extractCodeSnippets(
 
   // Map results back to expected output format, preserving input properties
   return files.map((file, index) => {
-    try {
-      const result = results[index];
-      if (!result || result.path !== file.file_path) {
-        throw new Error("File not found in fetch results");
-      }
-
+    const result = results[index];
+    if (!result || result.path !== file.file_path) {
+      logger.error(`Error extracting snippet from ${file.file_path}`, { error: "File not found in fetch results" });
       return {
         file_path: file.file_path,
-        code: result.snippet || result.content,
-        relation: file.relation_to_question,
-      };
-    } catch (error) {
-      console.error(`Error extracting snippet from ${file.file_path}:`, error);
-      return {
-        file_path: file.file_path,
-        code: `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
+        code: "Error: File not found in fetch results",
         relation: file.relation_to_question,
       };
     }
+
+    return {
+      file_path: file.file_path,
+      code: result.snippet || result.content,
+      relation: file.relation_to_question,
+    };
   });
 }
 
@@ -568,7 +554,7 @@ export async function getPRComments(
   const logger = new Logger(env, "GitHubTool:PRComments");
   logger.info(`Fetching comments for PR ${owner}/${repo}#${prNumber}`);
   const token = await getToken(env);
-  const fetchComments = async (url: string) => fetchGitHubJson<any[]>(url, token);
+  const fetchComments = async (url: string) => withGitHubJsonHelper<any[]>(env, "PRComments", url, token, "Failed to fetch comments: ");
 
   const [reviewComments, issueComments] = await Promise.all([
     fetchComments(`https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}/comments`),
