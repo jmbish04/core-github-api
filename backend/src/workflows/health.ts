@@ -7,39 +7,48 @@ import { getGithubConfig } from '@utils/github/configs';
 import { getGitHubPrivateKey, getGitHubAppId } from '@/utils/secrets';
 import { App } from 'octokit';
 
-export async function checkGitHubAPIHealth(env: Env): Promise<HealthStepResult> {
+async function withHealthCheck(
+    name: string,
+    initialDetails: any,
+    operation: (details: any) => Promise<{ status: 'success' | 'failure'; message: string }>
+): Promise<HealthStepResult> {
     const start = Date.now();
-    const details: any = { api: { status: 'pending', steps: [] } };
+    const details = { ...initialDetails };
 
     try {
-        const apiResult = await runApiChecks(env);
-        details.api = apiResult;
-
+        const { status, message } = await operation(details);
         return {
-            name: 'GitHub API Lifecycle',
-            status: apiResult.status === 'success' ? 'success' : 'failure',
-            message: apiResult.status === 'success' ? 'API Operational' : 'API Lifecycle Failed',
-            details: details,
+            name,
+            status,
+            message,
+            details,
             durationMs: Date.now() - start
         };
     } catch (e: any) {
         return {
-            name: 'GitHub API Lifecycle',
+            name,
             status: 'failure',
-            message: e.message,
-            details: { ...details, stack: e.stack },
+            message: e.message || 'Health check failed',
+            details: { ...details, stack: e.stack, name: e.name },
             durationMs: Date.now() - start
         };
     }
 }
 
-export async function checkWebhooksHealth(env: Env): Promise<HealthStepResult> {
-    const start = Date.now();
-    const details: any = {
-        webhooks: { status: 'pending', gaps: false, verification: 'pending' }
-    };
+export async function checkGitHubAPIHealth(env: Env): Promise<HealthStepResult> {
+    return withHealthCheck('GitHub API Lifecycle', { api: { status: 'pending', steps: [] } }, async (details) => {
+        const apiResult = await runApiChecks(env);
+        details.api = apiResult;
 
-    try {
+        return {
+            status: apiResult.status === 'success' ? 'success' : 'failure',
+            message: apiResult.status === 'success' ? 'API Operational' : 'API Lifecycle Failed'
+        };
+    });
+}
+
+export async function checkWebhooksHealth(env: Env): Promise<HealthStepResult> {
+    return withHealthCheck('Webhooks Integration', { webhooks: { status: 'pending', gaps: false, verification: 'pending' } }, async (details) => {
         const gapCheck = await checkWebhookGaps(env);
         details.webhooks.gaps = gapCheck.hasGaps;
         details.webhooks.lastEvent = gapCheck.lastEvent;
@@ -51,28 +60,14 @@ export async function checkWebhooksHealth(env: Env): Promise<HealthStepResult> {
         const isHealthy = details.webhooks.verification !== 'failed' && !details.webhooks.gaps;
 
         return {
-            name: 'Webhooks Integration',
             status: isHealthy ? 'success' : 'failure',
-            message: isHealthy ? 'Webhooks Operational' : 'Webhook Issues Detected',
-            details: details,
-            durationMs: Date.now() - start
+            message: isHealthy ? 'Webhooks Operational' : 'Webhook Issues Detected'
         };
-    } catch (e: any) {
-        return {
-            name: 'Webhooks Integration',
-            status: 'failure',
-            message: e.message,
-            details: { ...details, stack: e.stack },
-            durationMs: Date.now() - start
-        };
-    }
+    });
 }
 
 export async function checkGitHubAppAuthHealth(env: Env): Promise<HealthStepResult> {
-    const start = Date.now();
-    const details: any = { auth: { status: 'pending', test: 'octokit_app_init' } };
-
-    try {
+    return withHealthCheck('GitHub App Authentication', { auth: { status: 'pending', test: 'octokit_app_init' } }, async (details) => {
         const appId = await getGitHubAppId(env);
         const privateKey = await getGitHubPrivateKey(env);
 
@@ -96,21 +91,10 @@ export async function checkGitHubAppAuthHealth(env: Env): Promise<HealthStepResu
         details.auth.appName = response.data?.name || "Unknown";
 
         return {
-            name: 'GitHub App Authentication',
             status: 'success',
-            message: 'App initialized and JWT generated successfully (PKCS#8 confirmed)',
-            details: details,
-            durationMs: Date.now() - start
+            message: 'App initialized and JWT generated successfully (PKCS#8 confirmed)'
         };
-    } catch (e: any) {
-        return {
-            name: 'GitHub App Authentication',
-            status: 'failure',
-            message: e.message || 'Failed to initialize Octokit App or generate JWT',
-            details: { ...details, stack: e.stack, name: e.name },
-            durationMs: Date.now() - start
-        };
-    }
+    });
 }
 
 async function checkWebhookGaps(env: Env) {
