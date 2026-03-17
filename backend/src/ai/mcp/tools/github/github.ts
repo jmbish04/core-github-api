@@ -283,7 +283,8 @@ export async function fetchGitHubJson<T = any>(
   if (!response.ok) {
     throw new Error(`GitHub API error (${response.status}): ${await response.text()}`);
   }
-  return response.json() as Promise<T>;
+  const text = await response.text();
+  return (text ? JSON.parse(text) : undefined) as T;
 }
 
 /**
@@ -336,9 +337,6 @@ export async function getDefaultBranch(
   owner: string,
   repo: string
 ): Promise<string> {
-  const logger = new Logger(env, "GitHubTool:GetDefaultBranch");
-  // logger.debug(`Getting default branch for ${owner}/${repo}`); 
-
   const token = await getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}`;
 
@@ -502,10 +500,11 @@ export async function extractCodeSnippets(
   return files.map((file, index) => {
     const result = results[index];
     if (!result || result.path !== file.file_path) {
-      logger.error(`Error extracting snippet from ${file.file_path}`, { error: "File not found in fetch results" });
+      const errorMsg = "File not found in fetch results";
+      logger.error(`Error extracting snippet from ${file.file_path}`, { error: errorMsg });
       return {
         file_path: file.file_path,
-        code: "Error: File not found in fetch results",
+        code: `Error: ${errorMsg}`,
         relation: file.relation_to_question,
       };
     }
@@ -605,9 +604,6 @@ export async function getRef(
   repo: string,
   ref: string // e.g. "heads/main" or "heads/feature-branch"
 ): Promise<string> {
-  const logger = new Logger(env, "GitHubTool:GetRef");
-  // logger.debug(`Getting ref ${ref} for ${owner}/${repo}`);
-
   const token = await getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}/git/ref/${ref}`;
 
