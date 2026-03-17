@@ -490,7 +490,6 @@ export async function extractCodeSnippets(
 > {
   const logger = new Logger(env, "GitHubTool:ExtractSnippets");
   logger.info(`Extracting snippets for ${files.length} files`);
-  const branch = await resolveBranch(env, owner, repo, ref);
 
   // Map input files to format expected by fetchGitHubFiles
   const fetchFiles = files.map((f) => ({
@@ -499,7 +498,7 @@ export async function extractCodeSnippets(
     end_line: f.end_line,
   }));
 
-  const results = await fetchGitHubFiles(env, owner, repo, fetchFiles, branch);
+  const results = await fetchGitHubFiles(env, owner, repo, fetchFiles, ref);
 
   // Map results back to expected output format, preserving input properties
   return files.map((file, index) => {
