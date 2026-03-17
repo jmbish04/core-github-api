@@ -8,10 +8,12 @@ export function parseGitHubUrl(url: string) {
   return { owner: parts[0], repo: parts[1] };
 }
 
+const RESEARCH_HEADERS = { headers: { "User-Agent": "cloudflare-repo-analyzer" } };
+
 export async function fetchGitHubTree(owner: string, repo: string, token: string) {
   const url = `https://api.github.com/repos/${owner}/${repo}/git/trees/main?recursive=1`;
   try {
-    const data: any = await fetchGitHubJson(url, token, { headers: { "User-Agent": "cloudflare-repo-analyzer" } });
+    const data: any = await fetchGitHubJson(url, token, RESEARCH_HEADERS);
     return data.tree?.map((f: any) => f.path) || [];
   } catch (error) {
     return [];
@@ -27,7 +29,7 @@ export async function fetchCriticalFiles(owner: string, repo: string, tree: stri
     foundPaths.map(async (path) => {
       const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/main/${path}`;
       try {
-        const resp = await fetchGitHubRaw(rawUrl, token, { headers: { "User-Agent": "cloudflare-repo-analyzer" } });
+        const resp = await fetchGitHubRaw(rawUrl, token, RESEARCH_HEADERS);
         contents[path] = await resp.text();
       } catch (error) {
         console.error(`Error fetching ${path}:`, error);
