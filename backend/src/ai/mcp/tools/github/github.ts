@@ -425,7 +425,6 @@ export async function fetchGitHubFiles(
   const logger = new Logger(env, "GitHubTool:FetchFiles");
   logger.info(`Fetching ${files.length} files from ${owner}/${repo}`);
 
-  const token = await getToken(env);
   // Resolve branch once for all files if not provided
   const branch = await resolveBranch(env, owner, repo, ref);
 
