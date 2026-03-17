@@ -59,6 +59,12 @@ async function upsertWorkflowFile(octokit: any, owner: string, repo: string, pat
     }
 }
 
+export async function upsertFilesSequentially(octokit: any, owner: string, repo: string, files: Array<{ path: string, content: string }>, force: boolean) {
+    for (const { path, content } of files) {
+        await upsertWorkflowFile(octokit, owner, repo, path, content, force);
+    }
+}
+
 export async function createGitHubIssue(env: Env, owner: string, repo: string, title: string, body?: string, assignees?: string[]) {
     return withOctokitIssue(env, owner, repo, "CreateIssue", (octokit) =>
         octokit.rest.issues.create({ owner, repo, title, body, assignees })
@@ -161,9 +167,7 @@ app.openapi(createRepoRoute, async (c) => {
         ...DEFAULT_WORKFLOWS
     ];
 
-    for (const { path, content } of allFiles) {
-        await upsertWorkflowFile(octokit, owner, name, path, content, false);
-    }
+    await upsertFilesSequentially(octokit, owner, name, allFiles, false);
     logger.info(`Committed ${allFiles.length} files (boilerplate + default workflows)`);
 
     // 5. Register in D1 (repos table)
@@ -216,10 +220,8 @@ app.openapi(retrofitRoute, async (c) => {
     for (const repo of targetRepos) {
         try {
             // For simplicity in tool, assume we try to add all default workflows
-            for (const { path, content } of DEFAULT_WORKFLOWS) {
-                // Check wrangler logic if strictly needed, or just try
-                await upsertWorkflowFile(octokit, owner, repo.name, path, content, force)
-            }
+            // Check wrangler logic if strictly needed, or just try
+            await upsertFilesSequentially(octokit, owner, repo.name, DEFAULT_WORKFLOWS, force);
             success++
         } catch(e: any) {
             logger.warn(`Failed to retrofit ${repo.name}`, { error: e.message });
@@ -330,6 +332,13 @@ export async function verifyGitHubToken(env: Env): Promise<{
 }
 
 /**
+ * Construct a standard GitHub API URL for a repository and an optional path
+ */
+export function getRepoApiUrl(owner: string, repo: string, path: string = "") {
+  return `https://api.github.com/repos/${owner}/${repo}${path}`;
+}
+
+/**
  * Get the default branch name for a repository
  */
 export async function getDefaultBranch(
@@ -338,7 +347,7 @@ export async function getDefaultBranch(
   repo: string
 ): Promise<string> {
   const token = await getToken(env);
-  const url = `https://api.github.com/repos/${owner}/${repo}`;
+  const url = getRepoApiUrl(owner, repo);
 
   const data = await withGitHubJsonHelper(env, "FetchRepoInfo", url, token, "Failed to fetch repo info: ");
   return data.default_branch;
@@ -361,7 +370,7 @@ export async function fetchGitHubFile(
   const token = await getToken(env);
   // Use provided ref or fetch default branch
   const branch = await resolveBranch(env, owner, repo, ref);
-  const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
+  const url = `${getRepoApiUrl(owner, repo, `/contents/${path}`)}?ref=${branch}`;
 
   const data = await withGitHubJsonHelper<{ content: string; encoding: string }>(env, "FetchFile", url, token, `Failed to fetch file: ${path} - `);
   if (data.encoding === "base64") {
@@ -438,7 +447,7 @@ export async function getRepoStructure(
 ): Promise<any> {
   const token = await getToken(env);
   const branch = await resolveBranch(env, owner, repo, ref);
-  const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
+  const url = `${getRepoApiUrl(owner, repo, `/contents/${path}`)}?ref=${branch}`;
 
   return withGitHubJsonHelper(env, "RepoStructure", url, token, "Failed to fetch repo structure: ");
 }
@@ -556,8 +565,8 @@ export async function getPRComments(
   const fetchComments = async (url: string) => withGitHubJsonHelper<any[]>(env, "PRComments", url, token, "Failed to fetch comments: ");
 
   const [reviewComments, issueComments] = await Promise.all([
-    fetchComments(`https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}/comments`),
-    fetchComments(`https://api.github.com/repos/${owner}/${repo}/issues/${prNumber}/comments`)
+    fetchComments(getRepoApiUrl(owner, repo, `/pulls/${prNumber}/comments`)),
+    fetchComments(getRepoApiUrl(owner, repo, `/issues/${prNumber}/comments`))
   ]);
 
   // Combine and normalize comments
@@ -605,7 +614,7 @@ export async function getRef(
   ref: string // e.g. "heads/main" or "heads/feature-branch"
 ): Promise<string> {
   const token = await getToken(env);
-  const url = `https://api.github.com/repos/${owner}/${repo}/git/ref/${ref}`;
+  const url = getRepoApiUrl(owner, repo, `/git/ref/${ref}`);
 
   const data = await withGitHubJsonHelper(env, "GetRef", url, token, `Failed to get ref ${ref}: `);
   return data.object.sha;
@@ -625,7 +634,7 @@ export async function createBranch(
   logger.info(`Creating branch ${newBranchName} in ${owner}/${repo} from ${baseSha}`);
 
   const token = await getToken(env);
-  const url = `https://api.github.com/repos/${owner}/${repo}/git/refs`;
+  const url = getRepoApiUrl(owner, repo, `/git/refs`);
   await withGitHubJsonHelper(env, "CreateBranch", url, token, `Failed to create branch ${newBranchName}: `, { method: "POST", body: { ref: `refs/heads/${newBranchName}`, sha: baseSha } });
 }
 
@@ -646,7 +655,7 @@ export async function createOrUpdateFile(
   logger.info(`Writing file ${path} to ${owner}/${repo} branch=${branch}`);
 
   const token = await getToken(env);
-  const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
+  const url = getRepoApiUrl(owner, repo, `/contents/${path}`);
 
   // Base64 encode content
   const encodedContent = encode(content);
@@ -679,7 +688,7 @@ export async function createPullRequest(
   const logger = new Logger(env, "GitHubTool:CreatePR");
   logger.info(`Creating PR: ${title}`);
   const token = await getToken(env);
-  const url = `https://api.github.com/repos/${owner}/${repo}/pulls`;
+  const url = getRepoApiUrl(owner, repo, `/pulls`);
 
   const data = await withGitHubJsonHelper(env, "CreatePR", url, token, "Failed to create PR: ", { method: "POST", body: { title, body, head, base } });
   return {
