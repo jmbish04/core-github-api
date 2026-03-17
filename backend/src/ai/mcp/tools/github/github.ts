@@ -9,14 +9,11 @@ export { fetchGitHubJson } from "./fetch";
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
 import { getOctokit } from '@services/octokit/core'
 
-import { DEFAULT_WORKFLOWS, shouldIncludeCloudflareWorkflow } from '@/routes/api/webhooks/handlers/flows/workflowTemplates'
+import { DEFAULT_WORKFLOWS } from '@/routes/api/webhooks/handlers/flows/workflowTemplates'
 import { encode } from '@utils/base64'
-import { getDb, schema } from '@db'
-import { projects } from '@db/schemas/projects/roadmap'
+import { getDb } from '@db'
 import {
   repositories,
-  type GitHubRepository,
-  type NewGitHubRepository
 } from '@db/schemas/github/repos';
 
 import { DEFAULT_GITHUB_OWNER } from "@github-utils";
@@ -472,7 +469,11 @@ export async function getRepoStructure(
   const branch = ref || await getDefaultBranch(env, owner, repo);
   const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
 
-  return await fetchGitHubJson(url, token);
+  return await withGitHubAction(
+    fetchGitHubJson(url, token),
+    "get repo structure",
+    { logger, level: 'warn' }
+  );
 }
 
 /**
@@ -491,7 +492,11 @@ export async function searchRepoCode(
     query
   )}+repo:${owner}/${repo}`;
 
-  return await fetchGitHubJson(url, token);
+  return await withGitHubAction(
+    fetchGitHubJson(url, token),
+    "search repo code",
+    { logger, level: 'warn' }
+  );
 }
 
 /**
