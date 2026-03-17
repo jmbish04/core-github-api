@@ -292,6 +292,16 @@ async function withGitHubAction<T>(
  * Helper to get token from Env
  */
 
+async function fetchGitHubData(env: Env, url: string, actionName: string, logger: Logger, level: 'warn' | 'error' = 'warn', options?: RequestInit, raw: boolean = false) {
+  const token = await getToken(env);
+  const fetchFn = raw ? fetchGitHubRaw : fetchGitHubJson;
+  return await withGitHubAction(
+    fetchFn(url, token, options),
+    actionName,
+    { logger, level }
+  );
+}
+
 async function getToken(env: Env): Promise<string> {
   if (!env.GITHUB_TOKEN) {
     throw new Error("Missing GITHUB_TOKEN in environment");
@@ -352,14 +362,8 @@ export async function getDefaultBranch(
   const logger = new Logger(env, "GitHubTool:GetDefaultBranch");
   // logger.debug(`Getting default branch for ${owner}/${repo}`); 
 
-  const token = await getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}`;
-
-  const data = await withGitHubAction(
-    fetchGitHubJson(url, token),
-    "fetch repo info",
-    { logger, level: 'error' }
-  ) as any;
+  const data = await fetchGitHubData(env, url, "fetch repo info", logger, 'error') as any;
   return data.default_branch;
 }
 
@@ -388,18 +392,11 @@ export async function fetchGitHubFile(
   const logger = new Logger(env, "GitHubTool:FetchFile");
   // logger.debug(`Fetching file ${owner}/${repo}/${path} ref=${ref}`);
 
-  const token = await getToken(env);
   // Use provided ref or fetch default branch
   const branch = await resolveBranch(env, owner, repo, ref);
   const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
 
-  let data: { content: string; encoding: string };
-  try {
-    data = await fetchGitHubJson(url, token) as { content: string; encoding: string };
-  } catch (e: any) {
-    logger.warn(`Failed to fetch file: ${path} (${e.message})`);
-    throw e;
-  }
+  const data = await fetchGitHubData(env, url, `fetch file: ${path}`, logger, 'warn') as { content: string; encoding: string };
 
   if (data.encoding === "base64") {
     // Decode base64 content
@@ -477,15 +474,10 @@ export async function getRepoStructure(
   ref?: string
 ): Promise<any> {
   const logger = new Logger(env, "GitHubTool:RepoStructure");
-  const token = await getToken(env);
   const branch = await resolveBranch(env, owner, repo, ref);
   const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
 
-  return await withGitHubAction(
-    fetchGitHubJson(url, token),
-    "get repo structure",
-    { logger, level: 'warn' }
-  );
+  return await fetchGitHubData(env, url, "get repo structure", logger, 'warn');
 }
 
 /**
@@ -499,16 +491,11 @@ export async function searchRepoCode(
 ): Promise<any> {
   const logger = new Logger(env, "GitHubTool:SearchCode");
   logger.info(`Searching code in ${owner}/${repo} query="${query}"`);
-  const token = await getToken(env);
   const url = `https://api.github.com/search/code?q=${encodeURIComponent(
     query
   )}+repo:${owner}/${repo}`;
 
-  return await withGitHubAction(
-    fetchGitHubJson(url, token),
-    "search repo code",
-    { logger, level: 'warn' }
-  );
+  return await fetchGitHubData(env, url, "search repo code", logger, 'warn');
 }
 
 /**
@@ -587,14 +574,13 @@ export async function getPRComments(
 }>> {
   const logger = new Logger(env, "GitHubTool:PRComments");
   logger.info(`Fetching comments for PR ${owner}/${repo}#${prNumber}`);
-  const token = await getToken(env);
   // Fetch both review comments (inline code) and issue comments (general PR) in parallel
   const reviewCommentsUrl = `https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}/comments`;
   const issueCommentsUrl = `https://api.github.com/repos/${owner}/${repo}/issues/${prNumber}/comments`;
 
   const [reviewComments, issueComments] = await Promise.all([
-    fetchGitHubJson(reviewCommentsUrl, token) as Promise<any[]>,
-    fetchGitHubJson(issueCommentsUrl, token) as Promise<any[]>
+    fetchGitHubData(env, reviewCommentsUrl, "fetch review comments", logger, 'error') as Promise<any[]>,
+    fetchGitHubData(env, issueCommentsUrl, "fetch issue comments", logger, 'error') as Promise<any[]>
   ]);
 
   const mapBaseComment = (comment: any) => ({
@@ -649,13 +635,8 @@ export async function getRef(
   const logger = new Logger(env, "GitHubTool:GetRef");
   // logger.debug(`Getting ref ${ref} for ${owner}/${repo}`);
 
-  const token = await getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}/git/ref/${ref}`;
-  const data = await withGitHubAction(
-    fetchGitHubJson(url, token),
-    `get ref ${ref}`,
-    { logger, level: 'warn' }
-  ) as any;
+  const data = await fetchGitHubData(env, url, `get ref ${ref}`, logger, 'warn') as any;
   return data.object.sha;
 }
 
@@ -672,18 +653,14 @@ export async function createBranch(
   const logger = new Logger(env, "GitHubTool:CreateBranch");
   logger.info(`Creating branch ${newBranchName} in ${owner}/${repo} from ${baseSha}`);
 
-  const token = await getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}/git/refs`;
-  await withGitHubAction(
-    fetchGitHubRaw(url, token, {
-      method: "POST",
-      body: JSON.stringify({
-        ref: `refs/heads/${newBranchName}`,
-        sha: baseSha,
-      }),
+  await fetchGitHubData(env, url, `create branch ${newBranchName}`, logger, 'error', {
+    method: "POST",
+    body: JSON.stringify({
+      ref: `refs/heads/${newBranchName}`,
+      sha: baseSha,
     }),
-    `create branch ${newBranchName}`
-  );
+  }, true);
 }
 
 /**
@@ -702,7 +679,6 @@ export async function createOrUpdateFile(
   const logger = new Logger(env, "GitHubTool:CreateOrUpdateFile");
   logger.info(`Writing file ${path} to ${owner}/${repo} branch=${branch}`);
 
-  const token = await getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
 
   // Base64 encode content
@@ -718,13 +694,10 @@ export async function createOrUpdateFile(
     body.sha = sha;
   }
 
-  await withGitHubAction(
-    fetchGitHubRaw(url, token, {
-      method: "PUT",
-      body: JSON.stringify(body),
-    }),
-    `write file ${path}`
-  );
+  await fetchGitHubData(env, url, `write file ${path}`, logger, 'error', {
+    method: "PUT",
+    body: JSON.stringify(body),
+  }, true);
 }
 
 /**
@@ -741,20 +714,16 @@ export async function createPullRequest(
 ): Promise<{ number: number; html_url: string }> {
   const logger = new Logger(env, "GitHubTool:CreatePR");
   logger.info(`Creating PR: ${title}`);
-  const token = await getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}/pulls`;
-  const data = await withGitHubAction(
-    fetchGitHubJson(url, token, {
-      method: "POST",
-      body: JSON.stringify({
-        title,
-        body,
-        head,
-        base,
-      }),
+  const data = await fetchGitHubData(env, url, "create PR", logger, 'error', {
+    method: "POST",
+    body: JSON.stringify({
+      title,
+      body,
+      head,
+      base,
     }),
-    "create PR"
-  ) as any;
+  }) as any;
   return {
     number: data.number,
     html_url: data.html_url,
