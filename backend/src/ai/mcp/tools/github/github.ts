@@ -276,8 +276,19 @@ export default app
 
 
 
-function handleGitHubError(action: string, e: Error): never {
-  throw new Error(`Failed to ${action}: ${e.message}`);
+async function withGitHubAction<T>(
+  promise: Promise<T>,
+  action: string,
+  loggerContext?: { logger: Logger; level: 'warn' | 'error' }
+): Promise<T> {
+  try {
+    return await promise;
+  } catch (e: any) {
+    if (loggerContext) {
+      loggerContext.logger[loggerContext.level](`Failed to ${action}: ${e.message}`);
+    }
+    throw new Error(`Failed to ${action}: ${e.message}`);
+  }
 }
 
 /**
@@ -347,10 +358,11 @@ export async function getDefaultBranch(
   const token = await getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}`;
 
-  const data = await fetchGitHubJson(url, token).catch(e => {
-    logger.error(`Failed to fetch repo info: ${e.message}`);
-    handleGitHubError("fetch repo info", e as Error);
-  }) as any;
+  const data = await withGitHubAction(
+    fetchGitHubJson(url, token),
+    "fetch repo info",
+    { logger, level: 'error' }
+  ) as any;
   return data.default_branch;
 }
 
@@ -372,10 +384,13 @@ export async function fetchGitHubFile(
   const branch = ref || await getDefaultBranch(env, owner, repo);
   const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
 
-  const data = await fetchGitHubJson(url, token).catch(e => {
+  let data: { content: string; encoding: string };
+  try {
+    data = await fetchGitHubJson(url, token) as { content: string; encoding: string };
+  } catch (e: any) {
     logger.warn(`Failed to fetch file: ${path} (${e.message})`);
     throw e;
-  }) as { content: string; encoding: string };
+  }
 
   if (data.encoding === "base64") {
     // Decode base64 content
@@ -617,10 +632,11 @@ export async function getRef(
 
   const token = await getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}/git/ref/${ref}`;
-  const data = await fetchGitHubJson(url, token).catch(e => {
-    logger.warn(`Failed to get ref ${ref}: ${e.message}`);
-    handleGitHubError(`get ref ${ref}`, e as Error);
-  }) as any;
+  const data = await withGitHubAction(
+    fetchGitHubJson(url, token),
+    `get ref ${ref}`,
+    { logger, level: 'warn' }
+  ) as any;
   return data.object.sha;
 }
 
@@ -639,13 +655,16 @@ export async function createBranch(
 
   const token = await getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}/git/refs`;
-  await fetchGitHubRaw(url, token, {
-    method: "POST",
-    body: JSON.stringify({
-      ref: `refs/heads/${newBranchName}`,
-      sha: baseSha,
+  await withGitHubAction(
+    fetchGitHubRaw(url, token, {
+      method: "POST",
+      body: JSON.stringify({
+        ref: `refs/heads/${newBranchName}`,
+        sha: baseSha,
+      }),
     }),
-  }).catch((e: Error) => handleGitHubError(`create branch ${newBranchName}`, e));
+    `create branch ${newBranchName}`
+  );
 }
 
 /**
@@ -680,10 +699,13 @@ export async function createOrUpdateFile(
     body.sha = sha;
   }
 
-  await fetchGitHubRaw(url, token, {
-    method: "PUT",
-    body: JSON.stringify(body),
-  }).catch((e: Error) => handleGitHubError(`write file ${path}`, e));
+  await withGitHubAction(
+    fetchGitHubRaw(url, token, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+    `write file ${path}`
+  );
 }
 
 /**
@@ -702,15 +724,18 @@ export async function createPullRequest(
   logger.info(`Creating PR: ${title}`);
   const token = await getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}/pulls`;
-  const data = await fetchGitHubJson(url, token, {
-    method: "POST",
-    body: JSON.stringify({
-      title,
-      body,
-      head,
-      base,
+  const data = await withGitHubAction(
+    fetchGitHubJson(url, token, {
+      method: "POST",
+      body: JSON.stringify({
+        title,
+        body,
+        head,
+        base,
+      }),
     }),
-  }).catch(e => handleGitHubError("create PR", e as Error)) as any;
+    "create PR"
+  ) as any;
   return {
     number: data.number,
     html_url: data.html_url,
