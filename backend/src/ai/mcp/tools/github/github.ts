@@ -493,7 +493,7 @@ export async function extractCodeSnippets(
   }>
 > {
   const logger = new Logger(env, "GitHubTool:ExtractSnippets");
-  logger.info(`Extracting snippets for snippets`);
+  logger.info(`Extracting snippets for ${files.length} files`);
   const branch = await resolveBranch(env, owner, repo, ref);
 
   // Map input files to format expected by fetchGitHubFiles
