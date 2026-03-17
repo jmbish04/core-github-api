@@ -364,6 +364,18 @@ export async function getDefaultBranch(
 }
 
 /**
+ * Resolve branch to the provided ref or the default branch
+ */
+export async function resolveBranch(
+  env: Env,
+  owner: string,
+  repo: string,
+  ref?: string
+): Promise<string> {
+  return ref || await getDefaultBranch(env, owner, repo);
+}
+
+/**
  * Fetch file content from GitHub
  */
 export async function fetchGitHubFile(
@@ -378,7 +390,7 @@ export async function fetchGitHubFile(
 
   const token = await getToken(env);
   // Use provided ref or fetch default branch
-  const branch = ref || await getDefaultBranch(env, owner, repo);
+  const branch = await resolveBranch(env, owner, repo, ref);
   const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
 
   let data: { content: string; encoding: string };
@@ -418,7 +430,7 @@ export async function fetchGitHubFiles(
 
   const token = await getToken(env);
   // Resolve branch once for all files if not provided
-  const branch = ref || await getDefaultBranch(env, owner, repo);
+  const branch = await resolveBranch(env, owner, repo, ref);
 
   const results = await Promise.all(
     files.map(async (file) => {
@@ -466,7 +478,7 @@ export async function getRepoStructure(
 ): Promise<any> {
   const logger = new Logger(env, "GitHubTool:RepoStructure");
   const token = await getToken(env);
-  const branch = ref || await getDefaultBranch(env, owner, repo);
+  const branch = await resolveBranch(env, owner, repo, ref);
   const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
 
   return await withGitHubAction(
@@ -585,20 +597,22 @@ export async function getPRComments(
     fetchGitHubJson(issueCommentsUrl, token) as Promise<any[]>
   ]);
 
+  const mapBaseComment = (comment: any) => ({
+    id: comment.id,
+    author: comment.user?.login || "unknown",
+    body: comment.body || "",
+  });
+
   // Combine and normalize comments
   const allComments = [
     ...reviewComments.map((comment) => ({
-      id: comment.id,
-      author: comment.user?.login || "unknown",
-      body: comment.body || "",
+      ...mapBaseComment(comment),
       file_path: comment.path,
       line: comment.line || comment.original_line,
       comment_type: 'review' as const,
     })),
     ...issueComments.map((comment) => ({
-      id: comment.id,
-      author: comment.user?.login || "unknown",
-      body: comment.body || "",
+      ...mapBaseComment(comment),
       comment_type: 'issue' as const,
     })),
   ];

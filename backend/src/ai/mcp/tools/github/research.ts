@@ -1,4 +1,4 @@
-import { fetchWithAuth, fetchGitHubJson } from "./fetch";
+import { fetchGitHubRaw, fetchGitHubJson } from "./fetch";
 /**
  * GitHub API Utilities
  */
@@ -27,10 +27,8 @@ export async function fetchCriticalFiles(owner: string, repo: string, tree: stri
     foundPaths.map(async (path) => {
       const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/main/${path}`;
       try {
-        const resp = await fetchWithAuth(rawUrl, token, { headers: { "User-Agent": "cloudflare-repo-analyzer" } });
-        if (resp.ok) {
-          contents[path] = await resp.text();
-        }
+        const resp = await fetchGitHubRaw(rawUrl, token, { headers: { "User-Agent": "cloudflare-repo-analyzer" } });
+        contents[path] = await resp.text();
       } catch (error) {
         console.error(`Error fetching ${path}:`, error);
       }
