@@ -197,14 +197,12 @@ app.openapi(retrofitRoute, async (c) => {
 
     let targetRepos: any[] = []
     if (repos && repos.length > 0) {
-        for (const r of repos) {
-            try {
-                const { data } = await octokit.repos.get({ owner, repo: r })
-                targetRepos.push(data)
-            } catch {
-                // empty
-            }
-        }
+        const results = await Promise.allSettled(
+            repos.map(r => octokit.repos.get({ owner, repo: r }))
+        );
+        targetRepos = results
+            .filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled')
+            .map(r => r.value.data);
     } else {
         // Limit to 100 for tool safety if no specific list
         const { data } = await octokit.repos.listForOrg({ org: owner, type: 'all', per_page: 100 })
@@ -217,7 +215,6 @@ app.openapi(retrofitRoute, async (c) => {
 
     for (const repo of targetRepos) {
         try {
-            const rootFiles: any[] = [] // Optimization: Skip checking root files for tool simplicity or query if needed
             // For simplicity in tool, assume we try to add all default workflows
             for (const { path, content } of DEFAULT_WORKFLOWS) {
                 // Check wrangler logic if strictly needed, or just try
@@ -403,7 +400,6 @@ export async function fetchGitHubFiles(
   const logger = new Logger(env, "GitHubTool:FetchFiles");
   logger.info(`Fetching ${files.length} files from ${owner}/${repo}`);
 
-  const token = await getToken(env);
   // Resolve branch once for all files if not provided
   const branch = await resolveBranch(env, owner, repo, ref);
 
@@ -513,7 +509,7 @@ export async function extractCodeSnippets(
   const results = await fetchGitHubFiles(env, owner, repo, fetchFiles, branch);
 
   // Map results back to expected output format, preserving input properties
-  const snippets = files.map((file, index) => {
+  return files.map((file, index) => {
     try {
       const result = results[index];
       if (!result || result.path !== file.file_path) {
@@ -534,8 +530,6 @@ export async function extractCodeSnippets(
       };
     }
   });
-
-  return snippets;
 }
 
 /**
@@ -593,12 +587,10 @@ export async function getPRComments(
     comment_type: type,
   });
 
-  const allComments = [
+  return [
     ...reviewComments.map(mapComment('review')),
     ...issueComments.map(mapComment('issue')),
   ];
-
-  return allComments;
 }
 
 /**
