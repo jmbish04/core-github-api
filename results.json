@@ -7,7 +7,7 @@
       "Standard Worker"
     ],
     "config_file": "wrangler.toml.orig",
-    "discovered_at": "2026-03-17T00:07:00.939718+00:00"
+    "discovered_at": "2026-03-18T00:08:03.848797+00:00"
   },
   {
     "name": "agglayer/agglayer",
@@ -17,118 +17,7 @@
       "Standard Worker"
     ],
     "config_file": "wrangler.toml.template",
-    "discovered_at": "2026-03-17T00:07:02.063457+00:00"
-  },
-  {
-    "name": "backblaze-b2-samples/cloudflare-b2",
-    "url": "https://github.com/backblaze-b2-samples/cloudflare-b2",
-    "description": "Provide access to a private Backblaze B2 bucket via a Cloudflare Worker",
-    "detected_stack": [
-      "Standard Worker"
-    ],
-    "config_file": "wrangler.toml",
-    "discovered_at": "2026-03-17T00:07:03.245864+00:00"
-  },
-  {
-    "name": "anghunk/cwd",
-    "url": "https://github.com/anghunk/cwd",
-    "description": "\u57fa\u4e8e Cloudflare Workers \u4e0e\u5168\u7403\u8fb9\u7f18\u7f51\u7edc\u7684\u514d\u670d\u52a1\u5668\u3001\u6781\u901f\u5b89\u5168\u3001\u5373\u63d2\u5373\u7528\u8bc4\u8bba\u7cfb\u7edf\u3002",
-    "detected_stack": [
-      "Standard Worker"
-    ],
-    "config_file": "wrangler.jsonc.example",
-    "discovered_at": "2026-03-17T00:07:04.397424+00:00"
-  },
-  {
-    "name": "VastOceanLabs/pdfree-tools",
-    "url": "https://github.com/VastOceanLabs/pdfree-tools",
-    "description": "No description",
-    "detected_stack": [
-      "Tailwind"
-    ],
-    "config_file": "wrangler.toml.txt",
-    "discovered_at": "2026-03-17T00:07:05.578488+00:00"
-  },
-  {
-    "name": "pigri/cf-n8n-proxy",
-    "url": "https://github.com/pigri/cf-n8n-proxy",
-    "description": "Cloudflare worker for n8n proxy",
-    "detected_stack": [
-      "Standard Worker"
-    ],
-    "config_file": "wrangler.toml_example",
-    "discovered_at": "2026-03-17T00:07:06.727864+00:00"
-  },
-  {
-    "name": "EnigmaCurry/cf-functions-demo",
-    "url": "https://github.com/EnigmaCurry/cf-functions-demo",
-    "description": "No description",
-    "detected_stack": [
-      "Standard Worker"
-    ],
-    "config_file": "wrangler.toml.jinja",
-    "discovered_at": "2026-03-17T00:07:07.859764+00:00"
-  },
-  {
-    "name": "toolate28/SpiralSafe",
-    "url": "https://github.com/toolate28/SpiralSafe",
-    "description": "SpiralSafe is self-maintaining, inherently coherent reposystem | Documentation, code, and physical hardware in Emergent Harmony",
-    "detected_stack": [
-      "Standard Worker"
-    ],
-    "config_file": "wrangler.toml.fixed",
-    "discovered_at": "2026-03-17T00:07:09.014294+00:00"
-  },
-  {
-    "name": "lorenzo-milicia/go-vanity-router",
-    "url": "https://github.com/lorenzo-milicia/go-vanity-router",
-    "description": "A so-called 'vanity router' to make my projects 'go get'-able with my custom domain with Cloudflare Pages",
-    "detected_stack": [
-      "Hono"
-    ],
-    "config_file": "wrangler.toml.dist",
-    "discovered_at": "2026-03-17T00:07:10.158145+00:00"
-  },
-  {
-    "name": "WtecHtec/qr-generator-core",
-    "url": "https://github.com/WtecHtec/qr-generator-core",
-    "description": "A powerful QR code generator with customizable styling options",
-    "detected_stack": [
-      "Next.js",
-      "Tailwind"
-    ],
-    "config_file": "wrangler.toml.cp",
-    "discovered_at": "2026-03-17T00:07:11.304169+00:00"
-  },
-  {
-    "name": "Adarsh-Dhar/bot-paywall",
-    "url": "https://github.com/Adarsh-Dhar/bot-paywall",
-    "description": "No description",
-    "detected_stack": [
-      "Standard Worker"
-    ],
-    "config_file": "wrangler.toml.bak",
-    "discovered_at": "2026-03-17T00:07:12.462069+00:00"
-  },
-  {
-    "name": "elasticinbox/elasticinbox-cloudflare",
-    "url": "https://github.com/elasticinbox/elasticinbox-cloudflare",
-    "description": "Email storage service based on Cloudflare Workers",
-    "detected_stack": [
-      "Standard Worker"
-    ],
-    "config_file": "wrangler.toml.tpl",
-    "discovered_at": "2026-03-17T00:07:13.599336+00:00"
-  },
-  {
-    "name": "kalepail/nft-stellar-buzz",
-    "url": "https://github.com/kalepail/nft-stellar-buzz",
-    "description": "No description",
-    "detected_stack": [
-      "Standard Worker"
-    ],
-    "config_file": "wrangler.toml.default",
-    "discovered_at": "2026-03-17T00:07:14.724732+00:00"
+    "discovered_at": "2026-03-18T00:08:05.124949+00:00"
   },
   {
     "name": "inevity/thebalance",
@@ -138,132 +27,108 @@
       "Standard Worker"
     ],
     "config_file": "wrangler.jsonc.tpl",
-    "discovered_at": "2026-03-17T00:07:15.853096+00:00"
+    "discovered_at": "2026-03-18T00:08:06.410280+00:00"
   },
   {
-    "name": "modfin/gen_alexiscal",
-    "url": "https://github.com/modfin/gen_alexiscal",
-    "description": "A Cloudflare worker that export AlexisHR leave calendar to ical",
+    "name": "anghunk/cwd",
+    "url": "https://github.com/anghunk/cwd",
+    "description": "\u57fa\u4e8e Cloudflare Workers \u4e0e\u5168\u7403\u8fb9\u7f18\u7f51\u7edc\u7684\u514d\u670d\u52a1\u5668\u3001\u6781\u901f\u5b89\u5168\u3001\u5373\u63d2\u5373\u7528\u8bc4\u8bba\u7cfb\u7edf\u3002",
     "detected_stack": [
       "Standard Worker"
     ],
-    "config_file": "wrangler.toml.tmpl",
-    "discovered_at": "2026-03-17T00:07:16.989656+00:00"
+    "config_file": "wrangler.jsonc.example",
+    "discovered_at": "2026-03-18T00:08:07.673910+00:00"
   },
   {
-    "name": "xnscu/create-workers",
-    "url": "https://github.com/xnscu/create-workers",
-    "description": "No description",
-    "detected_stack": [
-      "Standard Worker"
-    ],
-    "config_file": "wrangler.jsonc.ejs",
-    "discovered_at": "2026-03-17T00:07:18.191620+00:00"
-  },
-  {
-    "name": "samunohito/misskey-github-notifier-next",
-    "url": "https://github.com/samunohito/misskey-github-notifier-next",
-    "description": "No description",
-    "detected_stack": [
-      "Hono"
-    ],
-    "config_file": "wrangler.jsonc.sample",
-    "discovered_at": "2026-03-17T00:07:19.363655+00:00"
-  },
-  {
-    "name": "irfndi/fin-in-flow",
-    "url": "https://github.com/irfndi/fin-in-flow",
-    "description": "No description",
-    "detected_stack": [
-      "Drizzle",
-      "Hono",
-      "Radix",
-      "Tailwind",
-      "OpenAI"
-    ],
-    "config_file": "wrangler.toml.backup",
-    "discovered_at": "2026-03-17T00:07:20.517320+00:00"
-  },
-  {
-    "name": "phrase-llc/form-plant",
-    "url": "https://github.com/phrase-llc/form-plant",
-    "description": "No description",
-    "detected_stack": [
-      "Standard Worker"
-    ],
-    "config_file": "wrangler.toml.sample",
-    "discovered_at": "2026-03-17T00:07:21.697870+00:00"
-  },
-  {
-    "name": "ben-vargas/obsidian-vectorize-mcp",
-    "url": "https://github.com/ben-vargas/obsidian-vectorize-mcp",
-    "description": "Obsidian Vectorize (obvec) - Serverless Vector Search with MCP for your Obsidian notes",
-    "detected_stack": [
-      "Hono"
-    ],
-    "config_file": "wrangler.toml.upgrade",
-    "discovered_at": "2026-03-17T00:07:22.856560+00:00"
-  },
-  {
-    "name": "duabiht/cloudflare-worker-starter",
-    "url": "https://github.com/duabiht/cloudflare-worker-starter",
-    "description": "Production-ready Cloudflare Worker starter template",
+    "name": "Spl0itable/nosflare",
+    "url": "https://github.com/Spl0itable/nosflare",
+    "description": "A serverless Nostr relay through Cloudflare Workers and Durable Objects",
     "detected_stack": [
       "Standard Worker"
     ],
     "config_file": "wrangler.toml",
-    "discovered_at": "2026-03-17T00:07:24.001402+00:00"
+    "discovered_at": "2026-03-18T00:08:08.941339+00:00"
   },
   {
-    "name": "HilaryTorn/ThoughtGuards",
-    "url": "https://github.com/HilaryTorn/ThoughtGuards",
-    "description": "A real-time dashboard monitoring AI chain-of-thought traces for manipulative patterns, deception, and reward hacking.",
+    "name": "VastOceanLabs/pdfree-tools",
+    "url": "https://github.com/VastOceanLabs/pdfree-tools",
+    "description": "No description",
+    "detected_stack": [
+      "Tailwind"
+    ],
+    "config_file": "wrangler.toml.txt",
+    "discovered_at": "2026-03-18T00:08:10.296080+00:00"
+  },
+  {
+    "name": "pigri/cf-n8n-proxy",
+    "url": "https://github.com/pigri/cf-n8n-proxy",
+    "description": "Cloudflare worker for n8n proxy",
     "detected_stack": [
       "Standard Worker"
     ],
-    "config_file": "wrangler.toml.old",
-    "discovered_at": "2026-03-17T00:07:25.169711+00:00"
+    "config_file": "wrangler.toml_example",
+    "discovered_at": "2026-03-18T00:08:11.954544+00:00"
   },
   {
-    "name": "taiseiue/discord-oidc-proxy",
-    "url": "https://github.com/taiseiue/discord-oidc-proxy",
-    "description": "The proxy that enables applications using OpenID Connect (OIDC) authentication to authenticate users through Discord's OAuth2 system.",
+    "name": "TrueWatchTech/datakit-cloudflare-worker",
+    "url": "https://github.com/TrueWatchTech/datakit-cloudflare-worker",
+    "description": "DataKit running on Cloudflare Workers with Container support for log collection and monitoring",
     "detected_stack": [
-      "Hono"
+      "Standard Worker"
     ],
     "config_file": "wrangler.jsonc.template",
-    "discovered_at": "2026-03-17T00:07:26.317828+00:00"
+    "discovered_at": "2026-03-18T00:08:13.330744+00:00"
   },
   {
-    "name": "llu77/Omaaa",
-    "url": "https://github.com/llu77/Omaaa",
+    "name": "WileyLabs/web-redirects-cli",
+    "url": "https://github.com/WileyLabs/web-redirects-cli",
+    "description": "Managing HTTP(S) redirects via YAML (or JSON) docs",
+    "detected_stack": [
+      "Standard Worker"
+    ],
+    "config_file": "wrangler.toml.sample",
+    "discovered_at": "2026-03-18T00:08:14.650259+00:00"
+  },
+  {
+    "name": "WtecHtec/qr-generator-core",
+    "url": "https://github.com/WtecHtec/qr-generator-core",
+    "description": "A powerful QR code generator with customizable styling options",
+    "detected_stack": [
+      "Tailwind",
+      "Next.js"
+    ],
+    "config_file": "wrangler.toml.cp",
+    "discovered_at": "2026-03-18T00:08:15.954422+00:00"
+  },
+  {
+    "name": "Adarsh-Dhar/bot-paywall",
+    "url": "https://github.com/Adarsh-Dhar/bot-paywall",
     "description": "No description",
     "detected_stack": [
       "Standard Worker"
     ],
-    "config_file": "wrangler.toml ",
-    "discovered_at": "2026-03-17T00:07:27.491598+00:00"
+    "config_file": "wrangler.toml.bak",
+    "discovered_at": "2026-03-18T00:08:17.270154+00:00"
   },
   {
-    "name": "osawa-naotaka/StellaGarden",
-    "url": "https://github.com/osawa-naotaka/StellaGarden",
-    "description": "No description",
-    "detected_stack": [
-      "Drizzle",
-      "Hono"
-    ],
-    "config_file": "wrangler.jsonc.template",
-    "discovered_at": "2026-03-17T00:07:28.634021+00:00"
-  },
-  {
-    "name": "itstheanurag/hanma",
-    "url": "https://github.com/itstheanurag/hanma",
-    "description": "Hanma is a beta CLI tool for MERN backend developers that lets you download and reuse server-side code snippets directly into your projects, without copy-pasting or manual setup.  This release focuses on testing real backend workflows, gathering feedback, and shaping Hanma into a fast, reliable snippet manager for Express, Elysia, NestJS, Fastify, ",
+    "name": "elasticinbox/elasticinbox-cloudflare",
+    "url": "https://github.com/elasticinbox/elasticinbox-cloudflare",
+    "description": "Email storage service based on Cloudflare Workers",
     "detected_stack": [
       "Standard Worker"
     ],
-    "config_file": "wrangler.toml.hbs",
-    "discovered_at": "2026-03-17T00:07:29.786208+00:00"
+    "config_file": "wrangler.toml.tpl",
+    "discovered_at": "2026-03-18T00:08:18.528318+00:00"
+  },
+  {
+    "name": "kalepail/nft-stellar-buzz",
+    "url": "https://github.com/kalepail/nft-stellar-buzz",
+    "description": "No description",
+    "detected_stack": [
+      "Standard Worker"
+    ],
+    "config_file": "wrangler.toml.default",
+    "discovered_at": "2026-03-18T00:08:19.804811+00:00"
   },
   {
     "name": "conquest-eth/do-ethereum-events",
@@ -273,712 +138,138 @@
       "Standard Worker"
     ],
     "config_file": "wrangler.toml.hbs",
-    "discovered_at": "2026-03-17T00:07:30.956422+00:00"
+    "discovered_at": "2026-03-18T00:08:21.140088+00:00"
   },
   {
-    "name": "itangbaotop/itangbao-auth",
-    "url": "https://github.com/itangbaotop/itangbao-auth",
-    "description": "\u8ba4\u8bc1\u670d\u52a1",
-    "detected_stack": [
-      "Drizzle",
-      "Next.js",
-      "Radix",
-      "Tailwind"
-    ],
-    "config_file": "wrangler.jsonc.bak",
-    "discovered_at": "2026-03-17T00:07:32.121958+00:00"
-  },
-  {
-    "name": "Joeljm1/rent-a-ride",
-    "url": "https://github.com/Joeljm1/rent-a-ride",
-    "description": "https://car-rental.joeltest.workers.dev/",
-    "detected_stack": [
-      "Drizzle",
-      "Radix",
-      "Hono",
-      "Tailwind"
-    ],
-    "config_file": "wrangler.toml.temp",
-    "discovered_at": "2026-03-17T00:07:33.302301+00:00"
-  },
-  {
-    "name": "ThePrimeagen/public-edging",
-    "url": "https://github.com/ThePrimeagen/public-edging",
+    "name": "xnscu/create-workers",
+    "url": "https://github.com/xnscu/create-workers",
     "description": "No description",
     "detected_stack": [
       "Standard Worker"
     ],
-    "config_file": "wrangler.toml",
-    "discovered_at": "2026-03-17T00:07:34.478359+00:00"
+    "config_file": "wrangler.jsonc.ejs",
+    "discovered_at": "2026-03-18T00:08:22.455515+00:00"
   },
   {
-    "name": "uhhfeef/QDash-Landing-Page",
-    "url": "https://github.com/uhhfeef/QDash-Landing-Page",
+    "name": "samunohito/misskey-github-notifier-next",
+    "url": "https://github.com/samunohito/misskey-github-notifier-next",
     "description": "No description",
-    "detected_stack": [
-      "Next.js",
-      "Radix",
-      "Tailwind"
-    ],
-    "config_file": "wrangler.toml copy",
-    "discovered_at": "2026-03-17T00:07:35.653348+00:00"
-  },
-  {
-    "name": "hotwatermorning/cloudflare-test",
-    "url": "https://github.com/hotwatermorning/cloudflare-test",
-    "description": "Cloudflare Pages + Cloudflare D1 + Drizzle ORM + SvelteKit",
-    "detected_stack": [
-      "Drizzle"
-    ],
-    "config_file": "wrangler.toml.in",
-    "discovered_at": "2026-03-17T00:07:36.819681+00:00"
-  },
-  {
-    "name": "mskobun/sat-water-temps",
-    "url": "https://github.com/mskobun/sat-water-temps",
-    "description": "No description",
-    "detected_stack": [
-      "Tailwind"
-    ],
-    "config_file": "wrangler.toml",
-    "discovered_at": "2026-03-17T00:07:38.001294+00:00"
-  },
-  {
-    "name": "wassertim/holler",
-    "url": "https://github.com/wassertim/holler",
-    "description": "Lightweight feedback board. HTMX + Cloudflare Workers + D1. Deploy in one click.",
     "detected_stack": [
       "Hono"
     ],
-    "config_file": "wrangler.toml",
-    "discovered_at": "2026-03-17T00:07:39.144952+00:00"
+    "config_file": "wrangler.jsonc.sample",
+    "discovered_at": "2026-03-18T00:08:23.774967+00:00"
   },
   {
-    "name": "caasxyz/notification",
-    "url": "https://github.com/caasxyz/notification",
+    "name": "EnigmaCurry/cf-functions-demo",
+    "url": "https://github.com/EnigmaCurry/cf-functions-demo",
     "description": "No description",
     "detected_stack": [
-      "Drizzle"
+      "Standard Worker"
+    ],
+    "config_file": "wrangler.toml.jinja",
+    "discovered_at": "2026-03-18T00:08:25.034926+00:00"
+  },
+  {
+    "name": "irfndi/fin-in-flow",
+    "url": "https://github.com/irfndi/fin-in-flow",
+    "description": "No description",
+    "detected_stack": [
+      "Hono",
+      "Radix",
+      "Drizzle",
+      "OpenAI",
+      "Tailwind"
+    ],
+    "config_file": "wrangler.toml.backup",
+    "discovered_at": "2026-03-18T00:08:26.604358+00:00"
+  },
+  {
+    "name": "mx1700/cloudflare-image-share",
+    "url": "https://github.com/mx1700/cloudflare-image-share",
+    "description": "\u57fa\u4e8e Cloudflare Pages + R2 \u5b9e\u73b0\u7684\u79c1\u6709\u56fe\u7247\u5206\u4eab(\u56fe\u5e8a)\u7f51\u7ad9\u3002",
+    "detected_stack": [
+      "Tailwind",
+      "Next.js",
+      "Radix"
     ],
     "config_file": "wrangler.toml.dev",
-    "discovered_at": "2026-03-17T00:07:40.291746+00:00"
+    "discovered_at": "2026-03-18T00:08:27.885950+00:00"
   },
   {
-    "name": "Vitawt-The-Duke/anelement-maintaince",
-    "url": "https://github.com/Vitawt-The-Duke/anelement-maintaince",
-    "description": "No description",
+    "name": "meepen/poe-accountant",
+    "url": "https://github.com/meepen/poe-accountant",
+    "description": "Path of Exile Accountant - A self-hosted and FREE currency management tracker for PoE",
     "detected_stack": [
       "Standard Worker"
     ],
-    "config_file": "wrangler.toml",
-    "discovered_at": "2026-03-17T00:07:41.442437+00:00"
+    "config_file": "wrangler.toml.tftpl",
+    "discovered_at": "2026-03-18T00:08:30.459784+00:00"
   },
   {
-    "name": "tbhb/copier-templates",
-    "url": "https://github.com/tbhb/copier-templates",
-    "description": "No description",
-    "detected_stack": [
-      "Standard Worker"
-    ],
-    "config_file": "wrangler.jsonc.jinja",
-    "discovered_at": "2026-03-17T00:07:42.590309+00:00"
-  },
-  {
-    "name": "osawa-naotaka/vanishtodo",
-    "url": "https://github.com/osawa-naotaka/vanishtodo",
-    "description": "No description",
-    "detected_stack": [
-      "Drizzle",
-      "Hono"
-    ],
-    "config_file": "wrangler.jsonc.template",
-    "discovered_at": "2026-03-17T00:07:43.763842+00:00"
-  },
-  {
-    "name": "ChainTrail/algorand-scam-detector",
-    "url": "https://github.com/ChainTrail/algorand-scam-detector",
-    "description": "Algorand Scam Detector is an easy to use API to identify whether an Algorand transaction is a known scam. Created by Chaintrail - Uncovering Algorand",
-    "detected_stack": [
-      "Standard Worker"
-    ],
-    "config_file": "wrangler.toml",
-    "discovered_at": "2026-03-17T00:07:44.916050+00:00"
-  },
-  {
-    "name": "cloudflare/privacypass-origin",
-    "url": "https://github.com/cloudflare/privacypass-origin",
-    "description": "A TypeScript Origin for the Privacy Pass Authentication Protocol",
-    "detected_stack": [
-      "Standard Worker"
-    ],
-    "config_file": "wrangler.toml",
-    "discovered_at": "2026-03-17T00:07:46.086087+00:00"
-  },
-  {
-    "name": "AndreaFrederica/new_blog",
-    "url": "https://github.com/AndreaFrederica/new_blog",
-    "description": "No description",
-    "detected_stack": [
-      "Astro",
-      "Tailwind"
-    ],
-    "config_file": "wrangler.toml.des",
-    "discovered_at": "2026-03-17T00:07:47.253476+00:00"
-  },
-  {
-    "name": "bitwisebro/Serverless-Telegram-Bot",
-    "url": "https://github.com/bitwisebro/Serverless-Telegram-Bot",
-    "description": "Simple Serverless Telegram Bot Using Telegram Webhooks, Hostable on Cloudflare Workers",
-    "detected_stack": [
-      "Standard Worker"
-    ],
-    "config_file": "wrangler.toml",
-    "discovered_at": "2026-03-17T00:07:48.414395+00:00"
-  },
-  {
-    "name": "Logos-Flux/cloudflare-multiagent",
-    "url": "https://github.com/Logos-Flux/cloudflare-multiagent",
-    "description": "The Model Configuration System enables flexible, admin-managed AI model configurations without requiring code changes.",
-    "detected_stack": [
-      "Standard Worker"
-    ],
-    "config_file": "wrangler.toml.bak",
-    "discovered_at": "2026-03-17T00:07:49.555443+00:00"
-  },
-  {
-    "name": "vedantparmar12/MCP-Onboarding-Platform",
-    "url": "https://github.com/vedantparmar12/MCP-Onboarding-Platform",
-    "description": "No description",
-    "detected_stack": [
-      "Standard Worker"
-    ],
-    "config_file": "wrangler.toml",
-    "discovered_at": "2026-03-17T00:07:50.888747+00:00"
-  },
-  {
-    "name": "sarmaasis/speech-to-text",
-    "url": "https://github.com/sarmaasis/speech-to-text",
-    "description": "Application to record and speech and summarize it into a text",
-    "detected_stack": [
-      "Next.js",
-      "Tailwind"
-    ],
-    "config_file": "wrangler.jsonc.backup",
-    "discovered_at": "2026-03-17T00:07:52.049509+00:00"
-  },
-  {
-    "name": "cindywu/arrows",
-    "url": "https://github.com/cindywu/arrows",
-    "description": "public community-run wayback machine for anything you care about",
-    "detected_stack": [
-      "Next.js",
-      "Tailwind"
-    ],
-    "config_file": "wrangler.toml",
-    "discovered_at": "2026-03-17T00:07:53.205250+00:00"
-  },
-  {
-    "name": "Salahabi/polygone-via-worker",
-    "url": "https://github.com/Salahabi/polygone-via-worker",
-    "description": "No description",
-    "detected_stack": [
-      "Standard Worker"
-    ],
-    "config_file": "wrangler.jsonc ",
-    "discovered_at": "2026-03-17T00:07:54.380271+00:00"
-  },
-  {
-    "name": "adammcodes/pokemechanics",
-    "url": "https://github.com/adammcodes/pokemechanics",
-    "description": "A complete Pok\u00e9mon resource for the main-series video games",
-    "detected_stack": [
-      "Next.js",
-      "Tailwind"
-    ],
-    "config_file": "wrangler.jsonc.backup",
-    "discovered_at": "2026-03-17T00:07:55.539910+00:00"
-  },
-  {
-    "name": "ChinoArror/testdeepseek",
-    "url": "https://github.com/ChinoArror/testdeepseek",
-    "description": "No description",
-    "detected_stack": [
-      "Standard Worker"
-    ],
-    "config_file": "wrangler.tomle",
-    "discovered_at": "2026-03-17T00:07:56.737273+00:00"
-  },
-  {
-    "name": "jerdog/open-spaces-live",
-    "url": "https://github.com/jerdog/open-spaces-live",
-    "description": "Move Open Spaces to the live web",
+    "name": "ben-vargas/obsidian-vectorize-mcp",
+    "url": "https://github.com/ben-vargas/obsidian-vectorize-mcp",
+    "description": "Obsidian Vectorize (obvec) - Serverless Vector Search with MCP for your Obsidian notes",
     "detected_stack": [
       "Hono"
     ],
-    "config_file": "wrangler.jsonc-example",
-    "discovered_at": "2026-03-17T00:07:57.893401+00:00"
+    "config_file": "wrangler.toml.upgrade",
+    "discovered_at": "2026-03-18T00:08:31.751250+00:00"
   },
   {
-    "name": "Shoytanbaba99/The-Begging-From-The-Beginning",
-    "url": "https://github.com/Shoytanbaba99/The-Begging-From-The-Beginning",
-    "description": "A PHP & JavaScript based idle clicker game, I created for my university project.",
+    "name": "HilaryTorn/ThoughtGuards",
+    "url": "https://github.com/HilaryTorn/ThoughtGuards",
+    "description": "A real-time dashboard monitoring AI chain-of-thought traces for manipulative patterns, deception, and reward hacking.",
     "detected_stack": [
       "Standard Worker"
     ],
-    "config_file": "wrangler.jsonc.fm",
-    "discovered_at": "2026-03-17T00:07:59.045986+00:00"
-  },
-  {
-    "name": "humanjesse/textarttools-mcp",
-    "url": "https://github.com/humanjesse/textarttools-mcp",
-    "description": "No description",
-    "detected_stack": [
-      "Standard Worker"
-    ],
-    "config_file": "wrangler.toml",
-    "discovered_at": "2026-03-17T00:08:00.204282+00:00"
-  },
-  {
-    "name": "wilsonhj/ShibaSoftwarePOC",
-    "url": "https://github.com/wilsonhj/ShibaSoftwarePOC",
-    "description": "No description",
-    "detected_stack": [
-      "Next.js",
-      "Radix",
-      "Tailwind"
-    ],
-    "config_file": "wrangler.toml",
-    "discovered_at": "2026-03-17T00:08:01.375075+00:00"
-  },
-  {
-    "name": "yude/egg-replier",
-    "url": "https://github.com/yude/egg-replier",
-    "description": "Automatically replies \ud83d\udc23\ud83d\udc23\ud83d\udc23 via e-mail",
-    "detected_stack": [
-      "Standard Worker"
-    ],
-    "config_file": "wrangler.toml",
-    "discovered_at": "2026-03-17T00:08:02.546918+00:00"
+    "config_file": "wrangler.toml.old",
+    "discovered_at": "2026-03-18T00:08:33.066975+00:00"
   },
   {
     "name": "and3rn3t/couple-connect",
     "url": "https://github.com/and3rn3t/couple-connect",
     "description": "Accountability app for couples to use to identify areas for improvement",
     "detected_stack": [
-      "Next.js",
-      "Radix",
-      "Tailwind"
-    ],
-    "config_file": "wrangler.toml.pages",
-    "discovered_at": "2026-03-17T00:08:03.700652+00:00"
-  },
-  {
-    "name": "demian-ilnytskyi/portfolio",
-    "url": "https://github.com/demian-ilnytskyi/portfolio",
-    "description": "My Portfolio",
-    "detected_stack": [
-      "Next.js",
-      "Tailwind"
-    ],
-    "config_file": "wrangler.toml",
-    "discovered_at": "2026-03-17T00:08:04.881401+00:00"
-  },
-  {
-    "name": "jump3rhood/medium-backend",
-    "url": "https://github.com/jump3rhood/medium-backend",
-    "description": "Backend for a medium like blogging web app",
-    "detected_stack": [
-      "Prisma",
-      "Hono"
-    ],
-    "config_file": "wrangler.jsonc.example",
-    "discovered_at": "2026-03-17T00:08:06.070325+00:00"
-  },
-  {
-    "name": "Semsemq/metamask-sdk",
-    "url": "https://github.com/Semsemq/metamask-sdk",
-    "description": "my domain",
-    "detected_stack": [
-      "Standard Worker"
-    ],
-    "config_file": "wrangler.toml",
-    "discovered_at": "2026-03-17T00:08:07.245638+00:00"
-  },
-  {
-    "name": "Vyr-e/synaxis",
-    "url": "https://github.com/Vyr-e/synaxis",
-    "description": "Modern event platform reimagining how communities discover and create meaningful gatherings.",
-    "detected_stack": [
-      "Standard Worker"
-    ],
-    "config_file": "wrangler.jsonc.template",
-    "discovered_at": "2026-03-17T00:08:08.438549+00:00"
-  },
-  {
-    "name": "plugbts/statpedia-08",
-    "url": "https://github.com/plugbts/statpedia-08",
-    "description": "No description",
-    "detected_stack": [
-      "Drizzle",
-      "Next.js",
-      "Radix",
       "Tailwind",
-      "Postgres"
+      "Next.js",
+      "Radix"
     ],
-    "config_file": "sportsgameodds-wrangler.toml.bak",
-    "discovered_at": "2026-03-17T00:08:09.674395+00:00"
+    "config_file": "wrangler.toml.workers-backup",
+    "discovered_at": "2026-03-18T00:08:34.454571+00:00"
   },
   {
-    "name": "Rexezuge-CloudflareWorkers/Mail-Meow",
-    "url": "https://github.com/Rexezuge-CloudflareWorkers/Mail-Meow",
-    "description": "No description",
+    "name": "bmanojlovic/terraform-state-manager",
+    "url": "https://github.com/bmanojlovic/terraform-state-manager",
+    "description": "Terraform http endpoint implementation based on Cloudflare R2 and D1 database",
     "detected_stack": [
       "Hono"
     ],
-    "config_file": "wrangler.jsonc.template",
-    "discovered_at": "2026-03-17T00:08:10.835658+00:00"
+    "config_file": "wrangler.toml-example",
+    "discovered_at": "2026-03-18T00:08:35.746543+00:00"
   },
   {
-    "name": "tanggalnya/load-balancer-worker",
-    "url": "https://github.com/tanggalnya/load-balancer-worker",
-    "description": "No description",
+    "name": "Joeljm1/rent-a-ride",
+    "url": "https://github.com/Joeljm1/rent-a-ride",
+    "description": "https://car-rental.joeltest.workers.dev/",
     "detected_stack": [
-      "Standard Worker"
-    ],
-    "config_file": "wrangler.toml",
-    "discovered_at": "2026-03-17T00:08:12.082230+00:00"
-  },
-  {
-    "name": "amritgaur2020/Taste_paradise_production",
-    "url": "https://github.com/amritgaur2020/Taste_paradise_production",
-    "description": "No description",
-    "detected_stack": [
-      "Standard Worker"
-    ],
-    "config_file": "wrangler.toml",
-    "discovered_at": "2026-03-17T00:08:13.219821+00:00"
-  },
-  {
-    "name": "amm10090/CFr2-webdav",
-    "url": "https://github.com/amm10090/CFr2-webdav",
-    "description": "\u4f7f\u7528 Cloudflare Workers \u548c R2 \u5b9e\u73b0\u4e86\u4e00\u4e2a\u517c\u5bb9 WebDAV \u7684\u670d\u52a1\u5668",
-    "detected_stack": [
-      "Tailwind"
-    ],
-    "config_file": "wrangler.toml.template",
-    "discovered_at": "2026-03-17T00:08:14.379539+00:00"
-  },
-  {
-    "name": "emily-flambe/list-cutter",
-    "url": "https://github.com/emily-flambe/list-cutter",
-    "description": "God forbid a girl just want to cut some lists",
-    "detected_stack": [
-      "Standard Worker"
-    ],
-    "config_file": "wrangler.toml.broken",
-    "discovered_at": "2026-03-17T00:08:15.552323+00:00"
-  },
-  {
-    "name": "JeffOfTheSixPaths/NNS-Real-Time-Translation",
-    "url": "https://github.com/JeffOfTheSixPaths/NNS-Real-Time-Translation",
-    "description": "No description",
-    "detected_stack": [
-      "Standard Worker"
-    ],
-    "config_file": "wrangler.toml",
-    "discovered_at": "2026-03-17T00:08:16.709762+00:00"
-  },
-  {
-    "name": "ahixon/basic-slide-editor",
-    "url": "https://github.com/ahixon/basic-slide-editor",
-    "description": "Slide editor example used for an interview",
-    "detected_stack": [
-      "Tailwind"
-    ],
-    "config_file": "wrangler.toml",
-    "discovered_at": "2026-03-17T00:08:17.859360+00:00"
-  },
-  {
-    "name": "genghao880-del/Strong-Password",
-    "url": "https://github.com/genghao880-del/Strong-Password",
-    "description": "No description",
-    "detected_stack": [
-      "Tailwind"
-    ],
-    "config_file": "wrangler.toml",
-    "discovered_at": "2026-03-17T00:08:19.031364+00:00"
-  },
-  {
-    "name": "ropean/scripts",
-    "url": "https://github.com/ropean/scripts",
-    "description": "A curated collection of production-ready scripts and code examples for modern web development",
-    "detected_stack": [
-      "Standard Worker"
-    ],
-    "config_file": "wrangler.toml.removed",
-    "discovered_at": "2026-03-17T00:08:20.199588+00:00"
-  },
-  {
-    "name": "artsy/artsy-eigen-web-association",
-    "url": "https://github.com/artsy/artsy-eigen-web-association",
-    "description": "This repo manages apple-app-site-association and assetlinks.json files, needed for iOS Handoff/Universal Links/Shared Web Credentials to work.",
-    "detected_stack": [
-      "Standard Worker"
-    ],
-    "config_file": "wrangler.toml",
-    "discovered_at": "2026-03-17T00:08:21.353334+00:00"
-  },
-  {
-    "name": "Atduyar/Evrenomi-frontend",
-    "url": "https://github.com/Atduyar/Evrenomi-frontend",
-    "description": "Evrenomi.com Blog sitesi (aktif de\u011fil)",
-    "detected_stack": [
-      "Astro",
-      "Tailwind"
-    ],
-    "config_file": "wrangler.toml",
-    "discovered_at": "2026-03-17T00:08:22.556178+00:00"
-  },
-  {
-    "name": "edginer/eddiner",
-    "url": "https://github.com/edginer/eddiner",
-    "description": "Anonymous BBS system running on Cloudflare Workers",
-    "detected_stack": [
-      "Standard Worker"
-    ],
-    "config_file": "wrangler.toml.sample",
-    "discovered_at": "2026-03-17T00:08:23.728772+00:00"
-  },
-  {
-    "name": "LeroyRenArt/leroyren.art",
-    "url": "https://github.com/LeroyRenArt/leroyren.art",
-    "description": "Spiral Grid TempleStart \u00b7 Home of Leroy Ren",
-    "detected_stack": [
-      "Next.js"
-    ],
-    "config_file": "wrangler.toml.bak.20260109-125029",
-    "discovered_at": "2026-03-17T00:08:24.897096+00:00"
-  },
-  {
-    "name": "Utoaaaa/gyro-error-calculator",
-    "url": "https://github.com/Utoaaaa/gyro-error-calculator",
-    "description": "Gyro Error Calculator is a web app for accurate gyro error and astronomical navigation calculations, built with TypeScript, React, and Astro.",
-    "detected_stack": [
-      "Astro",
-      "Radix",
-      "Next.js",
-      "Tailwind"
-    ],
-    "config_file": "wrangler.toml",
-    "discovered_at": "2026-03-17T00:08:26.081250+00:00"
-  },
-  {
-    "name": "adigannat/website",
-    "url": "https://github.com/adigannat/website",
-    "description": "No description",
-    "detected_stack": [
-      "Tailwind"
-    ],
-    "config_file": "wrangler.toml",
-    "discovered_at": "2026-03-17T00:08:27.232594+00:00"
-  },
-  {
-    "name": "acartag7/health-arnold",
-    "url": "https://github.com/acartag7/health-arnold",
-    "description": "No description",
-    "detected_stack": [
-      "Next.js",
-      "Radix",
+      "Hono",
       "Tailwind",
-      "Shadcn"
-    ],
-    "config_file": "wrangler.toml",
-    "discovered_at": "2026-03-17T00:08:28.395776+00:00"
-  },
-  {
-    "name": "dexaai/huberman-people-visualization",
-    "url": "https://github.com/dexaai/huberman-people-visualization",
-    "description": "Graph visualization for people mentioned on Huberman Lab",
-    "detected_stack": [
-      "Remix"
-    ],
-    "config_file": "wrangler.toml",
-    "discovered_at": "2026-03-17T00:08:29.562047+00:00"
-  },
-  {
-    "name": "ocodista/better-shell",
-    "url": "https://github.com/ocodista/better-shell",
-    "description": "One command to set up a modern terminal",
-    "detected_stack": [
-      "Standard Worker"
-    ],
-    "config_file": "wrangler.toml",
-    "discovered_at": "2026-03-17T00:08:30.699655+00:00"
-  },
-  {
-    "name": "illumin8ca/illumin8cms",
-    "url": "https://github.com/illumin8ca/illumin8cms",
-    "description": "No description",
-    "detected_stack": [
-      "Standard Worker"
-    ],
-    "config_file": "wrangler.toml.template",
-    "discovered_at": "2026-03-17T00:08:31.859147+00:00"
-  },
-  {
-    "name": "earslanyunus/Personal-website",
-    "url": "https://github.com/earslanyunus/Personal-website",
-    "description": "No description",
-    "detected_stack": [
-      "Tailwind"
-    ],
-    "config_file": "wrangler.toml",
-    "discovered_at": "2026-03-17T00:08:33.015113+00:00"
-  },
-  {
-    "name": "SaplingTeam/borrower-service",
-    "url": "https://github.com/SaplingTeam/borrower-service",
-    "description": "Sapling Borrower Service",
-    "detected_stack": [
-      "Standard Worker"
-    ],
-    "config_file": "wrangler.toml",
-    "discovered_at": "2026-03-17T00:08:34.210313+00:00"
-  },
-  {
-    "name": "ummugulsunn/cf_ai_supportbot",
-    "url": "https://github.com/ummugulsunn/cf_ai_supportbot",
-    "description": "AI-powered support bot built on Cloudflare infrastructure with Llama 3.3, Workflows, and real-time chat",
-    "detected_stack": [
-      "Workers AI"
-    ],
-    "config_file": "wrangler.toml",
-    "discovered_at": "2026-03-17T00:08:35.364758+00:00"
-  },
-  {
-    "name": "FabianMorag/resend-service-cloudflare",
-    "url": "https://github.com/FabianMorag/resend-service-cloudflare",
-    "description": "No description",
-    "detected_stack": [
-      "Hono"
-    ],
-    "config_file": "wrangler.toml.demo",
-    "discovered_at": "2026-03-17T00:08:36.508890+00:00"
-  },
-  {
-    "name": "MichaelC001/y-cli-M",
-    "url": "https://github.com/MichaelC001/y-cli-M",
-    "description": "Terminal AI Chat App base on luohy15/y-cli",
-    "detected_stack": [
-      "Standard Worker"
-    ],
-    "config_file": "wrangler.toml.sample",
-    "discovered_at": "2026-03-17T00:08:37.694772+00:00"
-  },
-  {
-    "name": "HouseOfAngular/angular-love-advent-2024",
-    "url": "https://github.com/HouseOfAngular/angular-love-advent-2024",
-    "description": "No description",
-    "detected_stack": [
-      "Tailwind"
-    ],
-    "config_file": "wrangler.toml",
-    "discovered_at": "2026-03-17T00:08:38.843869+00:00"
-  },
-  {
-    "name": "kanium3/sukima-bot",
-    "url": "https://github.com/kanium3/sukima-bot",
-    "description": "A Discord BOT for embody touhou",
-    "detected_stack": [
-      "Hono"
-    ],
-    "config_file": "wrangler.jsonc.template",
-    "discovered_at": "2026-03-17T00:08:40.013405+00:00"
-  },
-  {
-    "name": "adamgen/cappuccinio",
-    "url": "https://github.com/adamgen/cappuccinio",
-    "description": "No description",
-    "detected_stack": [
-      "Tailwind"
-    ],
-    "config_file": "wrangler.toml",
-    "discovered_at": "2026-03-17T00:08:41.182702+00:00"
-  },
-  {
-    "name": "bherila/2020-website",
-    "url": "https://github.com/bherila/2020-website",
-    "description": "No description",
-    "detected_stack": [
-      "Prisma",
-      "Next.js",
       "Radix",
-      "Tailwind"
+      "Drizzle"
     ],
-    "config_file": "wrangler.toml",
-    "discovered_at": "2026-03-17T00:08:42.344761+00:00"
+    "config_file": "wrangler.toml.temp",
+    "discovered_at": "2026-03-18T00:08:37.024186+00:00"
   },
   {
-    "name": "ryuya0124/MochiLog-Web",
-    "url": "https://github.com/ryuya0124/MochiLog-Web",
-    "description": "No description",
-    "detected_stack": [
-      "Hono"
-    ],
-    "config_file": "wrangler.toml",
-    "discovered_at": "2026-03-17T00:08:43.520661+00:00"
-  },
-  {
-    "name": "bilgon32/brunogoncalvesdev",
-    "url": "https://github.com/bilgon32/brunogoncalvesdev",
-    "description": "No description",
+    "name": "toolate28/SpiralSafe",
+    "url": "https://github.com/toolate28/SpiralSafe",
+    "description": "SpiralSafe is self-maintaining, inherently coherent reposystem | Documentation, code, and physical hardware in Emergent Harmony",
     "detected_stack": [
       "Standard Worker"
     ],
-    "config_file": "wrangler.toml",
-    "discovered_at": "2026-03-17T00:08:44.669347+00:00"
-  },
-  {
-    "name": "alexraskin/goShareX",
-    "url": "https://github.com/alexraskin/goShareX",
-    "description": "ShareX Cloudflare Worker",
-    "detected_stack": [
-      "Standard Worker"
-    ],
-    "config_file": "wrangler.jsonc.example",
-    "discovered_at": "2026-03-17T00:08:45.835469+00:00"
-  },
-  {
-    "name": "kelvinzer0/elygov-backend",
-    "url": "https://github.com/kelvinzer0/elygov-backend",
-    "description": "No description",
-    "detected_stack": [
-      "Drizzle",
-      "Hono"
-    ],
-    "config_file": "wrangler.jsonc.template",
-    "discovered_at": "2026-03-17T00:08:46.979397+00:00"
-  },
-  {
-    "name": "cloakquillresearch-2026/neurobotanica_mvp",
-    "url": "https://github.com/cloakquillresearch-2026/neurobotanica_mvp",
-    "description": "No description",
-    "detected_stack": [
-      "Standard Worker"
-    ],
-    "config_file": "wrangler.toml.pre_d1",
-    "discovered_at": "2026-03-17T00:08:48.148385+00:00"
-  },
-  {
-    "name": "LadislavMokry/A11-Moodboard",
-    "url": "https://github.com/LadislavMokry/A11-Moodboard",
-    "description": "No description",
-    "detected_stack": [
-      "Radix",
-      "Tailwind"
-    ],
-    "config_file": "wrangler.toml",
-    "discovered_at": "2026-03-17T00:08:49.305554+00:00"
+    "config_file": "wrangler.toml.fixed",
+    "discovered_at": "2026-03-18T00:08:38.288688+00:00"
   },
   {
     "name": "AI-Makerspace/AI-Makerspace",
@@ -988,38 +279,608 @@
       "Standard Worker"
     ],
     "config_file": "wrangler.toml.template",
-    "discovered_at": "2026-03-17T00:08:50.432599+00:00"
+    "discovered_at": "2026-03-18T00:08:39.589008+00:00"
   },
   {
-    "name": "midnight480/saga-bus-navigator",
-    "url": "https://github.com/midnight480/saga-bus-navigator",
+    "name": "Rishi86288/cc",
+    "url": "https://github.com/Rishi86288/cc",
+    "description": "No description",
+    "detected_stack": [
+      "Hono",
+      "Tailwind",
+      "Radix"
+    ],
+    "config_file": "wrangler.toml",
+    "discovered_at": "2026-03-18T00:08:40.868040+00:00"
+  },
+  {
+    "name": "ropean/scripts",
+    "url": "https://github.com/ropean/scripts",
+    "description": "A curated collection of production-ready scripts and code examples for modern web development",
+    "detected_stack": [
+      "Standard Worker"
+    ],
+    "config_file": "wrangler.toml.removed",
+    "discovered_at": "2026-03-18T00:08:42.143185+00:00"
+  },
+  {
+    "name": "ThePrimeagen/public-edging",
+    "url": "https://github.com/ThePrimeagen/public-edging",
     "description": "No description",
     "detected_stack": [
       "Standard Worker"
     ],
     "config_file": "wrangler.toml",
-    "discovered_at": "2026-03-17T00:08:51.598238+00:00"
+    "discovered_at": "2026-03-18T00:08:43.461731+00:00"
   },
   {
-    "name": "syncup-ready/sync-demo-template",
-    "url": "https://github.com/syncup-ready/sync-demo-template",
-    "description": "HTML site template for demo generation system",
+    "name": "LordPixma/DCOM360",
+    "url": "https://github.com/LordPixma/DCOM360",
+    "description": "Global Disaster Alert Dashboard",
     "detected_stack": [
-      "Next.js",
-      "Tailwind"
+      "Standard Worker"
     ],
-    "config_file": "wrangler.toml.txt",
-    "discovered_at": "2026-03-17T00:08:52.763989+00:00"
+    "config_file": "wrangler.toml.bak.1756936516",
+    "discovered_at": "2026-03-18T00:08:44.775811+00:00"
   },
   {
-    "name": "yosiwizman/dyad-llm-proxy",
-    "url": "https://github.com/yosiwizman/dyad-llm-proxy",
-    "description": "Cloudflare Worker proxy for OpenRouter API - enables secure LLM access in Dyad web preview",
+    "name": "kaikyou76/small_ship",
+    "url": "https://github.com/kaikyou76/small_ship",
+    "description": "No description",
+    "detected_stack": [
+      "Standard Worker"
+    ],
+    "config_file": "wrangler.jsonc.md",
+    "discovered_at": "2026-03-18T00:08:46.106088+00:00"
+  },
+  {
+    "name": "antpb/XR-Publisher-API",
+    "url": "https://github.com/antpb/XR-Publisher-API",
+    "description": "XR Publisher api",
+    "detected_stack": [
+      "OpenAI"
+    ],
+    "config_file": "wrangler.toml.copy",
+    "discovered_at": "2026-03-18T00:08:47.530089+00:00"
+  },
+  {
+    "name": "mggger/WebCraft",
+    "url": "https://github.com/mggger/WebCraft",
+    "description": "Web builder AI-Agent ",
+    "detected_stack": [
+      "Tailwind",
+      "Next.js",
+      "Radix"
+    ],
+    "config_file": "wrangler.toml",
+    "discovered_at": "2026-03-18T00:08:48.865737+00:00"
+  },
+  {
+    "name": "meso/llmap",
+    "url": "https://github.com/meso/llmap",
+    "description": "No description",
+    "detected_stack": [
+      "Standard Worker"
+    ],
+    "config_file": "wrangler.toml.tmpl",
+    "discovered_at": "2026-03-18T00:08:50.120989+00:00"
+  },
+  {
+    "name": "Bonzokoles/my-bonzo-ai-blog",
+    "url": "https://github.com/Bonzokoles/my-bonzo-ai-blog",
+    "description": "MyBonzo AI Blog - Blog o sztucznej inteligencji dla mybonzoaiblog.com",
+    "detected_stack": [
+      "Tailwind",
+      "Astro"
+    ],
+    "config_file": "worker_proxy_wrangler.toml.md",
+    "discovered_at": "2026-03-18T00:08:51.427951+00:00"
+  },
+  {
+    "name": "theoneand33/unblocked-games",
+    "url": "https://github.com/theoneand33/unblocked-games",
+    "description": "A cool unblocked games website",
+    "detected_stack": [
+      "Tailwind",
+      "Astro"
+    ],
+    "config_file": "wrangler.jsonc",
+    "discovered_at": "2026-03-18T00:08:52.743816+00:00"
+  },
+  {
+    "name": "rmrfslashbin/discord-status-bot",
+    "url": "https://github.com/rmrfslashbin/discord-status-bot",
+    "description": "Discord bot running as a Cloudflare Worker that uses a Large Language Model (LLM) to analyze user status updates (provided via slash commands or Direct Messages) and display them in a dynamic, visually appealing dashboard format within a designated Discord channel. Each status update posts a new message, creating a timeline.",
+    "detected_stack": [
+      "Standard Worker"
+    ],
+    "config_file": "wrangler.toml.dist",
+    "discovered_at": "2026-03-18T00:08:54.064071+00:00"
+  },
+  {
+    "name": "Logos-Flux/cloudflare-multiagent",
+    "url": "https://github.com/Logos-Flux/cloudflare-multiagent",
+    "description": "The Model Configuration System enables flexible, admin-managed AI model configurations without requiring code changes.",
+    "detected_stack": [
+      "Standard Worker"
+    ],
+    "config_file": "wrangler.toml.bak",
+    "discovered_at": "2026-03-18T00:08:55.329005+00:00"
+  },
+  {
+    "name": "ChainTrail/algorand-scam-detector",
+    "url": "https://github.com/ChainTrail/algorand-scam-detector",
+    "description": "Algorand Scam Detector is an easy to use API to identify whether an Algorand transaction is a known scam. Created by Chaintrail - Uncovering Algorand",
     "detected_stack": [
       "Standard Worker"
     ],
     "config_file": "wrangler.toml",
-    "discovered_at": "2026-03-17T00:08:53.914606+00:00"
+    "discovered_at": "2026-03-18T00:08:56.657513+00:00"
+  },
+  {
+    "name": "cloudflare/privacypass-origin",
+    "url": "https://github.com/cloudflare/privacypass-origin",
+    "description": "A TypeScript Origin for the Privacy Pass Authentication Protocol",
+    "detected_stack": [
+      "Standard Worker"
+    ],
+    "config_file": "wrangler.toml",
+    "discovered_at": "2026-03-18T00:08:57.994928+00:00"
+  },
+  {
+    "name": "Frexida/mas",
+    "url": "https://github.com/Frexida/mas",
+    "description": "No description",
+    "detected_stack": [
+      "Standard Worker"
+    ],
+    "config_file": "wrangler.toml.pages",
+    "discovered_at": "2026-03-18T00:08:59.299090+00:00"
+  },
+  {
+    "name": "rbbydotdev/opal",
+    "url": "https://github.com/rbbydotdev/opal",
+    "description": "A git enabled local-first browser-first markdown workspace wysiwyg editor and publisher. Built with mdx-editor, code mirror 6, react, shadcn and typescript ",
+    "detected_stack": [
+      "Hono",
+      "Tailwind",
+      "Radix"
+    ],
+    "config_file": "wrangler.toml",
+    "discovered_at": "2026-03-18T00:09:00.579652+00:00"
+  },
+  {
+    "name": "gskril/frames",
+    "url": "https://github.com/gskril/frames",
+    "description": "A collection of Farcaster frames",
+    "detected_stack": [
+      "Hono"
+    ],
+    "config_file": "wrangler.toml",
+    "discovered_at": "2026-03-18T00:09:01.900994+00:00"
+  },
+  {
+    "name": "plugbts/statpedia-08",
+    "url": "https://github.com/plugbts/statpedia-08",
+    "description": "No description",
+    "detected_stack": [
+      "Next.js",
+      "Radix",
+      "Drizzle",
+      "Postgres",
+      "Tailwind"
+    ],
+    "config_file": "optimized-wrangler.toml.bak",
+    "discovered_at": "2026-03-18T00:09:03.292032+00:00"
+  },
+  {
+    "name": "ChinoArror/testdeepseek",
+    "url": "https://github.com/ChinoArror/testdeepseek",
+    "description": "No description",
+    "detected_stack": [
+      "Standard Worker"
+    ],
+    "config_file": "wrangler.tomle",
+    "discovered_at": "2026-03-18T00:09:04.586626+00:00"
+  },
+  {
+    "name": "maretol/maretol-base",
+    "url": "https://github.com/maretol/maretol-base",
+    "description": "Maretol Base \u306e\u30b3\u30fc\u30c9",
+    "detected_stack": [
+      "Standard Worker"
+    ],
+    "config_file": "wrangler.toml.old",
+    "discovered_at": "2026-03-18T00:09:05.917326+00:00"
+  },
+  {
+    "name": "gudzpoz/gfStory",
+    "url": "https://github.com/gudzpoz/gfStory",
+    "description": "\u5267\u60c5\u7f16\u8f91\u5668\uff1f",
+    "detected_stack": [
+      "Standard Worker"
+    ],
+    "config_file": "wrangler.toml",
+    "discovered_at": "2026-03-18T00:09:07.228094+00:00"
+  },
+  {
+    "name": "jmbish04/colby-remodel-agent",
+    "url": "https://github.com/jmbish04/colby-remodel-agent",
+    "description": "No description",
+    "detected_stack": [
+      "OpenAI",
+      "Tailwind",
+      "Radix",
+      "Astro"
+    ],
+    "config_file": "wrangler.jsonc.backup",
+    "discovered_at": "2026-03-18T00:09:08.524817+00:00"
+  },
+  {
+    "name": "TakashiKakizoe1109/cloudflare_email_workers_base",
+    "url": "https://github.com/TakashiKakizoe1109/cloudflare_email_workers_base",
+    "description": "Will be used as a base for writing scripts for Cloudflare Email Workers.",
+    "detected_stack": [
+      "Standard Worker"
+    ],
+    "config_file": "wrangler.toml.dist",
+    "discovered_at": "2026-03-18T00:09:09.872780+00:00"
+  },
+  {
+    "name": "orbiterhost/orbiter-website-worker",
+    "url": "https://github.com/orbiterhost/orbiter-website-worker",
+    "description": "No description",
+    "detected_stack": [
+      "Hono"
+    ],
+    "config_file": "wrangler.toml",
+    "discovered_at": "2026-03-18T00:09:11.196979+00:00"
+  },
+  {
+    "name": "squirrelsoft-dev/cloudwerk",
+    "url": "https://github.com/squirrelsoft-dev/cloudwerk",
+    "description": "The full-stack framework for Cloudflare Workers",
+    "detected_stack": [
+      "Standard Worker"
+    ],
+    "config_file": "wrangler.toml.tmpl",
+    "discovered_at": "2026-03-18T00:09:12.511395+00:00"
+  },
+  {
+    "name": "yude/egg-replier",
+    "url": "https://github.com/yude/egg-replier",
+    "description": "Automatically replies \ud83d\udc23\ud83d\udc23\ud83d\udc23 via e-mail",
+    "detected_stack": [
+      "Standard Worker"
+    ],
+    "config_file": "wrangler.toml",
+    "discovered_at": "2026-03-18T00:09:13.814699+00:00"
+  },
+  {
+    "name": "zaherg/cloudflare-workers-prisma-postgres-example",
+    "url": "https://github.com/zaherg/cloudflare-workers-prisma-postgres-example",
+    "description": "No description",
+    "detected_stack": [
+      "Hono",
+      "Prisma",
+      "Postgres"
+    ],
+    "config_file": "wrangler.toml",
+    "discovered_at": "2026-03-18T00:09:15.116157+00:00"
+  },
+  {
+    "name": "jaka2m/botak",
+    "url": "https://github.com/jaka2m/botak",
+    "description": "No description",
+    "detected_stack": [
+      "Standard Worker"
+    ],
+    "config_file": "wrangler.tomll",
+    "discovered_at": "2026-03-18T00:09:16.399860+00:00"
+  },
+  {
+    "name": "servedsmart/servedsmart.top",
+    "url": "https://github.com/servedsmart/servedsmart.top",
+    "description": "No description",
+    "detected_stack": [
+      "Tailwind"
+    ],
+    "config_file": "wrangler.toml",
+    "discovered_at": "2026-03-18T00:09:17.733522+00:00"
+  },
+  {
+    "name": "emily-flambe/list-cutter",
+    "url": "https://github.com/emily-flambe/list-cutter",
+    "description": "God forbid a girl just want to cut some lists",
+    "detected_stack": [
+      "Standard Worker"
+    ],
+    "config_file": "wrangler.toml.broken",
+    "discovered_at": "2026-03-18T00:09:19.046487+00:00"
+  },
+  {
+    "name": "edginer/eddiner",
+    "url": "https://github.com/edginer/eddiner",
+    "description": "Anonymous BBS system running on Cloudflare Workers",
+    "detected_stack": [
+      "Standard Worker"
+    ],
+    "config_file": "wrangler.toml.sample",
+    "discovered_at": "2026-03-18T00:09:20.351601+00:00"
+  },
+  {
+    "name": "LeroyRenArt/leroyren.art",
+    "url": "https://github.com/LeroyRenArt/leroyren.art",
+    "description": "Spiral Grid TempleStart \u00b7 Home of Leroy Ren",
+    "detected_stack": [
+      "Next.js"
+    ],
+    "config_file": "wrangler.toml.bak.20260107-164732",
+    "discovered_at": "2026-03-18T00:09:21.699205+00:00"
+  },
+  {
+    "name": "mhingston/continue-auth-worker",
+    "url": "https://github.com/mhingston/continue-auth-worker",
+    "description": "A Cloudflare Worker proxy for multi-user code assistance using Continue",
+    "detected_stack": [
+      "Standard Worker"
+    ],
+    "config_file": "wrangler.toml",
+    "discovered_at": "2026-03-18T00:09:23.004288+00:00"
+  },
+  {
+    "name": "tanggalnya/load-balancer-worker",
+    "url": "https://github.com/tanggalnya/load-balancer-worker",
+    "description": "No description",
+    "detected_stack": [
+      "Standard Worker"
+    ],
+    "config_file": "wrangler.toml",
+    "discovered_at": "2026-03-18T00:09:24.300261+00:00"
+  },
+  {
+    "name": "prompt/avatars.dog",
+    "url": "https://github.com/prompt/avatars.dog",
+    "description": "Fetch Bluesky avatars with a single URL.",
+    "detected_stack": [
+      "Standard Worker"
+    ],
+    "config_file": "wrangler.toml",
+    "discovered_at": "2026-03-18T00:09:25.609449+00:00"
+  },
+  {
+    "name": "longevitymike/qrcode",
+    "url": "https://github.com/longevitymike/qrcode",
+    "description": "No description",
+    "detected_stack": [
+      "Standard Worker"
+    ],
+    "config_file": "wrangler.toml",
+    "discovered_at": "2026-03-18T00:09:26.941305+00:00"
+  },
+  {
+    "name": "jimmyclchu/apple-music-now-playing",
+    "url": "https://github.com/jimmyclchu/apple-music-now-playing",
+    "description": "Share your Apple Music now playing with SVG widget and API.",
+    "detected_stack": [
+      "Next.js"
+    ],
+    "config_file": "wrangler.jsonc.example",
+    "discovered_at": "2026-03-18T00:09:28.250635+00:00"
+  },
+  {
+    "name": "artsy/artsy-eigen-web-association",
+    "url": "https://github.com/artsy/artsy-eigen-web-association",
+    "description": "This repo manages apple-app-site-association and assetlinks.json files, needed for iOS Handoff/Universal Links/Shared Web Credentials to work.",
+    "detected_stack": [
+      "Standard Worker"
+    ],
+    "config_file": "wrangler.toml",
+    "discovered_at": "2026-03-18T00:09:29.588301+00:00"
+  },
+  {
+    "name": "appurist/artsite",
+    "url": "https://github.com/appurist/artsite",
+    "description": "WORK IN PROGRESS: Source for artsite.ca: an easy-to-use website for artist and photographer portfolios, with simple upload and options.",
+    "detected_stack": [
+      "Standard Worker"
+    ],
+    "config_file": "wrangler.toml.backup",
+    "discovered_at": "2026-03-18T00:09:30.893641+00:00"
+  },
+  {
+    "name": "alessandroste/mercury",
+    "url": "https://github.com/alessandroste/mercury",
+    "description": "A serverless email server based on Cloudflare Workers supporting JMAP",
+    "detected_stack": [
+      "Standard Worker"
+    ],
+    "config_file": "wrangler.jsonc.tpl",
+    "discovered_at": "2026-03-18T00:09:32.209215+00:00"
+  },
+  {
+    "name": "KevinKiarie1/Route-Engine",
+    "url": "https://github.com/KevinKiarie1/Route-Engine",
+    "description": "No description",
+    "detected_stack": [
+      "Standard Worker"
+    ],
+    "config_file": "wrangler.tomlm.txt",
+    "discovered_at": "2026-03-18T00:09:33.494662+00:00"
+  },
+  {
+    "name": "gamalan/doit-tracker",
+    "url": "https://github.com/gamalan/doit-tracker",
+    "description": "Guilt-free habit tracker",
+    "detected_stack": [
+      "Tailwind",
+      "Drizzle"
+    ],
+    "config_file": "wrangler.jsonc.example",
+    "discovered_at": "2026-03-18T00:09:34.829509+00:00"
+  },
+  {
+    "name": "Utoaaaa/gyro-error-calculator",
+    "url": "https://github.com/Utoaaaa/gyro-error-calculator",
+    "description": "Gyro Error Calculator is a web app for accurate gyro error and astronomical navigation calculations, built with TypeScript, React, and Astro.",
+    "detected_stack": [
+      "Tailwind",
+      "Next.js",
+      "Radix",
+      "Astro"
+    ],
+    "config_file": "wrangler.toml",
+    "discovered_at": "2026-03-18T00:09:36.153791+00:00"
+  },
+  {
+    "name": "entropyconquers/expo-update-server-x",
+    "url": "https://github.com/entropyconquers/expo-update-server-x",
+    "description": "No description",
+    "detected_stack": [
+      "Hono"
+    ],
+    "config_file": "wrangler.toml",
+    "discovered_at": "2026-03-18T00:09:37.453409+00:00"
+  },
+  {
+    "name": "kedster/screen-recorder",
+    "url": "https://github.com/kedster/screen-recorder",
+    "description": "No description",
+    "detected_stack": [
+      "Standard Worker"
+    ],
+    "config_file": "wrangler.toml",
+    "discovered_at": "2026-03-18T00:09:38.786211+00:00"
+  },
+  {
+    "name": "kevmo/workreform-store",
+    "url": "https://github.com/kevmo/workreform-store",
+    "description": "The store at store.workreform.us",
+    "detected_stack": [
+      "Tailwind",
+      "Astro"
+    ],
+    "config_file": "wrangler.toml",
+    "discovered_at": "2026-03-18T00:09:40.079030+00:00"
+  },
+  {
+    "name": "yukimura-dev/sample-cfw-subrequest",
+    "url": "https://github.com/yukimura-dev/sample-cfw-subrequest",
+    "description": "CloudFlare Workers\u306e\u30b5\u30d6\u30ea\u30af\u30a8\u30b9\u30c8\u5236\u9650\u3092\u78ba\u8a8d\u3059\u308b\u305f\u3081\u306e\u30b5\u30f3\u30d7\u30eb\u30b3\u30fc\u30c9",
+    "detected_stack": [
+      "Standard Worker"
+    ],
+    "config_file": "wrangler.toml.dist",
+    "discovered_at": "2026-03-18T00:09:41.368962+00:00"
+  },
+  {
+    "name": "chris-wood/http-resource-mirror-worker",
+    "url": "https://github.com/chris-wood/http-resource-mirror-worker",
+    "description": "No description",
+    "detected_stack": [
+      "Standard Worker"
+    ],
+    "config_file": "wrangler.toml",
+    "discovered_at": "2026-03-18T00:09:42.692679+00:00"
+  },
+  {
+    "name": "earslanyunus/Personal-website",
+    "url": "https://github.com/earslanyunus/Personal-website",
+    "description": "No description",
+    "detected_stack": [
+      "Tailwind"
+    ],
+    "config_file": "wrangler.toml",
+    "discovered_at": "2026-03-18T00:09:43.994849+00:00"
+  },
+  {
+    "name": "che3000/cf-url-shortener",
+    "url": "https://github.com/che3000/cf-url-shortener",
+    "description": "\u4e00\u500b\u53ef\u4ee5\u5ba2\u88fd\u5316\u77ed\u7db2\u5740\u7684\u5c0f\u6771\u897f",
+    "detected_stack": [
+      "Tailwind"
+    ],
+    "config_file": "wrangler.toml.sample",
+    "discovered_at": "2026-03-18T00:09:45.313084+00:00"
+  },
+  {
+    "name": "bherila/2020-website",
+    "url": "https://github.com/bherila/2020-website",
+    "description": "No description",
+    "detected_stack": [
+      "Tailwind",
+      "Next.js",
+      "Radix",
+      "Prisma"
+    ],
+    "config_file": "wrangler.toml",
+    "discovered_at": "2026-03-18T00:09:46.614299+00:00"
+  },
+  {
+    "name": "hummbl-dev/hummbl-old-version",
+    "url": "https://github.com/hummbl-dev/hummbl-old-version",
+    "description": "Highly Useful Mental Model Base Language (HUMMBL)",
+    "detected_stack": [
+      "Standard Worker"
+    ],
+    "config_file": "wrangler.toml.backup",
+    "discovered_at": "2026-03-18T00:09:47.901048+00:00"
+  },
+  {
+    "name": "QuicksilverSlick/Executive-AI",
+    "url": "https://github.com/QuicksilverSlick/Executive-AI",
+    "description": "No description",
+    "detected_stack": [
+      "OpenAI",
+      "Tailwind",
+      "Astro"
+    ],
+    "config_file": "wrangler.toml.bak",
+    "discovered_at": "2026-03-18T00:09:49.211385+00:00"
+  },
+  {
+    "name": "emilpriver/portfolio-remix",
+    "url": "https://github.com/emilpriver/portfolio-remix",
+    "description": "My portfolio build in remix.run.",
+    "detected_stack": [
+      "Tailwind",
+      "Remix"
+    ],
+    "config_file": "wrangler.toml",
+    "discovered_at": "2026-03-18T00:09:50.507238+00:00"
+  },
+  {
+    "name": "renbran/interactive-sales-ca",
+    "url": "https://github.com/renbran/interactive-sales-ca",
+    "description": "No description",
+    "detected_stack": [
+      "Hono",
+      "Tailwind",
+      "Next.js",
+      "Radix"
+    ],
+    "config_file": "wrangler.toml.bak",
+    "discovered_at": "2026-03-18T00:09:51.830741+00:00"
+  },
+  {
+    "name": "mskobun/sat-water-temps",
+    "url": "https://github.com/mskobun/sat-water-temps",
+    "description": "No description",
+    "detected_stack": [
+      "Tailwind"
+    ],
+    "config_file": "wrangler.toml",
+    "discovered_at": "2026-03-18T00:09:53.115826+00:00"
+  },
+  {
+    "name": "paulirv/loclook",
+    "url": "https://github.com/paulirv/loclook",
+    "description": "No description",
+    "detected_stack": [
+      "Standard Worker"
+    ],
+    "config_file": "wrangler.toml",
+    "discovered_at": "2026-03-18T00:09:54.431786+00:00"
   },
   {
     "name": "chand1012/fedweather",
@@ -1029,18 +890,146 @@
       "Standard Worker"
     ],
     "config_file": "wrangler.toml",
-    "discovered_at": "2026-03-17T00:08:55.070366+00:00"
+    "discovered_at": "2026-03-18T00:09:55.722165+00:00"
+  },
+  {
+    "name": "lukexlau/react-router-v7-remix-auth",
+    "url": "https://github.com/lukexlau/react-router-v7-remix-auth",
+    "description": "\ud83d\udcbf Starter Kit for React Router v7 and Remix Auth on Cloudflare Workers.",
+    "detected_stack": [
+      "Drizzle",
+      "Tailwind",
+      "Remix",
+      "Radix"
+    ],
+    "config_file": "wrangler.jsonc.example",
+    "discovered_at": "2026-03-18T00:09:57.019326+00:00"
+  },
+  {
+    "name": "rksingh-dev/CARBONIQ",
+    "url": "https://github.com/rksingh-dev/CARBONIQ",
+    "description": "No description",
+    "detected_stack": [
+      "Tailwind",
+      "Next.js",
+      "Radix"
+    ],
+    "config_file": "wrangler.toml",
+    "discovered_at": "2026-03-18T00:09:58.298400+00:00"
+  },
+  {
+    "name": "EPIRjewelry/asystent_epir_new",
+    "url": "https://github.com/EPIRjewelry/asystent_epir_new",
+    "description": "EPIR-ART-JEWELLERY AI Assistant app (mirror)",
+    "detected_stack": [
+      "Standard Worker"
+    ],
+    "config_file": "wrangler.toml.backup",
+    "discovered_at": "2026-03-18T00:09:59.620926+00:00"
   },
   {
     "name": "Sher110106/pip",
     "url": "https://github.com/Sher110106/pip",
     "description": "PIp dependency resolver",
     "detected_stack": [
-      "Radix",
+      "OpenAI",
       "Tailwind",
+      "Radix"
+    ],
+    "config_file": "wrangler.toml",
+    "discovered_at": "2026-03-18T00:10:00.958417+00:00"
+  },
+  {
+    "name": "MarkSuckerberg/fortuna-svelte",
+    "url": "https://github.com/MarkSuckerberg/fortuna-svelte",
+    "description": "Rewrite of my old cosmosdex resources in svelte instead of blazor",
+    "detected_stack": [
+      "Tailwind"
+    ],
+    "config_file": "wrangler.toml",
+    "discovered_at": "2026-03-18T00:10:02.272822+00:00"
+  },
+  {
+    "name": "coldfrey/whatsapp-cloudflare-agent",
+    "url": "https://github.com/coldfrey/whatsapp-cloudflare-agent",
+    "description": "Quick start for cloudflare whatsapp agent",
+    "detected_stack": [
+      "Hono",
       "OpenAI"
     ],
     "config_file": "wrangler.toml",
-    "discovered_at": "2026-03-17T00:08:56.243031+00:00"
+    "discovered_at": "2026-03-18T00:10:03.568487+00:00"
+  },
+  {
+    "name": "ukasz123/frontend_app_playground",
+    "url": "https://github.com/ukasz123/frontend_app_playground",
+    "description": "No description",
+    "detected_stack": [
+      "Standard Worker"
+    ],
+    "config_file": "wrangler.toml-ga",
+    "discovered_at": "2026-03-18T00:10:04.847299+00:00"
+  },
+  {
+    "name": "erimeilis/store",
+    "url": "https://github.com/erimeilis/store",
+    "description": "Store system with buy-rent support via REST API",
+    "detected_stack": [
+      "Hono",
+      "Prisma"
+    ],
+    "config_file": "wrangler.toml.template",
+    "discovered_at": "2026-03-18T00:10:06.179186+00:00"
+  },
+  {
+    "name": "YouLoveAdmin/weekllymealorder",
+    "url": "https://github.com/YouLoveAdmin/weekllymealorder",
+    "description": "It is a meal order app that users can place meal order weekly. it allows quantity based price per order.",
+    "detected_stack": [
+      "Tailwind"
+    ],
+    "config_file": "wrangler.toml.template",
+    "discovered_at": "2026-03-18T00:10:07.565289+00:00"
+  },
+  {
+    "name": "liaorosemary/TuCanTravel",
+    "url": "https://github.com/liaorosemary/TuCanTravel",
+    "description": "TuCanTravel is an AI tourist guide providing you with personalized and comprehensive info of travel regions of interest.",
+    "detected_stack": [
+      "Standard Worker"
+    ],
+    "config_file": "wrangler.toml",
+    "discovered_at": "2026-03-18T00:10:08.851104+00:00"
+  },
+  {
+    "name": "nusu-github/cf-workers-s3-proxy",
+    "url": "https://github.com/nusu-github/cf-workers-s3-proxy",
+    "description": "s3(&compatible) proxy to run on Cloudflare Workers.",
+    "detected_stack": [
+      "Hono"
+    ],
+    "config_file": "wrangler.jsonc.template",
+    "discovered_at": "2026-03-18T00:10:10.150135+00:00"
+  },
+  {
+    "name": "bisodev/main-website-2025",
+    "url": "https://github.com/bisodev/main-website-2025",
+    "description": "No description",
+    "detected_stack": [
+      "Tailwind",
+      "Astro"
+    ],
+    "config_file": "wrangler.toml",
+    "discovered_at": "2026-03-18T00:10:11.468604+00:00"
+  },
+  {
+    "name": "FlipTips/OSRS-FlipTips-APP",
+    "url": "https://github.com/FlipTips/OSRS-FlipTips-APP",
+    "description": "No description",
+    "detected_stack": [
+      "Standard Worker"
+    ],
+    "config_file": "wrangler.toml.bad",
+    "discovered_at": "2026-03-18T00:10:12.772372+00:00"
   }
 ]
