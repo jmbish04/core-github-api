@@ -1,18 +1,17 @@
 ---
 description: Implement Universal AI Gateway REST Proxy
 ---
+# Implement Universal AI Gateway REST Proxy
 
-# Workflow: Implement Universal AI Gateway REST Proxy
+This workflow outlines the standard operating procedure for upgrading the AI Provider abstraction layer to support unified routing through Cloudflare's AI Gateway.
 
-**Objective:** Expose Cloudflare AI Gateway endpoints through the Hono API so that external GitHub Action python scripts can securely interface with Universal Routing.
+## Pre-Requisites
+1. Ensure the project's `wrangler.jsonc` contains the appropriate `AI_GATEWAY_NAME` and `FILE_EMBEDDINGS` Vectorize binding.
+2. Confirm `@google/jules-sdk`, `zod`, and `zod-to-json-schema` are installed in the `backend/` workspace.
 
-1.  **File Creation:** Created the modular `backend/src/routes/api/ai/gateway.ts`, `backend/src/routes/api/ai/utils/format-model-id.ts`, and `backend/src/routes/api/ai/schemas/gateway.schema.ts` files.
-2.  **Code Ingestion:** Built full TypeScript end-to-end functionality into each module.
-3.  **Module Wiring:**
-    - Navigated to the main routing registry (`backend/src/index.ts`).
-    - Imported `gatewayApp` from the new module: `import aiGatewayApi from '@/routes/api/ai/gateway';`
-    - Mounted the route: `app.route('/api/ai/gateway', aiGatewayApi);`
-4.  **Environment Setup:** Update `.dev.vars` (and `wrangler.toml`/`wrangler.jsonc` `[vars]` block if typed validation exists) to ensure `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` are active. Optionally add `GITHUB_ACTION_API_KEY` for dedicated auth isolation.
-5.  **Validation:**
-    - Run tests/CURL locally against `http://localhost:8787/api/ai/gateway/chat/completions`.
-    - Send a generic `Authorization: Bearer <token>` and payload `{"model": "gpt-4o-mini", "messages": [{"role": "user", "content": "ping"}]}` to confirm universal routing passthrough and Zod schema compliance.
+## Steps
+1. Route all provider calls (Worker AI, Gemini) through the Cloudflare AI Gateway compat or standard endpoint using native `fetch`. Do not use provider-specific SDKs.
+2. Enforce Zod schemas strictly. Convert `z.ZodType<T>` to JSON schema using `zodToJsonSchema` and utilize the provider's `response_format` JSON schema mode.
+3. For large file contexts (> 6000 chars), transparently chunk and vectorize the text using `@cf/baai/bge-large-en-v1.5` and Vectorize RAG. Query the prompt embedding against the index, and append the top matches to the final prompt.
+4. Integrate the `@google/jules-sdk` and polyfill missing features like structured output by piping the text response into a smaller, strict formatting model like `worker-ai`.
+5. Run `pnpm run check` to ensure strict TypeScript compilation completes successfully.

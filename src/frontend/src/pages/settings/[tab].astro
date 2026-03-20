@@ -1,0 +1,27 @@
+---
+import ClientApp from "@/components/client-app";
+
+export function getStaticPaths() {
+  return [
+    { params: { tab: "general" } },
+    { params: { tab: "secrets" } },
+    { params: { tab: "standardizations" } },
+    { params: { tab: "ai-providers" } },
+    { params: { tab: "alerts" } },
+  ];
+}
+---
+
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="shortcut icon" href="/favicon.svg" />
+    <title>Settings - Core GitHub API</title>
+  </head>
+  <body>
+    <ClientApp client:only="react" />
+  </body>
+</html>

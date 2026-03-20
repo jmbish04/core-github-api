@@ -17,8 +17,7 @@ const env = {
   NODE_ENV: 'production'
 };
 
-// 2. Prevent conflicting OAuth vs API token issues
-delete env.CLOUDFLARE_API_TOKEN;
+// 2. (Removed) Allow transparent JIT token passthrough from .zshrc wrappers.
 
 const wranglerPath = join(__dirname, '..', 'node_modules', '.bin', 'wrangler');
 

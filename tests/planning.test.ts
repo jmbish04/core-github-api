@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   JulesCodingTaskInputSchema,
   PlanningRequestInputSchema,
-} from "../backend/src/lib/schemas/jules";
-import { extractFilesFromDiff } from "../backend/src/services/planning/honi-babysitter";
-import { buildPlanningArtifactUrls } from "../backend/src/services/planning/artifacts";
+} from "../src/backend/src/lib/schemas/jules";
+import { extractFilesFromDiff } from "../src/backend/src/services/planning/honi-babysitter";
+import { buildPlanningArtifactUrls } from "../src/backend/src/services/planning/artifacts";
 
 describe("planning schemas", () => {
   it("accepts a valid repo-bound planning request", () => {

@@ -7,7 +7,7 @@
 import { defineConfig } from "drizzle-kit";
 
 export default defineConfig({
-  schema: "./backend/src/db/schemas/agents/events.ts",
-  out: "./migrations-do",
+  schema: "./src/backend/src/db/schemas/agents/events.ts",
+  out: "./migrations/do",
   dialect: "sqlite",
 });

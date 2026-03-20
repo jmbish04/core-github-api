@@ -1,0 +1,122 @@
+name: Stitch Skills Sync
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/stitch-skills-sync.yml"
+  schedule:
+    # Run every Monday at 09:00 UTC
+    - cron: "0 9 * * 1"
+  workflow_dispatch:
+    inputs:
+      force_reinstall:
+        description: "Force reinstall all skills even if already present"
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  sync-stitch-skills:
+    name: Sync Stitch Skills via Jules
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Jules SDK
+        run: npm install @google/jules-sdk
+
+      - name: Write dispatch script
+        env:
+          FORCE_REINSTALL: ${{ inputs.force_reinstall || false }}
+        run: |
+          cat > /tmp/dispatch-jules.mjs << 'SCRIPTEOF'
+          import { jules } from '@google/jules-sdk';
+
+          const forceReinstall = process.env.FORCE_REINSTALL === 'true';
+          const forceFlag = forceReinstall ? '--force' : '';
+
+          const prompt = `
+          You are working on the repository \`jmbish04/jules-n-stitch\`.
+
+          Your mission: ensure all stitch-skills from google-labs-code/stitch-skills are installed,
+          up-to-date, and valid.
+
+          Steps to perform:
+
+          1. Check for npx/skills CLI:
+             npx skills --version 2>/dev/null || echo "skills CLI not installed"
+
+          2. List currently installed skills in .agent/skills/ or ~/.gemini/antigravity/skills/
+
+          3. Install or update all stitch-skills:
+             npx skills add google-labs-code/stitch-skills --skill stitch-design --global ${forceFlag}
+             npx skills add google-labs-code/stitch-skills --skill stitch-loop --global ${forceFlag}
+             npx skills add google-labs-code/stitch-skills --skill design-md --global ${forceFlag}
+             npx skills add google-labs-code/stitch-skills --skill enhance-prompt --global ${forceFlag}
+             npx skills add google-labs-code/stitch-skills --skill react:components --global ${forceFlag}
+             npx skills add google-labs-code/stitch-skills --skill remotion --global ${forceFlag}
+             npx skills add google-labs-code/stitch-skills --skill shadcn-ui --global ${forceFlag}
+             npx skills add cloudflare/skills --skill agents-sdk --global ${forceFlag}
+             npx skills add cloudflare/skills --skill building-ai-agent-on-cloudflare --global ${forceFlag}
+             npx skills add cloudflare/skills --skill building-mcp-server-on-cloudflare --global ${forceFlag}
+             npx skills add cloudflare/skills --skill cloudflare --global ${forceFlag}
+             npx skills add cloudflare/skills --skill durable-objects --global ${forceFlag}
+             npx skills add cloudflare/skills --skill sandbox-sdk --global ${forceFlag}
+             npx skills add cloudflare/skills --skill web-perf --global ${forceFlag}
+             npx skills add cloudflare/skills --skill workers-best-practices --global ${forceFlag}
+             npx skills add cloudflare/skills --skill wrangler --global ${forceFlag}
+
+          4. Validate each skill: SKILL.md valid frontmatter, no broken script/resource references.
+
+          5. Write stitch-skills-validation-report.md summarizing results.
+
+          6. Commit with message: chore: stitch-skills sync
+          `;
+
+          console.log('Dispatching Jules session for stitch-skills sync...');
+
+          const session = await jules.session({
+            prompt,
+            source: {
+              github: 'jmbish04/jules-n-stitch',
+              baseBranch: 'main',
+            },
+            autoPr: false,
+          });
+
+          console.log('Jules session created:', session.id);
+
+          for await (const activity of session.stream()) {
+            if (activity.type === 'planGenerated') {
+              console.log('Plan:', activity.plan.steps.length, 'steps');
+            } else if (activity.type === 'progressUpdated') {
+              console.log('Progress:', activity.title ?? 'Working...');
+            } else if (activity.type === 'agentMessaged') {
+              console.log('Agent:', (activity.message ?? '').substring(0, 200));
+            } else if (activity.type === 'sessionCompleted') {
+              console.log('Session completed!');
+            } else if (activity.type === 'sessionFailed') {
+              console.error('Session failed!');
+              process.exit(1);
+            }
+          }
+
+          const outcome = await session.result();
+          console.log('Final state:', outcome.state);
+          if (outcome.state === 'failed') process.exit(1);
+          SCRIPTEOF
+
+      - name: Dispatch Jules
+        env:
+          JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
+          FORCE_REINSTALL: ${{ inputs.force_reinstall || false }}
+        run: node /tmp/dispatch-jules.mjs

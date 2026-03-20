@@ -23,7 +23,7 @@ vi.mock("@/ai/agents/runtime/agents", () => ({
   getAgentByName: mocks.getAgentByNameMock,
 }));
 
-import { checkHealth } from "../backend/src/workflows/planning/health";
+import { checkHealth } from "../src/backend/src/workflows/planning/health";
 
 describe("planning health", () => {
   beforeEach(() => {

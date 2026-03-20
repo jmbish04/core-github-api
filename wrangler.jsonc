@@ -1,6 +1,6 @@
 {
 	"name": "core-github-api",
-	"main": "backend/src/index.ts",
+	"main": "src/backend/src/index.ts",
 	"compatibility_date": "2026-03-12",
 	"compatibility_flags": [
 		"nodejs_compat"
@@ -43,6 +43,7 @@
 		"BASE_URL": "https://core-github-api.hacolby.workers.dev",
 		"MAX_AI_BUDGET": "50",
 		"USE_OPENAI_MODELS": false,
+		"GITHUB_REPO_STANDARDIZATION": "jmbish04/core-github-standardization",
 		"GITHUB_ACTION_WORKER_DISPATCHER_URI": "https://api.github.com/repos/jmbish04/core-github-standardization/dispatches",
 		"MCP_API_URL": "https://docs.mcp.cloudflare.com/mcp"
 	},
@@ -200,6 +201,16 @@
 			"binding": "DISCORD_TOKEN",
 			"store_id": "8c42fa70938644e0a8a109744467375f",
 			"secret_name": "DISCORD_TOKEN"
+		},
+		{
+			"binding": "GOOGLE_CREDS_SA_PRIVATE_KEY_PT_1",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "GOOGLE_CREDS_SA_PRIVATE_KEY_PT_1"
+		},
+		{
+			"binding": "GOOGLE_CREDS_SA_PRIVATE_KEY_PT_2",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "GOOGLE_CREDS_SA_PRIVATE_KEY_PT_2"
 		}
 	],
 	"durable_objects": {
@@ -325,12 +336,20 @@
 				"class_name": "WorkshopAgent"
 			},
 			{
+				"name": "AGENT_SESSION_DO",
+				"class_name": "AgentSessionDO"
+			},
+			{
 				"name": "CF_WORKSHOP_AGENTS_SDK",
 				"class_name": "CfWorkshop_AgentsSdk"
 			},
 			{
 				"name": "STANDARDIZATION_AGENT",
 				"class_name": "StandardizationAgent"
+			},
+			{
+				"name": "UX_DESIGN_AGENT",
+				"class_name": "UxDesignAgent"
 			}
 		]
 	},
@@ -401,7 +420,9 @@
 				// Ensures code and APIs meet standardized guidelines
 				"StandardizationAgent",
 				// Maintains state and chat history for agent sessions
-				"AgentSessionDO"
+				"AgentSessionDO",
+				// UX Design Agent — 5-phase pipeline (Jules + Stitch)
+				"UxDesignAgent"
 			]
 		}
 	],
@@ -475,6 +496,7 @@
 	// wrangler vectorize create core-github-api-logs --preset @cf/baai/bge-large-en-v1.5
 	// wrangler vectorize create core-github-api-plan-embeddings --dimensions=1024 --metric=cosine
 	// wrangler vectorize create core-github-api-plan-rag --dimensions=1024 --metric=cosine
+	// wrangler vectorize create core-github-api-file-embeddings --dimensions=1024 --metric=cosine
 	"vectorize": [
 		{
 			"binding": "VECTORIZE",
@@ -494,6 +516,11 @@
 		{
 			"binding": "PLAN_EMBEDDINGS",
 			"index_name": "core-github-api-plan-rag",
+			"remote": true
+		},
+		{
+			"binding": "FILE_EMBEDDINGS",
+			"index_name": "core-github-api-file-embeddings",
 			"remote": true
 		}
 	],
