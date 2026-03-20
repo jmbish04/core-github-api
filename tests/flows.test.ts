@@ -15,48 +15,46 @@ describe('Flows API', () => {
 
   describe('Workflow Templates', () => {
     it('should have PR comment extractor workflow template', async () => {
-      const { DEFAULT_WORKFLOWS } = await import('../backend/src/routes/api/webhooks/handlers/flows/workflowTemplates')
+      const { makeWorkflowTemplates } = await import('../src/backend/src/services/github/workflow-templates')
+      const DEFAULT_WORKFLOWS = makeWorkflowTemplates('jmbish04/core-github-standardizations')
 
       const prWorkflow = DEFAULT_WORKFLOWS.find((w: any) =>
         w.path.includes('pr-comment-extractor')
       )
 
       expect(prWorkflow).toBeDefined()
-      expect(prWorkflow?.content).toContain('Extract and Summarize PR Comments')
-      expect(prWorkflow?.content).toContain('issue_comment')
-      expect(prWorkflow?.content).toContain('pull_request_review_comment')
+      expect(prWorkflow?.content).toContain('uses: jmbish04/core-github-standardizations')
+      expect(prWorkflow?.content).toContain('pr-comment-extractor.yaml@main')
     })
 
     it('should have Cloudflare deploy workflow template', async () => {
-      const { DEFAULT_WORKFLOWS } = await import('../backend/src/routes/api/webhooks/handlers/flows/workflowTemplates')
+      const { makeWorkflowTemplates } = await import('../src/backend/src/services/github/workflow-templates')
+      const DEFAULT_WORKFLOWS = makeWorkflowTemplates('jmbish04/core-github-standardizations')
 
       const deployWorkflow = DEFAULT_WORKFLOWS.find((w: any) =>
         w.path.includes('deploy-worker')
       )
 
       expect(deployWorkflow).toBeDefined()
-      expect(deployWorkflow?.content).toContain('Deploy Worker')
-      expect(deployWorkflow?.content).toContain('cloudflare/wrangler-action')
-      expect(deployWorkflow?.content).toContain('CLOUDFLARE_API_TOKEN')
-      expect(deployWorkflow?.content).toContain('CLOUDFLARE_ACCOUNT_ID')
+      expect(deployWorkflow?.content).toContain('uses: jmbish04/core-github-standardizations')
+      expect(deployWorkflow?.content).toContain('deploy-worker.yaml@main')
     })
 
     it('should have Auto-Apply Gemini workflow template', async () => {
-      const { DEFAULT_WORKFLOWS } = await import('../backend/src/routes/api/webhooks/handlers/flows/workflowTemplates')
+      const { makeWorkflowTemplates } = await import('../src/backend/src/services/github/workflow-templates')
+      const DEFAULT_WORKFLOWS = makeWorkflowTemplates('jmbish04/core-github-standardizations')
 
       const geminiWorkflow = DEFAULT_WORKFLOWS.find((w: any) =>
         w.path.includes('auto-apply-gemini')
       )
 
       expect(geminiWorkflow).toBeDefined()
-      expect(geminiWorkflow?.content).toContain('Auto-Apply Gemini Suggestions')
-      expect(geminiWorkflow?.content).toContain('gemini-code-assist[bot]')
-      expect(geminiWorkflow?.content).toContain('pull_request_review_comment')
-      expect(geminiWorkflow?.content).toContain('git apply')
+      expect(geminiWorkflow?.content).toContain('uses: jmbish04/core-github-standardizations')
+      expect(geminiWorkflow?.content).toContain('auto-apply-gemini.yaml@main')
     })
 
     it('should detect wrangler config files correctly', async () => {
-      const { shouldIncludeCloudflareWorkflow } = await import('../backend/src/routes/api/webhooks/handlers/flows/workflowTemplates')
+      const { shouldIncludeCloudflareWorkflow } = await import('../src/backend/src/services/github/workflow-templates')
 
       expect(shouldIncludeCloudflareWorkflow(['wrangler.toml', 'package.json'])).toBe(true)
       expect(shouldIncludeCloudflareWorkflow(['wrangler.jsonc', 'README.md'])).toBe(true)

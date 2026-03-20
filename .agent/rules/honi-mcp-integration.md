@@ -1,0 +1,5 @@
+- **Framework**: Do not use legacy local Node.js proxies (`workers-mcp` or `mcp-remote`). We are building a native Remote MCP Server. Use `McpServer` from `@modelcontextprotocol/sdk/server/mcp.js` and export it using `createMcpHandler(server)` from `agents/mcp`.
+- **No Node execution in Workers**: You cannot use `child_process`, `exec`, or `npx` inside a Cloudflare Worker. Any MCP server requiring a local Node process must be reverse-engineered into native `server.tool(...)` calls or hosted externally.
+- **SSE Client Transport**: When connecting to remote MCPs (like `docs.mcp.cloudflare.com`), always use `SSEClientTransport` instead of `StdioClientTransport`. Wrap the client connection in a try/finally block to ensure `.close()` is called, preventing hanging sockets on the edge.
+- **AI Gateway Binding**: Never hardcode standard `fetch` AI calls. Always use configuration suitable for Cloudflare's ecosystem to maintain multi-provider AI Gateway compliance.
+- **Completeness**: Provide full files start-to-finish without truncation or using `// ... rest of code` shortcuts.

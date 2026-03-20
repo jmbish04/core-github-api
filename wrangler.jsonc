@@ -1,14 +1,13 @@
 {
 	"name": "core-github-api",
-	"main": "backend/src/index.ts",
-	"compatibility_date": "2026-02-10",
+	"main": "src/backend/src/index.ts",
+	"compatibility_date": "2026-03-12",
 	"compatibility_flags": [
 		"nodejs_compat"
 	],
 	// "minify": true,
 	"workers_dev": true,
 	"preview_urls": true,
-	
 	"observability": {
 		"enabled": true,
 		"head_sampling_rate": 1,
@@ -44,6 +43,8 @@
 		"BASE_URL": "https://core-github-api.hacolby.workers.dev",
 		"MAX_AI_BUDGET": "50",
 		"USE_OPENAI_MODELS": false,
+		"GITHUB_REPO_STANDARDIZATION": "jmbish04/core-github-standardization",
+		"GITHUB_ACTION_WORKER_DISPATCHER_URI": "https://api.github.com/repos/jmbish04/core-github-standardization/dispatches",
 		"MCP_API_URL": "https://docs.mcp.cloudflare.com/mcp"
 	},
 	"containers": [
@@ -67,7 +68,10 @@
 		{
 			"type": "Text",
 			"globs": [
-				"**/*.hbs"
+				"**/*.hbs",
+				"**/*.md",
+				"**/*.yml",
+				"**/*.yaml"
 			],
 			"fallthrough": true
 		}
@@ -75,8 +79,18 @@
 	"assets": {
 		"directory": "./public",
 		"binding": "ASSETS",
-		"run_worker_first": true,
-		"not_found_handling": "none"
+		"run_worker_first": [
+			"/api/*",
+			"/openapi.json",
+			"/swagger",
+			"/scalar",
+			"/health",
+			"/context",
+			"/docs",
+			"/mcp",
+			"/mcp/*"
+		],
+		"not_found_handling": "single-page-application"
 	},
 	// "secrets": [
 	//   "GITHUB_TOKEN",
@@ -101,7 +115,12 @@
 		{
 			"binding": "GITHUB_TOKEN",
 			"store_id": "8c42fa70938644e0a8a109744467375f",
-			"secret_name": "GITHUB_TOKEN"
+			"secret_name": "GH_TOKEN"
+		},
+		{
+			"binding": "GITHUB_PERSONAL_ACCESS_TOKEN",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "GH_TOKEN"
 		},
 		{
 			"binding": "CLOUDFLARE_API_TOKEN",
@@ -132,12 +151,12 @@
 			"binding": "CLOUDFLARE_AI_SEARCH_TOKEN",
 			"store_id": "8c42fa70938644e0a8a109744467375f",
 			"secret_name": "CLOUDFLARE_AI_SEARCH_TOKEN"
-		},				
+		},
 		{
 			"binding": "CLOUDFLARE_OBSERVABILITY_TOKEN",
 			"store_id": "8c42fa70938644e0a8a109744467375f",
 			"secret_name": "CLOUDFLARE_OBSERVABILITY_TOKEN"
-		},		
+		},
 		{
 			"binding": "WORKER_API_KEY",
 			"store_id": "8c42fa70938644e0a8a109744467375f",
@@ -147,7 +166,7 @@
 			"binding": "AGENTIC_WORKER_API_KEY",
 			"store_id": "8c42fa70938644e0a8a109744467375f",
 			"secret_name": "AGENTIC_WORKER_API_KEY"
-		},		
+		},
 		{
 			"binding": "AI_GATEWAY_TOKEN",
 			"store_id": "8c42fa70938644e0a8a109744467375f",
@@ -157,6 +176,11 @@
 			"binding": "CF_BROWSER_RENDER_TOKEN",
 			"store_id": "8c42fa70938644e0a8a109744467375f",
 			"secret_name": "CLOUDFLARE_BROWSER_RENDER_TOKEN"
+		},
+		{
+			"binding": "STITCH_API_KEY",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "STITCH_API_KEY"
 		},
 		{
 			"binding": "JULES_API_KEY",
@@ -176,7 +200,17 @@
 		{
 			"binding": "DISCORD_TOKEN",
 			"store_id": "8c42fa70938644e0a8a109744467375f",
-			"secret_name": "DISCORD_TOKEN"			
+			"secret_name": "DISCORD_TOKEN"
+		},
+		{
+			"binding": "GOOGLE_CREDS_SA_PRIVATE_KEY_PT_1",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "GOOGLE_CREDS_SA_PRIVATE_KEY_PT_1"
+		},
+		{
+			"binding": "GOOGLE_CREDS_SA_PRIVATE_KEY_PT_2",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "GOOGLE_CREDS_SA_PRIVATE_KEY_PT_2"
 		}
 	],
 	"durable_objects": {
@@ -242,6 +276,10 @@
 				"class_name": "ResearchAgent"
 			},
 			{
+				"name": "DISCORD_RESEARCH_AGENT",
+				"class_name": "DiscordResearchAgent"
+			},
+			{
 				"name": "JULES_OVERSEER",
 				"class_name": "JulesOverseer"
 			},
@@ -282,12 +320,48 @@
 				"class_name": "JulesWebhookBroadcaster"
 			},
 			{
+				"name": "PLANNING_MONITOR",
+				"class_name": "PlanningMonitor"
+			},
+			{
+				"name": "REVERSE_ENGINEERING_MONITOR",
+				"class_name": "ReverseEngineeringMonitor"
+			},
+			{
+				"name": "PLANNING_SUPERVISOR",
+				"class_name": "PlanningSupervisorAgent"
+			},
+			{
+				"name": "PLANNING_ORCHESTRATOR_AGENT",
+				"class_name": "PlanningOrchestratorAgent"
+			},
+			{
+				"name": "HONI_ORCHESTRATOR",
+				"class_name": "HoniOrchestrator"
+			},
+			{
+				"name": "HONI_CONSULTANT",
+				"class_name": "HoniConsultant"
+			},
+			{
 				"name": "WORKSHOP_AGENT",
 				"class_name": "WorkshopAgent"
 			},
 			{
+				"name": "AGENT_SESSION_DO",
+				"class_name": "AgentSessionDO"
+			},
+			{
 				"name": "CF_WORKSHOP_AGENTS_SDK",
 				"class_name": "CfWorkshop_AgentsSdk"
+			},
+			{
+				"name": "STANDARDIZATION_AGENT",
+				"class_name": "StandardizationAgent"
+			},
+			{
+				"name": "UX_DESIGN_AGENT",
+				"class_name": "UxDesignAgent"
 			}
 		]
 	},
@@ -305,20 +379,20 @@
 				"GeminiAgent",
 				// Planning Agent for task decomposition
 				"PlannerAgent",
-				// Data Processing Container (Currently Disabled)
-				// "DataProcessor",
+				// Repository Management Agent
+				"RepoAgent",
 				// Supervisor Agent for managing container tasks
 				"Supervisor",
 				// Deep Reasoning Agent for complex logic
 				"DeepReasoningAgent",
-				// Repository Management Agent
-				"RepoAgent",
 				// Secure Sandbox Environment
 				"Sandbox",
 				// Owner/Admin Agent
 				"OwnerAgent",
 				// Research Agent for gathering information
 				"ResearchAgent",
+				// Incremental Discord channel scanner ingesting messages for analysis
+				"DiscordResearchAgent",
 				// Jules Overseer for session management
 				"JulesOverseer",
 				// Topic Research Orchestrator
@@ -328,36 +402,39 @@
 				// Judge Agent for evaluating outputs
 				"JudgeAgent",
 				// Reporting Agent for generating summaries
-				"ReportingAgent"
-			]
-		},
-		{
-			"tag": "v2",
-			"new_sqlite_classes": [
-				"LandingPageAgent"
-			]
-		},
-		{
-			"tag": "v3",
-			"new_sqlite_classes": [
+				"ReportingAgent",
+				// Agent for generating or editing landing pages
+				"LandingPageAgent",
 				// Agent for querying Cloudflare Documentation with GitHub context
-				"CloudflareDocsAgent"
-			]
-		},
-		{
-			"tag": "v4",
-			"new_sqlite_classes": [
+				"CloudflareDocsAgent",
+				// Deep Research Chat Agent built directly on Honi
+				"DeepResearchChatAgent",
 				// Autonomous agent for analyzing and remediating health check failures
 				"HealthDiagnostician",
-				"DeepResearchChatAgent"
-			]
-		},
-		{
-			"tag": "v5",
-			"new_sqlite_classes": [
+				// WebSocket fan-out hub for Jules events
+				"JulesWebhookBroadcaster",
+				// Monitors planning sessions
+				"PlanningMonitor",
+				// Monitors reverse engineering tasks
+				"ReverseEngineeringMonitor",
+				// Supervises planning orchestrators
+				"PlanningSupervisorAgent",
+				// Orchestrates planning workflows
+				"PlanningOrchestratorAgent",
+				// Orchestrator for Honi-compatible agents
+				"HoniOrchestrator",
+				// Consultant agent running on Honi
+				"HoniConsultant",
+				// Agent for managing workshops
 				"WorkshopAgent",
+				// Workshop agent covering CF Agents SDK
 				"CfWorkshop_AgentsSdk",
-				"JulesWebhookBroadcaster"
+				// Ensures code and APIs meet standardized guidelines
+				"StandardizationAgent",
+				// Maintains state and chat history for agent sessions
+				"AgentSessionDO",
+				// UX Design Agent — 5-phase pipeline (Jules + Stitch)
+				"UxDesignAgent"
 			]
 		},
 		{
@@ -391,17 +468,33 @@
 			"class_name": "TopicResearchWorkflow"
 		},
 		{
+		{
 			// Incremental Discord channel scanner — ingests messages from the
 			// Cloudflare Developers Discord, analyses them with AI, and surfaces
 			// highlights in the daily newsletter.
 			"name": "discord-research-workflow",
 			"binding": "DISCORD_RESEARCH_WORKFLOW",
 			"class_name": "DiscordResearchWorkflow"
+		},
+		{
+			"name": "planning-orchestrator",
+			"binding": "PLANNING_ORCHESTRATOR",
+			"class_name": "PlanningOrchestrator"
 		}
 	],
 	"browser": {
 		"binding": "BROWSER"
 	},
+	"r2_buckets": [
+		{
+			"binding": "PLAN_ARTIFACTS",
+			"bucket_name": "core-github-api-plan-artifacts"
+		},
+		{
+			"binding": "ARTIFACT_STORE",
+			"bucket_name": "core-planning-artifacts"
+		}
+	],
 	"kv_namespaces": [
 		{
 			"binding": "ETAG_KV",
@@ -425,6 +518,9 @@
 	// wrangler vectorize create core-github-api-vectors --preset @cf/baai/bge-large-en-v1.5
 	// wrangler vectorize create core-github-api-research --dimensions=1024 --metric=cosine
 	// wrangler vectorize create core-github-api-logs --preset @cf/baai/bge-large-en-v1.5
+	// wrangler vectorize create core-github-api-plan-embeddings --dimensions=1024 --metric=cosine
+	// wrangler vectorize create core-github-api-plan-rag --dimensions=1024 --metric=cosine
+	// wrangler vectorize create core-github-api-file-embeddings --dimensions=1024 --metric=cosine
 	"vectorize": [
 		{
 			"binding": "VECTORIZE",
@@ -440,40 +536,50 @@
 			"binding": "VECTORIZE_LOGS",
 			"index_name": "core-github-api-logs",
 			"remote": true
+		},
+		{
+			"binding": "PLAN_EMBEDDINGS",
+			"index_name": "core-github-api-plan-rag",
+			"remote": true
+		},
+		{
+			"binding": "FILE_EMBEDDINGS",
+			"index_name": "core-github-api-file-embeddings",
+			"remote": true
 		}
 	],
 	"d1_databases": [
 		{
 			"binding": "DB",
 			"database_name": "core-github-api",
-			"database_id": "31a57255-f8c2-451c-82ae-57905686887a",
-			"preview_database_id": "d27edbcf-a478-44f0-ba60-e9830084916a",
+			"database_id": "fb7e274a-0a46-469b-8ae3-5a7750dd282b",
+			"preview_database_id": "178a8586-31ee-4134-a598-cca3206123e6",
 			"migrations_dir": "migrations/core"
 		},
 		{
 			"binding": "DB_WEBHOOKS",
 			"database_name": "core-github-api-webhooks",
-			"database_id": "a03ad237-66aa-4af7-b19b-c39720e9b6a6",
+			"database_id": "905b62db-b631-4133-8633-e0b8282d4cbd",
 			"migrations_dir": "migrations/webhooks"
 		}
 	],
 	// Email sending bindings for Email Routing
 	// Targeted binding - sends only to the specified destination address
-  "send_email": [
-    {
-      "name": "SEND_EMAIL"
-    },
-    {
-      "name": "SEND_EMAIL_NEWSLETTER",
-      "destination_address": "ai@126colby.com"
-    },
-    {
-      "name": "Core Github API",
-      "allowed_destination_addresses": [
-        "ai@126colby.com"
-      ]
-    }
-  ],
+	"send_email": [
+		{
+			"name": "SEND_EMAIL"
+		},
+		{
+			"name": "SEND_EMAIL_NEWSLETTER",
+			"destination_address": "ai@126colby.com"
+		},
+		{
+			"name": "Core Github API",
+			"allowed_destination_addresses": [
+				"ai@126colby.com"
+			]
+		}
+	],
 	// Scheduled triggers for automated tasks
 	// Cron format: minute hour day month day-of-week
 	"triggers": {

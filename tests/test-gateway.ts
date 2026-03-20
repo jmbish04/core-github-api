@@ -1,4 +1,3 @@
-import { env } from 'process';
 
 function mockEnv() {
   return {

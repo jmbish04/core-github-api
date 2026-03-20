@@ -10,12 +10,12 @@ export default tseslint.config(
   {
     languageOptions: {
         parserOptions: {
-            project: ['./tsconfig.json', './frontend/tsconfig.json'],
+            projectService: true,
             tsconfigRootDir: import.meta.dirname,
         },
     },
     rules: {
-        '@typescript-eslint/no-explicit-any': 'warn',
+        '@typescript-eslint/no-explicit-any': 'off',
         '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
         'no-irregular-whitespace': 'off',
         '@typescript-eslint/ban-ts-comment': 'off',

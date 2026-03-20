@@ -7,8 +7,9 @@
 
 ## 2. The Specialist Pattern
 
-- Avoid creating numerous bespoke subclasses of `HonoBaseAgent` (e.g., `DataAgent`, `UXAgent`, `SREAgent`) unless they require fundamentally distinct toolsets or event lifecycles.
-- Default to using **ONE** flexible `SpecialistAgent` class.
+- Avoid creating numerous bespoke specialist Durable Object classes unless they require fundamentally distinct toolsets or event lifecycles.
+- Do not reintroduce `HonoBaseAgent` or `BaseAgent`; the specialist pattern is now Honi-based.
+- Default to using **ONE** flexible specialist runtime created with `createAgent(...)`.
 - Dictate the specific persona dynamically at runtime by overriding the `systemPrompt` or passing a `specialty` configuration parameter when the frontend initiates the session.
 - **Why?** This prevents sprawling class files, keeps the agent execution logic DRY, and enables the system to spin up arbitrary expert subsets without code deployments.
 

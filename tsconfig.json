@@ -15,31 +15,30 @@
     "outDir": "dist",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["backend/src/*"],
-      "@db": ["backend/src/db/index.ts"],
-      "@db/*": ["backend/src/db/*"],
-      "@agents/*": ["backend/src/ai/agents/*"],
-      "@utils/*": ["backend/src/utils/*"],
-      "@services/landing-generator": ["backend/src/services/landing-generator/index.ts"],
-      "@services/*": ["backend/src/services/*"],
-      "@custom-types": ["backend/src/types/index.ts"],
-      "@custom-types/*": ["backend/src/types/*"],
-      "@logging": ["backend/src/lib/logger.ts"],
-      "@agent-sdk": ["backend/src/ai/agent-sdk.ts"],
-      "@budget": ["backend/src/ai/utils/budget-tracker.ts"],
-      "@model-config": ["backend/src/ai/utils/model-config.ts"],
-      "@sandbox-sdk-tools": ["backend/src/ai/mcp/tools/sandbox-sdk/index.ts"],
-      "@sandbox-sdk-tools/*": ["backend/src/ai/mcp/tools/sandbox-sdk/*"],
-      "@ai-config": ["backend/src/ai/ai-config.ts"],
-      "@agent-utils": ["backend/src/ai/agent-utils.ts"],
-      "@health-check": ["backend/src/health/health-check.ts"],
-      "@github-utils": ["backend/src/utils/github/configs.ts"],
-      "@research-logger": ["backend/src/lib/research-logger.ts"],
-      "@lib/*": ["backend/src/lib/*"],
-      "@/config-settings": ["backend/src/lib/config.ts"],
-      "@ai-agents/*": ["backend/src/ai/agents/*"],
-      "@alerts": ["backend/src/alerts/index.ts"],
-      "@alerts/*": ["backend/src/alerts/*"]
+      "@/*": ["src/backend/src/*"],
+      "@db": ["src/backend/src/db/index.ts"],
+      "@db/*": ["src/backend/src/db/*"],
+      "@agents/*": ["src/backend/src/ai/agents/*"],
+      "@utils/*": ["src/backend/src/utils/*"],
+      "@services/*": ["src/backend/src/services/*"],
+      "@custom-types": ["src/backend/src/types/index.ts"],
+      "@custom-types/*": ["src/backend/src/types/*"],
+      "@logging": ["src/backend/src/lib/logger.ts"],
+      "@agent-sdk": ["src/backend/src/ai/agent-sdk.ts"],
+      "@budget": ["src/backend/src/ai/utils/budget-tracker.ts"],
+      "@model-config": ["src/backend/src/ai/utils/model-config.ts"],
+      "@sandbox-sdk-tools": ["src/backend/src/ai/mcp/tools/sandbox-sdk/index.ts"],
+      "@sandbox-sdk-tools/*": ["src/backend/src/ai/mcp/tools/sandbox-sdk/*"],
+      "@ai-config": ["src/backend/src/ai/ai-config.ts"],
+      "@agent-utils": ["src/backend/src/ai/agent-utils.ts"],
+      "@health-check": ["src/backend/src/health/health-check.ts"],
+      "@github-utils": ["src/backend/src/utils/github/configs.ts"],
+      "@research-logger": ["src/backend/src/lib/research-logger.ts"],
+      "@lib/*": ["src/backend/src/lib/*"],
+      "@/config-settings": ["src/backend/src/lib/config.ts"],
+      "@ai-agents/*": ["src/backend/src/ai/agents/*"],
+      "@alerts": ["src/backend/src/alerts/index.ts"],
+      "@alerts/*": ["src/backend/src/alerts/*"]
     },
     "types": [
       "node",
@@ -48,15 +47,19 @@
     ]
   },
   "include": [
-    "backend/src/**/*.ts",
+    "src/backend/src/**/*.ts",
+    "src/backend/src/**/*.d.ts",
     "worker-configuration.d.ts",
     "tests",
     "scripts/github/extract_pr_code_comments.ts",
-    "landing-generator"
+    "landing-generator",
+    "src/backend/drizzle.config.webhooks.ts",
+    "src/backend/drizzle.config.core.ts",
+    "drizzle.do.config.ts"
   ],
   "exclude": [
     "node_modules",
     "dist",
-    "backend/src/examples"
+    "src/backend/src/examples"
   ]
 }

@@ -17,10 +17,13 @@ description: Audit the entire codebase for mock/stub/hardcoded data and replace 
 ## Step 2: Codebase Scan & Mock Registry Compilation
 Run workspace-wide shell commands to locate mock data, explicitly ignoring `node_modules` and `.git`. Create a temporary registry in memory mapping `File | Lines | Type | Target Entity`.
 1. **Arrays/Objects:** `grep -rnE "(const\s+\w+(List|Data|Items|Mock|Fake|Stub)\s*=\s*\[|\[\s*\{\s*(id|name)\s*:)" --exclude-dir={node_modules,.git,.wrangler} .`
-2. **Hardcoded Strings:** `grep -rnE '"(TODO|FIXME|PLACEHOLDER|mock|fake|stub|test@)"' --exclude-dir={node_modules,.git,.wrangler} .`
+2. **Hardcoded Strings / Elisions:** `grep -rnE '"(TODO|FIXME|PLACEHOLDER|mock|fake|stub|test@)"|rest of the function remains the same|rest of code|leaving as is' --exclude-dir={node_modules,.git,.wrangler} .`
 3. **In-Memory Stores:** `grep -rnE "(const\s+\w+Store\s*=\s*new Map|const\s+\w+Cache\s*=\s*\{\})" --exclude-dir={node_modules,.git,.wrangler} .`
 4. **State Initializers:** `grep -rn "useState(\[" --exclude-dir={node_modules,.git,.wrangler} .`
 5. **Static Imports:** `find . -type d \( -name node_modules -o -name .git \) -prune -o \( -name "*.mock.ts" -o -name "*.fixture.ts" -o -name "fakeData.ts" \) -print`
+
+## Full Output Rule
+Any generated replacement code must be emitted as complete files. Never use placeholder comments or partial-file shorthand in the implementation output.
 
 ## Step 3: Architecture & Schema Generation
 For each mocked entity:

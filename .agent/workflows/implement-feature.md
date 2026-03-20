@@ -1,21 +1,17 @@
-# .agent/workflows/implement-feature.md
+---
+description: Implement Universal AI Gateway REST Proxy
+---
+# Implement Universal AI Gateway REST Proxy
 
-# Implement BaseAgent-Powered Jules Overseer & Tiered Triage
+This workflow outlines the standard operating procedure for upgrading the AI Provider abstraction layer to support unified routing through Cloudflare's AI Gateway.
 
-## Context
+## Pre-Requisites
+1. Ensure the project's `wrangler.jsonc` contains the appropriate `AI_GATEWAY_NAME` and `FILE_EMBEDDINGS` Vectorize binding.
+2. Confirm `@google/jules-sdk`, `zod`, and `zod-to-json-schema` are installed in the `backend/` workspace.
 
-We are refactoring the `JulesOverseer` to inherit from the newly established `BaseAgent` class. This provides the Overseer with immediate, native access to the `@cloudflare/mcp-server-cloudflare` without writing custom HTTP fetch loops. We are also formalizing the Tier 1 / Tier 2 delegation strategy in the SRE prompts.
-
-## Execution Steps
-
-1. **Update Prompts**
-   - Inject the updated `HealthDiagnostician` prompt into the agent's definition, establishing the hard logic branch between SMALL fixes (execute internally via Octokit) and COMPLEX fixes (delegate to `JulesService`).
-
-2. **Refactor `JulesOverseer.ts`**
-   - Replace the file contents with the provided code.
-   - Note the simplified `evaluateStuckJules` method. It now calls `await this.runTextWithModel({...})`, letting `BaseAgent` handle the model routing, the ReAct loop, and the Cloudflare MCP queries.
-   - The method writes to the `alerts` table when `status === 'ready_for_pr'`.
-
-3. **Verify Execution**
-   - Ensure the `delegate_to_jules` tool in `HealthDiagnostician` sets `autoPr: false` so the job lands in the Overseer's queue.
-   - When the chron triggers `/schedule/check`, verify via `wrangler tail` that the Overseer successfully pulls the stuck context, invokes `runTextWithModel`, and sends the generated strategy back to Jules via `julesService.sendMessage`.
+## Steps
+1. Route all provider calls (Worker AI, Gemini) through the Cloudflare AI Gateway compat or standard endpoint using native `fetch`. Do not use provider-specific SDKs.
+2. Enforce Zod schemas strictly. Convert `z.ZodType<T>` to JSON schema using `zodToJsonSchema` and utilize the provider's `response_format` JSON schema mode.
+3. For large file contexts (> 6000 chars), transparently chunk and vectorize the text using `@cf/baai/bge-large-en-v1.5` and Vectorize RAG. Query the prompt embedding against the index, and append the top matches to the final prompt.
+4. Integrate the `@google/jules-sdk` and polyfill missing features like structured output by piping the text response into a smaller, strict formatting model like `worker-ai`.
+5. Run `pnpm run check` to ensure strict TypeScript compilation completes successfully.
