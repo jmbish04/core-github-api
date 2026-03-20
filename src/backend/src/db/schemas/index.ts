@@ -7,6 +7,7 @@
  */
 export * from './agents';
 export * from './app';
+export * from './discord';
 export * from './containers';
 export * from './docs';
 export * from './github';

@@ -1,0 +1,44 @@
+name: Drizzle Schema Analysis Report
+
+on:
+  pull_request:
+    paths:
+      - '**/*.ts'
+      - '**/*.tsx'
+  workflow_dispatch: # Allows manual triggering from the Actions tab
+
+jobs:
+  analyze-schema:
+    runs-on: ubuntu-latest
+    name: Generate Schema Report
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          
+      - name: Ensure Script is Executable
+        run: chmod +x scripts/analyze_drizzle_schema.py
+          
+      - name: Run Schema Analysis
+        run: python scripts/analyze_drizzle_schema.py --output drizzle-schema-report.md
+        
+      - name: Upload Report Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: drizzle-schema-report
+          path: drizzle-schema-report.md
+          retention-days: 14
+
+      # Optional: Fail the PR if unmapped/orphaned tables (AI slop) are detected. 
+      # Remove or comment out if you just want the report without blocking the PR.
+      - name: Check for AI Slop
+        run: |
+          if grep -q "### Unmapped / Orphaned Schema Tables" drizzle-schema-report.md; then
+            echo "::error::Orphaned Drizzle tables detected! Please review the schema for AI slop."
+            exit 1
+          fi

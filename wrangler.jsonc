@@ -18,7 +18,7 @@
 			"invocation_logs": true
 		},
 		"traces": {
-			"enabled": false,
+			"enabled": true,
 			"persist": true,
 			"head_sampling_rate": 1
 		}
@@ -215,6 +215,18 @@
 	],
 	"durable_objects": {
 		"bindings": [
+			{
+				"name": "PR_SUPERVISOR_DO",
+				"class_name": "PRSupervisorDO"
+			},
+			{
+				"name": "PR_REVIEW_DO",
+				"class_name": "PRReviewDO"
+			},
+			{
+				"name": "PR_SUMMARY_DO",
+				"class_name": "PRSummaryDO"
+			},
 			{
 				"name": "ORCHESTRATOR",
 				"class_name": "OrchestratorAgent"
@@ -424,6 +436,14 @@
 				// UX Design Agent — 5-phase pipeline (Jules + Stitch)
 				"UxDesignAgent"
 			]
+		},
+		{
+			"tag": "v6",
+			"new_sqlite_classes": [
+				"PRSupervisorDO",
+				"PRReviewDO",
+				"PRSummaryDO"
+			]
 		}
 	],
 	"workflows": [
@@ -448,6 +468,10 @@
 			"class_name": "TopicResearchWorkflow"
 		},
 		{
+		{
+			// Incremental Discord channel scanner — ingests messages from the
+			// Cloudflare Developers Discord, analyses them with AI, and surfaces
+			// highlights in the daily newsletter.
 			"name": "discord-research-workflow",
 			"binding": "DISCORD_RESEARCH_WORKFLOW",
 			"class_name": "DiscordResearchWorkflow"

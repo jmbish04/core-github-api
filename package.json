@@ -51,6 +51,9 @@
     "secrets:audit": "node scripts/audit-secrets.mjs"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.58",
+    "@ai-sdk/google": "^3.0.43",
+    "@ai-sdk/openai": "^3.0.41",
     "@asteasolutions/zod-to-openapi": "^8.4.3",
     "@cloudflare/puppeteer": "^1.0.6",
     "@cloudflare/sandbox": "0.7.18",
@@ -73,6 +76,8 @@
     "@sinclair/typebox": "^0.34.48",
     "@tsndr/cloudflare-worker-jwt": "^3.2.1",
     "@types/libsodium-wrappers": "^0.8.2",
+    "agents": "latest",
+    "ai": "^6.0.116",
     "arktype": "^2.2.0",
     "cloudflare": "^5.2.0",
     "drizzle-orm": "0.45.1",

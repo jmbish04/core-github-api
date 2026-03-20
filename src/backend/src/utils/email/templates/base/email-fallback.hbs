@@ -4,7 +4,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{subject}}</title>
+    <title>{{subject}}{{title}}</title>
     <style>
         /* Gmail-friendly resets */
         body,
@@ -37,6 +37,65 @@
             width: 100% !important;
             background-color: #f9fafb;
         }
+
+        .pick-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 12px;
+            background: #fafafa;
+        }
+
+        .pick-name {
+            font-weight: 600;
+            font-size: 15px;
+            color: #111827;
+            margin: 0 0 4px 0;
+        }
+
+        .pick-meta {
+            font-size: 12px;
+            color: #9ca3af;
+            margin: 0 0 8px 0;
+        }
+
+        .pick-reason {
+            font-size: 14px;
+            color: #374151;
+            margin: 0;
+            line-height: 1.5;
+        }
+
+        .score-badge {
+            display: inline-block;
+            background: #f0fdf4;
+            color: #16a34a;
+            border-radius: 999px;
+            padding: 2px 10px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+
+        .section-header {
+            font-size: 18px;
+            font-weight: 700;
+            color: #111827;
+            margin: 28px 0 12px 0;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #f59e0b;
+        }
+
+        .summary-box {
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+            padding: 12px 16px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            color: #92400e;
+            line-height: 1.6;
+        }
     </style>
 </head>
 
@@ -53,11 +112,43 @@
                             <h1
                                 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 600; letter-spacing: -0.5px;">
                                 Agentic Research Team</h1>
+                            {{#if title}}
+                            <p style="color: #9ca3af; margin: 8px 0 0 0; font-size: 14px;">{{title}}</p>
+                            {{/if}}
                         </td>
                     </tr>
                     <tr>
                         <td style="padding: 40px 30px; color: #374151; font-size: 16px; line-height: 1.6;">
+
+                            {{! Pre-built HTML block (highest priority) }}
+                            {{#if contentHtml}}
                             {{{contentHtml}}}
+                            {{/if}}
+
+                            {{! Structured digest — rendered when dailyTrendsData is passed }}
+                            {{#if summary}}
+                            <div class="summary-box">{{summary}}</div>
+                            {{/if}}
+
+                            {{#if repos}}
+                            {{#each repos}}
+                            <div class="pick-card">
+                                <p class="pick-name">
+                                    <a href="{{url}}" style="color: #1d4ed8; text-decoration: none;">{{name}}</a>
+                                    {{#if innovation_score}}
+                                    <span class="score-badge">{{innovation_score}}/10</span>
+                                    {{/if}}
+                                </p>
+                                {{#if category}}
+                                <p class="pick-meta">{{category}}</p>
+                                {{/if}}
+                                {{#if why_its_interesting}}
+                                <p class="pick-reason">{{why_its_interesting}}</p>
+                                {{/if}}
+                            </div>
+                            {{/each}}
+                            {{/if}}
+
                         </td>
                     </tr>
                     <tr>
