@@ -22,7 +22,7 @@ export class BrowserTool {
             await page.goto(url, { waitUntil: 'networkidle0', timeout: 30000 });
 
             // Extract text
-            // @ts-ignore
+            // page.evaluate is properly typed now
             const text = await page.evaluate(() => document.body.innerText);
             return text;
         } catch (e) {

@@ -43,8 +43,10 @@ app.put('/projects/:id', async (c) => {
   const body = await c.req.json();
   const db = getDb(c.env.DB);
   
+  const { id: _id, createdAt, updatedAt, ...updateData } = body;
+  
   await db.update(researchProjects).set({
-    ...body,
+    ...updateData,
     updatedAt: new Date()
   }).where(eq(researchProjects.id, id));
 

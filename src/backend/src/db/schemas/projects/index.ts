@@ -12,10 +12,7 @@
  *   - `corkboardLabels`
  *   - `pmProjects`, `pmEpics`, `pmStories`, `pmTasks` (hierarchy, pending migration)
  */
-export * from './roadmap';   // projects, projectPhases
-export * from './plans';     // projectPlans
 export * from './planning_requests';
 export * from './reverse_engineering';
-export * from './tasks';     // tasks, taskComments, taskEvents
 export * from './todos';     // todos, corkboardLabels, todoTags, todoTagMap, todoLinks, todoAiInsights
-export * from './hierarchy'; // pmProjects, pmEpics, pmStories, pmTasks (pending consolidation)
+export * from './backlog';   // epics, stories, tasks, taskComments, taskEvents

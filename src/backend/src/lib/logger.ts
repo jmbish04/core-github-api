@@ -1,4 +1,4 @@
-import { drizzle } from 'drizzle-orm/d1';
+import { getDb } from '@db';
 import { systemLogs } from '@db/schema';
 import { generateUuid } from "@/utils/common";
 
@@ -69,8 +69,7 @@ export class Logger {
     if (this.logs.length === 0) return;
     
     try {
-      const db = drizzle(this.env.DB);
-      // Insert in batches if necessary, typically small for single workflow step
+      const db = getDb(this.env.DB);
       await db.insert(systemLogs).values(this.logs).execute();
       this.logs = []; // Clear buffer
     } catch (e) {

@@ -191,12 +191,12 @@ export default function ProjectEditor({ projectId, onBack, onLaunch }: { project
             <h3 className="font-semibold text-sm">Sources Configuration</h3>
             <p className="text-xs text-zinc-500">Select previously used terms or enter new ones.</p>
             
-            <Input list="github-suggestions" placeholder="GitHub Terms (comma separated)" value={formData.githubTerms?.join(', ') || ''} onChange={e => handleChange('githubTerms', e.target.value.split(','))} className="bg-zinc-900 border-zinc-800" />
+            <Input list="github-suggestions" placeholder="GitHub Terms (comma separated)" value={formData.githubTerms?.join(', ') || ''} onChange={e => handleChange('githubTerms', e.target.value.split(',').map((t: string) => t.trimStart()))} className="bg-zinc-900 border-zinc-800" />
             <datalist id="github-suggestions">
               {distinctTerms.github.map((t, i) => <option key={i} value={t} />)}
             </datalist>
 
-            <Input list="discord-suggestions" placeholder="Discord Search Terms (comma separated)" value={formData.discordTerms?.join(', ') || ''} onChange={e => handleChange('discordTerms', e.target.value.split(','))} className="bg-zinc-900 border-zinc-800" />
+            <Input list="discord-suggestions" placeholder="Discord Search Terms (comma separated)" value={formData.discordTerms?.join(', ') || ''} onChange={e => handleChange('discordTerms', e.target.value.split(',').map((t: string) => t.trimStart()))} className="bg-zinc-900 border-zinc-800" />
             <datalist id="discord-suggestions">
               {distinctTerms.discord.map((t, i) => <option key={i} value={t} />)}
             </datalist>
@@ -226,7 +226,7 @@ export default function ProjectEditor({ projectId, onBack, onLaunch }: { project
               </div>
             )}
 
-            <Input list="google-suggestions" placeholder="Google Terms (comma separated)" value={formData.googleTerms?.join(', ') || ''} onChange={e => handleChange('googleTerms', e.target.value.split(','))} className="bg-zinc-900 border-zinc-800" />
+            <Input list="google-suggestions" placeholder="Google Terms (comma separated)" value={formData.googleTerms?.join(', ') || ''} onChange={e => handleChange('googleTerms', e.target.value.split(',').map((t: string) => t.trimStart()))} className="bg-zinc-900 border-zinc-800" />
             <datalist id="google-suggestions">
               {distinctTerms.google.map((t, i) => <option key={i} value={t} />)}
             </datalist>

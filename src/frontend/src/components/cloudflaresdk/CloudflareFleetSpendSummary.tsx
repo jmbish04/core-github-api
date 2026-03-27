@@ -19,7 +19,7 @@ export function CloudflareFleetSpendSummary() {
   const { data, isLoading, error } = useQuery({
     queryKey: ["cloudflare-dashboard-fleet-costs", "30d"],
     queryFn: async () => {
-      const res = await fetch("/api/services/cloudflare/costs/fleet?since=30d");
+      const res = await fetch("/api/cloudflare/costs/fleet?since=30d");
       if (!res.ok) throw new Error("Failed to fetch Cloudflare fleet spend");
       return res.json();
     },

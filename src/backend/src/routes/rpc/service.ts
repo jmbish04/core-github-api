@@ -21,7 +21,7 @@
 
 import { getOctokit } from '@services/octokit/core'
 import { encode } from '@utils/base64'
-import { getAgentByName } from '@/ai/agents/runtime/agents'
+import { HoniClient } from '@utils/honi-client';
 import type {
   UpsertFileRequest,
   UpsertFileResponse,
@@ -262,12 +262,12 @@ export class GitHubWorkerRPC {
     const octokit = await getOctokit(this.env)
     const { namespace, method, params = {} } = request
 
-    // @ts-ignore - Dynamic method invocation
+    // @ts-expect-error - Dynamic method invocation
     if (!octokit[namespace] || !octokit[namespace][method]) {
       throw new Error(`Method not found: ${namespace}.${method}`)
     }
 
-    // @ts-ignore - Dynamic method invocation
+    // @ts-expect-error - Dynamic method invocation
     const { data, headers, status } = await octokit[namespace][method](params)
 
     return {
@@ -307,9 +307,8 @@ export class GitHubWorkerRPC {
    */
   async createSession(request: CreateSessionRequest): Promise<CreateSessionResponse> {
     const { prompt } = request
-    const getByName = getAgentByName as any
-    const orchestrator = await getByName(
-      this.env.ORCHESTRATOR,
+    const orchestrator = HoniClient.getStub(
+      this.env.ORCHESTRATOR as any,
       'orchestrator'
     ) as DurableObjectStub<undefined> & {
       start(prompt: string): Promise<{ sessionId: string }>;
@@ -323,9 +322,8 @@ export class GitHubWorkerRPC {
    */
   async getSessionStatus(request: GetSessionStatusRequest): Promise<GetSessionStatusResponse> {
     const { sessionId } = request
-    const getByName = getAgentByName as any
-    const orchestrator = await getByName(
-      this.env.ORCHESTRATOR,
+    const orchestrator = HoniClient.getStub(
+      this.env.ORCHESTRATOR as any,
       'orchestrator'
     ) as DurableObjectStub<undefined> & {
       getStatus(sessionId: string): Promise<GetSessionStatusResponse>;

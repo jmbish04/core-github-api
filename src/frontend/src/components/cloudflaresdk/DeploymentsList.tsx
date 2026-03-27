@@ -14,7 +14,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import ReactMarkdown from "react-markdown";
 
 interface DeploymentsListProps {
-  projectId: string;
+  repoOwner: string;
+  repoName: string;
   deployments?: Array<{
     id: string;
     createdAt: string;
@@ -22,7 +23,7 @@ interface DeploymentsListProps {
   }>;
 }
 
-export function DeploymentsList({ projectId, deployments = [] }: DeploymentsListProps) {
+export function DeploymentsList({ repoOwner, repoName, deployments = [] }: DeploymentsListProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [analysisText, setAnalysisText] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -33,7 +34,7 @@ export function DeploymentsList({ projectId, deployments = [] }: DeploymentsList
     setIsAnalyzing(true);
     
     try {
-      const res = await fetch(`/api/projects/${projectId}/analyze-deployment`, {
+      const res = await fetch(`/api/repos/${encodeURIComponent(repoOwner)}/${encodeURIComponent(repoName)}/analyze-deployment`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ deploymentId })

@@ -6,7 +6,7 @@ export async function logSecretStatus(env: Env) {
   const secretsToCheck: (keyof Bindings)[] = [
     'GITHUB_CLIENT_ID',
     'GITHUB_CLIENT_SECRET',
-    'GITHUB_TOKEN',
+    'GITHUB_PERSONAL_ACCESS_TOKEN',
     'WORKER_API_KEY',
     'AI_GATEWAY_TOKEN',
     'CLOUDFLARE_API_TOKEN'

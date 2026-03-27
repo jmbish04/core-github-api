@@ -9,6 +9,7 @@ const app = new OpenAPIHono<{ Bindings: Env }>();
 // POST /upsert/research-judge
 app.openapi(
   createRoute({
+    operationId: 'postUpsertResearchJudge',
     method: 'post',
     path: '/upsert/research-judge',
     summary: 'Upsert Research Judge Logs',
@@ -64,6 +65,7 @@ app.openapi(
 // GET /research-judge
 app.openapi(
   createRoute({
+    operationId: 'getResearchJudge',
     method: 'get',
     path: '/research-judge',
     summary: 'Get Research Judge Logs',

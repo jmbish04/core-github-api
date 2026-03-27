@@ -1,9 +1,9 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import {
   Activity,
-  Bot,
   Loader2,
   LockKeyhole,
   PlayCircle,

@@ -1,16 +1,19 @@
 /**
  * MCP Health Check Suite
- * 
- * Validates the operational status of the MCP domain, including:
- * 1. Connectivity to the documentation fetcher.
- * 2. Protocol compliance of the MCP server.
- * 3. Functional search capabilities.
- * 
+ *
+ * Validates the operational status of the full MCP domain, including:
+ * 1. Connectivity to the documentation fetcher (external).
+ * 2. Protocol compliance of the MCP server endpoint.
+ * 3. All Cloudflare MCP tool integrations (10 tools, real API calls).
+ * 4. All GitHub MCP tool integrations (6 read-only API checks).
+ *
  * @module AI/MCP/Health
  */
 import { HealthStepResult } from "@/health/types";
 import { fetchCloudflareDocsIndex } from "./tools/browser/docs-fetcher";
-import { createMCPRequest } from "./mcp-client"; // Import the helper
+import { createMCPRequest } from "./mcp-client";
+import { runCloudflareHealthChecks } from "./tools/cloudflare/registry";
+import { checkGitHubToolsHealth } from "./tools/github/tools-health";
 
 /**
  * Checks the health of the MCP domain.
@@ -19,122 +22,103 @@ export async function checkHealth(env: Env): Promise<HealthStepResult> {
     const start = Date.now();
     const subChecks: Record<string, any> = {};
 
+    // --- 1. Docs Fetcher (External) ---
+    const docsStart = Date.now();
     try {
-        // --- 1. Test Docs Fetcher (External) ---
-        const docsStart = Date.now();
         const sections = await fetchCloudflareDocsIndex();
-
         if (!Array.isArray(sections) || sections.length === 0) {
-            throw new Error("MCP: fetchCloudflareDocsIndex returned empty/invalid list");
+            throw new Error("fetchCloudflareDocsIndex returned empty/invalid list");
         }
         subChecks.docsFetcher = { status: "OK", latency: Date.now() - docsStart, count: sections.length };
+    } catch (e: any) {
+        subChecks.docsFetcher = { status: "FAILURE", latency: Date.now() - docsStart, error: e.message };
+    }
 
-        // --- 2. Test MCP Protocol (Internal/Upstream) ---
+    // --- 2. MCP Server Protocol Compliance ---
+    if (!env.MCP_API_URL) {
+        subChecks.mcpProtocol = { status: "SKIPPED", reason: "MCP_API_URL missing" };
+    } else {
         const mcpStart = Date.now();
-        if (!env.MCP_API_URL) {
-            subChecks.mcpProtocol = { status: "SKIPPED", reason: "MCP_API_URL missing" };
-        } else {
-            // Actual JSON-RPC Handshake: Ask for capabilities
+        try {
             const rpcRequest = createMCPRequest("tools/list", {});
-
             const response = await fetch(env.MCP_API_URL, {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Accept": "text/event-stream, application/json"
-                },
+                headers: { "Content-Type": "application/json", "Accept": "text/event-stream, application/json" },
                 body: JSON.stringify(rpcRequest)
             });
 
-            if (!response.ok) {
-                throw new Error(`MCP Server returned HTTP ${response.status}`);
-            }
+            if (!response.ok) throw new Error(`MCP Server returned HTTP ${response.status}`);
 
             const contentType = response.headers.get("Content-Type") || "";
-            let data: any = {};
-
             if (contentType.includes("text/event-stream")) {
-                // SSE Stream - we can't easily parse JSON-RPC response from raw stream here
-                // But connectivity is established.
-                subChecks.mcpConnectivity = {
-                    status: "OK",
-                    latency: Date.now() - mcpStart,
-                    protocol: "sse",
-                    message: "Connection established (SSE)"
-                };
-
-                // Skip functional search for SSE endpoints for now as it needs a client
-                subChecks.mcpFunctional = {
-                    status: "SKIPPED",
-                    reason: "SSE endpoint requires full client"
-                };
-
-                return {
-                    name: "MCP Domain",
-                    status: "success",
-                    message: "MCP Services Operational (SSE)",
-                    durationMs: Date.now() - start,
-                    details: subChecks
-                };
+                subChecks.mcpProtocol = { status: "OK", latency: Date.now() - mcpStart, protocol: "sse", message: "Connection established (SSE)" };
             } else {
-                // Standard JSON-RPC
-                data = await response.json();
-
-                // Validate Protocol Compliance
-                if (data.error) {
-                    throw new Error(`MCP Error: ${data.error.message}`);
-                }
-                if (!data.result || !data.result.tools) {
-                    throw new Error("MCP Response invalid: missing 'result.tools'");
-                }
-
-                // Verify the specific tool we need exists
-                const hasSearchTool = data.result.tools.some((t: any) => t.name === 'search_cloudflare_documentation');
-
-                if (!hasSearchTool) {
-                    throw new Error("MCP Tool 'search_cloudflare_documentation' missing");
-                }
-
-                subChecks.mcpConnectivity = {
+                const data = await response.json() as any;
+                if (data.error) throw new Error(`MCP Error: ${data.error.message}`);
+                if (!data.result?.tools) throw new Error("MCP Response invalid: missing 'result.tools'");
+                const hasSearchTool = data.result.tools.some((t: any) => t.name === "search_cloudflare_documentation");
+                subChecks.mcpProtocol = {
                     status: "OK",
                     latency: Date.now() - mcpStart,
-                    protocol: "v2",
-                    toolFound: hasSearchTool,
-                    toolsCount: data.result.tools.length
-                };
-
-                // --- 3. Test Functional Search (tools/call) ---
-                const searchStart = Date.now();
-                const searchResult = await import("./mcp-client").then(m => m.queryMCP("Workers", undefined, env.MCP_API_URL));
-
-                if (!searchResult || (Array.isArray(searchResult) && searchResult.length === 0)) {
-                    throw new Error("MCP Functional Search returned empty result");
-                }
-
-                subChecks.mcpFunctional = {
-                    status: "OK",
-                    latency: Date.now() - searchStart,
-                    query: "Workers",
-                    resultLength: Array.isArray(searchResult) ? searchResult.length : String(searchResult).length
+                    protocol: "json-rpc",
+                    toolsCount: data.result.tools.length,
+                    hasSearchTool
                 };
             }
+        } catch (e: any) {
+            subChecks.mcpProtocol = { status: "FAILURE", latency: Date.now() - mcpStart, error: e.message };
         }
-
-        return {
-            name: "MCP Domain",
-            status: "success",
-            message: "MCP Services Operational",
-            durationMs: Date.now() - start,
-            details: subChecks
-        };
-
-    } catch (error) {
-        return {
-            name: "MCP Domain",
-            status: "failure",
-            message: error instanceof Error ? error.message : String(error),
-            durationMs: Date.now() - start,
-            details: subChecks
-        };
     }
+
+    // --- 3. Cloudflare MCP Tools (10 tools, real API calls, parallel) ---
+    try {
+        const cfReport = await runCloudflareHealthChecks(env);
+        subChecks.cloudflareTools = {
+            status: cfReport.overall === "healthy" ? "OK" : cfReport.overall === "degraded" ? "DEGRADED" : "FAILURE",
+            overall: cfReport.overall,
+            summary: cfReport.summary,
+            tools: cfReport.tools
+        };
+    } catch (e: any) {
+        subChecks.cloudflareTools = { status: "FAILURE", error: e.message };
+    }
+
+    // --- 4. GitHub MCP Tools (6 read-only API checks) ---
+    try {
+        const ghResult = await checkGitHubToolsHealth(env);
+        subChecks.githubTools = {
+            status: ghResult.status === "success" ? "OK" : "FAILURE",
+            message: ghResult.message,
+            details: ghResult.details,
+            durationMs: ghResult.durationMs
+        };
+    } catch (e: any) {
+        subChecks.githubTools = { status: "FAILURE", error: e.message };
+    }
+
+    // --- Determine Overall Status ---
+    const hasFailure = Object.values(subChecks).some((c: any) => c.status === "FAILURE");
+    const hasDegraded = Object.values(subChecks).some((c: any) => c.status === "DEGRADED");
+
+    let overallStatus: "success" | "failure" = "success";
+    let message = "MCP Services Operational";
+
+    if (hasFailure) {
+        overallStatus = "failure";
+        const failing = Object.entries(subChecks)
+            .filter(([, v]: any) => v.status === "FAILURE")
+            .map(([k]) => k);
+        message = `MCP degraded — failures in: ${failing.join(", ")}`;
+    } else if (hasDegraded) {
+        // Degraded means some tools are unhealthy but not critical
+        message = "MCP Services Operational (some tools degraded)";
+    }
+
+    return {
+        name: "MCP Domain",
+        status: overallStatus,
+        message,
+        durationMs: Date.now() - start,
+        details: subChecks
+    };
 }

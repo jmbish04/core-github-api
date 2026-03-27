@@ -1,10 +1,9 @@
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, Link, Navigate } from "react-router-dom";
 import { Wrench, MessageSquare, Cloud, Webhook, ChevronRight, Factory } from "lucide-react";
 import PrCommentExtractorPage from "@/components/tools/toolbox/PrCommentExtractorPage";
 import PrWebhookExtractorPage from "@/components/tools/toolbox/PrWebhookExtractorPage";
 import CloudflareDocsPage from "@/components/tools/toolbox/CloudflareDocsPage";
 import CloudflareDocsBetaPage from "@/components/tools/toolbox/CloudflareDocsBetaPage";
-import AgentWorkshop from "@/views/control/global/AgentWorkshop";
 import { RegistryDirectory } from "@/components/tools/registry-directory";
 
 const TOOLS = [
@@ -126,7 +125,7 @@ export default function ToolsPage() {
     }
 
     if (tool_name === "agent-factory") {
-        return <AgentWorkshop />;
+        return <Navigate to="/workshop" replace />;
     }
 
     // Unknown tool — show landing

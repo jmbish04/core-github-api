@@ -15,17 +15,10 @@ interface ConsoleMessage {
   icon?: string;
 }
 
-interface WorkflowStatus {
-  workflowId: string;
-  status: "running" | "complete" | "error";
-  output?: any;
-  error?: string;
-}
 
 export default function Research() {
   const [repoUrl, setRepoUrl] = useState("");
   const [isRunning, setIsRunning] = useState(false);
-  const [workflowId, setWorkflowId] = useState<string | null>(null);
   const [consoleMessages, setConsoleMessages] = useState<ConsoleMessage[]>([]);
   const [results, setResults] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
@@ -82,7 +75,6 @@ export default function Research() {
       }
 
       const data = (await response.json()) as any;
-      setWorkflowId(data.workflowId);
 
       addConsoleMessage("success", `Workflow started: ${data.workflowId}`, "✅");
       addConsoleMessage("info", `Repository: ${data.owner}/${data.repo}`);

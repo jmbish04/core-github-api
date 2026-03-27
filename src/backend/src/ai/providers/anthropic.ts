@@ -148,18 +148,16 @@ export async function generateStructuredWithTools<T = any>(env: Env, prompt: str
 
 export async function getAnthropicModels(env: Env, filter?: ModelFilter): Promise<UnifiedModel[]> {
   try {
-    const apiKey = await getAnthropicApiKey(env);
-    const res = await fetch('https://api.anthropic.com/v1/models', {
-      headers: { 'x-api-key': apiKey || "", 'anthropic-version': '2023-06-01' }
-    });
-    const data = await res.json() as any;
+    const client = await AIGateway.createUniversalClient(env, "anthropic");
+    const res = await client.models.list();
+    const data = res.data || [];
     
-    const models: UnifiedModel[] = (data.data || []).map((m: any) => {
+    const models: UnifiedModel[] = data.map((m: any) => {
       const caps: ModelFilter[] = ['vision', 'function_calling'];
       if (m.id.includes('haiku')) caps.push('fast');
       if (m.id.includes('opus')) caps.push('high_reasoning');
       return {
-        id: m.id, provider: 'anthropic', name: m.display_name || m.id,
+        id: m.id, provider: 'anthropic', name: m.id,
         description: `Anthropic ${m.id} model`, capabilities: caps, raw: m
       };
     });

@@ -73,6 +73,7 @@ export const ProjectTasksSchema = z.object({
 
 // --- Routes ---
 const getProjectTasksRoute = createRoute({
+    operationId: 'getRoot',
   method: 'get',
   path: '/',
   responses: {

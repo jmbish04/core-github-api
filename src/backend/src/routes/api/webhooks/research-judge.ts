@@ -3,6 +3,7 @@ import { zValidator } from '@hono/zod-validator';
 import { drizzle } from 'drizzle-orm/d1';
 import { research_judgments } from '@/db/schemas/app/research_judgments';
 import { getWorkerApiKey } from '@/utils/secrets';
+import { BroadcastClient } from '@utils/do-broadcast';
 
 const researchJudgeApi = new OpenAPIHono<{ Bindings: Env }>();
 
@@ -44,15 +45,10 @@ researchJudgeApi.post('/', zValidator('json', ResearchJudgePayloadSchema), async
 
   // Broadcast
   try {
-    const id = c.env.ROOM_DO.idFromName("global");
-    const room = c.env.ROOM_DO.get(id);
-    await room.fetch(new Request("http://localhost/broadcast", {
-      method: "POST",
-      body: JSON.stringify({
-        type: "research_judge_completed",
-        payload: { status: payload.status, prompt: payload.prompt }
-      })
-    }));
+    await BroadcastClient.broadcast(c.env.ROOM_DO, "global", {
+      type: "research_judge_completed",
+      payload: { status: payload.status, prompt: payload.prompt }
+    });
   } catch (e) {
     console.error("Failed to broadcast research_judge_completed:", e);
   }

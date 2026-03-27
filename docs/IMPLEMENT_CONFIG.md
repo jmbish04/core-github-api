@@ -29,10 +29,12 @@ export function ConfigSidebar({ activeCategory }: { activeCategory: string }) {
       {categories.map((item) => (
         <Button
           key={item.name}
-          variant={activeCategory === item.name.toLowerCase() ? "secondary" : "ghost"}
+          variant={
+            activeCategory === item.name.toLowerCase() ? "secondary" : "ghost"
+          }
           className={cn(
             "justify-start gap-2 w-full",
-            activeCategory === item.name.toLowerCase() && "bg-secondary"
+            activeCategory === item.name.toLowerCase() && "bg-secondary",
           )}
           asChild
         >
@@ -45,7 +47,6 @@ export function ConfigSidebar({ activeCategory }: { activeCategory: string }) {
     </nav>
   );
 }
-
 ```
 
 ### 3. Persistent Sticky Header
@@ -63,16 +64,23 @@ export function Header() {
       <div className="container flex h-16 items-center justify-between px-8">
         <div className="flex items-center gap-4">
           <Database className="h-6 w-6 text-primary" />
-          <span className="font-bold text-xl tracking-tight">Antigravity Core</span>
+          <span className="font-bold text-xl tracking-tight">
+            Antigravity Core
+          </span>
         </div>
-        
+
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="icon" asChild>
             <a href="https://github.com/126colby" target="_blank">
               <Github className="h-5 w-5" />
             </a>
           </Button>
-          <Button variant="outline" size="icon" className="rounded-full" asChild>
+          <Button
+            variant="outline"
+            size="icon"
+            className="rounded-full"
+            asChild
+          >
             <a href="/config/general">
               <Settings className="h-5 w-5 animate-spin-slow hover:animate-spin" />
             </a>
@@ -82,7 +90,6 @@ export function Header() {
     </header>
   );
 }
-
 ```
 
 ### 4. Dynamic Config CRUD Page
@@ -137,41 +144,42 @@ Copy the instructions below into your IDE. This prompt is structured for your co
 Migrate the codebase to use a unified `@/config-settings` module and implement a persistent Shadcn UI management dashboard.
 
 ## Phase 1: Backend (Hono + KV)
+
 1. **Create `src/lib/config.ts`**: Implement the `ConfigManager` class. It must handle Zod-validated CRUD operations against `c.env.KV_CONFIGS`.
 2. **Update `src/index.ts`**: Mount `app.route("/api/config", configRouter)`.
 3. **Refactor `src/routes/secrets.ts`**: Update the sync logic to check `ConfigManager.get()` before falling back to `c.env`.
 4. **Update `tsconfig.json`**: Add path alias `"@/config-settings": ["./src/lib/config.ts"]`.
 
 ## Phase 2: Frontend (Astro + React + Shadcn)
+
 1. **Layout**: Create a sticky `Header.tsx` with a cog icon (Settings) that links to `/config/general`.
 2. **Navigation**: Create a sidebar with categories: General, AI Models, Security, Integrations, System.
 3. **Routing**: Use Astro dynamic routing `src/pages/config/[category].astro` to serve the configuration sub-menus.
 4. **CRUD Table**: Implement `ConfigTable.tsx` using Shadcn `Table` and `Form`. It must fetch/patch data from `https://core-github-api.hacolby.workers.dev/api/config`.
 
 ## Phase 3: Global Integration
+
 1. **Scan**: Identify all instances of `c.env.*_API_KEY`.
 2. **Replace**: Wrap them in the fallback pattern: `await config.get("KEY", c.env.KEY)`.
 3. **Verify**: Ensure `/openapi.json` is updated with the new configuration endpoints.
 
 ## Antigravity Rules
+
 - Maintain "Default Dark" theme for Shadcn.
 - All API calls must route through Cloudflare AI Gateway.
 - Output every file in full from start to finish.
-
 ```
 
 #### `.agent/rules/ui-standards.md`
 
 ```markdown
 # UI Standards
+
 - Header MUST be `sticky top-0` and `backdrop-blur`.
 - Cog wheel MUST be present in the top right.
 - Config page URLs MUST follow the pattern `/config/{category}`.
 - Use `lucide-react` for icons.
-
 ```
-
-
 
 We are upgrading the architecture to support dynamic configuration via Cloudflare KV, moving away from hardcoded environment variables where appropriate, and centralizing this through a type-safe `@/config-settings` alias.
 
@@ -222,16 +230,21 @@ export class ConfigManager {
    */
   async get<K extends keyof ConfigSettings>(
     key: K,
-    envFallback?: string
+    envFallback?: string,
   ): Promise<ConfigSettings[K] | string | undefined> {
     const value = await this.kv.get(key);
     if (value !== null) {
       // Basic type casting based on schema expectation
-      if (typeof ConfigSchema.shape[key as keyof typeof ConfigSchema.shape] === "object" && 'defaultValue' in (ConfigSchema.shape[key as keyof typeof ConfigSchema.shape] as any)) {
-         // Handle booleans/numbers stored as strings in KV
-         if (value === "true") return true as any;
-         if (value === "false") return false as any;
-         if (!isNaN(Number(value))) return Number(value) as any;
+      if (
+        typeof ConfigSchema.shape[key as keyof typeof ConfigSchema.shape] ===
+          "object" &&
+        "defaultValue" in
+          (ConfigSchema.shape[key as keyof typeof ConfigSchema.shape] as any)
+      ) {
+        // Handle booleans/numbers stored as strings in KV
+        if (value === "true") return true as any;
+        if (value === "false") return false as any;
+        if (!isNaN(Number(value))) return Number(value) as any;
       }
       return value as ConfigSettings[K];
     }
@@ -244,21 +257,31 @@ export class ConfigManager {
   async getAll(): Promise<ConfigSettings> {
     const keys = Object.keys(ConfigSchema.shape);
     const config: any = {};
-    
+
     for (const key of keys) {
       const val = await this.kv.get(key);
       if (val !== null) {
-        config[key] = val === "true" ? true : val === "false" ? false : !isNaN(Number(val)) ? Number(val) : val;
+        config[key] =
+          val === "true"
+            ? true
+            : val === "false"
+              ? false
+              : !isNaN(Number(val))
+                ? Number(val)
+                : val;
       }
     }
-    
+
     return ConfigSchema.parse(config);
   }
 
   /**
    * Updates a configuration setting.
    */
-  async set<K extends keyof ConfigSettings>(key: K, value: ConfigSettings[K]): Promise<void> {
+  async set<K extends keyof ConfigSettings>(
+    key: K,
+    value: ConfigSettings[K],
+  ): Promise<void> {
     await this.kv.put(key, String(value));
   }
 
@@ -281,7 +304,6 @@ export class ConfigManager {
 export const getConfigManager = (c: Context<{ Bindings: Env }>) => {
   return new ConfigManager(c.env.KV_CONFIGS);
 };
-
 ```
 
 ### 2. TypeScript Path Mapping
@@ -306,7 +328,6 @@ export const getConfigManager = (c: Context<{ Bindings: Env }>) => {
   },
   "include": ["src/**/*", "worker-configuration.d.ts"]
 }
-
 ```
 
 ### 3. API Routes for Config CRUD
@@ -346,7 +367,6 @@ app.patch("/", zValidator("json", ConfigSchema.partial()), async (c) => {
 });
 
 export default app;
-
 ```
 
 ### 4. Refactored Secrets Sync
@@ -365,55 +385,73 @@ const app = new Hono<{ Bindings: Env }>();
 const syncSecretsSchema = z.object({
   owner: z.string(),
   repo: z.string(),
-  secrets: z.array(z.object({
-    name: z.string(),
-    value: z.string()
-  })).optional(),
-  force: z.boolean().default(false)
+  secrets: z
+    .array(
+      z.object({
+        name: z.string(),
+        value: z.string(),
+      }),
+    )
+    .optional(),
+  force: z.boolean().default(false),
 });
 
 app.post("/secrets/sync", zValidator("json", syncSecretsSchema), async (c) => {
   const { owner, repo, secrets, force } = c.req.valid("json");
   const config = getConfigManager(c);
-  
+
   let secretsToSync = secrets || [];
 
   if (!secrets || secrets.length === 0) {
     // Priority 1: Check KV Configs via our new Manager
     // Priority 2: Fallback to static c.env (Worker Secrets)
     const defaults = [
-      { 
-        name: "WORKER_API_KEY", 
-        value: await config.get("WORKER_API_KEY", c.env.WORKER_API_KEY) 
+      {
+        name: "WORKER_API_KEY",
+        value: await config.get("WORKER_API_KEY", c.env.WORKER_API_KEY),
       },
-      { 
-        name: "OPENAI_API_KEY", 
-        value: await config.get("OPENAI_API_KEY", c.env.OPENAI_API_KEY) 
+      {
+        name: "OPENAI_API_KEY",
+        value: await config.get("OPENAI_API_KEY", c.env.OPENAI_API_KEY),
       },
-      { 
-        name: "ANTHROPIC_API_KEY", 
-        value: await config.get("ANTHROPIC_API_KEY", c.env.ANTHROPIC_API_KEY) 
+      {
+        name: "ANTHROPIC_API_KEY",
+        value: await config.get("ANTHROPIC_API_KEY", c.env.ANTHROPIC_API_KEY),
       },
-      { 
-        name: "GEMINI_API_KEY", 
-        value: await config.get("GEMINI_API_KEY", c.env.GEMINI_API_KEY) 
+      {
+        name: "GEMINI_API_KEY",
+        value: await config.get("GEMINI_API_KEY", c.env.GEMINI_API_KEY),
       },
     ];
 
-    secretsToSync = defaults.filter(s => s.value) as { name: string, value: string }[];
+    secretsToSync = defaults.filter((s) => s.value) as {
+      name: string;
+      value: string;
+    }[];
   }
 
   if (secretsToSync.length === 0) {
-    return c.json({ 
-      success: false, 
-      error: "No secrets found in KV or Environment to sync." 
-    }, 400);
+    return c.json(
+      {
+        success: false,
+        error: "No secrets found in KV or Environment to sync.",
+      },
+      400,
+    );
   }
 
   try {
     // Ensure GitHub Token is also retrieved from KV-first if available
-    const githubToken = await config.get("GITHUB_TOKEN", c.env.GITHUB_TOKEN);
-    const results = await syncRepoSecrets({ ...c.env, GITHUB_TOKEN: githubToken }, owner, repo, secretsToSync);
+    const githubToken = await config.get(
+      "GITHUB_TOKEN",
+      c.env.GITHUB_PERSONAL_ACCESS_TOKEN,
+    );
+    const results = await syncRepoSecrets(
+      { ...c.env, GITHUB_TOKEN: githubToken },
+      owner,
+      repo,
+      secretsToSync,
+    );
     return c.json({ success: true, results });
   } catch (error: any) {
     return c.json({ success: false, error: error.message }, 500);
@@ -421,7 +459,6 @@ app.post("/secrets/sync", zValidator("json", syncSecretsSchema), async (c) => {
 });
 
 export default app;
-
 ```
 
 ---
@@ -438,6 +475,7 @@ Copy the following into your IDE to trigger the agent's migration.
 This workflow migrates the application from static environment variables to a dynamic, KV-backed configuration system using the `@/config-settings` alias.
 
 ## Context
+
 - **KV Binding**: `KV_CONFIGS`
 - **Module Path**: `src/lib/config.ts`
 - **Alias**: `@/config-settings`
@@ -464,7 +502,6 @@ This workflow migrates the application from static environment variables to a dy
 5. **Validation**
    - Ensure all AI calls route through **Cloudflare AI Gateway** using the updated keys.
    - Verify that `/openapi.json` reflects the new `/config` endpoints.
-
 ```
 
 #### `.agent/rules/config-standards.md`
@@ -476,9 +513,7 @@ This workflow migrates the application from static environment variables to a dy
 - **Type Safety**: Any new configuration key MUST be added to the `ConfigSchema` in `src/lib/config.ts`.
 - **Validation**: Use Zod for all incoming config updates.
 - **Sensitive Data**: Never log the actual values of keys retrieved from KV or Env.
-
 ```
-
 
 This is the final piece of the "Self-Healing Admin" puzzle. By adding **Drizzle** to the configuration flow, we create an immutable audit trail. Every time you or an agent updates a KV setting via the dashboard, it will be logged to your D1 database.
 
@@ -506,7 +541,6 @@ export const configAuditLogs = sqliteTable("config_audit_logs", {
 
 export type ConfigAuditLog = typeof configAuditLogs.$inferSelect;
 export type NewConfigAuditLog = typeof configAuditLogs.$inferInsert;
-
 ```
 
 ### 2. The Drizzle Migration Script
@@ -521,7 +555,6 @@ export type NewConfigAuditLog = typeof configAuditLogs.$inferInsert;
     "migrate:db": "drizzle-kit push:sqlite"
   }
 }
-
 ```
 
 ### 3. Integrated Backend with Auditing
@@ -541,13 +574,13 @@ app.patch("/", zValidator("json", ConfigSchema.partial()), async (c) => {
   const updates = c.req.valid("json");
   const manager = getConfigManager(c);
   const db = drizzle(c.env.DB);
-  
+
   const auditEntries: any[] = [];
 
   for (const [key, newValue] of Object.entries(updates)) {
     if (newValue !== undefined) {
       const oldValue = await manager.get(key as any);
-      
+
       // Update KV
       await manager.set(key as any, newValue as any);
 
@@ -557,7 +590,7 @@ app.patch("/", zValidator("json", ConfigSchema.partial()), async (c) => {
         oldValue: String(oldValue),
         newValue: String(newValue),
         category: "manual_update", // You can derive this from the schema map
-        changedBy: "admin_ui"
+        changedBy: "admin_ui",
       });
     }
   }
@@ -571,7 +604,6 @@ app.patch("/", zValidator("json", ConfigSchema.partial()), async (c) => {
 });
 
 export default app;
-
 ```
 
 ---
@@ -607,19 +639,18 @@ Integrate D1 database logging into the KV configuration CRUD flow to ensure a "S
 4. **Safety Checks**
    - Ensure the `changedBy` field is populated correctly (default to 'system' if updated by an automated agent).
    - Verify that sensitive keys (like `*_API_KEY`) are masked in the audit log (e.g., `sk-...4a2`).
-
 ```
 
 #### `.agent/rules/audit-rules.md`
 
 ```markdown
 # Audit & Security Rules
+
 - SENSITIVE DATA MASKING: When logging `*_API_KEY` changes to D1, only store the first 3 and last 4 characters (e.g., `sk-...1234`).
 - ATOMICITY: While KV and D1 aren't in a shared transaction, ensure the KV update happens FIRST. If KV fails, do not log to D1.
-
 ```
 
-This is the final, crucial security layer for your "Self-Healing Admin" architecture. By implementing defense-in-depth, we ensure that even if your database is compromised, your actual API keys remain secure because they are masked *before* they ever hit the audit log.
+This is the final, crucial security layer for your "Self-Healing Admin" architecture. By implementing defense-in-depth, we ensure that even if your database is compromised, your actual API keys remain secure because they are masked _before_ they ever hit the audit log.
 
 Following your **Codex Senior Engineer** standards, I have created a standalone TypeScript utility designed to identify and sanitize sensitive configuration values.
 
@@ -631,14 +662,14 @@ Following your **Codex Senior Engineer** standards, I have created a standalone 
 /**
  * Suffixes that indicate a configuration value is sensitive.
  */
-const SENSITIVE_SUFFIXES = ['_KEY', '_TOKEN', '_SECRET', 'PASSWORD'];
+const SENSITIVE_SUFFIXES = ["_KEY", "_TOKEN", "_SECRET", "PASSWORD"];
 
 /**
  * Determines if a configuration key holds sensitive data.
  */
 export function isSensitiveKey(key: string): boolean {
   const upperKey = key.toUpperCase();
-  return SENSITIVE_SUFFIXES.some(suffix => upperKey.endsWith(suffix));
+  return SENSITIVE_SUFFIXES.some((suffix) => upperKey.endsWith(suffix));
 }
 
 /**
@@ -647,10 +678,10 @@ export function isSensitiveKey(key: string): boolean {
  */
 export function maskValue(value: any): string {
   const strValue = String(value);
-  
+
   // Handle very short secrets by masking entirely to avoid leaking structure
   if (strValue.length <= 8) {
-    return '*'.repeat(strValue.length || 4); // Default to **** if empty/null
+    return "*".repeat(strValue.length || 4); // Default to **** if empty/null
   }
 
   const start = strValue.slice(0, 3);
@@ -667,15 +698,14 @@ export function sanitizeForAudit(key: string, value: any): string {
   if (value === undefined || value === null) {
     return "N/A";
   }
-  
+
   if (isSensitiveKey(key)) {
     return maskValue(value);
   }
-  
+
   // Convert booleans/numbers to strings for D1 text storage
   return String(value);
 }
-
 ```
 
 ### 2. Integrated API Route with Masking
@@ -698,14 +728,14 @@ app.patch("/", zValidator("json", ConfigSchema.partial()), async (c) => {
   const updates = c.req.valid("json");
   const manager = getConfigManager(c);
   const db = drizzle(c.env.DB);
-  
+
   const auditEntries: any[] = [];
 
   for (const [key, newValue] of Object.entries(updates)) {
     if (newValue !== undefined) {
       // 1. Get old value for audit BEFORE update
       const rawOldValue = await manager.get(key as any);
-      
+
       // 2. Update KV with the REAL new value
       await manager.set(key as any, newValue as any);
 
@@ -715,8 +745,8 @@ app.patch("/", zValidator("json", ConfigSchema.partial()), async (c) => {
         oldValue: sanitizeForAudit(key, rawOldValue),
         newValue: sanitizeForAudit(key, newValue),
         category: "manual_update",
-        changedBy: c.get('jwtPayload')?.sub || 'admin_ui', // Assuming JWT auth is present, else fallback
-        timestamp: new Date().toISOString()
+        changedBy: c.get("jwtPayload")?.sub || "admin_ui", // Assuming JWT auth is present, else fallback
+        timestamp: new Date().toISOString(),
       });
     }
   }
@@ -728,7 +758,7 @@ app.patch("/", zValidator("json", ConfigSchema.partial()), async (c) => {
       await db.insert(configAuditLogs).values(auditEntries);
     } catch (e) {
       console.error("Failed to write to audit log:", e);
-      // Consider if this should fail the request or just log the error. 
+      // Consider if this should fail the request or just log the error.
       // For now, we proceed as the config *was* updated.
     }
   }
@@ -737,7 +767,6 @@ app.patch("/", zValidator("json", ConfigSchema.partial()), async (c) => {
 });
 
 // ... (rest of file)
-
 ```
 
 ---
@@ -754,15 +783,18 @@ This is the complete prompt combining all architectural changes discussed: KV Co
 Implement the complete dynamic configuration system. This involves moving configs to KV, building a Shadcn UI frontend with a sticky header and sidebar, creating a Drizzle-based audit trail in D1, and ensuring all sensitive data is masked before logging.
 
 ## Phase 1: Backend Core (KV & Config Manager)
+
 1. **Create `src/lib/config.ts`**: Define the Zod `ConfigSchema` and implement the `ConfigManager` class for typed KV CRUD operations.
 2. **Update `tsconfig.json`**: Add alias `"@/config-settings": ["./src/lib/config.ts"]`.
 3. **Create `src/lib/masking.ts`**: Implement the `sanitizeForAudit` utility function to mask API keys.
 
 ## Phase 2: Database & Auditing (Drizzle & D1)
+
 1. **Schema**: Create `src/db/schema.ts` defining the `config_audit_logs` table.
 2. **Migration**: Run `drizzle-kit generate:sqlite` and `wrangler d1 migrations apply core-db --local` (or remote).
 
 ## Phase 3: API Layer (Hono)
+
 1. **Create `src/routes/config.ts`**:
    - Implement `GET /` to fetch all configs via `ConfigManager`.
    - Implement `PATCH /` to update configs. This route MUST use `sanitizeForAudit` before inserting logs into D1.
@@ -771,6 +803,7 @@ Implement the complete dynamic configuration system. This involves moving config
 3. **Refactor Secrets**: Update `src/routes/secrets.ts` to use `await config.get("KEY", c.env.KEY)` fallback pattern.
 
 ## Phase 4: Frontend (Astro, React, Shadcn)
+
 1. **Components**:
    - `Header.tsx`: Sticky, backdrop-blur, with a cog icon linking to `/config/general`.
    - `ConfigSidebar.tsx`: Sidebar navigation for config categories.
@@ -781,10 +814,10 @@ Implement the complete dynamic configuration system. This involves moving config
    - `src/pages/config/history.astro`: Page for viewing the audit trail.
 
 ## Antigravity Rules
+
 - **Security**: NEVER log raw API keys to D1. Always use `sanitizeForAudit`.
 - **UI**: Adhere to Shadcn "Default Dark" theme. Header must be sticky.
 - **Pattern**: Always try KV first, then fallback to `c.env`.
-
 ```
 
 #### `.agent/rules/security-standards.md`
@@ -792,8 +825,7 @@ Implement the complete dynamic configuration system. This involves moving config
 ```markdown
 # Security & Auditing Standards
 
-1.  **Defense in Depth**: Sensitive data (keys ending in `_KEY`, `_TOKEN`, `_SECRET`) MUST be masked using `sanitizeForAudit` located in `src/lib/masking.ts` *before* being written to any persistent storage outside of KV (like D1 audit logs or application logs).
+1.  **Defense in Depth**: Sensitive data (keys ending in `_KEY`, `_TOKEN`, `_SECRET`) MUST be masked using `sanitizeForAudit` located in `src/lib/masking.ts` _before_ being written to any persistent storage outside of KV (like D1 audit logs or application logs).
 2.  **Masking Format**: Visible characters should be limited to the first 3 and last 4 (e.g., `sk-********4a2z`).
 3.  **Audit Trail**: Every state change to the configuration via the API must result in an immutable entry in the `config_audit_logs` D1 table.
-
 ```

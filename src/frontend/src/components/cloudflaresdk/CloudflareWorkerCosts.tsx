@@ -11,7 +11,7 @@ export function CloudflareWorkerCosts({ workerName }: { workerName: string }) {
     const { data: costData, isLoading, error } = useQuery({
         queryKey: ["cloudflare-worker-cost", workerName, period],
         queryFn: async () => {
-            const res = await fetch(`/api/services/cloudflare/costs/worker/${workerName}?since=${period}`);
+            const res = await fetch(`/api/cloudflare/costs/worker/${workerName}?since=${period}`);
             if (!res.ok) throw new Error("Failed to fetch worker costs");
             return res.json();
         }

@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { api } from '@/lib/api-client';
 import ProjectEditor from '@/views/research/components/ProjectEditor';
 import { toast } from 'sonner';
 
@@ -18,8 +17,17 @@ export default function ProjectEditorWrapper({ type }: ProjectEditorWrapperProps
         if (id === 'new') {
             const createDraft = async () => {
                 try {
-                    const res = await api['research-projects'].projects.draft.$post({ json: { type } });
-                    const data = (await res.json()) as any;
+                    const res = await fetch('/api/research-projects/projects/draft', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ type })
+                    });
+                    if (!res.ok) {
+                        const errText = await res.text();
+                        console.error("Draft initialization failed:", errText);
+                        throw new Error("HTTP " + res.status);
+                    }
+                    const data = await res.json();
                     
                     // Immediately redirect the user to the real ID URL so browser history is stable
                     navigate(`/research/${type === 'cron' ? 'configure-cron' : 'custom'}/${data.id}`, { replace: true });

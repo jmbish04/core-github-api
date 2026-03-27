@@ -1,5 +1,6 @@
 import type { PlanningRequestStatus } from "@/lib/schemas/jules";
 import { createPlanningEvent } from "./store";
+import { BroadcastClient } from '@utils/do-broadcast';
 
 export type PlanningMonitorEventType =
   | "STATUS"
@@ -62,10 +63,7 @@ export interface PlanningMonitorSnapshot {
   recentEvents: PlanningMonitorEvent[];
 }
 
-function getPlanningMonitorStub(env: Env, requestId: string) {
-  const id = env.PLANNING_MONITOR.idFromName(requestId);
-  return env.PLANNING_MONITOR.get(id);
-}
+
 
 export async function broadcastPlanningEvent(
   env: Env,
@@ -96,10 +94,5 @@ export async function broadcastPlanningEvent(
     },
   });
 
-  const stub = getPlanningMonitorStub(env, requestId);
-  await stub.fetch("http://internal/internal/broadcast", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(normalized),
-  });
+  await BroadcastClient.broadcast(env.PLANNING_MONITOR, requestId, normalized);
 }

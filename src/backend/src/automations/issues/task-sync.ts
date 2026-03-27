@@ -99,11 +99,6 @@ export class TaskSync extends BaseAutomation<TaskSyncPayload> {
         }
       }
 
-      const endAt =
-        status === TaskStatus.DONE || kanbanColumn === KanbanColumn.DONE
-          ? new Date().toISOString()
-          : null;
-
       if (payload.action === 'opened') {
         await db.insert(tasks).values({
           id: generateUuid(),
@@ -117,7 +112,6 @@ export class TaskSync extends BaseAutomation<TaskSyncPayload> {
           githubHtmlUrl: payload.issue.html_url,
           createdAt: payload.issue.created_at,
           updatedAt: payload.issue.updated_at,
-          endAt,
         });
       } else if (['edited', 'closed', 'reopened', 'assigned', 'unassigned'].includes(payload.action)) {
         await db
@@ -129,7 +123,6 @@ export class TaskSync extends BaseAutomation<TaskSyncPayload> {
             kanbanColumn,
             assignee,
             updatedAt: new Date().toISOString(),
-            endAt,
           })
           .where(and(eq(tasks.repoId, repoId), eq(tasks.githubIssueId, issueNumber)));
       }

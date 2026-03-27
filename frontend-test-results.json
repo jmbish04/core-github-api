@@ -1,0 +1,60 @@
+{
+  "last_updated": "2026-03-27T16:14:00.000Z",
+  "completed_tests": 9,
+  "results": [
+    {
+      "page": "/",
+      "feature": "Dashboard / LiveOpsConsole",
+      "status": "FAIL",
+      "notes": "Page mounts but shows recurring 'Frontend System Error' toast: 'Project overview failed: Unexpected token <'. System status shows DEGRADED. Telemetry cards visible but /api/repos/* routes returning HTML instead of JSON."
+    },
+    {
+      "page": "/repos",
+      "feature": "Repositories Center",
+      "status": "FAIL",
+      "notes": "Repo list mounts correctly. Clicking 'View Dashboard' for any repository results in 'Unavailable' error with 'Unexpected token <'. Root cause: /api/repos/* endpoints returning HTML (likely a 404 page or error route)."
+    },
+    {
+      "page": "/repos/jmbish04/core-github-api/projects",
+      "feature": "Repository Workspace — Project Backlog",
+      "status": "FAIL",
+      "notes": "Routes correctly to the page but results in an infinite spinner, then the same 'Unexpected token <' JSON parsing error. The ProjectView component cannot parse the backend response."
+    },
+    {
+      "page": "/chat",
+      "feature": "Global Chat — WorkspaceChat",
+      "status": "FAIL",
+      "notes": "Chat UI loads. The '+' new thread button appears non-functional (input remains disabled). Likely an API initialization failure on the chat backend WebSocket or /api/chat route."
+    },
+    {
+      "page": "/research",
+      "feature": "Research & Drafts — Custom Jobs",
+      "status": "PASS",
+      "notes": "Page renders correctly as 'Deep Research: Custom Jobs'. Empty dataset. No active jobs found. No errors."
+    },
+    {
+      "page": "/health",
+      "feature": "Health Check Grid",
+      "status": "FAIL",
+      "notes": "Overall status DEGRADED. 17/19 checks passed. Critical failure: Webhook Staleness (no webhooks received in >24h or D1 webhook_deliveries empty). AI domain checks appear operational based on prior runs."
+    },
+    {
+      "page": "/settings",
+      "feature": "Settings — Environment Config",
+      "status": "PASS",
+      "notes": "Settings page renders correctly. Form inputs are properly aligned. Sensitive fields (API keys) are obscured via environment bindings. No UI errors."
+    },
+    {
+      "page": "/webhooks",
+      "feature": "Webhooks Log Table",
+      "status": "PASS",
+      "notes": "Table renders correctly with empty dataset. No whitespace of death or unhandled errors. Matches expected state given health check webhook staleness."
+    },
+    {
+      "page": "/swagger",
+      "feature": "Swagger / OpenAPI — Codex MCP Orchestrator API",
+      "status": "PASS",
+      "notes": "Swagger UI mounts correctly. Loads the 'Codex MCP Orchestrator API' schema from openapi.json successfully. Endpoints are expandable and schema renders."
+    }
+  ]
+}

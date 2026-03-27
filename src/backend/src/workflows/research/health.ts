@@ -33,11 +33,11 @@ export async function checkHealth(env: Env): Promise<HealthStepResult> {
     });
 
     // --- 2. GitHub Token Check ---
-    await runCheck("github_token", async () => {
-        if (!env.GITHUB_TOKEN) {
-            throw new Error("GITHUB_TOKEN missing from environment");
+    await runCheck("GITHUB_PERSONAL_ACCESS_TOKEN", async () => {
+        if (!env.GITHUB_PERSONAL_ACCESS_TOKEN) {
+            throw new Error("GITHUB_PERSONAL_ACCESS_TOKEN missing from environment");
         }
-        return { message: "GITHUB_TOKEN present" };
+        return { message: "GITHUB_PERSONAL_ACCESS_TOKEN present" };
     });
 
     // --- 3. AI Gateway Check ---

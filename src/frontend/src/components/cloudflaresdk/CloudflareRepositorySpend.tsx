@@ -73,7 +73,7 @@ export function CloudflareRepositorySpend({ owner, repo, workerName, compact = f
       const params = new URLSearchParams({ since: period });
       if (workerName) params.set("workerName", workerName);
       const response = await fetch(
-        `/api/services/cloudflare/costs/repository/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}?${params.toString()}`,
+        `/api/cloudflare/costs/repository/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}?${params.toString()}`,
       );
       if (!response.ok) {
         throw new Error("Failed to fetch repository spend");

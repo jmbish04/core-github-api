@@ -1,7 +1,7 @@
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi';
 import { getDb, workshopProjects, workshopTaskEvents, workshopProjectTasks, workshopAgentMemory } from "@db";
 import { eq, sql } from 'drizzle-orm';
-import { getAgentByName } from '@/ai/agents/runtime/agents';
+import { HoniClient } from '@utils/honi-client';
 
 // Helper for generating UUIDs
 const generateUuid = () => crypto.randomUUID();
@@ -10,6 +10,7 @@ const app = new OpenAPIHono<{ Bindings: Env }>();
 
 // 1. POST /draft
 const draftRoute = createRoute({
+    operationId: 'postDraft',
     method: 'post',
     path: '/draft',
     request: {
@@ -57,6 +58,7 @@ app.openapi(draftRoute, async (c) => {
 
 // 2. POST /init
 const initRoute = createRoute({
+    operationId: 'postInit',
     method: 'post',
     path: '/init',
     request: {
@@ -96,7 +98,7 @@ app.openapi(initRoute, async (c) => {
     // Create GitHub Repo via WorkshopAgent
     let repoUrl = "";
     try {
-        const agent = await getAgentByName(c.env.WORKSHOP_AGENT, body.projectId);
+        const agent = HoniClient.getStub(c.env.WORKSHOP_AGENT as any, body.projectId) as any;
         const result = await agent.initializeRepository(body.projectId, { 
             owner: body.owner, 
             description: body.description, 
@@ -126,6 +128,7 @@ app.openapi(initRoute, async (c) => {
 
 // 3. POST /project/:id/tasks
 const pushTasksRoute = createRoute({
+    operationId: 'postProjectIdTasks',
     method: 'post',
     path: '/project/{id}/tasks',
     request: {
@@ -222,6 +225,7 @@ app.openapi(pushTasksRoute, async (c) => {
 
 // 4. GET /project/:id/events
 const getEventsRoute = createRoute({
+    operationId: 'getProjectIdEvents',
     method: 'get',
     path: '/project/{id}/events',
     request: {
@@ -271,6 +275,7 @@ app.openapi(getEventsRoute, async (c) => {
 
 // 5. GET /events/recent (Global feed)
 const getRecentGlobalEventsRoute = createRoute({
+    operationId: 'getEventsRecent',
     method: 'get',
     path: '/events/recent',
     responses: {
@@ -322,6 +327,7 @@ app.openapi(getRecentGlobalEventsRoute, async (c) => {
 
 // 6. GET /specialists
 const getSpecialistsRoute = createRoute({
+    operationId: 'getSpecialists',
     method: 'get',
     path: '/specialists',
     responses: {
@@ -372,6 +378,7 @@ app.openapi(getSpecialistsRoute, async (c) => {
 
 // 7. GET /inbox
 const getInboxRoute = createRoute({
+    operationId: 'getInbox',
     method: 'get',
     path: '/inbox',
     responses: {
@@ -393,6 +400,7 @@ app.openapi(getInboxRoute, async (c) => {
 
 // 8. POST /decision
 const postDecisionRoute = createRoute({
+    operationId: 'postDecision',
     method: 'post',
     path: '/decision',
     request: {
@@ -428,6 +436,7 @@ app.openapi(postDecisionRoute, async (c) => {
 
 // 9. GET /memory
 const getMemoryRoute = createRoute({
+    operationId: 'getMemory',
     method: 'get',
     path: '/memory',
     request: {
@@ -453,6 +462,7 @@ app.openapi(getMemoryRoute, async (c) => {
 
 // 10. POST /memory/resolve
 const resolveMemoryRoute = createRoute({
+    operationId: 'postMemoryResolve',
     method: 'post',
     path: '/memory/resolve',
     request: {
@@ -488,6 +498,7 @@ app.openapi(resolveMemoryRoute, async (c) => {
 
 // 11. GET /stats/global
 const getGlobalStatsRoute = createRoute({
+    operationId: 'getStatsGlobal',
     method: 'get',
     path: '/stats/global',
     responses: {
@@ -516,6 +527,7 @@ app.openapi(getGlobalStatsRoute, async (c) => {
 
 // 12. GET /stats/agent/:id
 const getAgentStatsRoute = createRoute({
+    operationId: 'getStatsAgentId',
     method: 'get',
     path: '/stats/agent/{id}',
     request: {
@@ -543,6 +555,7 @@ app.openapi(getAgentStatsRoute, async (c) => {
 
 // 13. GET /draft
 const getDraftRoute = createRoute({
+    operationId: 'getDraft',
     method: 'get',
     path: '/draft',
     request: {

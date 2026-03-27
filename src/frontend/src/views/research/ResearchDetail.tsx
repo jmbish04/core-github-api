@@ -76,6 +76,7 @@ export default function ResearchDetail() {
       }
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     fetchData();
     const interval = setInterval(fetchData, 3000); // 3s polling

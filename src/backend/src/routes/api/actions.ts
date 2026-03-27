@@ -30,7 +30,7 @@ actionsApi.post('/dispatch', zValidator('json', DispatchSchema), async (c) => {
   });
 
   // 2. Dispatch to GitHub
-  const tokenRecord = c.env.GITHUB_TOKEN || c.env.GITHUB_PERSONAL_ACCESS_TOKEN;
+  const tokenRecord = c.env.GITHUB_PERSONAL_ACCESS_TOKEN || c.env.GITHUB_PERSONAL_ACCESS_TOKEN;
   const token = typeof tokenRecord === 'string' ? tokenRecord : await (tokenRecord as any)?.get();
   
   const callback_url = `${c.env.BASE_URL}/api/webhooks/action-callback`;

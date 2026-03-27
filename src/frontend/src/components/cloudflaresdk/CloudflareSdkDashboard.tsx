@@ -52,14 +52,12 @@ type OverviewResponse = {
 };
 
 interface CloudflareSdkDashboardProps {
-  projectId: string;
   repoOwner: string;
   repoName: string;
   overview: OverviewResponse;
 }
 
 export function CloudflareSdkDashboard({ 
-  projectId, 
   repoOwner, 
   repoName, 
   overview 
@@ -202,7 +200,7 @@ export function CloudflareSdkDashboard({
             <TabsContent value="deployments" className="m-0 mt-0 h-full">
                <div className="space-y-4">
                  <h3 className="text-lg font-medium">Deployment History</h3>
-                 <DeploymentsList projectId={projectId} deployments={overview.cloudflare.deployments} />
+                 <DeploymentsList repoOwner={repoOwner} repoName={repoName} deployments={overview.cloudflare.deployments} />
                </div>
             </TabsContent>
 
@@ -212,12 +210,12 @@ export function CloudflareSdkDashboard({
                 <p className="text-sm text-muted-foreground mb-4">
                   Manage external resources like KV, D1, and standard environment variables hooked into this Worker.
                 </p>
-                <BindingsTable projectId={projectId} bindings={overview.cloudflare.bindings} />
+                <BindingsTable repoOwner={repoOwner} repoName={repoName} bindings={overview.cloudflare.bindings} />
               </div>
             </TabsContent>
 
             <TabsContent value="logs" className="m-0 mt-0 h-full">
-               <LogStreamer projectId={projectId} />
+               <LogStreamer owner={repoOwner} repo={repoName} />
             </TabsContent>
 
             <TabsContent value="costs" className="m-0 mt-0 h-full">

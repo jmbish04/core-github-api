@@ -5,7 +5,7 @@
 
 import { OpenAPIHono, createRoute } from '@hono/zod-openapi'
 import { z } from 'zod'
-import { getAgentByName } from '@/ai/agents/runtime/agents'
+import { HoniClient } from '@utils/honi-client';
 import { generateUuid } from "@/utils/common";
 
 const cloudflareChatApi = new OpenAPIHono<{ Bindings: Env }>({
@@ -78,8 +78,7 @@ cloudflareChatApi.openapi(route, async (c) => {
         const { message, sessionId: providedSessionId, history, context, source } = c.req.valid('json')
 
         const sessionId = providedSessionId || generateUuid()
-        const getByName = getAgentByName as any
-        const stub = await getByName(c.env.CLOUDFLARE_DOCS_AGENT, sessionId)
+        const stub = HoniClient.getStub(c.env.CLOUDFLARE_DOCS_AGENT as any, sessionId) as any;
 
         interface ChatResult {
             blocks?: Array<{ type: string; text: string; language?: string }>;
@@ -89,7 +88,7 @@ cloudflareChatApi.openapi(route, async (c) => {
             sessionId: string;
         }
 
-        // @ts-ignore - Suppress deep type instantiation
+
         const result = await (stub as any).chat(message, history, context, source, sessionId) as ChatResult
 
         return c.json({

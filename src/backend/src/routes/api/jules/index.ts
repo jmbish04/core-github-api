@@ -24,6 +24,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import { streamText } from "hono/streaming";
+import { HoniClient } from '@utils/honi-client';
 import { JulesService } from "@/services/jules/service";
 import { getDb } from "@db";
 import { julesSessions, julesJobs, julesWebhookEvents } from "@db/schemas/jules";
@@ -198,9 +199,7 @@ app.post("/start", zValidator("json", startSessionSchema), async (c) => {
 
     // Optionally start JulesOverseer monitoring
     if (force_overseer) {
-      const id = c.env.JULES_OVERSEER.idFromName("jules-overseer-singleton");
-      const overseer = c.env.JULES_OVERSEER.get(id);
-      c.executionCtx.waitUntil(overseer.fetch("http://internal/schedule/check"));
+      c.executionCtx.waitUntil(HoniClient.fetch(c.env.JULES_OVERSEER as unknown as DurableObjectNamespace, "jules-overseer-singleton", "/schedule/check"));
     }
 
     let status = "connecting";

@@ -51,6 +51,7 @@
     "src/backend/src/**/*.d.ts",
     "worker-configuration.d.ts",
     "tests",
+    "vitest.config.ts",
     "scripts/github/extract_pr_code_comments.ts",
     "landing-generator",
     "src/backend/drizzle.config.webhooks.ts",

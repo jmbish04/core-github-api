@@ -4,6 +4,7 @@ import { researchBriefs, researchCandidates } from "@/db/schemas/github/research
 import { eq } from "drizzle-orm";
 
 import { dailyTrends } from "@/db/schemas/github/webhooks";
+import { HoniClient } from '@utils/honi-client';
 
 type ResearchWorkflowParams = {
   briefId: string;
@@ -19,8 +20,7 @@ export class TopicResearchWorkflow extends WorkflowEntrypoint<Env, ResearchWorkf
     const searchResults = await step.do("discovery-search", async () => {
       // Use the WebSearchAgent. We use the briefId as the ID for consistency/caching if we wanted stateful,
       // but WebSearchAgent is largely stateless tool-user.
-      const searchAgentId = this.env.WEB_SEARCH_AGENT.idFromName(briefId);
-      const searchAgent = this.env.WEB_SEARCH_AGENT.get(searchAgentId) as any;
+      const searchAgent = HoniClient.getStub(this.env.WEB_SEARCH_AGENT, briefId) as any;
       
       const queries: string[] = plan.search_queries || [];
       const allResults: any[] = [];
@@ -36,8 +36,7 @@ export class TopicResearchWorkflow extends WorkflowEntrypoint<Env, ResearchWorkf
 
     // 2. Judging (Parallel Fan-out)
     const judgedCandidates = await step.do("judge-candidates", async () => {
-       const judgeAgentId = this.env.JUDGE_AGENT.idFromName(briefId);
-       const judgeAgent = this.env.JUDGE_AGENT.get(judgeAgentId) as any;
+       const judgeAgent = HoniClient.getStub(this.env.JUDGE_AGENT, briefId) as any;
 
        const candidatesToJudge = searchResults.slice(0, 15); // Cap at 15
        const criteria = JSON.stringify(plan.goals);

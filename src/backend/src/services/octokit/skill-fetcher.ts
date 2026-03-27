@@ -135,7 +135,7 @@ export const AGENT_SKILL_PATHS: Record<string, string[]> = {
  * @returns         - Formatted `<skill_context>...</skill_context>` string, or ''
  */
 export async function buildSkillContext(
-  env: { GITHUB_TOKEN: any; GITHUB_REPO_STANDARDIZATION: string | undefined },
+  env: { GITHUB_PERSONAL_ACCESS_TOKEN: any; GITHUB_REPO_STANDARDIZATION: string | undefined },
   agentName: string,
 ): Promise<string> {
   const { fetchRemoteSkill: fetch } = await import('./utils/repos').then(m => ({

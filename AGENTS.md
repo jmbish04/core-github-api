@@ -1,5 +1,18 @@
 # AGENTS.md
 
+## Cloudflare Bindings & Naming
+
+1. **`script_name` vs `worker_name`**: The Cloudflare API often refers to the worker as `script_name`, but this is equivalent to the `name` field (the `worker_name`) defined in `wrangler.jsonc` or `wrangler.toml`.
+2. **Bindings Management Philosophy**: The purpose of automated bindings management is **create-only**. The system should provision new resources (like a D1 database) in the Cloudflare account and then update the repository's `wrangler.jsonc` by submitting a GitHub PR or patching an existing one. The system is **NOT** responsible for attaching bindings to the worker via the Cloudflare API. Attaching bindings happens organically through the normal CI/CD deployment pipeline.
+
+## Localized Agent Documentation (MANDATORY CRAWL)
+
+This repository contains localized `AGENTS.md` and `AGENTS-REVIEW.md` files that dictate behavior for specific directories and domains. You **MUST** read the relevant localized file when working in its respective directory:
+
+- [Frontend Repo Actions Review Protocol](src/frontend/src/components/repo-actions/AGENTS-REVIEW.md)
+- [Backend AI Agents Architecture](src/backend/src/ai/agents/AGENTS.md)
+- [Backend MCP Tools Protocol](src/backend/src/ai/mcp/tools/AGENTS.md)
+- [General Documentation Guidelines](docs/AGENTS.md)
 # 🛑 AGENT REQUIRED READING 🛑
 
 > **Protocol:** You are operating in a pnpm monorepo.
@@ -98,6 +111,13 @@ console.log(result.text); // Getter, returns string
 - `generationConfig` (Use `config` property instead)
 - `result.response.text()` (Method call)
 
+## Durable Object Abstraction (MANDATE)
+
+To prevent type ambiguity and routing errors, raw Durable Object mounting (`idFromName`, `.get()`, raw `.fetch()`) is **strictly forbidden**.
+- **Stateful AI Agents:** MUST be accessed via `HoniClient.getStub()` or `HoniClient.fetch()` (from `@utils/honi-client`).
+- **WebSocket Broadcasters:** MUST be accessed via `BroadcastClient` (from `@utils/do-broadcast`).
+For details, see `.agent/rules/02-do-abstraction.md`.
+
 ## Structured Outputs (MANDATE)
 
 **CRYSTAL CLEAR RULE**: You MUST use `AiProvider.generateStructuredResponse` (or `generateStructuredWithTools` exported from `@/ai/providers`) _anytime_ the AI model is being instructed to respond with a structured JSON response.
@@ -155,10 +175,13 @@ When integrating tools:
 
 ## Container / Sandbox Protocol
 
-When modifying the Cloudflare Sandbox SDK (`@cloudflare/sandbox` or containers), you **MUST** ensure the Docker base images exactly match the installed SDK version.
+When modifying the Cloudflare Sandbox SDK (`@cloudflare/sandbox` or containers), follow these strict architectural and troubleshooting rules:
 
-1. **Version Requirement**: Ensure that `package.json` SDK dependencies accurately match the versions in `container/Dockerfile`. Do not use `latest` as it introduces uncontrollable variables.
-2. **Verification**: The primary deployment script (`pnpm run deploy`) natively executes `scripts/verify-sandbox-version.mjs` to protect against missing assets. The Cloudflare Workers container SDK checks version compatibility on startup: mismatched versions will invariably throw `500 Internal Server Errors` or immediate API crashes!
+1. **Version Requirement**: Ensure that `package.json` SDK dependencies exactly match the tags in `container/Dockerfile` (e.g. `0.8.0`). Do not use `latest`.
+2. **Verification**: Validated by `scripts/package/verify-sandbox-version.mjs` on `pnpm run deploy`. Mismatched versions invariably cause `500 Internal Server Error`.
+3. **Container Base Image**: We use the native Cloudflare Sandbox images (merging `-opencode` into `-python`). **NEVER** overwrite the base image with `FROM oven/bun` or standard Node/Alpine images. Doing so destroys the Sandbox supervisor network and causes immediate crashes upon `sandbox.fetch()`.
+4. **Lockfile Sync**: If the Docker build fails with `"lockfile is frozen"`, it means `container/bun.lockb` is out of sync. Standard fix: run `cd container && bun install` locally before deploying to synchronize the definitions.
+5. **Port Exposure**: Any process running inside the container (e.g. `agent-sdk.ts` on port `3001`) MUST have a corresponding `EXPOSE 3001` directive in the Dockerfile for the host network proxy to recognize it.
 
 ## Exit Criteria & Verification
 
@@ -236,5 +259,128 @@ We are deploying a dedicated **Agentic Research Team** consisting of a stateful 
 When handling exceptions across the stack, the following strict protocol MUST be followed:
 
 1. **Backend Errors (D1 Mirror)**: All backend errors (API failures, tool exceptions) must be logged persistently using `src/lib/logger.ts`. You must invoke `logger.error()` passing the original error message and call `await logger.flush()` before returning the JSON error response to ensure the D1 `system_logs` transaction commits.
-2. **Frontend UI (Shadcn)**: The frontend must catch API errors and pass them to the centralized `handleGlobalError` service (in `@/lib/error-handler`), which renders a Sonner toast containing the literal backend message and a "Copy to Clipboard" button for the user to paste back to an AI agent. Do not use generic `<Alert>` blocks for structural logic failures.
+2. **Frontend UI (Shadcn)**: The frontend must catch API errors and pass them to the centralized `handleGlobalError` service (in `@/lib/error-handler`), which renders a Sonner toast containing the literal backend message and a "Copy to Clipboard" button for the user to paste back to an AI agent. Do not use generic `<Alert>` blocks or raw `toast.error()` directly for structural logic failures. `handleGlobalError(error)` handles deduplication and dispatching metrics automatically.
 3. **Transparent Passthrough**: Do not genericize trace messages on the backend. If an external service returns a 404, the JSON payload must contain `"error": "GitHub API responded with 404 Not Found"`, not `"Extraction failed"`.
+
+## D1 & Drizzle ORM Governance (Mandatory)
+
+### Table Instance Ownership
+
+| D1 Binding | Purpose | Examples |
+|-----------|---------|----------|
+| `DB` (core) | All application tables | `system_logs`, `audit_logs`, `automation_logs`, `repos`, `prs`, `health_*`, `cloudflare_changelog`, everything not a raw webhook event |
+| `DB_WEBHOOKS` | Raw GitHub webhook event data ONLY | `webhook_deliveries`, `pull_request`, `push`, `checkRun`, `workflow_run`, `webhook_configs`, `searches`, `repoAnalysis` |
+
+### Pre-Table-Creation Scan (MANDATORY)
+
+Before creating ANY new Drizzle table, you MUST:
+
+1. Run: `grep -r "sqliteTable" src/backend/src/db/schemas/ --include="*.ts" -l` to list all schema files
+2. Read the relevant domain's `index.ts` barrel and the table definitions
+3. Ask: *"Can I add columns to an existing table instead of creating a new one?"*
+4. Only create a new table if no existing table can reasonably serve the purpose
+5. Assign the table to the correct D1 instance based on the ownership table above
+
+### ORM Client Rules
+
+- **DB (core)**: Always use `getDb(env.DB)` — imported from `@db`
+- **DB_WEBHOOKS**: Always use `getWebhooksDb(env.DB_WEBHOOKS)` — imported from `@db`
+- **NEVER** call `drizzle(env.DB)` or `drizzle(env.DB_WEBHOOKS)` directly — the schema argument is required
+
+### Migration Discipline
+
+- **NEVER** edit files in `migrations/core/` or `migrations/webhooks/` directly
+- **ALWAYS** generate migrations via: `pnpm run db:generate:core` or `pnpm run db:generate:webhooks`
+- **ALWAYS** apply via: `pnpm run migrate:remote:core` or `pnpm run migrate:remote:webhooks`
+- Exception: if a migration fails and manual repair is explicitly authorized by the user
+- To reset D1 from scratch: `pnpm run db:reset`
+
+### Full Reset + Seed Protocol
+
+`pnpm run db:reset` is **fully autonomous** — UUIDs are read from `wrangler.jsonc` automatically. No hardcoded constants to update.
+
+After `db:reset` + deploy completes, restore prior data:
+```bash
+pnpm run db:seed:prep   # normalize exported data for D1 limits (truncates & chunks)
+pnpm run db:seed:run    # apply seeds to fresh instances (bulk + per-statement fallback)
+```
+
+**⚠️ NEVER put seed files in `migrations/`** — place them only in `scripts/db/seeds/`.
+
+### D1 Execution Limits (Reference)
+| Limit | Value |
+|-------|-------|
+| Max bound parameters per query | 100 |
+| Max SQL statement | 100 KB (scripts use 90 KB) |
+| Max query duration | 30 seconds |
+| Safe INSERT batch | 100 rows |
+| Max D1 database size | 10 GB |
+
+### D1 Health Monitors
+
+Three health checks run automatically as part of `POST /api/health/run`:
+
+| Check ID | Fails When |
+|----------|-----------|
+| `webhook_staleness` | `webhook_deliveries` empty OR >24h lag behind GitHub API OR >30 days since last delivery |
+| `log_staleness` | `system_logs` empty OR latest entry >1 day old |
+| `d1_table_scan` | Any table has 0 rows or last row >30 days old across both DB instances |
+
+To manually verify D1 staleness:
+```bash
+# Quick row count
+wrangler d1 execute DB --remote --command "SELECT count(*) FROM system_logs;"
+wrangler d1 execute DB_WEBHOOKS --remote --command "SELECT count(*) FROM webhook_deliveries;"
+
+# Full D1 health check (live API)
+curl -X POST https://core-github-api.hacolby.workers.dev/api/health/run | \
+  python3 -c "import sys, json; [print(r['name'], r['status'], '|', r['message'][:80]) for r in json.load(sys.stdin).get('results', []) if r['name'] in ['Webhook Staleness','Log Staleness','D1 Table Scan']]"
+```
+
+For the full D1 audit workflow, run: `/d1-audit`
+See also: `.agent/rules/d1-drizzle-governance.md` | `.agent/workflows/d1-audit.md`
+
+## GitHub Webhook Architecture (CRITICAL — READ BEFORE TOUCHING ROUTES)
+
+> **See `.agent/rules/github-webhooks.md` for the full rule set.**
+
+### Canonical Webhook URL (IMMUTABLE)
+
+```
+POST https://core-github-api.hacolby.workers.dev/api/webhooks
+```
+
+This URL is **hardcoded in the GitHub App settings** (GitHub Settings → Developer → Apps → core-github-api → Webhook URL).
+
+| Property | Value |
+|---|---|
+| Route File | `src/backend/src/routes/api/webhooks/index.ts` |
+| Route Mount | `src/backend/src/routes/index.ts` → `.route('/api/webhooks', webhooksApi)` |
+| wrangler.jsonc var | `WEBHOOK_URL = "https://core-github-api.hacolby.workers.dev/api/webhooks"` |
+| Health Check | `GET /api/health/github-app-webhooks` |
+
+**DO NOT rename or move `/api/webhooks`**. Every GitHub event (push, PR, issue, check_run, etc.) from the `jmbish04` organization is delivered to this exact path. A path change without a simultaneous GitHub App settings update will cause silent data loss in `DB_WEBHOOKS`.
+
+### Root Cause History (March 2026)
+
+- ❌ **Old (wrong):** GitHub App was configured to POST to `/webhooks`
+- ✅ **Fixed:** Corrected to `/api/webhooks` (the actual worker route prefix)
+- ✅ **Result:** `DB_WEBHOOKS.webhook_deliveries` started receiving rows immediately after correction
+- ✅ **Safeguard:** `WEBHOOK_URL` env var added to `wrangler.jsonc` as single source of truth
+
+### Health Check for GitHub App Webhooks
+
+The endpoint `GET /api/health/github-app-webhooks` authenticates as the GitHub App (JWT, not installation token) and:
+1. Fetches the current webhook URL from GitHub App settings  
+2. Compares it against `env.WEBHOOK_URL`  
+3. Scans the 50 most recent deliveries for `status_code >= 400` failures
+4. Returns `{ status: 'healthy' | 'degraded' | 'unhealthy', urlMatchesExpected, failedDeliveries }`
+
+## Mobile-First Responsive Standard
+
+All UI development within this ecosystem MUST prioritize fluid, mobile-responsive layouts. Our application shell (`Sidebar`) manages its own responsive off-canvas state via `useIsMobile`, but all internal page content (global views, repo-specific views, dashboards, etc.) must degrade gracefully on smaller viewports.
+
+1. **Utility-First**: Utilize Tailwind CSS mobile-first breakpoints (e.g., default classes for mobile, shifting to `sm:`, `md:`, `lg:`, `xl:` for larger screens).
+2. **Fluid Widths**: Never hardcode pixel widths for layout containers; use percentages or viewport units (e.g., `w-full md:w-1/2`).
+3. **Stacked Layouts**: Grid and flex layouts must stack correctly on mobile (e.g., `flex-col md:flex-row`, `grid-cols-1 md:grid-cols-2`).
+4. **Data Tables**: Wide data tables or complex elements must be wrapped in an `overflow-x-auto` container to prevent viewport breakage.

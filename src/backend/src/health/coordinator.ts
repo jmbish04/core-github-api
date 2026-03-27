@@ -4,18 +4,28 @@ import { healthRuns, healthResults, healthTestDefinitions } from '@db/schemas/lo
 import { v4 as uuidv4 } from 'uuid';
 import { eq, desc, and, gt } from 'drizzle-orm';
 import { HealthResult, HealthCategory, HealthStepResult } from './types';
-import { analyzeFailure } from '@/ai/utils/diagnostician';
+import { HoniClient } from '@utils/honi-client';
+import { analyzeFailure } from '@/ai/utils/diagnostician'; // eslint-disable-line @typescript-eslint/no-unused-vars
 
 // ─── Import ALL distributed modular checks ──────────────────────────────
 import { checkGitHubAPIHealth, checkWebhooksHealth, checkGitHubAppAuthHealth } from '@/workflows/health';
 import { checkHealth as checkAIHealth } from '@/ai/health';
+import { checkAIGatewayHealth } from '@/ai/gateway-health';
 import { checkHealth as checkAgentsHealth } from '@/ai/agents/health';
 import { checkHealth as checkMCPHealth } from '@/ai/mcp/health';
 import { checkHealth as checkBrowserHealth } from '@/ai/mcp/tools/browser/health';
-import { checkGitHealth, checkSandboxHealth } from '@/ai/mcp/tools/github/git-sandbox-health';
+import { checkGitHealth } from '@/ai/mcp/tools/sandbox-sdk/git';
+import { checkHealth as checkSandboxHealth } from '@/ai/mcp/tools/sandbox-sdk/health_old';
 import { checkAPIHealth } from '@/routes/api/health';
 import { checkHealth as checkPlanningHealth } from '@/workflows/planning/health';
 import { checkHealth as checkResearchHealth } from '@/workflows/research/health';
+import { checkHealth as checkDatabaseHealth } from '@/db/health';
+import { checkHealth as checkSemanticsHealth } from '@/lib/vectorize/health';
+import { checkHealth as checkAutomationsHealth } from '@/automations/health';
+import { checkHealth as checkEdgraphHealth } from '@/lib/edgraph/health';
+import { checkWebhookStaleness } from '@/health/checks/webhook-staleness';
+import { checkLogStaleness } from '@/health/checks/log-staleness';
+import { checkD1TableScan } from '@/health/checks/d1-table-scan';
 
 // ─── Check Registry ──────────────────────────────────────────────────────
 // Each check returns HealthStepResult and maps to a category for D1 persistence.
@@ -26,18 +36,26 @@ interface RegisteredCheck {
 }
 
 const CODE_CHECKS: RegisteredCheck[] = [
-    { id: 'db',       category: 'api',      fn: checkAPIHealth },
-    { id: 'ai',       category: 'ai',       fn: checkAIHealth },
-    { id: 'agents',   category: 'agents',   fn: checkAgentsHealth },
-    { id: 'mcp',      category: 'mcp',      fn: checkMCPHealth },
-    { id: 'browser',  category: 'browser',  fn: checkBrowserHealth },
-    { id: 'github_app',category: 'github',  fn: checkGitHubAppAuthHealth },
-    { id: 'github',   category: 'github',   fn: checkGitHubAPIHealth },
-    { id: 'webhooks', category: 'webhooks', fn: checkWebhooksHealth },
-    { id: 'git',      category: 'git',      fn: checkGitHealth },
-    { id: 'sandbox',  category: 'sandbox',  fn: checkSandboxHealth },
-    { id: 'deep_research', category: 'research', fn: checkResearchHealth },
-    { id: 'planning', category: 'planning', fn: checkPlanningHealth },
+    { id: 'api',        category: 'api',         fn: checkAPIHealth },
+    { id: 'database',   category: 'database',    fn: checkDatabaseHealth },
+    { id: 'semantics',  category: 'semantics',   fn: checkSemanticsHealth },
+    { id: 'ai',         category: 'ai',          fn: checkAIHealth },
+    { id: 'ai_gateway', category: 'ai',          fn: checkAIGatewayHealth },
+    { id: 'agents',     category: 'agents',      fn: checkAgentsHealth },
+    { id: 'mcp',        category: 'mcp',         fn: checkMCPHealth },
+    { id: 'browser',    category: 'browser',     fn: checkBrowserHealth },
+    { id: 'github_app', category: 'github',      fn: checkGitHubAppAuthHealth },
+    { id: 'github',     category: 'github',      fn: checkGitHubAPIHealth },
+    { id: 'webhooks',   category: 'webhooks',    fn: checkWebhooksHealth },
+    { id: 'git',        category: 'git',         fn: checkGitHealth },
+    { id: 'sandbox',    category: 'sandbox',     fn: checkSandboxHealth },
+    { id: 'research',   category: 'research',    fn: checkResearchHealth },
+    { id: 'planning',   category: 'planning',    fn: checkPlanningHealth },
+    { id: 'edgraph',    category: 'database',    fn: checkEdgraphHealth },
+    { id: 'automations',       category: 'automations', fn: checkAutomationsHealth },
+    { id: 'webhook_staleness', category: 'webhooks',    fn: checkWebhookStaleness },
+    { id: 'log_staleness',     category: 'database',    fn: checkLogStaleness },
+    { id: 'd1_table_scan',     category: 'database',    fn: checkD1TableScan },
 ];
 
 export class HealthCoordinator {
@@ -109,10 +127,7 @@ export class HealthCoordinator {
                 // Dispatch failure to the dedicated Agent DO
                 if (result.status === 'failure' && this.env.HEALTH_DIAGNOSTICIAN) {
                     try {
-                        const agentId = this.env.HEALTH_DIAGNOSTICIAN.idFromName('singleton');
-                        const agentStub = this.env.HEALTH_DIAGNOSTICIAN.get(agentId);
-                        
-                        const diagnosticResponse = await agentStub.fetch("http://do/diagnose", {
+                        const diagnosticResponse = await HoniClient.fetch(this.env.HEALTH_DIAGNOSTICIAN, 'singleton', '/diagnose', {
                             method: "POST",
                             body: JSON.stringify({
                                 errorName: result.name,
@@ -162,9 +177,7 @@ export class HealthCoordinator {
             for (const r of dynamicResults) {
                 if (r.status === 'failure' && this.env.HEALTH_DIAGNOSTICIAN) {
                     try {
-                        const agentId = this.env.HEALTH_DIAGNOSTICIAN.idFromName('singleton');
-                        const agentStub = this.env.HEALTH_DIAGNOSTICIAN.get(agentId);
-                        const diagnosticResponse = await agentStub.fetch("http://do/diagnose", {
+                        const diagnosticResponse = await HoniClient.fetch(this.env.HEALTH_DIAGNOSTICIAN, 'singleton', '/diagnose', {
                             method: "POST",
                             body: JSON.stringify({
                                 errorName: r.name,

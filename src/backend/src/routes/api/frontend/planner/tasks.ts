@@ -1,6 +1,6 @@
 // src/routes/api/tasks.ts
 import { Hono } from 'hono';
-import { Bindings } from '@utils/hono';
+// import { Bindings } from '@utils/hono';
 import { getDb } from '@db';
 import { tasks, repos, taskEvents, taskComments, workshopProjectTasks } from '@db/schema';
 import { eq, and } from 'drizzle-orm';
@@ -105,8 +105,6 @@ tasksApi.get('/', async (c) => {
                     githubHtmlUrl: null,
                     createdAt: w.createdAt,
                     updatedAt: w.updatedAt,
-                    startAt: null,
-                    endAt: null,
                     isDeleted: 0
                 });
             });
@@ -160,12 +158,7 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
     const initialStatus = (status as TaskStatus) || TaskStatus.TODO;
     const initialColumn = StatusMapper.mapStatusToColumn(initialStatus);
 
-    let startAt: string | undefined;
 
-    // If initial status implies progress, set startAt
-    if (initialStatus === TaskStatus.IN_PROGRESS || initialColumn === KanbanColumn.IN_PROGRESS) {
-        startAt = new Date().toISOString();
-    }
 
     try {
         await db.insert(tasks).values({
@@ -179,8 +172,7 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
             githubIssueId: issue.number,
             githubHtmlUrl: issue.html_url,
             createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            startAt: startAt
+            updatedAt: new Date().toISOString()
         });
         await logTaskEvent(db, requestId, newId, issue.number, 'db_task_create', 'success');
     } catch (e: any) {
@@ -276,17 +268,7 @@ tasksApi.patch('/tasks/:id', async (c) => {
     if (description !== undefined) updatePayload.description = description;
     if (assignee !== undefined) updatePayload.assignee = assignee;
 
-    // Logic: Set startAt if moving to active state and not set
-    if ((nextStatus === TaskStatus.IN_PROGRESS || nextColumn === KanbanColumn.IN_PROGRESS) && !task.startAt) {
-        updatePayload.startAt = new Date().toISOString();
-    }
 
-    if ((nextStatus as TaskStatus) === TaskStatus.DONE || (nextColumn as KanbanColumn) === KanbanColumn.DONE) {
-        updatePayload.endAt = new Date().toISOString();
-    } else if (nextStatus !== TaskStatus.DONE && nextColumn !== KanbanColumn.DONE && task.endAt) {
-        // If moving OUT of done, reset endAt
-        updatePayload.endAt = null;
-    }
 
     // Update Local
     await db.update(tasks)

@@ -7,7 +7,7 @@
 
 import { createAgent } from "@/ai/agents/honi";
 import { buildMaxAgentMemory } from "@/ai/agents/memory";
-import { getAgentByName, routeAgentRequest, callable } from "@/ai/agents/runtime/agents";
+import { callable } from "@/ai/agents/runtime/agents";
 import { runAgentStructured, runAgentText, resolveAgentModel, resolveAgentProvider } from "@/ai/agents/support/inference";
 import { AgentStateStore } from "@/ai/agents/support/state-store";
 import type { AgentTool, PersistentAgentState } from "@/ai/agents/support/types";
@@ -642,26 +642,3 @@ export class RepoAgent extends RepoDurableObject {
 import { sanitizeRepoName } from "@/ai/mcp/tools/sandbox-sdk";
 export { sanitizeRepoName };
 
-/**
- * @function getRepoAgentByName
- * @description Extracts internal namespace and resolves an Agent ID specifically for routing GitHub repositories.
- * @param {Env} env - Injected Environment config variables.
- * @param {string} repoFullName - Fully qualified string schema matching `owner/repo`.
- * @returns {Promise<any>} Explicit instantiated Agent Reference object for dispatch.
- */
-export async function getRepoAgentByName(env: Env, repoFullName: string) {
-  const agentName = sanitizeRepoName(repoFullName);
-  const getByName = getAgentByName as any;
-  return getByName(env.REPO_AGENT, agentName);
-}
-
-/**
- * @function routeRepoAgentRequest
- * @description Forwards raw external requests securely over the Agent boundaries directly to internal functions.
- * @param {Request} request - Unprocessed HTTP request payload structure.
- * @param {Env} env - Top-level CF Bindings and environment contexts.
- * @returns {Promise<Response>} Resolution mapping standard dispatch responses.
- */
-export async function routeRepoAgentRequest(request: Request, env: Env) {
-  return routeAgentRequest(request, env);
-}

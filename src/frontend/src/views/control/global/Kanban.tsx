@@ -5,9 +5,9 @@ import {
     KanbanHeader,
     KanbanProvider,
 } from "@/components/kibo-ui/kanban";
-import { useNavigate, useParams } from 'react-router-dom';
-import { useState, useMemo } from "react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useParams } from 'react-router-dom';
+import { useMemo } from "react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 
@@ -64,8 +64,8 @@ export default function KanbanPage() {
         refetchOnWindowFocus: false, // don't re-fetch when the tab regains focus
     });
 
-    const tasks = data?.tasks || [];
-    const columns = data?.columns || [];
+    const tasks = useMemo(() => data?.tasks || [], [data?.tasks]);
+    const columns = useMemo(() => data?.columns || [], [data?.columns]);
 
     const updateStatusMutation = useMutation({
         mutationFn: async ({ id, kanbanColumn }: { id: string, kanbanColumn: string }) => {
@@ -114,7 +114,7 @@ export default function KanbanPage() {
     }
 
     return (
-        <div className="flex flex-col h-screen bg-zinc-950 text-zinc-50 font-sans p-6">
+        <div className="flex flex-col h-screen bg-zinc-950 text-zinc-50 font-sans p-4 md:p-6">
             <h1 className="text-2xl font-bold mb-6">Task Board</h1>
             <div className="flex-1 overflow-hidden border rounded-lg bg-zinc-900/50 p-4">
                 <KanbanProvider

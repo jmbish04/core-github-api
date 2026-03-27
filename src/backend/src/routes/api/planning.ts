@@ -23,7 +23,8 @@ import {
   updatePlanningRequest,
 } from "@/services/planning/store";
 import { JulesService } from "@/services/jules/service";
-import { getAgentByName } from "@/ai/agents/runtime/agents";
+import { HoniClient } from '@utils/honi-client';
+import { BroadcastClient } from '@utils/do-broadcast';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -157,13 +158,7 @@ app.post("/query/semantic", zValidator("json", PlanningSemanticQuerySchema), asy
 
 app.get("/:id/ws", async (c) => {
   const requestId = c.req.param("id") as string;
-  const stubId = c.env.PLANNING_MONITOR.idFromName(requestId);
-  const stub = c.env.PLANNING_MONITOR.get(stubId);
-  const url = new URL(c.req.url);
-  url.hostname = "internal";
-  url.pathname = "/ws";
-  url.searchParams.set("requestId", requestId);
-  return stub.fetch(new Request(url.toString(), c.req.raw));
+  return BroadcastClient.upgradeWebSocket(c.env.PLANNING_MONITOR, requestId, c.req.raw, "/ws");
 });
 
 app.get("/:id/events", async (c) => {
@@ -363,23 +358,20 @@ app.post("/:id/orchestrate", async (c) => {
   }
 
   const markdown = await artifact.text();
-  const stub = await getAgentByName(
-    c.env.PLANNING_ORCHESTRATOR_AGENT,
+  const response = await HoniClient.fetch(
+    c.env.PLANNING_ORCHESTRATOR_AGENT as any,
     `planning-orchestrator-${loaded.requestId}`,
-  ) as { fetch(request: Request): Promise<Response> };
-
-  const response = await stub.fetch(
-    new Request("http://planning-orchestrator/orchestrate", {
+    "/orchestrate",
+    {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         requestId: loaded.requestId,
         workstream: loaded.request?.workstream,
         markdown,
         projectId: loaded.request?.projectId || undefined,
         projectName: loaded.request?.projectName || undefined,
-      }),
-    }),
+      })
+    }
   );
 
   if (!response.ok) {

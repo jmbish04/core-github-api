@@ -5,8 +5,10 @@
  */
 
 import { Hono } from "hono";
+import { z } from "zod";
+import { generateStructuredResponse } from "@/ai/providers";
 import { getDb } from "@db";
-import { fetchProjectContext } from "./utils";
+import { fetchProjectContextByOwnerRepo } from "./utils";
 import { generateDocstringsForProject } from "@/automations/pr/doc-string-generator/service";
 import { JulesService } from "@/services/jules/service";
 import { createPlanningRequest, updatePlanningRequest } from "@/services/planning/store";
@@ -14,29 +16,72 @@ import { broadcastPlanningEvent } from "@/services/planning/monitor";
 import { PlanningRequestInputSchema } from "@/lib/schemas/jules";
 import { ReverseEngineeringAuthSchema } from "@/lib/schemas/reverse-engineering";
 import { createReverseEngineeringSnapshot } from "@/services/reverse-engineering/store";
+import { HoniClient } from '@utils/honi-client';
 
 const app = new Hono<{ Bindings: Env }>();
 
 /**
- * POST /:id/assistant
+ * POST /:owner/:repo/assistant
  * Dispatches an engineering task to the Project Assistant Agent.
  */
-app.post("/:id/assistant", async (c) => {
+app.post("/:owner/:repo/assistant", async (c) => {
   const db = getDb(c.env.DB);
-  const projectId = c.req.param("id");
-  const body = (await c.req.json().catch(() => ({}))) as { prompt?: string };
-  // Logic for runner, agent creation, and plan saving...
-  return c.json({ success: true, message: "Handled by Assistant Agent (Mock)" });
+  const owner = c.req.param("owner");
+  const repo = c.req.param("repo");
+  const ctx = await fetchProjectContextByOwnerRepo(db, owner, repo);
+  if (!ctx) return c.json({ success: false, error: "Project not found" }, 404);
+  
+  const _body = (await c.req.json().catch(() => ({}))) as { prompt?: string };
+  if (!_body.prompt) {
+    return c.json({ success: false, error: "Prompt is required" }, 400);
+  }
+
+  const AssistantSchema = z.object({
+    reply: z.string().describe("A conversational reply to the user, answering their request."),
+    prd: z.string().optional().describe("A Product Requirements Document if requested by the user, formatted in markdown."),
+    planSaved: z.object({
+      epicsCreated: z.number(),
+      userStoriesCreated: z.number(),
+      tasksCreated: z.number()
+    }).nullable().optional().describe("If the user requested tasks/issues to be planned, estimate numbers."),
+  });
+
+  try {
+    const aiResponse = await generateStructuredResponse<z.infer<typeof AssistantSchema>>(
+      c.env,
+      `You are the Project Assistant for repository ${owner}/${repo}.
+      
+Project Context:
+${JSON.stringify(ctx, null, 2)}
+
+User Request:
+${_body.prompt}
+
+Respond thoroughly and carefully.`,
+      AssistantSchema
+    );
+
+    return c.json({ 
+      success: true, 
+      reply: aiResponse.reply,
+      prd: aiResponse.prd,
+      planSaved: aiResponse.planSaved,
+    });
+  } catch (error: any) {
+    return c.json({ success: false, error: error.message }, 500);
+  }
 });
 
 /**
- * POST /:id/jules/dispatch
+ * POST /:owner/:repo/jules/dispatch
  * Direct handoff of a technical task to the Jules agent session.
  */
-app.post("/:id/jules/dispatch", async (c) => {
+app.post("/:owner/:repo/jules/dispatch", async (c) => {
   const db = getDb(c.env.DB);
+  const owner = c.req.param("owner");
+  const repo = c.req.param("repo");
   const body = await c.req.json() as any;
-  const ctx = await fetchProjectContext(db, c.req.param("id"));
+  const ctx = await fetchProjectContextByOwnerRepo(db, owner, repo);
   if (!ctx) return c.json({ error: "Context missing" }, 404);
 
   const jules = JulesService.getInstance(c.env);
@@ -49,12 +94,14 @@ app.post("/:id/jules/dispatch", async (c) => {
 });
 
 /**
- * POST /:id/docstrings/generate
+ * POST /:owner/:repo/docstrings/generate
  * Automatically generates AI-powered docstrings for repository files.
  */
-app.post("/:id/docstrings/generate", async (c) => {
+app.post("/:owner/:repo/docstrings/generate", async (c) => {
     const db = getDb(c.env.DB);
-    const ctx = await fetchProjectContext(db, c.req.param("id"));
+    const owner = c.req.param("owner");
+    const repo = c.req.param("repo");
+    const ctx = await fetchProjectContextByOwnerRepo(db, owner, repo);
     if (!ctx) return c.json({ error: "Context missing" }, 404);
 
     const body = await c.req.json() as any;
@@ -68,16 +115,18 @@ app.post("/:id/docstrings/generate", async (c) => {
 });
 
 /**
- * POST /:id/planning/request
+ * POST /:owner/:repo/planning/request
  * Convenience wrapper to create a planning request from a project context.
  */
-app.post("/:id/planning/request", async (c) => {
+app.post("/:owner/:repo/planning/request", async (c) => {
   const db = getDb(c.env.DB);
-  const projectId = c.req.param("id");
-  const ctx = await fetchProjectContext(db, projectId);
+  const owner = c.req.param("owner");
+  const repo = c.req.param("repo");
+  const ctx = await fetchProjectContextByOwnerRepo(db, owner, repo);
   if (!ctx) {
     return c.json({ error: "Context missing" }, 404);
   }
+  const projectId = ctx.projectId;
 
   const body = PlanningRequestInputSchema.parse(await c.req.json());
   const requestId = crypto.randomUUID();
@@ -126,16 +175,18 @@ app.post("/:id/planning/request", async (c) => {
 });
 
 /**
- * POST /:id/reverse-engineering/request
+ * POST /:owner/:repo/reverse-engineering/request
  * Convenience wrapper to create a reverse engineering snapshot from project context.
  */
-app.post("/:id/reverse-engineering/request", async (c) => {
+app.post("/:owner/:repo/reverse-engineering/request", async (c) => {
   const db = getDb(c.env.DB);
-  const projectId = c.req.param("id");
-  const ctx = await fetchProjectContext(db, projectId);
+  const owner = c.req.param("owner");
+  const repo = c.req.param("repo");
+  const ctx = await fetchProjectContextByOwnerRepo(db, owner, repo);
   if (!ctx || !ctx.repoOwner || !ctx.repoName) {
     return c.json({ success: false, error: "Project repository context missing" }, 404);
   }
+  const projectId = ctx.projectId;
 
   const body = (await c.req.json().catch(() => ({}))) as {
     branch?: string;
@@ -161,26 +212,21 @@ app.post("/:id/reverse-engineering/request", async (c) => {
     useSandboxPreview: body.useSandboxPreview ?? true,
   });
 
-  const stubId = c.env.HONI_ORCHESTRATOR.idFromName(snapshotId);
-  const stub = c.env.HONI_ORCHESTRATOR.get(stubId);
-  await stub.fetch(
-    new Request("https://internal/run", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        snapshotId,
-        projectId,
-        owner: ctx.repoOwner,
-        repo: ctx.repoName,
-        repoUrl,
-        branch: body.branch || "main",
-        frontendUrl: body.frontendUrl,
-        auth,
-        useSandboxPreview: body.useSandboxPreview ?? true,
-        title: body.title || `${ctx.repoOwner}/${ctx.repoName}`,
-      }),
+  await HoniClient.fetch(c.env.HONI_ORCHESTRATOR, snapshotId, "/run", {
+    method: "POST",
+    body: JSON.stringify({
+      snapshotId,
+      projectId,
+      owner: ctx.repoOwner,
+      repo: ctx.repoName,
+      repoUrl,
+      branch: body.branch || "main",
+      frontendUrl: body.frontendUrl,
+      auth,
+      useSandboxPreview: body.useSandboxPreview ?? true,
+      title: body.title || `${ctx.repoOwner}/${ctx.repoName}`,
     }),
-  );
+  });
 
   return c.json({
     success: true,

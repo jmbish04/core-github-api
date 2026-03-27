@@ -1,10 +1,29 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { ProjectFolder } from './ProjectFolder';
+import { RepoFolder } from './RepoFolder';
 import { useProjectStore } from '@/stores/useProjectStore';
 import { cn } from '@/lib/utils';
-import { Github, LayoutGrid, Home, Activity, BookOpen, Settings, Wrench, FolderKanban, MessageSquare, Map, CheckSquare, ChevronRight, ChevronDown, FileText, Globe, Webhook, Bot, Telescope } from 'lucide-react';
+import { 
+  Github, 
+  LayoutGrid, 
+  Home, 
+  Activity, 
+  BookOpen, 
+  Settings, 
+  Wrench, 
+  FolderKanban, 
+  MessageSquare, 
+  Map, 
+  CheckSquare, 
+  ChevronRight, 
+  ChevronDown, 
+  FileText, 
+  Globe, 
+  Webhook, 
+  Bot, 
+  Telescope 
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export function AppSidebar({ className }: { className?: string }) {
@@ -73,7 +92,7 @@ export function AppSidebar({ className }: { className?: string }) {
                </div>
              ) : (
                activeProjects.map((repo) => (
-                 <ProjectFolder 
+                 <RepoFolder 
                    key={repo.full_name} 
                    repo={repo} 
                  />

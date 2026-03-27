@@ -54,7 +54,7 @@ landingGeneratorApi.openapi(generateRoute, async (c) => {
 
     try {
         // Auth check or Token retrieval
-        const githubToken = await c.env.GITHUB_TOKEN?.get();
+        const githubToken = await c.env.GITHUB_PERSONAL_ACCESS_TOKEN?.get();
 
         const result = await LandingGeneratorService.generateLandingPage(c.env, {
             owner,

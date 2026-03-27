@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowRightLeft, Loader2, X } from 'lucide-react';
-import { client } from '@/lib/api-client';
-import { RegistryItem } from './data';
+import { api } from '@/lib/api-client';
+import type { RegistryItem } from './data';
 
 interface CompareModalProps {
   isOpen: boolean;
@@ -20,6 +20,7 @@ export const CompareModal = ({ isOpen, onClose, selectedItems }: CompareModalPro
     } else {
       setContent('');
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, selectedItems]);
 
   const generateComparison = async () => {
@@ -29,7 +30,7 @@ export const CompareModal = ({ isOpen, onClose, selectedItems }: CompareModalPro
     const registriesContext = selectedItems.map(i => `${i.title}: ${i.description} (Category: ${i.category})`);
 
     try {
-      const res = await client.api.tools['shadcn-registry'].compare.$post({
+      const res = await api.tools['shadcn-registry'].compare.$post({
         json: { selectedRegistries: registriesContext }
       });
 
@@ -39,7 +40,7 @@ export const CompareModal = ({ isOpen, onClose, selectedItems }: CompareModalPro
       } else {
         throw new Error('Failed to generate comparison.');
       }
-    } catch (err) {
+    } catch {
       setError("Failed to generate comparison. Please try again.");
     } finally {
       setLoading(false);

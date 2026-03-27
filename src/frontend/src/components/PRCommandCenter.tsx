@@ -103,7 +103,7 @@ export function PRCommandCenter({ repoOwner, repoName, initialPrs }: PRCommandCe
                                 reviewCount: data.reviewCount,
                             };
                         }
-                    } catch (e) {
+                    } catch {
                         statusMap[pr.number] = { status: 'pending_review', commentCount: 0, reviewCount: 0 };
                     }
                 })
@@ -116,24 +116,32 @@ export function PRCommandCenter({ repoOwner, repoName, initialPrs }: PRCommandCe
     // Fetch overview when a PR is selected
     useEffect(() => {
         if (!selectedPrNumber) return;
-        setLoadingOverview(true);
-        setOverview(null);
+        let cancelled = false;
 
-        fetch(`/api/pr/${repoOwner}/${repoName}/${selectedPrNumber}/overview`, { credentials: 'include' })
-            .then(res => {
+        const fetchOverview = async () => {
+            setLoadingOverview(true);
+            setOverview(null);
+            try {
+                const res = await fetch(`/api/pr/${repoOwner}/${repoName}/${selectedPrNumber}/overview`, { credentials: 'include' });
                 if (!res.ok) throw new Error('Failed to fetch overview');
-                return res.json();
-            })
-            .then(data => setOverview(data as any))
-            .catch(e => console.error('[PRCommandCenter] Overview fetch failed:', e))
-            .finally(() => setLoadingOverview(false));
+                const data = await res.json();
+                if (!cancelled) setOverview(data as any);
+            } catch (err) {
+                console.error('[PRCommandCenter] Overview fetch failed:', err);
+            } finally {
+                if (!cancelled) setLoadingOverview(false);
+            }
+        };
+
+        void fetchOverview();
+        return () => { cancelled = true; };
     }, [selectedPrNumber, repoOwner, repoName]);
 
     // PR List View
     if (!selectedPrNumber) {
         return (
             <div className="h-[calc(100vh-100px)] flex flex-col gap-4">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <h2 className="text-2xl font-bold flex items-center gap-2">
                         <GitPullRequest className="w-6 h-6 text-purple-400" />
                         PR Command Center
@@ -149,8 +157,8 @@ export function PRCommandCenter({ repoOwner, repoName, initialPrs }: PRCommandCe
                         <p>No open pull requests found.</p>
                     </div>
                 ) : (
-                    <div className="border rounded-lg overflow-hidden">
-                        <div className="bg-muted/30 px-4 py-2.5 border-b text-xs font-medium text-muted-foreground grid grid-cols-12 items-center gap-3">
+                    <div className="border rounded-lg overflow-x-auto">
+                        <div className="bg-muted/30 px-4 py-2.5 border-b text-xs font-medium text-muted-foreground grid grid-cols-12 min-w-[800px] items-center gap-3">
                             <div className="col-span-1">#</div>
                             <div className="col-span-5">Title</div>
                             <div className="col-span-2">Author</div>
@@ -166,7 +174,7 @@ export function PRCommandCenter({ repoOwner, repoName, initialPrs }: PRCommandCe
                                     <div
                                         key={pr.number}
                                         onClick={() => setSelectedPrNumber(pr.number)}
-                                        className="px-4 py-3 border-b hover:bg-muted/20 cursor-pointer transition-colors grid grid-cols-12 items-center gap-3"
+                                        className="px-4 py-3 border-b hover:bg-muted/20 cursor-pointer transition-colors grid grid-cols-12 min-w-[800px] items-center gap-3"
                                     >
                                         <div className="col-span-1 font-mono text-sm text-muted-foreground">
                                             #{pr.number}
@@ -207,7 +215,7 @@ export function PRCommandCenter({ repoOwner, repoName, initialPrs }: PRCommandCe
 
     return (
         <div className="h-[calc(100vh-100px)] flex flex-col gap-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                     <Button variant="ghost" size="icon" onClick={() => setSelectedPrNumber(null)}>
                         <ArrowLeft className="w-4 h-4" />
@@ -222,7 +230,7 @@ export function PRCommandCenter({ repoOwner, repoName, initialPrs }: PRCommandCe
                         </p>
                     </div>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                     {selectedPr && (
                         <>
                             <Badge variant="outline" className="text-emerald-400 border-emerald-900 bg-emerald-950/20">
@@ -248,7 +256,7 @@ export function PRCommandCenter({ repoOwner, repoName, initialPrs }: PRCommandCe
             </div>
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
-                <TabsList className="bg-zinc-900 border border-zinc-800 w-full justify-start">
+                <TabsList className="bg-zinc-900 border border-zinc-800 w-full justify-start overflow-x-auto h-auto flex-wrap">
                     <TabsTrigger value="overview">
                         <Sparkles className="w-3.5 h-3.5 mr-1.5" /> Overview
                     </TabsTrigger>
@@ -280,7 +288,7 @@ export function PRCommandCenter({ repoOwner, repoName, initialPrs }: PRCommandCe
                             </Card>
 
                             {/* PR Stats */}
-                            <div className="grid grid-cols-4 gap-3">
+                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                                 <Card>
                                     <CardContent className="pt-4 pb-3 px-4 text-center">
                                         <div className="text-2xl font-bold text-foreground">{overview.pr.changedFiles}</div>

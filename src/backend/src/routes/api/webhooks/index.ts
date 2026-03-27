@@ -1,28 +1,72 @@
+/**
+ * ============================================================================
+ * CRITICAL: GITHUB WEBHOOK RECEIVER — DO NOT CHANGE THE ENDPOINT PATH
+ * ============================================================================
+ *
+ * @file src/backend/src/routes/api/webhooks/index.ts
+ * @module webhooks
+ *
+ * CANONICAL WEBHOOK URL:
+ *   https://core-github-api.hacolby.workers.dev/api/webhooks
+ *
+ * This endpoint is registered in the GitHub App settings at:
+ *   https://github.com/settings/apps/core-github-api → Webhook URL
+ *
+ * ⚠️  WARNING FOR FUTURE AGENTS ⚠️
+ * ─────────────────────────────────────────────────────────────────────────────
+ * 1. The route is mounted in `src/backend/src/routes/index.ts` as:
+ *      .route('/api/webhooks', webhooksApi)
+ *    DO NOT rename this segment. The GitHub App is configured to POST to
+ *    exactly `https://core-github-api.hacolby.workers.dev/api/webhooks`.
+ *    Changing this path will immediately break ALL GitHub event delivery and
+ *    will result in webhook failures showing in the GitHub App delivery log.
+ *
+ * 2. The internal POST handler in this file is `webhookHandler`, registered
+ *    as `webhooksApi.post('/')`. The effective external path resolves to
+ *    POST /api/webhooks. DO NOT move this handler to a different sub-path.
+ *
+ * 3. The webhook secret for signature verification is stored in Cloudflare
+ *    Secrets as `GITHUB_WEBHOOK_SECRET`. Any mismatch between this secret
+ *    and the secret configured in the GitHub App will produce HTTP 401 on
+ *    every delivery.
+ *
+ * 4. Webhook deliveries are persisted to the `DB_WEBHOOKS` D1 database in
+ *    the `webhook_deliveries` table. Do not redirect writes to `DB` (core).
+ *
+ * 5. Idempotency is enforced via `delivery_id` deduplication checks.
+ *    Duplicate deliveries will be silently acknowledged (200 OK) without
+ *    re-processing.
+ *
+ * 6. The health check for this endpoint is at:
+ *      GET /api/health/github-app-webhooks  ← verifies URL config + deliveries
+ *    See `src/backend/src/routes/api/ops/health.ts` for the implementation.
+ *
+ * HISTORY:
+ *   - The GitHub App was originally configured to POST to `/webhooks` (wrong).
+ *   - This was corrected to `/api/webhooks` (the actual worker path).
+ *   - The env var `WEBHOOK_URL` in `wrangler.jsonc` is kept in sync with this.
+ * ============================================================================
+ */
+
 import { Hono } from 'hono';
 import type { Context } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import { eq, desc, like, sql, and, inArray, gte, lte, or } from 'drizzle-orm';
-import { drizzle } from 'drizzle-orm/d1';
 
 // Internal schema & database imports
 import { getGitHubPrivateKey, getGitHubAppId, getGitHubWebhookSecret } from "@utils/secrets";
 import { generateUuid } from "@/utils/common";
-interface DONamespace {
-  idFromName(name: string): unknown;
-  get(id: unknown): unknown;
-}
-function getAgentByName(namespace: unknown, name: string) {
-  const ns = namespace as DONamespace;
-  const id = ns.idFromName(name);
-  return ns.get(id);
-}
+import { HoniClient } from '@utils/honi-client';
 import { getWebhooksDb } from '@db';
 import { webhookDeliveries } from '@/db/schemas/github/webhooks';
 
 // Types & Services
 import type { GitHubWebhookPayload } from '@/types/github/webhooks';
 import { App } from 'octokit';
+import { Octokit } from '@octokit/rest';
+import OpenAI from 'openai';
+import { getSandbox } from '@cloudflare/sandbox';
 import { sanitizeRepoName } from '@/ai/mcp/tools/sandbox-sdk';
 import { AutomationRegistry } from '@/automations/core/AutomationRegistry';
 import { JulesService } from '@/services/jules/service';
@@ -112,7 +156,7 @@ export async function webhookHandler(c: Context<{ Bindings: Env }>): Promise<Res
           try {
             const jules = JulesService.getInstance(c.env);
             const session = await jules.startSession({
-              prompt: `The CI check "${payload.check_run?.name}" failed on branch \`${branch}\`.\n\nReview the logs at ${payload.check_run?.details_url} or run checks locally, then fix the code causing the failure.`,
+              prompt: `The CI check "${payload.check_run?.name}" failed on branch '${branch}'.\n\nReview the logs at ${payload.check_run?.details_url} or run checks locally, then fix the code causing the failure.`,
               repo: { owner, repo: repoName, branch },
               autoPr: true,
               requireApproval: false,
@@ -127,25 +171,32 @@ export async function webhookHandler(c: Context<{ Bindings: Env }>): Promise<Res
     }
   }
 
+  // PR Reviewer (Sandbox + AI Gateway)
+  if (eventName === 'pull_request' && (action === 'opened' || action === 'reopened')) {
+    console.log(`[PR-Reviewer] Triggering Sandbox review for PR #${payload.pull_request?.number}`);
+    c.executionCtx.waitUntil(reviewPullRequest(payload, c.env));
+    // Notice: we do NOT return early here because we still want to log the webhook delivery in D1.
+  }
+
   // Agent Dispatching (Kept isolated as per earlier design)
   if (repoFullName && c.env.REPO_AGENT) {
     c.executionCtx.waitUntil(
       (async () => {
         try {
-          const getByName = getAgentByName as unknown as (className: string, name: string) => Promise<{ fetch: (url: string, init: unknown) => Promise<Response> }>;
-          const repoAgent = await getByName(
-            c.env.REPO_AGENT as unknown as string,
-            sanitizeRepoName(repoFullName)
+          await HoniClient.fetch(
+            c.env.REPO_AGENT as unknown as DurableObjectNamespace,
+            sanitizeRepoName(repoFullName),
+            "/webhook",
+            {
+              method: "POST",
+              headers: {
+                "content-type": "application/json",
+                "x-github-event": eventName,
+                ...(signature ? { "x-hub-signature-256": signature } : {}),
+              },
+              body: rawBody,
+            }
           );
-          await repoAgent.fetch("http://repo-agent/webhook", {
-            method: "POST",
-            headers: {
-              "content-type": "application/json",
-              "x-github-event": eventName,
-              ...(signature ? { "x-hub-signature-256": signature } : {}),
-            },
-            body: rawBody,
-          });
         } catch (error) {
           console.error('[RepoAgent] Failed to dispatch webhook:', error);
         }
@@ -162,19 +213,19 @@ export async function webhookHandler(c: Context<{ Bindings: Env }>): Promise<Res
             (payload as { installation?: { account?: { login?: string } } }).installation?.account?.login ||
             (c.env as { GITHUB_OWNER?: string }).GITHUB_OWNER ||
             'default-owner';
-          const getByName = getAgentByName as unknown as (className: string, name: string) => Promise<{ fetch: (url: string, init: unknown) => Promise<Response> }>;
-          const ownerAgent = await getByName(
-            c.env.OWNER_AGENT as unknown as string,
-            sanitizeRepoName(ownerKey)
+          await HoniClient.fetch(
+            c.env.OWNER_AGENT as unknown as DurableObjectNamespace,
+            sanitizeRepoName(ownerKey),
+            "/webhook",
+            {
+              method: 'POST',
+              headers: {
+                'content-type': 'application/json',
+                'x-github-event': eventName,
+              },
+              body: rawBody,
+            }
           );
-          await ownerAgent.fetch('http://owner-agent/webhook', {
-            method: 'POST',
-            headers: {
-              'content-type': 'application/json',
-              'x-github-event': eventName,
-            },
-            body: rawBody,
-          });
         } catch (error) {
           console.error('[OwnerAgent] Failed to dispatch webhook:', error);
         }
@@ -240,7 +291,13 @@ export async function webhookHandler(c: Context<{ Bindings: Env }>): Promise<Res
 // ==========================================
 // POST / : GitHub Webhook Sync Listener
 // ==========================================
+// ============================================================================
+// ⚠️  CANONICAL GITHUB WEBHOOK RECEIVER — DO NOT CHANGE THIS PATH ⚠️
+// External URL: POST https://core-github-api.hacolby.workers.dev/api/webhooks
+// This path is hardcoded in the GitHub App settings. See module docstring above.
+// ============================================================================
 webhooksApi.post('/', (c) => webhookHandler(c));
+
 
 // ==========================================
 // GET / : List Webhooks with Advanced Filters
@@ -257,7 +314,7 @@ const QuerySchema = z.object({
 });
 
 webhooksApi.get('/', zValidator('query', QuerySchema), async (c) => {
-    const db = drizzle(c.env.DB_WEBHOOKS);
+    const db = getWebhooksDb(c.env.DB_WEBHOOKS);
     const { page, limit, search, type, action, repo, from, to } = c.req.valid('query');
     
     const pageNum = parseInt(page);
@@ -325,7 +382,7 @@ webhooksApi.get('/', zValidator('query', QuerySchema), async (c) => {
 // GET /stats : Webhook Delivery Analytics
 // ==========================================
 webhooksApi.get('/stats', async (c) => {
-    const db = drizzle(c.env.DB_WEBHOOKS);
+    const db = getWebhooksDb(c.env.DB_WEBHOOKS);
     const [total, recent] = await Promise.all([
         db.select({ count: sql<number>`count(*)` }).from(webhookDeliveries).get(),
         db.select({ count: sql<number>`count(*)` }).from(webhookDeliveries).where(sql`created_at > datetime('now', '-24 hours')`).get()
@@ -340,31 +397,28 @@ webhooksApi.get('/stats', async (c) => {
 // GET /:owner/:repo/pr/:pull_number/initial : Initial PR Webhook Payload
 // ==========================================
 webhooksApi.get('/:owner/:repo/pr/:pull_number/initial', async (c) => {
-    const db = drizzle(c.env.DB_WEBHOOKS);
+    const db = getWebhooksDb(c.env.DB_WEBHOOKS);
     const owner = c.req.param('owner');
     const repo = c.req.param('repo');
     const pull_number = c.req.param('pull_number');
     
     const repoFullName = `${owner}/${repo}`;
     
+    const prNumber = parseInt(pull_number, 10);
     const results = await db.select()
         .from(webhookDeliveries)
         .where(
             and(
-                eq(webhookDeliveries.repo_full_name, repoFullName),
+                like(webhookDeliveries.repo_full_name, repoFullName),
                 eq(webhookDeliveries.event, 'pull_request'),
-                eq(webhookDeliveries.action, 'opened')
+                sql`json_extract(${webhookDeliveries.payload}, '$.pull_request.number') = ${prNumber}`
             )
         )
         .orderBy(desc(webhookDeliveries.created_at))
+        .limit(1)
         .all();
 
-    const prNumber = parseInt(pull_number, 10);
-    const match = results.find(r => {
-        const payload = r.payload as any;
-        const p = typeof payload === 'string' ? JSON.parse(payload) : payload;
-        return p?.pull_request?.number === prNumber;
-    });
+    const match = results[0];
 
     if (!match) {
         return c.json({ success: false, error: 'Webhook payload not found for this PR' }, 404);
@@ -372,5 +426,78 @@ webhooksApi.get('/:owner/:repo/pr/:pull_number/initial', async (c) => {
 
     return c.json({ success: true, data: { payload: match.payload } });
 });
+
+async function reviewPullRequest(payload: any, env: any): Promise<void> {
+  const pr = payload.pull_request;
+  const repo = payload.repository;
+  const octokit = new Octokit({ auth: env.GITHUB_PERSONAL_ACCESS_TOKEN });
+  const sandbox = getSandbox(env.SANDBOX, `review-${pr.number}`);
+
+  try {
+    await octokit.issues.createComment({
+      owner: repo.owner.login,
+      repo: repo.name,
+      issue_number: pr.number,
+      body: "Code review in progress...",
+    });
+
+    const cloneUrl = `https://${env.GITHUB_PERSONAL_ACCESS_TOKEN}@github.com/${repo.owner.login}/${repo.name}.git`;
+    await sandbox.exec(`git clone --depth=1 --branch=${pr.head.ref} ${cloneUrl} /workspace/repo`);
+
+    const comparison = await octokit.repos.compareCommits({
+      owner: repo.owner.login,
+      repo: repo.name,
+      base: pr.base.sha,
+      head: pr.head.sha,
+    });
+
+    const files = [];
+    for (const file of (comparison.data.files || []).slice(0, 5)) {
+      if (file.status !== "removed") {
+        const content = await sandbox.readFile(`/workspace/repo/${file.filename}`);
+        files.push({
+          path: file.filename,
+          patch: file.patch || "",
+          content: content.content,
+        });
+      }
+    }
+
+    const openai = new OpenAI({
+      apiKey: env.OPENAI_API_KEY,
+      baseURL: env.AI_GATEWAY_URL,
+    });
+
+    const changedFilesText = files.map((f: any) => "File: " + f.path + "\nDiff:\n" + f.patch + "\n\nContent:\n" + f.content.substring(0, 1000)).join("\n\n");
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "user",
+          content: `Review this PR:\nTitle: ${pr.title}\nChanged files:\n${changedFilesText}\nProvide a brief code review focusing on bugs, security, and best practices.`,
+        },
+      ],
+    });
+
+    const review = response.choices[0]?.message?.content || "No review generated";
+
+    await octokit.issues.createComment({
+      owner: repo.owner.login,
+      repo: repo.name,
+      issue_number: pr.number,
+      body: `## Code Review\n\n${review}\n\n---\n*Generated by OpenAI SDK via Cloudflare AI Gateway*`,
+    });
+  } catch (error: any) {
+    await octokit.issues.createComment({
+      owner: repo.owner.login,
+      repo: repo.name,
+      issue_number: pr.number,
+      body: `Review failed: ${error.message}`,
+    });
+  } finally {
+    await sandbox.destroy();
+  }
+}
 
 export default webhooksApi;

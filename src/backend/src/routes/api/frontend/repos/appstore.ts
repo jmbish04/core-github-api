@@ -1,8 +1,9 @@
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi';
 import { getDb, schema } from '@db';
-import { eq, inArray, isNull } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { generateUuid } from '@/utils/common';
 import { getCloudflareApiToken, getCloudflareAccountId } from '@/utils/secrets';
+import { getCfSdkClient } from '@/cloudflare/client';
 import { analyzeApplicationWithWorkerAI, type AppSummaryResult } from '@/services/appstore-worker-ai';
 
 const app = new OpenAPIHono<{ Bindings: Env }>();
@@ -88,6 +89,7 @@ export async function persistAiResult(
 // ─── GET / — List all applications (+ on-demand AI for unsummarized) ───
 
 const getAppsRoute = createRoute({
+    operationId: 'getRoot',
   method: 'get',
   path: '/',
   summary: 'Get all App Store applications',
@@ -132,7 +134,7 @@ app.openapi(getAppsRoute, async (c) => {
 
   // ─── On-demand: detect unsummarized apps and process via waitUntil ───
   const unsummarized = apps.filter(a => !a.summary);
-  let pendingSummaries = unsummarized.length;
+  const pendingSummaries = unsummarized.length;
 
   if (unsummarized.length > 0) {
     // Process up to 3 on page load (background, non-blocking)
@@ -180,6 +182,7 @@ app.openapi(getAppsRoute, async (c) => {
 // ─── POST /sync — Pure metadata sync (no AI) ───
 
 const syncRoute = createRoute({
+    operationId: 'postSync',
   method: 'post',
   path: '/sync',
   summary: 'Sync applications from Cloudflare API (metadata only, AI runs via cron/page-load)',
@@ -219,18 +222,21 @@ app.openapi(syncRoute, async (c) => {
       return c.json({ success: false, error: 'Cloudflare credentials not configured' }, 500);
     }
 
-    const headers = {
-      'Authorization': `Bearer ${apiToken}`,
-      'Content-Type': 'application/json'
-    };
+    // [REST] const headers = {
+    // [REST]   'Authorization': `Bearer ${apiToken}`,
+    // [REST]   'Content-Type': 'application/json'
+    // [REST] };
 
-    // 1. Fetch Workers
-    const workersRes = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/workers/scripts`, { headers });
-    const workersData = await workersRes.json() as any;
+    // [REST] const workersRes = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/workers/scripts`, { headers });
+    // [REST] const workersData = await workersRes.json() as any;
     
     // 2. Fetch Pages
-    const pagesRes = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/pages/projects`, { headers });
-    const pagesData = await pagesRes.json() as any;
+    // [REST] const pagesRes = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/pages/projects`, { headers });
+    // [REST] const pagesData = await pagesRes.json() as any;
+
+    const cfAny = getCfSdkClient(c.env as any, "workerAdmin") as any;
+    const workersData = await cfAny.workers.scripts.list({ account_id: accountId });
+    const pagesData = await cfAny.pages.projects.list({ account_id: accountId });
 
     const db = getDb(c.env.DB);
     let syncedCount = 0;
@@ -276,14 +282,14 @@ app.openapi(syncRoute, async (c) => {
       syncedCount++;
     };
 
-    if (workersData.success && workersData.result) {
-      for (const worker of workersData.result) {
+    if (workersData && Array.isArray(workersData)) {
+      for (const worker of workersData) {
         await processApp(worker.id, worker.id, 'worker', worker);
       }
     }
 
-    if (pagesData.success && pagesData.result) {
-      for (const project of pagesData.result) {
+    if (pagesData && Array.isArray(pagesData)) {
+      for (const project of pagesData) {
         await processApp(project.name, project.name, 'pages', project);
       }
     }

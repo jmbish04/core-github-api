@@ -18,6 +18,7 @@ const DailyTrendSchema = z.object({
 
 app.openapi(
   createRoute({
+    operationId: 'getRoot',
     method: "get",
     path: "/",
     summary: "Get Daily Trends",
@@ -65,6 +66,7 @@ app.openapi(
 // POST / - Ingest Daily Trends & Send Email
 app.openapi(
   createRoute({
+    operationId: 'postRoot',
     method: "post",
     path: "/",
     summary: "Ingest Daily Trends",

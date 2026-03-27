@@ -1,5 +1,5 @@
 import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from "cloudflare:workers";
-import { getAgentByName } from "@/ai/agents/runtime/agents";
+import { HoniClient } from '@utils/honi-client';
 import type {
   PlanningDecisionInput,
   PlanningRequestInput,
@@ -148,15 +148,11 @@ async function captureSnapshotActivities(
 }
 
 async function getPlanningSupervisorStub(env: Env, requestId: string) {
-  return getAgentByName(env.PLANNING_SUPERVISOR, `planning-supervisor-${requestId}`) as Promise<{
-    fetch(request: Request): Promise<Response>;
-  }>;
+  return HoniClient.getStub(env.PLANNING_SUPERVISOR as any, `planning-supervisor-${requestId}`) as any;
 }
 
 async function getPlanningOrchestratorStub(env: Env, requestId: string) {
-  return getAgentByName(env.PLANNING_ORCHESTRATOR_AGENT, `planning-orchestrator-${requestId}`) as Promise<{
-    fetch(request: Request): Promise<Response>;
-  }>;
+  return HoniClient.getStub(env.PLANNING_ORCHESTRATOR_AGENT as any, `planning-orchestrator-${requestId}`) as any;
 }
 
 async function materializePlanningMarkdown(

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { OpsVerificationService } from "@services/verification/ops";
 import { buildRepositorySyncSecretPlan } from "@/services/repository-secret-defaults";
 import { syncRepoSecrets } from "@services/github/secrets-manager";
+import { HoniClient } from '@utils/honi-client';
 
 const opsApi = new OpenAPIHono<{ Bindings: Env }>();
 
@@ -63,7 +64,7 @@ opsApi.openapi(createRoute({
         500: { description: 'Internal Server Error' }
     }
 }), async (c) => {
-  const { owner, repo, secrets, force } = c.req.valid("json");
+  const { owner, repo, secrets } = c.req.valid("json");
   let secretsToSync = secrets || [];
 
   if (!secrets || secrets.length === 0) {
@@ -89,8 +90,6 @@ opsApi.openapi(createRoute({
 // --- 4. Supervisor DO Forwarding ---
 opsApi.all('/:id/*', async (c) => {
     const id = c.req.param('id');
-    const doId = c.env.SUPERVISOR.idFromName(id);
-    const stub = c.env.SUPERVISOR.get(doId);
     const url = new URL(c.req.url);
     
     let path = url.pathname;
@@ -101,20 +100,28 @@ opsApi.all('/:id/*', async (c) => {
     const newUrl = new URL(path, url.origin);
     newUrl.search = url.search;
 
-    const newReq = new Request(newUrl, c.req.raw);
-    newReq.headers.set('x-operation-id', id);
-    newReq.headers.set('x-forwarded-origin', url.origin);
+    const headers: Record<string, string> = {};
+    headers['x-operation-id'] = id;
+    headers['x-forwarded-origin'] = url.origin;
+    c.req.raw.headers.forEach((value, key) => headers[key] = value);
 
-    return stub.fetch(newReq);
+    return HoniClient.fetch(c.env.SUPERVISOR, id, newUrl.pathname + newUrl.search, {
+      method: c.req.method,
+      headers
+    });
 });
 
 opsApi.all('/:id', async (c) => {
     const id = c.req.param('id');
-    const doId = c.env.SUPERVISOR.idFromName(id);
-    const stub = c.env.SUPERVISOR.get(doId);
     const newUrl = new URL('/status', c.req.url);
     newUrl.search = new URL(c.req.url).search;
-    return stub.fetch(new Request(newUrl, c.req.raw));
+    const headers: Record<string, string> = {};
+    c.req.raw.headers.forEach((value, key) => headers[key] = value);
+
+    return HoniClient.fetch(c.env.SUPERVISOR, id, newUrl.pathname + newUrl.search, {
+      method: c.req.method,
+      headers
+    });
 });
 
 export default opsApi;

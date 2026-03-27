@@ -1,0 +1,618 @@
+{
+	"name": "core-github-api",
+	"main": "src/backend/src/index.ts",
+	"compatibility_date": "2026-03-12",
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	// "minify": true,
+	"workers_dev": true,
+	"preview_urls": true,
+	"observability": {
+		"enabled": true,
+		"head_sampling_rate": 1,
+		"logs": {
+			"enabled": true,
+			"head_sampling_rate": 1,
+			"persist": true,
+			"invocation_logs": true
+		},
+		"traces": {
+			"enabled": true,
+			"persist": true,
+			"head_sampling_rate": 1
+		}
+	},
+	"vars": {
+		"LOG_LEVEL": "debug",
+		"AI_DEFAULT_PROVIDER": "worker-ai",
+		"AI_DEFAULT_MODEL": "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+		"GEMINI_MODEL": "gemini-3-pro-preview",
+		"OPENAI_MODEL": "gpt-5.1",
+		"DEFAULT_MODEL_REASONING": "@cf/openai/gpt-oss-120b",
+		"DEFAULT_MODEL_STRUCTURED_RESPONSE": "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+		"DEFAULT_MODEL_EMBEDDING": "@cf/baai/bge-large-en-v1.5",
+		"DEFAULT_MODEL_RERANKER": "@cf/baai/bge-reranker-base",
+		"HEALTH_SANDBOX_TIMEOUT_MS": 60000,
+		"AI_GATEWAY_NAME": "core-github-api",
+		"CLOUDFLARE_WORKER_NAME": "core-github-api",
+		"GITHUB_OWNER": "jmbish04",
+		"TEMPLATES_REPO_NAME": "core-repo-templates",
+		"STANDARDIZATION_REPO_NAME": "core-github-standardization",
+		"HEALTH_TEST_REPO_NAME": "testing-oktokit-commands",
+		"BASE_URL": "https://core-github-api.hacolby.workers.dev",
+		"MAX_AI_BUDGET": "50",
+		"USE_OPENAI_MODELS": false,
+		"GITHUB_REPO_STANDARDIZATION": "jmbish04/core-github-standardization",
+		"GITHUB_ACTION_WORKER_DISPATCHER_URI": "https://api.github.com/repos/jmbish04/core-github-standardization/dispatches",
+		"MCP_API_URL": "https://docs.mcp.cloudflare.com/mcp",
+		"EDGRAPH_URL": "https://core-github-api-edgraph.hacolby.workers.dev",
+		"SANDBOX_SLEEP_AFTER": "30s",
+		"SANDBOX_INSTANCE_GET_TIMEOUT_MS": 180000, // 3 minutes for provisioning
+		"SANDBOX_PORT_READY_TIMEOUT_MS": 180000, // 3 minutes for startup work
+		"SANDBOX_EXPOSED_HTTP_PORT": 8080
+	},
+	"containers": [
+		{
+			"class_name": "Sandbox",
+			"image": "./container/Dockerfile",
+			"max_instances": 5,
+			"instance_type": {
+				"vcpu": 1,
+				"memory_mib": 4096,
+				"disk_mb": 6144
+			}
+		}
+	],
+	"ai": {
+		"binding": "AI"
+	},
+	// Configures 'wrangler' to treat .hbs files as Text modules (ES importable strings)
+	// This allows `import template from "./file.hbs"` to work natively in Workers.
+	"rules": [
+		{
+			"type": "Text",
+			"globs": [
+				"**/*.hbs",
+				"**/*.md",
+				"**/*.yml",
+				"**/*.yaml"
+			],
+			"fallthrough": true
+		}
+	],
+	"assets": {
+		"directory": "./public",
+		"binding": "ASSETS",
+		"run_worker_first": [
+			"/api/*",
+			"/openapi.json",
+			"/swagger",
+			"/scalar",
+			"/health",
+			"/context",
+			"/docs",
+			"/mcp",
+			"/mcp/*"
+		],
+		"not_found_handling": "single-page-application"
+	},
+	"secrets_store_secrets": [
+		{
+			"binding": "GITHUB_CLIENT_ID",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "CORE_GITHUB_API_GITHUB_CLIENT_ID"
+		},
+		{
+			"binding": "GITHUB_CLIENT_SECRET",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "CORE_GITHUB_API_GITHUB_SECRET"
+		},
+		{
+			"binding": "GITHUB_APP_ID",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "CORE_GITHUB_API_GITHUB_APP_ID"
+		},
+		{
+			"binding": "CORE_GITHUB_API_GITHUB_APP_PRIVATE_KEY_PT1",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "CORE_GITHUB_API_GITHUB_APP_PRIVATE_KEY_PT1"
+		},		
+		{
+			"binding": "CORE_GITHUB_API_GITHUB_APP_PRIVATE_KEY_PT2",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "CORE_GITHUB_API_GITHUB_APP_PRIVATE_KEY_PT2"
+		},		
+		{
+			"binding": "CORE_GITHUB_API_GITHUB_APP_PRIVATE_KEY_PT3",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "CORE_GITHUB_API_GITHUB_APP_PRIVATE_KEY_PT3"
+		},						
+		{
+			"binding": "GITHUB_PERSONAL_ACCESS_TOKEN",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "GH_TOKEN"
+		},
+		{
+			"binding": "CLOUDFLARE_API_TOKEN",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "CLOUDFLARE_WRANGLER_API_TOKEN"
+		},
+		{
+			"binding": "OPENAI_API_KEY",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "OPENAI_API_KEY"
+		},
+		{
+			"binding": "CLOUDFLARE_ACCOUNT_ID",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "CLOUDFLARE_ACCOUNT_ID"
+		},
+		{
+			"binding": "CLOUDFLARE_SECRETS_STORE_TOKEN",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "CLOUDFLARE_SECRETS_STORE_TOKEN"
+		},
+		{
+			"binding": "CLOUDFLARE_WORKER_ADMIN_TOKEN",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "CLOUDFLARE_WORKER_ADMIN_TOKEN"
+		},
+		{
+			"binding": "CLOUDFLARE_AI_SEARCH_TOKEN",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "CLOUDFLARE_AI_SEARCH_TOKEN"
+		},
+		{
+			"binding": "CLOUDFLARE_OBSERVABILITY_TOKEN",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "CLOUDFLARE_OBSERVABILITY_TOKEN"
+		},
+		{
+			"binding": "WORKER_API_KEY",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "WORKER_API_KEY"
+		},
+		{
+			"binding": "AGENTIC_WORKER_API_KEY",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "AGENTIC_WORKER_API_KEY"
+		},
+		{
+			"binding": "AI_GATEWAY_TOKEN",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "CLOUDFLARE_AI_GATEWAY_TOKEN"
+		},
+		{
+			"binding": "CF_BROWSER_RENDER_TOKEN",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "CLOUDFLARE_BROWSER_RENDER_TOKEN"
+		},
+		{
+			"binding": "CLOUDFLARE_IMAGES_STREAM_TOKEN",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "CLOUDFLARE_IMAGES_STREAM_TOKEN"
+		},
+		{
+			"binding": "STITCH_API_KEY",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "STITCH_API_KEY"
+		},
+		{
+			"binding": "JULES_API_KEY",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "JULES_API_KEY"
+		},
+		{
+			"binding": "GEMINI_API_KEY",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "GOOGLE_API_KEY"
+		},
+		{
+			"binding": "ANTHROPIC_API_KEY",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "ANTHROPIC_API_KEY"
+		},
+		{
+			"binding": "DISCORD_TOKEN",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "DISCORD_TOKEN"
+		},
+		{
+			"binding": "GOOGLE_CREDS_SA_PRIVATE_KEY_PT_1",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "GOOGLE_CREDS_SA_PRIVATE_KEY_PT_1"
+		},
+		{
+			"binding": "GOOGLE_CREDS_SA_PRIVATE_KEY_PT_2",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "GOOGLE_CREDS_SA_PRIVATE_KEY_PT_2"
+		}
+	],
+	"durable_objects": {
+		"bindings": [
+			{
+				"name": "JULES_PR_REVIEWER",
+				"class_name": "JulesPrReviewer"
+			},
+			{
+				"name": "ORCHESTRATOR",
+				"class_name": "OrchestratorAgent"
+			},
+			{
+				"name": "RetrofitAgent",
+				"class_name": "RetrofitAgent"
+			},
+			{
+				"name": "ROOM_DO",
+				"class_name": "RoomDO"
+			},
+			{
+				"name": "GEMINI_AGENT",
+				"class_name": "GeminiAgent"
+			},
+			{
+				"name": "PLANNER",
+				"class_name": "PlannerAgent"
+			},
+			{
+				"name": "REPO_AGENT",
+				"class_name": "RepoAgent"
+			},
+			{
+				"name": "SUPERVISOR",
+				"class_name": "Supervisor"
+			},
+			{
+				"name": "DEEP_REASONING_AGENT",
+				"class_name": "DeepReasoningAgent"
+			},
+			{
+				"name": "SANDBOX",
+				"class_name": "Sandbox"
+			},
+			{
+				"name": "OWNER_AGENT",
+				"class_name": "OwnerAgent"
+			},
+			{
+				"name": "RESEARCH_AGENT",
+				"class_name": "ResearchAgent"
+			},
+			{
+				"name": "DISCORD_RESEARCH_AGENT",
+				"class_name": "DiscordResearchAgent"
+			},
+			{
+				"name": "JULES_OVERSEER",
+				"class_name": "JulesOverseer"
+			},
+			{
+				"name": "TOPIC_ORCHESTRATOR",
+				"class_name": "TopicOrchestratorAgent"
+			},
+			{
+				"name": "WEB_SEARCH_AGENT",
+				"class_name": "WebSearchAgent"
+			},
+			{
+				"name": "JUDGE_AGENT",
+				"class_name": "JudgeAgent"
+			},
+			{
+				"name": "REPORTING_AGENT",
+				"class_name": "ReportingAgent"
+			},
+			{
+				"name": "LANDING_PAGE_AGENT",
+				"class_name": "LandingPageAgent"
+			},
+			{
+				"name": "CLOUDFLARE_DOCS_AGENT",
+				"class_name": "CloudflareDocsAgent"
+			},
+			{
+				"name": "DEEP_RESEARCH_CHAT_AGENT",
+				"class_name": "DeepResearchChatAgent"
+			},
+			{
+				"name": "HEALTH_DIAGNOSTICIAN",
+				"class_name": "HealthDiagnostician"
+			},
+			{
+				"name": "JULES_WEBHOOK_BROADCASTER",
+				"class_name": "JulesWebhookBroadcaster"
+			},
+			{
+				"name": "PLANNING_MONITOR",
+				"class_name": "PlanningMonitor"
+			},
+			{
+				"name": "REVERSE_ENGINEERING_MONITOR",
+				"class_name": "ReverseEngineeringMonitor"
+			},
+			{
+				"name": "PLANNING_SUPERVISOR",
+				"class_name": "PlanningSupervisorAgent"
+			},
+			{
+				"name": "PLANNING_ORCHESTRATOR_AGENT",
+				"class_name": "PlanningOrchestratorAgent"
+			},
+			{
+				"name": "HONI_ORCHESTRATOR",
+				"class_name": "HoniOrchestrator"
+			},
+			{
+				"name": "HONI_CONSULTANT",
+				"class_name": "HoniConsultant"
+			},
+			{
+				"name": "WORKSHOP_AGENT",
+				"class_name": "WorkshopAgent"
+			},
+			{
+				"name": "AGENT_SESSION_DO",
+				"class_name": "AgentSessionDO"
+			},
+			{
+				"name": "CF_WORKSHOP_AGENTS_SDK",
+				"class_name": "CfWorkshop_AgentsSdk"
+			},
+			{
+				"name": "STANDARDIZATION_AGENT",
+				"class_name": "StandardizationAgent"
+			},
+			{
+				"name": "UX_RESEARCHER",
+				"class_name": "UxResearcher"
+			},
+			{
+				"name": "SANDBOX_AGENT",
+				"class_name": "SandboxAgent"
+			}
+		]
+	},
+	"migrations": [
+		{
+			"tag": "v1",
+			"new_sqlite_classes": [
+				// Core Orchestrator for managing agent lifecycles
+				"OrchestratorAgent",
+				// Agent for retrofitting and refactoring code
+				"RetrofitAgent",
+				// WebSocket Room for real-time collaboration
+				"RoomDO",
+				// Gemini-powered AI Agent
+				"GeminiAgent",
+				// Planning Agent for task decomposition
+				"PlannerAgent",
+				// Repository Management Agent
+				"RepoAgent",
+				// Supervisor Agent for managing container tasks
+				"Supervisor",
+				// Deep Reasoning Agent for complex logic
+				"DeepReasoningAgent",
+				// Secure Sandbox Environment
+				"Sandbox",
+				// Owner/Admin Agent
+				"OwnerAgent",
+				// Research Agent for gathering information
+				"ResearchAgent",
+				// Incremental Discord channel scanner ingesting messages for analysis
+				"DiscordResearchAgent",
+				// Jules Overseer for session management
+				"JulesOverseer",
+				// Topic Research Orchestrator
+				"TopicOrchestratorAgent",
+				// Web Search Agent
+				"WebSearchAgent",
+				// Judge Agent for evaluating outputs
+				"JudgeAgent",
+				// Reporting Agent for generating summaries
+				"ReportingAgent",
+				// Agent for generating or editing landing pages
+				"LandingPageAgent",
+				// Agent for querying Cloudflare Documentation with GitHub context
+				"CloudflareDocsAgent",
+				// Deep Research Chat Agent built directly on Honi
+				"DeepResearchChatAgent",
+				// Autonomous agent for analyzing and remediating health check failures
+				"HealthDiagnostician",
+				// WebSocket fan-out hub for Jules events
+				"JulesWebhookBroadcaster",
+				// Monitors planning sessions
+				"PlanningMonitor",
+				// Monitors reverse engineering tasks
+				"ReverseEngineeringMonitor",
+				// Supervises planning orchestrators
+				"PlanningSupervisorAgent",
+				// Orchestrates planning workflows
+				"PlanningOrchestratorAgent",
+				// Orchestrator for Honi-compatible agents
+				"HoniOrchestrator",
+				// Consultant agent running on Honi
+				"HoniConsultant",
+				// Agent for managing workshops
+				"WorkshopAgent",
+				// Workshop agent covering CF Agents SDK
+				"CfWorkshop_AgentsSdk",
+				// Ensures code and APIs meet standardized guidelines
+				"StandardizationAgent",
+				// Jules PR Reviewer
+				"JulesPrReviewer",
+				// UX Researcher
+				"UxResearcher",
+				// WebSocket session handler for real-time agent communication
+				"AgentSessionDO",
+				// Secure Sandbox Agent managing the Sandbox SDK
+				"SandboxAgent"
+			]
+		}
+	],
+	"workflows": [
+		{
+			"name": "GithubSearchWorkflow",
+			"binding": "GITHUB_SEARCH_WORKFLOW",
+			"class_name": "GithubSearchWorkflow"
+		},
+		{
+			"name": "deep-research-workflow",
+			"binding": "DEEP_RESEARCH_WORKFLOW",
+			"class_name": "DeepResearchWorkflow"
+		},
+		{
+			"name": "research-orchestrator",
+			"binding": "RESEARCH_ORCHESTRATOR",
+			"class_name": "ResearchOrchestrator"
+		},
+		{
+			"name": "topic-research-workflow",
+			"binding": "TOPIC_RESEARCH_WORKFLOW",
+			"class_name": "TopicResearchWorkflow"
+		},
+		{
+			// Incremental Discord channel scanner — ingests messages from the
+			// Cloudflare Developers Discord, analyses them with AI, and surfaces
+			// highlights in the daily newsletter.
+			"name": "discord-research-workflow",
+			"binding": "DISCORD_RESEARCH_WORKFLOW",
+			"class_name": "DiscordResearchWorkflow"
+		},
+		{
+			"name": "planning-orchestrator",
+			"binding": "PLANNING_ORCHESTRATOR",
+			"class_name": "PlanningOrchestrator"
+		},
+		{
+			// Fetches Cloudflare Changelog RSS, filters for stack-relevant entries,
+			// AI-summarizes each update via AI Gateway, and persists to D1.
+			"name": "cloudflare-changelog-workflow",
+			"binding": "CLOUDFLARE_CHANGELOG_WORKFLOW",
+			"class_name": "CloudflareChangelogWorkflow"
+		}
+	],
+	"browser": {
+		"binding": "BROWSER"
+	},
+	"r2_buckets": [
+		{
+			"binding": "PLAN_ARTIFACTS",
+			"bucket_name": "core-github-api-plan-artifacts"
+		},
+		{
+			"binding": "ARTIFACT_STORE",
+			"bucket_name": "core-planning-artifacts"
+		}
+	],
+	"kv_namespaces": [
+		{
+			"binding": "ETAG_KV",
+			"id": "eed6ba4656704616acf168be80ba770a",
+			"preview_id": "cfc441ebd1d8492497f49e88ae98aa2f"
+		},
+		{
+			"binding": "COMMENTS_KV",
+			"id": "82d47893d39a4b0fb574b1a760e06452"
+		},
+		{
+			"binding": "AGENT_CACHE",
+			"id": "9f070471888c435297b4bce51924f2df"
+		},
+		{
+			"binding": "KV_CONFIGS",
+			"id": "a2f723e74e3c4fd6a6377ab09bce9829",
+			"remote": true
+		}
+	],
+	// wrangler vectorize create core-github-api-vectors --preset @cf/baai/bge-large-en-v1.5
+	// wrangler vectorize create core-github-api-research --dimensions=1024 --metric=cosine
+	// wrangler vectorize create core-github-api-logs --preset @cf/baai/bge-large-en-v1.5
+	// wrangler vectorize create core-github-api-plan-embeddings --dimensions=1024 --metric=cosine
+	// wrangler vectorize create core-github-api-plan-rag --dimensions=1024 --metric=cosine
+	// wrangler vectorize create core-github-api-file-embeddings --dimensions=1024 --metric=cosine
+	"vectorize": [
+		{
+			"binding": "VECTORIZE",
+			"index_name": "core-github-api-vectors",
+			"remote": true
+		},
+		{
+			"binding": "RESEARCH_INDEX",
+			"index_name": "core-github-api-research",
+			"remote": true
+		},
+		{
+			"binding": "VECTORIZE_LOGS",
+			"index_name": "core-github-api-logs",
+			"remote": true
+		},
+		{
+			"binding": "PLAN_EMBEDDINGS",
+			"index_name": "core-github-api-plan-rag",
+			"remote": true
+		},
+		{
+			"binding": "FILE_EMBEDDINGS",
+			"index_name": "core-github-api-file-embeddings",
+			"remote": true
+		}
+	],
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "core-github-api",
+			"database_id": "fd5a4701-24c0-4438-88c9-684f77b689e7",
+			"migrations_dir": "migrations/core"
+		},
+		{
+			"binding": "DB_WEBHOOKS",
+			"database_name": "core-github-api-webhooks",
+			"database_id": "23297067-8f31-48d0-815c-ef8ec7ef8b3c",
+			"migrations_dir": "migrations/webhooks"
+		}
+	],
+	// Email sending bindings for Email Routing
+	// Targeted binding - sends only to the specified destination address
+	"send_email": [
+		{
+			"name": "SEND_EMAIL"
+		},
+		{
+			"name": "SEND_EMAIL_NEWSLETTER",
+			"destination_address": "ai@126colby.com"
+		},
+		{
+			"name": "Core Github API",
+			"allowed_destination_addresses": [
+				"ai@126colby.com"
+			]
+		}
+	],
+	// Scheduled triggers for automated tasks
+	// Cron format: minute hour day month day-of-week
+	"triggers": {
+		"crons": [
+			// Daily at 9:00 AM UTC - Triggers Research Orchestrator workflow
+			// Analyzes trending GitHub repositories and sends email report
+			"0 9 * * *",
+			// Weekly at 2:00 AM UTC on Mondays - Scrapes AI model pricing
+			// Stores pricing snapshots in D1 and alerts if data becomes stale
+			"0 2 * * 1",
+			// Every 3 hours - Jules Overseer Check
+			"0 */3 * * *",
+			// Weekly Health Suite at 3:00 AM UTC on Sundays
+			"0 3 * * 7",
+			// Every 6 hours - App Store AI Summary Backfill
+			// Processes unsummarized apps with Worker AI and saves to D1
+			"0 */6 * * *"
+		]
+	},
+	"services": [
+		{
+			"name": "core-github-api-edgraph",
+			"binding": "EDGRAPH",
+			"service": "core-github-api-edgraph"
+		}
+	]
+}

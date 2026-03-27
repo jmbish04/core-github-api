@@ -8,6 +8,7 @@ const app = new OpenAPIHono<{ Bindings: Env }>()
 // Route: GET /auth/github/login
 app.openapi(
   createRoute({
+    operationId: 'getGithubLogin',
     method: 'get',
     path: '/github/login',
     summary: 'Initiate GitHub OAuth Login',
@@ -49,6 +50,7 @@ app.openapi(
 // Route: GET /auth/github/callback
 app.openapi(
   createRoute({
+    operationId: 'getGithubCallback',
     method: 'get',
     path: '/github/callback',
     summary: 'GitHub OAuth Callback',
@@ -108,7 +110,7 @@ app.openapi(
 
     if (tokenData.error || !tokenData.access_token) {
       console.error('GitHub Token Exchange Error:', tokenData)
-      return c.redirect('/login?error=github_token_exchange_failed')
+      return c.redirect('/login?error=GITHUB_PERSONAL_ACCESS_TOKEN_exchange_failed')
     }
 
     // 2. Fetch User Profile

@@ -19,9 +19,13 @@ export const REASONING_GEMINI_MODEL = "gemini-2.5-pro";
 async function getGeminiClient(env: Env): Promise<any> {
     const { baseUrl, apiKey, aigToken } = await AIGateway.getBaseUrl(env, { provider: "gemini" });
 
+    // In BYOK mode apiKey is '' — AI Gateway injects the stored Gemini key via cf-aig-authorization.
+    // Appending ?key= with an empty value causes a 400 from Google's API, so we omit it.
+    const keyParam = apiKey ? `?key=${apiKey}` : '';
+
     return {
         generateContent: async (model: string, data: any) => {
-            const res = await fetch(`${baseUrl}/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+            const res = await fetch(`${baseUrl}/v1beta/models/${model}:generateContent${keyParam}`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -33,7 +37,8 @@ async function getGeminiClient(env: Env): Promise<any> {
             return await res.json();
         },
         getModels: async () => {
-            const res = await fetch(`${baseUrl}/v1beta/models?key=${apiKey}`, {
+            const modelsUrl = apiKey ? `${baseUrl}/v1beta/models?key=${apiKey}` : `${baseUrl}/v1beta/models`;
+            const res = await fetch(modelsUrl, {
                 method: "GET",
                 headers: {
                     ...(aigToken ? { "cf-aig-authorization": `Bearer ${aigToken}` } : {})
@@ -47,8 +52,11 @@ async function getGeminiClient(env: Env): Promise<any> {
 
 export async function verifyApiKey(env: Env): Promise<boolean> {
     try {
-        const { apiKey } = await AIGateway.getBaseUrl(env, { provider: "gemini" });
-        return apiKey !== "dummy";
+        const { apiKey, aigToken } = await AIGateway.getBaseUrl(env, { provider: "gemini" });
+        // BYOK mode: gateway token is present → gateway injects stored provider key → auth is valid
+        if (aigToken) return true;
+        // Direct mode: check that a real key was resolved (not empty)
+        return apiKey !== '';
     } catch {
         return false;
     }

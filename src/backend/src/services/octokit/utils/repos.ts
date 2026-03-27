@@ -24,10 +24,10 @@ export async function listRepositoryFiles(octokit: any, target: SyncRepositoryTa
 
 /**
  * Minimal env shape required by fetchDynamicSkill.
- * Fulfilled by Cloudflare `Env` — GITHUB_TOKEN is a SecretStore binding.
+ * Fulfilled by Cloudflare `Env` — GITHUB_PERSONAL_ACCESS_TOKEN is a SecretStore binding.
  */
 export interface SkillFetcherEnv {
-  GITHUB_TOKEN: { get(): Promise<string> } | string | undefined;
+  GITHUB_PERSONAL_ACCESS_TOKEN: { get(): Promise<string> } | string | undefined;
   GITHUB_REPO_STANDARDIZATION: string | undefined;
 }
 
@@ -38,15 +38,15 @@ export interface SkillFetcherEnv {
  * Fails open — returns an empty string (or a warning) so the agent still boots
  * with its baseline system instructions if the fetch fails.
  *
- * @param env       - Worker env bindings (must contain GITHUB_TOKEN + GITHUB_REPO_STANDARDIZATION)
+ * @param env       - Worker env bindings (must contain GITHUB_PERSONAL_ACCESS_TOKEN + GITHUB_REPO_STANDARDIZATION)
  * @param skillPath - Path within the repo, e.g. "skills/agents-sdk/SKILL.md"
  */
 export async function fetchDynamicSkill(
   env: SkillFetcherEnv,
   skillPath: string = "skills/agents-sdk/SKILL.md"
 ): Promise<string> {
-  if (!env.GITHUB_TOKEN) {
-    console.warn("[fetchDynamicSkill] GITHUB_TOKEN is not set. Skipping dynamic skill fetch.");
+  if (!env.GITHUB_PERSONAL_ACCESS_TOKEN) {
+    console.warn("[fetchDynamicSkill] GITHUB_PERSONAL_ACCESS_TOKEN is not set. Skipping dynamic skill fetch.");
     return "";
   }
 
@@ -64,16 +64,16 @@ export async function fetchDynamicSkill(
   // Resolve the github token — supports both SecretStore bindings (.get()) and plain strings.
   let token: string | undefined;
   try {
-    token = typeof env.GITHUB_TOKEN === "string"
-      ? env.GITHUB_TOKEN
-      : await env.GITHUB_TOKEN.get();
+    token = typeof env.GITHUB_PERSONAL_ACCESS_TOKEN === "string"
+      ? env.GITHUB_PERSONAL_ACCESS_TOKEN
+      : await env.GITHUB_PERSONAL_ACCESS_TOKEN.get();
   } catch {
-    console.warn("[fetchDynamicSkill] Failed to resolve GITHUB_TOKEN from SecretStore.");
+    console.warn("[fetchDynamicSkill] Failed to resolve GITHUB_PERSONAL_ACCESS_TOKEN from SecretStore.");
     return "";
   }
 
   if (!token) {
-    console.warn("[fetchDynamicSkill] GITHUB_TOKEN resolved to empty. Skipping.");
+    console.warn("[fetchDynamicSkill] GITHUB_PERSONAL_ACCESS_TOKEN resolved to empty. Skipping.");
     return "";
   }
 

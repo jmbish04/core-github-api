@@ -1,7 +1,7 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Sparkles, Globe, ArrowRight } from "lucide-react";
+import { Sparkles, Globe } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 export default function SparkLanding() {

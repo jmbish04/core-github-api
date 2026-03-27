@@ -13,6 +13,7 @@ import { AIOptions, TextWithToolsResponse, StructuredWithToolsResponse, ModelCap
 import { AIGateway } from "../utils/ai-gateway";
 import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
+import { getCfSdkClient } from "@/cloudflare/client";
 
 /** Primary model for reasoning tasks (e.g., Llama 3 or GPT-OSS). */
 export const REASONING_MODEL = "@cf/openai/gpt-oss-120b";
@@ -348,17 +349,21 @@ export async function getCloudflareModels(env: Env, filter?: ModelFilter): Promi
     throw new Error("Missing CLOUDFLARE_ACCOUNT_ID required for getting native models array");
   }
 
-  const { apiKey } = await AIGateway.getBaseUrl(env, { provider: "cloudflare" });
   
-  const res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/models`, {
-    headers: { "Authorization": `Bearer ${apiKey}` }
-  });
+  
+  // [REST] const res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/models`, {
+  // [REST]   headers: { "Authorization": `Bearer ${apiKey}` }
+  // [REST] });
 
-  if (!res.ok) throw new Error(`Failed to fetch Cloudflare models: ${res.statusText}`);
-  const response = await res.json() as any;
+  // [REST] if (!res.ok) throw new Error(`Failed to fetch Cloudflare models: ${res.statusText}`);
+  // [REST] const response = await res.json() as any;
+  // [REST] const models: UnifiedModel[] = response.result.map((m: any) => {
   
-  // Cloudflare returns an array in 'result'
-  const models: UnifiedModel[] = response.result.map((m: any) => {
+  const cfAny = getCfSdkClient(env as any, "workerAdmin") as any;
+  const modelsData = await cfAny.ai.models.list({ account_id: accountId });
+  const rawResult = modelsData?.result || [];
+
+  const models: UnifiedModel[] = rawResult.map((m: any) => {
     const caps: ModelCapability[] = [];
     const name = m.name.toLowerCase();
     const taskName = m.task.name.toLowerCase();

@@ -4,6 +4,7 @@ import { drizzle } from 'drizzle-orm/d1';
 import { eq } from 'drizzle-orm';
 import { action_logs } from '@/db/schemas/app/action_logs';
 import { getWorkerApiKey } from '@/utils/secrets';
+import { BroadcastClient } from '@utils/do-broadcast';
 
 const actionCallbackApi = new OpenAPIHono<{ Bindings: Env }>();
 
@@ -40,15 +41,10 @@ actionCallbackApi.post('/', zValidator('json', CallbackSchema), async (c) => {
   // but keeping it simple for now and broadcasting.
 
   try {
-    const id = c.env.ROOM_DO.idFromName("global");
-    const room = c.env.ROOM_DO.get(id);
-    await room.fetch(new Request("http://localhost/broadcast", {
-      method: "POST",
-      body: JSON.stringify({
-        type: "action_callback",
-        payload: { taskId, status, message, data }
-      })
-    }));
+    await BroadcastClient.broadcast(c.env.ROOM_DO, "global", {
+      type: "action_callback",
+      payload: { taskId, status, message, data }
+    });
   } catch (e) {
     console.error("Failed to broadcast action_callback:", e);
   }

@@ -11,8 +11,9 @@ export class AIGateway {
     "gemini": "google-ai-studio",
     "google": "google-ai-studio",
     "google-ai-studio": "google-ai-studio",
-    "workers-ai": "compat",
-    "worker-ai": "compat",
+    "workers-ai": "workers-ai",
+    "worker-ai": "workers-ai",
+    "cloudflare": "workers-ai",
     "openai": "openai",
     "anthropic": "anthropic",
   };
@@ -22,7 +23,7 @@ export class AIGateway {
    */
   public static normalizeProvider(provider: string): string {
     const normalized = provider.toLowerCase().trim();
-    return this.GATEWAY_PROVIDER_ALIASES[normalized] || normalized;
+    return this.GATEWAY_PROVIDER_ALIASES[normalized] || 'compat';
   }
 
   /**
@@ -30,44 +31,60 @@ export class AIGateway {
    * Ensures the model string consistently follows the `workers-ai/@cf/{provider}/{model}` format.
    */
   public static normalizeWorkerAiModel(model: string): string {
-    let normalized = model.trim();
+    const parts = model.trim().split('/').filter(Boolean);
 
-    if (normalized.startsWith("workers-ai/")) {
-      normalized = normalized.slice("workers-ai/".length);
+    if (parts.length < 2) {
+      throw new Error(`Invalid model format: ${model}. Expected at least provider/model.`);
     }
 
-    if (!normalized.startsWith("@cf/")) {
-      normalized = `@cf/${normalized}`;
+    if (parts.length === 2 && parts[0] === '@cf') {
+      throw new Error(`Invalid model format: ${model}. Model name missing after @cf/.`);
     }
 
-    return `workers-ai/${normalized}`;
+    if (parts.length === 2) {
+      return `workers-ai/@cf/${parts.join('/')}`;
+    }
+
+    return `workers-ai/@cf/${parts.slice(-2).join('/')}`;
   }
 
   /**
    * Safely resolves the API key for a given provider from environment bindings.
+   * Returns empty string if no key is configured — callers must check before
+   * sending Authorization headers.
    */
   private static async getApiKeyForProvider(env: any, provider: string): Promise<string> {
     const normalized = this.normalizeProvider(provider);
     try {
       if (normalized === 'anthropic') {
         const key = typeof env.ANTHROPIC_API_KEY === 'string' ? env.ANTHROPIC_API_KEY : await env.ANTHROPIC_API_KEY?.get();
-        return key || 'dummy';
+        return key || '';
       }
       if (normalized === 'google-ai-studio') {
         let key = typeof env.GOOGLE_AI_API_KEY === 'string' ? env.GOOGLE_AI_API_KEY : await env.GOOGLE_AI_API_KEY?.get();
         if (!key) key = typeof env.GEMINI_API_KEY === 'string' ? env.GEMINI_API_KEY : await env.GEMINI_API_KEY?.get();
-        return key || 'dummy';
+        return key || '';
       }
       const key = typeof env.OPENAI_API_KEY === 'string' ? env.OPENAI_API_KEY : await env.OPENAI_API_KEY?.get();
-      return key || 'dummy';
+      return key || '';
     } catch {
-      return 'dummy';
+      return '';
     }
   }
 
   /**
-   * Primary initialization method. 
+   * Primary initialization method.
    * Returns the exact configuration required to instantiate any AI SDK through the Gateway.
+   *
+   * BYOK Mode (when aigToken is present):
+   *   - Provider keys are stored in the AI Gateway dashboard (Provider Keys section).
+   *   - AI Gateway injects them automatically — no Authorization header needed.
+   *   - apiKey is returned as '' so that callers know to omit the Authorization header.
+   *   - Only `cf-aig-authorization: Bearer {aigToken}` should be sent.
+   *
+   * Direct Mode (when aigToken is absent):
+   *   - Provider API keys must be supplied via Authorization header as usual.
+   *   - apiKey is returned if available in env bindings.
    */
   public static async getBaseUrl(env: any, options: { provider: string }): Promise<{ baseUrl: string, apiKey: string, aigToken: string }> {
     const gatewayName = env.AI_GATEWAY_NAME || 'core-github-api';
@@ -79,7 +96,10 @@ export class AIGateway {
     }
 
     const normalizedProvider = this.normalizeProvider(options.provider);
-    const apiKey = await this.getApiKeyForProvider(env, options.provider);
+
+    // In BYOK mode the gateway injects provider keys — caller must NOT send Authorization.
+    // We return empty apiKey so consumers know to omit the Authorization header.
+    const apiKey = aigToken ? '' : await this.getApiKeyForProvider(env, options.provider);
 
     try {
       const gateway = env.AI.gateway(gatewayName);
@@ -94,11 +114,23 @@ export class AIGateway {
   }
 
   /**
-   * Creates a lightweight, universal fetch client for sending OpenAI-compatible 
+   * Creates a lightweight, universal fetch client for sending OpenAI-compatible
    * requests directly through the gateway.
+   *
+   * BYOK: when aigToken is set, the gateway injects the provider key.
+   *   → Only cf-aig-authorization header is sent. No Authorization header.
+   * Direct: when aigToken is absent, Authorization: Bearer {apiKey} is sent.
    */
   public static async createUniversalClient(env: any, provider: string): Promise<any> {
     const { baseUrl, apiKey, aigToken } = await this.getBaseUrl(env, { provider });
+
+    // Build headers once: in BYOK mode omit Authorization to avoid overriding stored keys.
+    const buildHeaders = (extra?: Record<string, string>) => ({
+      'Content-Type': 'application/json',
+      ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+      ...(aigToken ? { 'cf-aig-authorization': `Bearer ${aigToken}` } : {}),
+      ...extra,
+    });
 
     return {
       chat: {
@@ -106,11 +138,7 @@ export class AIGateway {
           create: async (body: any) => {
             const res = await fetch(`${baseUrl}/chat/completions`, {
               method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${apiKey}`,
-                ...(aigToken ? { 'cf-aig-authorization': `Bearer ${aigToken}` } : {}),
-              },
+              headers: buildHeaders(),
               body: JSON.stringify(body),
             });
             if (!res.ok) {
@@ -124,10 +152,7 @@ export class AIGateway {
         list: async () => {
           const res = await fetch(`${baseUrl}/models`, {
             method: 'GET',
-            headers: {
-              Authorization: `Bearer ${apiKey}`,
-              ...(aigToken ? { 'cf-aig-authorization': `Bearer ${aigToken}` } : {}),
-            },
+            headers: buildHeaders(),
           });
           if (!res.ok) {
             throw new Error(`Gateway Error: ${await res.text()}`);

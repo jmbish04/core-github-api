@@ -130,7 +130,7 @@ export default function Projects() {
             // Adding as favorite makes it an active workspace
             addFavorite(repo);
 
-            navigate(`/project/${project.repoOwner}/${project.repoName}/dashboard`);
+            navigate(`/repos/${project.repoOwner}/${project.repoName}/dashboard`);
             return;
         }
 
@@ -176,8 +176,8 @@ export default function Projects() {
             </div>
 
             {/* Filters */}
-            <div className="flex flex-wrap items-center gap-4 bg-card p-4 rounded-lg border w-full">
-                <div className="relative flex-1 min-w-[200px] max-w-sm">
+            <div className="flex flex-col sm:flex-row items-center gap-4 bg-card p-4 rounded-lg border w-full">
+                <div className="relative flex-1 w-full sm:min-w-[200px] max-w-none sm:max-w-sm">
                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                     <Input
                         placeholder="Search projects..."

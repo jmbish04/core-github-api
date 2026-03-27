@@ -12,7 +12,7 @@ import {
   type StructuredChatResult,
   type StructuredChatState,
 } from '@/ai/agents/support/structured-chat';
-import { makeQueryStandardsTool } from '@/ai/tools/standards';
+import { makeQueryStandardsTool } from '@/ai/mcp/tools/standards';
 import { withFullCodeOutputRules } from '@/ai/utils/code-output-rules';
 
 export type { ContentBlock };

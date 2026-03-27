@@ -31,7 +31,7 @@ export async function dispatchToActionWorker(options: DispatchOptions): Promise<
   // 2. Transmit to GitHub
   // Target Repo: jmbish04/core-github-standardization
   const dispatchUrl = env.GITHUB_ACTION_WORKER_DISPATCHER_URI;
-  const tokenRecord = env.GITHUB_TOKEN || env.GITHUB_PERSONAL_ACCESS_TOKEN;
+  const tokenRecord = env.GITHUB_PERSONAL_ACCESS_TOKEN || env.GITHUB_PERSONAL_ACCESS_TOKEN;
   const githubToken = typeof tokenRecord === 'string' ? tokenRecord : await (tokenRecord as any)?.get();
 
   const combinedPayload = {

@@ -25,6 +25,7 @@ gatewayApp.use('*', async (c, next) => {
 // ============================================================================
 
 const chatCompletionRoute = createRoute({
+    operationId: 'postChatCompletions',
   method: 'post',
   path: '/chat/completions',
   summary: 'Universal Chat Completions',
@@ -59,6 +60,7 @@ const chatCompletionRoute = createRoute({
 });
 
 const embeddingRoute = createRoute({
+    operationId: 'postEmbeddings',
   method: 'post',
   path: '/embeddings',
   summary: 'Universal Embeddings',

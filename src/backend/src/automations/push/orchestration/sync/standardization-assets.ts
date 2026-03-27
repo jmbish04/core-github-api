@@ -32,10 +32,18 @@ const REMOTE_ASSET_SOURCES: RemoteAssetSource[] = [
   },
 ];
 
-function getStandardizationRepo(env: Env): { owner: string; repo: string } {
+export function getStandardizationRepo(env: Env): { owner: string; repo: string } {
+  let REPO_OWNER: string = env.GITHUB_OWNER || 'jmbish04';
+  let REPO_NAME: string = env.STANDARDIZATION_REPO_NAME || 'core-github-standardization';
+  const repoNameParts = REPO_NAME.split('/');
+
+  if(repoNameParts.length > 1) {
+      REPO_OWNER = repoNameParts[0].toString() as string;
+      REPO_NAME = repoNameParts[1].toString() as string;
+  }
   return {
-    owner: env.GITHUB_OWNER || 'jmbish04',
-    repo: env.STANDARDIZATION_REPO_NAME || 'core-github-standardization',
+    owner: REPO_OWNER,
+    repo: REPO_NAME
   };
 }
 

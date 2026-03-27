@@ -75,20 +75,20 @@ export default function ResearchDashboard() {
   }
 
   return (
-    <div className="p-6 space-y-6 max-w-6xl mx-auto text-white">
+    <div className="p-4 md:p-6 space-y-6 max-w-6xl mx-auto text-white">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold">Daily Trends (Deep Research)</h1>
           <p className="text-zinc-400">Review AI-surfaced repositories and train the swarm.</p>
         </div>
-        <div className="flex gap-2 w-full md:w-auto">
+        <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
           <Input 
             value={topic} 
             onChange={e => setTopic(e.target.value)} 
             placeholder="Custom search topic..."
             className="w-full md:w-64 bg-zinc-900 border-zinc-800 text-white"
           />
-          <Button onClick={handleTrigger} disabled={loading} className="bg-purple-600 hover:bg-purple-500">
+          <Button onClick={handleTrigger} disabled={loading} className="w-full sm:w-auto bg-purple-600 hover:bg-purple-500">
             {loading ? 'Orchestrating...' : 'Run Research'}
           </Button>
         </div>
@@ -137,7 +137,7 @@ export default function ResearchDashboard() {
               </CardContent>
 
               <CardFooter>
-                <Button onClick={() => submitFeedback(repo.id)} className="w-full bg-zinc-800 hover:bg-zinc-700 text-white">
+                <Button onClick={() => submitFeedback(repo.id)} className="w-full bg-zinc-800 hover:bg-zinc-700 text-white min-h-[44px]">
                   Save Feedback & Train
                 </Button>
               </CardFooter>

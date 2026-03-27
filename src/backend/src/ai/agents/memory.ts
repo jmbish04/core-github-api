@@ -42,12 +42,8 @@ export function buildMaxAgentMemory(options: AgentMemoryOptions): MemoryConfig {
     graph: {
       enabled: true,
       graphId: options.graphId ?? `core-github-api-${slug}`,
-      ...(options.graphBinding
-        ? { binding: options.graphBinding }
-        : {
-            urlEnvVar: options.graphUrlEnvVar ?? 'EDGRAPH_URL',
-            apiKeyEnvVar: options.graphApiKeyEnvVar ?? 'EDGRAPH_API_KEY',
-          }),
+      binding: options.graphBinding ?? 'EDGRAPH',
+      apiKeyEnvVar: options.graphApiKeyEnvVar ?? 'EDGRAPH_API_KEY',
       contextDepth: options.graphContextDepth ?? 2,
       maxContextEntities: options.graphMaxContextEntities ?? 8,
     },

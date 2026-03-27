@@ -17,9 +17,9 @@ export class OpsVerificationService {
     static async verifySecretsSync(env: Env, owner: string, repo: string) {
         console.log(`[Ops] Verifying Secrets Manager for ${owner}/${repo}...`);
         
-        // Check for GITHUB_TOKEN availability without exposing it
-        if (!await env.GITHUB_TOKEN.get()) {
-            return { success: false, error: "GITHUB_TOKEN not found in environment." };
+        // Check for GITHUB_PERSONAL_ACCESS_TOKEN availability without exposing it
+        if (!await env.GITHUB_PERSONAL_ACCESS_TOKEN.get()) {
+            return { success: false, error: "GITHUB_PERSONAL_ACCESS_TOKEN not found in environment." };
         }
 
         try {

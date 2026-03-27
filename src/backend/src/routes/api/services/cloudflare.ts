@@ -110,13 +110,17 @@ function normalizeRepoSlug(owner: string, repo: string) {
 }
 
 cloudflareApi.get("/costs/fleet", async (c) => {
-    if (!(c.env as any).CF_ACCOUNT_ID || !(c.env as any).CF_API_TOKEN) {
+    const { getCloudflareApiToken, getCloudflareAccountId } = await import("@utils/secrets");
+    const accountId = await getCloudflareAccountId(c.env);
+    const apiToken = await getCloudflareApiToken(c.env);
+
+    if (!accountId || !apiToken) {
         return c.json({ error: "Missing Cloudflare API credentials in environment" }, 500);
     }
     
     try {
         const range = parseDateRange(c.req.query("since"));
-        const fc = new FlareclerkService((c.env as any).CF_ACCOUNT_ID, (c.env as any).CF_API_TOKEN);
+        const fc = new FlareclerkService(accountId, apiToken);
         
         const workers = await fc.discoverFleet();
         const analytics = await fc.fetchAnalytics(workers, range);
@@ -139,14 +143,18 @@ cloudflareApi.get("/costs/fleet", async (c) => {
 });
 
 cloudflareApi.get("/costs/worker/:name", async (c) => {
-    if (!(c.env as any).CF_ACCOUNT_ID || !(c.env as any).CF_API_TOKEN) {
+    const { getCloudflareApiToken, getCloudflareAccountId } = await import("@utils/secrets");
+    const accountId = await getCloudflareAccountId(c.env);
+    const apiToken = await getCloudflareApiToken(c.env);
+
+    if (!accountId || !apiToken) {
         return c.json({ error: "Missing Cloudflare API credentials" }, 500);
     }
     
     try {
         const name = c.req.param("name");
         const range = parseDateRange(c.req.query("since"));
-        const fc = new FlareclerkService((c.env as any).CF_ACCOUNT_ID, (c.env as any).CF_API_TOKEN);
+        const fc = new FlareclerkService(accountId, apiToken);
         
         const worker = await fc.discoverWorker(name);
         const analytics = await fc.fetchAnalytics([worker], range);
@@ -165,7 +173,11 @@ cloudflareApi.get("/costs/worker/:name", async (c) => {
 });
 
 cloudflareApi.get("/costs/repository/:owner/:repo", async (c) => {
-    if (!(c.env as any).CF_ACCOUNT_ID || !(c.env as any).CF_API_TOKEN) {
+    const { getCloudflareApiToken, getCloudflareAccountId } = await import("@utils/secrets");
+    const accountId = await getCloudflareAccountId(c.env);
+    const apiToken = await getCloudflareApiToken(c.env);
+
+    if (!accountId || !apiToken) {
         return c.json({ error: "Missing Cloudflare API credentials" }, 500);
     }
 
@@ -174,7 +186,7 @@ cloudflareApi.get("/costs/repository/:owner/:repo", async (c) => {
         const repo = c.req.param("repo");
         const workerName = (c.req.query("workerName") || "").trim() || null;
         const range = parseDateRange(c.req.query("since"));
-        const fc = new FlareclerkService((c.env as any).CF_ACCOUNT_ID, (c.env as any).CF_API_TOKEN);
+        const fc = new FlareclerkService(accountId, apiToken);
         const db = getDb(c.env.DB);
         const repoSlug = normalizeRepoSlug(owner, repo);
 

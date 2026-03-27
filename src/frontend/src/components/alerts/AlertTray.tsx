@@ -15,8 +15,9 @@ import { Link } from 'react-router-dom';
 import {
   CheckCircle2, XCircle, AlertCircle, Info, Zap,
   Brain, Server, Shield, X, ArrowRight,
-  Bell, ExternalLink,
+  Bell, ExternalLink, Copy,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
@@ -50,6 +51,13 @@ function SeverityIcon({ severity }: { severity: AlertSeverity }) {
 // ─── AlertRow ─────────────────────────────────────────────────────────────────
 
 function AlertRow({ alert, onDismiss }: { alert: Alert; onDismiss: () => void }) {
+  const handleCopy = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    navigator.clipboard.writeText(`${alert.title}\n${alert.description}${alert.link_url ? '\n' + alert.link_url : ''}`);
+    toast.success('Alert copied to clipboard');
+  };
+
   const content = (
     <div className="flex items-start gap-2 flex-1 min-w-0">
       <SeverityIcon severity={alert.severity} />
@@ -78,13 +86,22 @@ function AlertRow({ alert, onDismiss }: { alert: Alert; onDismiss: () => void })
           </div>
         </Link>
       ) : content}
-      <button
-        onClick={onDismiss}
-        aria-label="Dismiss alert"
-        className="shrink-0 mt-0.5 p-0.5 rounded text-muted-foreground/50 hover:text-foreground hover:bg-muted transition-colors opacity-0 group-hover:opacity-100"
-      >
-        <X className="w-3.5 h-3.5" />
-      </button>
+      <div className="flex items-center shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button
+          onClick={handleCopy}
+          aria-label="Copy alert"
+          className="p-0.5 rounded text-muted-foreground/50 hover:text-foreground hover:bg-muted transition-colors"
+        >
+          <Copy className="w-3.5 h-3.5" />
+        </button>
+        <button
+          onClick={onDismiss}
+          aria-label="Dismiss alert"
+          className="p-0.5 rounded text-muted-foreground/50 hover:text-foreground hover:bg-muted transition-colors ml-0.5"
+        >
+          <X className="w-3.5 h-3.5" />
+        </button>
+      </div>
     </div>
   );
 }
