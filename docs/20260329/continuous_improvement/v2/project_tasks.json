@@ -1,0 +1,165 @@
+{
+  "_meta": {
+    "description": "D1 seed data for the pm_projects/pm_epics/pm_stories/pm_tasks tables. workspaceId maps to the repo route: /repos/jmbish04/core-github-api/projects. Project renamed to Project Sentinel.",
+    "tables": ["pm_projects", "pm_epics", "pm_stories", "pm_tasks"],
+    "schema_file": "backend/src/db/schemas/projects/hierarchy.ts",
+    "seeded_at": "2026-03-29",
+    "agent_persona": "Codex Senior Meta-Governance Architect"
+  },
+  "pm_projects": [
+    {
+      "id": "proj-sentinel-001",
+      "workspaceId": "jmbish04/core-github-api",
+      "title": "Project Sentinel — Fleet Immune System",
+      "description": "An autonomous meta-governance service that extracts AI coding conversations, enriches them with Cloudflare Docs context, identifies recurring failure patterns, and automatically generates 'Agentic Sentinality Insights' to immunize the fleet via global standardization PRs.",
+      "status": "in_progress"
+    }
+  ],
+  "pm_epics": [
+    {
+      "id": "epic-001-schema",
+      "projectId": "proj-sentinel-001",
+      "title": "Database Schema — Sentinel Micro-Domain",
+      "description": "Establish the 10-table Drizzle ORM schema domain. Includes auto-migration scripts in package.json to remove manual deployment friction.",
+      "status": "todo",
+      "priority": "high"
+    },
+    {
+      "id": "epic-002-ingestion",
+      "projectId": "proj-sentinel-001",
+      "title": "Native Ingestion Service",
+      "description": "Native Worker service replacing the legacy Python script. Ingests Jules sessions, GitHub PR comments, and Stitch prompts directly into D1 with sourceIdentifier deduplication.",
+      "status": "todo",
+      "priority": "high"
+    },
+    {
+      "id": "epic-003-analyst",
+      "projectId": "proj-sentinel-001",
+      "title": "Repoless Analyst Agent",
+      "description": "Uses jules-sdk in repoless mode (Gemini 3.1 1M context) to extract 'Agentic Sentinality Insights' from bulk conversation data.",
+      "status": "todo",
+      "priority": "high"
+    },
+    {
+      "id": "epic-004-babysitter",
+      "projectId": "proj-sentinel-001",
+      "title": "Babysitter Agent (Orchestrator)",
+      "description": "Durable Object monitor that listens to active Jules streams and performs [SYSTEM OVERRIDE] interventions when apology loops are detected.",
+      "status": "todo",
+      "priority": "high"
+    },
+    {
+      "id": "epic-005-api",
+      "projectId": "proj-sentinel-001",
+      "title": "Hono OpenAPI Control Plane",
+      "description": "Zod-validated routes at /api/sentinel serving dynamically generated openapi.json, swagger, and scalar documentation.",
+      "status": "todo",
+      "priority": "medium"
+    },
+    {
+      "id": "epic-006-interceptor",
+      "projectId": "proj-sentinel-001",
+      "title": "Active PR Interceptor",
+      "description": "Real-time remediation service firing on GitHub webhooks. Posts comments via human-persona GH_TOKEN to bypass bot filters.",
+      "status": "todo",
+      "priority": "medium"
+    },
+    {
+      "id": "epic-007-frontend",
+      "projectId": "proj-sentinel-001",
+      "title": "Sentinel C2 Dashboard (Astro)",
+      "description": "Responsive 'Monolith' theme views with consistent sidebar navigation and tonal Zinc depth for visual hierarchy. No borders allowed.",
+      "status": "todo",
+      "priority": "low"
+    },
+    {
+      "id": "epic-008-health",
+      "projectId": "proj-sentinel-001",
+      "title": "Health & Telemetry Governance",
+      "description": "Self-monitoring service for AI Gateway latency and Sentinel operational status.",
+      "status": "todo",
+      "priority": "low"
+    }
+  ],
+  "pm_stories": [
+    {
+      "id": "story-001-01",
+      "epicId": "epic-001-schema",
+      "title": "Sentinel Ledger Table Set",
+      "description": "Create the core 10 tables for pattern retention and contemplation reflection.",
+      "status": "todo",
+      "priority": "high"
+    },
+    {
+      "id": "story-001-02",
+      "epicId": "epic-001-schema",
+      "title": "Infrastructure Automation",
+      "description": "Configure automated migrations and type generation in package.json.",
+      "status": "todo",
+      "priority": "high"
+    },
+    {
+      "id": "story-003-01",
+      "epicId": "epic-003-analyst",
+      "title": "Deep Pattern Research",
+      "description": "Implement repoless Jules tools to analyze conversation artifacts for 'Agentic Sentinality'.",
+      "status": "todo",
+      "priority": "high"
+    },
+    {
+      "id": "story-007-01",
+      "epicId": "epic-007-frontend",
+      "title": "Unified Layout & Sidebar",
+      "description": "Ensure layout consistency across all Sentinel pages with mobile responsiveness.",
+      "status": "todo",
+      "priority": "high"
+    }
+  ],
+  "pm_tasks": [
+    {
+      "id": "task-001-02-01",
+      "storyId": "story-001-02",
+      "title": "Automate Drizzle & Wrangler Scripts",
+      "description": "Add 'db:auto': 'drizzle-kit generate && drizzle-kit migrate && wrangler types' to root package.json to eliminate manual migration steps.",
+      "status": "todo",
+      "priority": "high",
+      "order": 1
+    },
+    {
+      "id": "task-003-01-01",
+      "storyId": "story-003-01",
+      "title": "Implement Repoless Analyst DeepResearch",
+      "description": "Create SentinelAnalyst.ts tool that instantiates Jules with repoless:true to identify 'square wheel' patterns across massive context.",
+      "status": "todo",
+      "priority": "high",
+      "order": 1
+    },
+    {
+      "id": "task-004-01-01",
+      "storyId": "story-003-01",
+      "title": "Implement Babysitter [SYSTEM OVERRIDE]",
+      "description": "Build Durable Object logic to interact with active Jules streams and inject mandatory guardrail corrections during apology loops.",
+      "status": "todo",
+      "priority": "high",
+      "order": 2
+    },
+    {
+      "id": "task-006-01-01",
+      "storyId": "story-006-01",
+      "title": "Deploy PR Interceptor with Human Token",
+      "description": "Configure GitHub comments to use GH_TOKEN (user persona) to ensure Sentinel's instructions are processed by downstream bots.",
+      "status": "todo",
+      "priority": "high",
+      "order": 1
+    },
+    {
+      "id": "task-007-01-01",
+      "storyId": "story-007-01",
+      "title": "Monolith UI Layout Guardrails",
+      "description": "Implement AppSidebar on all pages. Forbid border classes. Enforce 1440x900 and 390x844 viewport standards.",
+      "status": "todo",
+      "priority": "high",
+      "order": 1
+    }
+  ]
+}

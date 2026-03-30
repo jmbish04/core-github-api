@@ -1,8 +1,7 @@
 import { workflow, step } from '@/ai/agents/honi';
 import { WorkflowEntrypoint } from 'cloudflare:workers';
-import { resolveDefaultAiModel, resolveDefaultAiProvider } from '@/ai/providers/config';
-import { AIGateway } from '@/ai/utils/ai-gateway';
-import { zodToJsonSchema } from 'zod-to-json-schema';
+
+import { generateStructuredResponse } from '@/ai/providers';
 import { z } from 'zod';
 import {
   collectDiscordResearchCorpus,
@@ -50,8 +49,6 @@ const BaseDiscordResearchWorkflow = workflow<Env, DiscordResearchPayload>({
         }
 
         return workflowStep.do('analyze-discord-results', async () => {
-          const provider = resolveDefaultAiProvider(env);
-          const model = resolveDefaultAiModel(env, provider);
           const matches = corpus.matches
             .slice(0, 40)
             .map((match, index) => {
@@ -66,17 +63,10 @@ const BaseDiscordResearchWorkflow = workflow<Env, DiscordResearchPayload>({
             })
             .join('\n\n');
 
-          const result = await AIGateway.runStructuredResponseWithModelFallback(
+          const result = await generateStructuredResponse<DiscordResearchAnalysis>(
             env,
-            provider,
-            model,
             [
-              'You are a Discord research analyst.',
-              'Analyze the matching messages for themes, risks, and opportunities.',
-              'Return only JSON matching this schema:',
-              JSON.stringify(zodToJsonSchema(DiscordResearchAnalysisSchema as any, 'discord_research_analysis'), null, 2),
-            ].join('\n\n'),
-            [
+              'DISCUSSION CONTEXT:',
               `Query: ${corpus.query}`,
               `Scanned guilds: ${corpus.scannedGuilds}`,
               `Scanned channels: ${corpus.scannedChannels}`,
@@ -85,9 +75,15 @@ const BaseDiscordResearchWorkflow = workflow<Env, DiscordResearchPayload>({
               'Corpus:',
               matches || 'No matches found.',
             ].join('\n\n'),
+            DiscordResearchAnalysisSchema,
+            [
+              'You are a Discord research analyst.',
+              'Analyze the matching messages for themes, risks, and opportunities.',
+              'Return only JSON matching this schema.',
+            ].join('\n\n'),
           );
 
-          return DiscordResearchAnalysisSchema.parse(result);
+          return result;
         });
       },
     ),

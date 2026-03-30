@@ -52,7 +52,7 @@ export function AppSidebar({ className }: { className?: string }) {
   ];
 
   return (
-    <div className={cn("flex flex-col h-screen w-64 border-r bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60", className)}>
+    <div className={cn("flex flex-col h-screen min-w-[264px] border-r bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60", className)}>
       
       {/* Header / Global Nav */}
       <div className="p-4 border-b flex items-center gap-2">

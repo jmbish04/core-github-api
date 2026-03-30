@@ -4,17 +4,15 @@
  */
 
 import {
-    AppendMessage,
-    AssistantRuntimeProvider,
-    ThreadMessageLike,
     useExternalStoreRuntime,
-    useExternalMessageConverter,
+    useExternalMessageConverter
 } from "@assistant-ui/react";
+import type { AppendMessage, ThreadMessageLike } from "@assistant-ui/react";
 import { useCallback, useState, useEffect, useRef } from "react";
 import { generateUuid } from "@/utils/common";
-import { useApiClient } from "@/lib/api-client";
+import { api } from "@/lib/api-client";
 import { toast } from "sonner";
-import { getCurrentUser } from "@/lib/auth";
+import { getControlCenterUserId } from "@/lib/control-user";
 
 interface DeepResearchMessage {
     id: string;
@@ -28,7 +26,6 @@ interface DeepResearchMessage {
 }
 
 export function useDeepResearchRuntime() {
-    const { apiClient } = useApiClient();
     const [messages, setMessages] = useState<DeepResearchMessage[]>([]);
     const [isRunning, setIsRunning] = useState(false);
     const [isConnected, setIsConnected] = useState(false);
@@ -41,14 +38,14 @@ export function useDeepResearchRuntime() {
       ? window.location.host 
       : 'localhost:8787'; // Wrangler dev server
       
-    const getWsUrl = (sid: string) => {
+    const getWsUrl = useCallback((sid: string) => {
         const url = new URL(`${wsProtocol}//${baseUrl}/ws?projectId=deep-research-chat-${sid}`);
-        const token = getCurrentUser();
+        const token = getControlCenterUserId();
         if (token) {
             url.searchParams.set('token', token);
         }
         return url.toString();
-    };
+    }, [baseUrl, wsProtocol]);
 
     const wsRef = useRef<WebSocket | null>(null);
 
@@ -131,7 +128,7 @@ export function useDeepResearchRuntime() {
             console.error('WebSocket connection failed:', e);
             setIsConnected(false);
         }
-    }, [baseUrl]);
+    }, [getWsUrl]);
 
     // Send logic with REST fallback if WS is dead
     const onNew = useCallback(
@@ -159,7 +156,7 @@ export function useDeepResearchRuntime() {
             if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
                 // Try REST fallback
                 try {
-                     const response = await apiClient.api.agents['deep-research-chat'].$post({
+                     const response = await api.agents['deep-research-chat'].$post({
                         json: {
                             message: userMsg.content,
                             sessionId,
@@ -213,7 +210,7 @@ export function useDeepResearchRuntime() {
                 source: 'web'
             }));
         },
-        [messages, sessionId, apiClient]
+        [messages, sessionId]
     );
 
     useEffect(() => {

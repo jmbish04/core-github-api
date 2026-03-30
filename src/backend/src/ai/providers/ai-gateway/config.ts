@@ -203,79 +203,9 @@ export const getAgentModel = (moduleName: string, env?: Env): string => {
   }
 };
 
-// ==========================================
-// Gateway URL Construction
-// ==========================================
+// Gateway URL construction is now centralized in AIGateway class
+// at src/ai/providers/ai-gateway.ts — do NOT duplicate here.
 
-/**
- * Constructs the full AI Gateway URL for a given provider and use case.
- * 
- * @param env - Cloudflare Environment bindings.
- * @param fullModelNameOrProvider - Model slug or provider key.
- * @param useCase - The SDK/protocol context for the endpoint.
- * @returns The absolute URL to the Gateway endpoint.
- */
-export async function getAiGatewayUrl(
-  env: Env,
-  fullModelNameOrProvider: string,
-  useCase: GatewayUseCase = 'openai_agents_sdk'
-): Promise<string> {
-  // If passed a provider directly (legacy support), handle it
-  // This logic is adapted from old resolveAiGatewayUrl
-  if (['worker-ai', 'workers-ai', 'openai', 'gemini', 'google-ai-studio', 'anthropic'].includes(fullModelNameOrProvider)) {
-     const provider = fullModelNameOrProvider;
-     const gateway = env.AI.gateway(env.AI_GATEWAY_NAME);
-
-     // Legacy simple routing
-     if (provider === 'openai') return await gateway.getUrl('openai');
-     if (provider === 'anthropic') return await gateway.getUrl('anthropic');
-     if (provider === 'google-ai-studio' || provider === 'gemini') return await gateway.getUrl('google-ai-studio');
-     
-     // Workers AI fallback — route through /compat with workers-ai/@cf/... model prefix
-     return `${await gateway.getUrl('compat')}/chat/completions`;
-  }
-
-  // Modern routing based on model slug + useCase
-  const gateway = env.AI.gateway(env.AI_GATEWAY_NAME);
-
-  switch (useCase) {
-    case 'openai_agents_sdk':
-    case 'openai_sdk': {
-      const provider = fullModelNameOrProvider.split('/')[0];
-      
-      if (provider === 'openai') {
-        // Native OpenAI -> direct
-        return await gateway.getUrl('openai');
-      }
-      
-      // Workers AI (@cf/) via OpenAI SDK -> /compat
-      //const gatewayBaseUrl = `${await gateway.getUrl('compat')}/chat/completions`; // Default to workers-ai or generic?
-      // Actually gateway.getUrl() usually returns the generic or workers-ai one depending on binding?
-      // With AI Gateway bindings, .getUrl(provider) is standard.
-      // For @cf models, we often want the 'workers-ai' provider endpoint but utilizing the OpenAI compatibility layer?
-      // The original code used `await gateway.getUrl()` for compat.
-      const baseUrl = `${await gateway.getUrl('compat')}/chat/completions`; // Default to workers-ai or generic?
-      const cleanBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
-      return `${cleanBase}v1`;
-    }
-
-    case 'worker_ai':
-      // Workers AI models use /compat endpoint; callers must pass model as `workers-ai/@cf/...`
-      return `${await gateway.getUrl('compat')}/chat/completions`;
-
-    case 'google_sdk':
-      return await gateway.getUrl('google-ai-studio');
-
-    case 'anthropic_sdk':
-      return await gateway.getUrl('anthropic');
-
-    default:
-      throw new Error(`Unsupported gateway use case: ${useCase}`);
-  }
-}
-
-// Alias for backward compatibility if needed
-export const getAiBaseUrl = getAiGatewayUrl;
 
 /**
  * Normalizes model slugs for compatibility with specific provider endpoints.

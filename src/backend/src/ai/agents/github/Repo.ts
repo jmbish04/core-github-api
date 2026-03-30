@@ -14,7 +14,7 @@ import type { AgentTool, PersistentAgentState } from "@/ai/agents/support/types"
 import { generateUuid } from "@/utils/common";
 import { desc, notInArray } from "drizzle-orm";
 
-import { DEFAULT_WORKERS_AI_MODEL, type SupportedProvider } from "@/ai/providers/config";
+import { DEFAULT_WORKERS_AI_MODEL, type SupportedProvider } from "@/ai/providers/ai-gateway/config";
 import { verifySignature } from "@/utils/crypto";
 import { getAgentDb, agentSchema, migrateAgentDb, type AgentDb } from "@/db/schemas/agents/stateful";
 

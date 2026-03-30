@@ -4,7 +4,7 @@ import { researchRecommendations } from '@/db/schemas/github/research';
 import { eq, desc } from 'drizzle-orm';
 import { runDeepResearch } from '@/workflows/research/deep';
 
-import { dailyResearchIngestHandler } from './daily-research-ingest';
+import { dailyResearchIngestHandler } from './ingest';
 
 const app = new Hono<{ Bindings: any }>();
 

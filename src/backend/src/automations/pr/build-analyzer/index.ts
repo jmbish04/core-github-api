@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { BaseAutomation, type AutomationMetadata } from '@/automations/core/BaseAutomation';
 import { appendSignature } from '@/utils/github/signature';
 import { prependColbyPrimer } from '@/automations/shared/colby/primer';
-import { detectPRAuthorAgent } from '../agent-tagger/tagging';
+import { detectPRAuthorAgent } from '../../../utils/github/detectAgent';
 import {
   formatBuildFailureComment,
   inferWorkerName,

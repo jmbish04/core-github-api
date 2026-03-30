@@ -23,6 +23,7 @@ import RepoLayout from "@/layouts/RepoLayout";
 
 // Repo-scoped views (dedicated per-repo implementations)
 
+import RepoDashboard from "@/views/repos/Dashboard";
 import RepoStats from "@/views/repos/Stats";
 import RepoExplorer from "@/views/repos/Explorer";
 import RepoPlan from "@/views/repos/Plan";
@@ -33,13 +34,12 @@ import RepoVibeSDK from "@/views/repos/VibeSDK";
 import RepoUxWorkshop from "@/views/repos/UxWorkshop";
 import RepoComponentIdentifier from "@/views/repos/ComponentIdentifier";
 import RepoCloudfareDocs from "@/views/repos/CloudflareDocs";
+import RepoProjects from "@/views/repos/Projects";
+import RepoKanban from "@/views/repos/KanbanBoard";
 
 // Global views reused in repo context (scoped by RepoLayout context provider)
-// These components read owner/repo from useParams() and filter API results accordingly.
-// TODO: Create dedicated repo-scoped variants as the product matures.
-import Projects from "@/views/control/global/Projects";
+// Retained for routes that haven't yet been given dedicated repo-scoped variants.
 import ProjectView from "@/views/repos/Overview";
-import Kanban from "@/views/control/global/Kanban";
 import Roadmap from "@/views/control/global/Roadmap";
 import Todo from "@/views/control/global/Todo";
 import TaskDetails from "@/views/control/global/TaskDetails";
@@ -74,7 +74,7 @@ export function RepoRoutes() {
       <Route index element={<Navigate to="dashboard" replace />} />
 
       {/* ── Core repo pages ────────────────────────────────────────── */}
-      <Route path="dashboard" element={<RepoStats />} />
+      <Route path="dashboard" element={<RepoDashboard />} />
       <Route path="stats" element={<RepoStats />} />
       <Route path="explorer" element={<RepoExplorer />} />
 
@@ -87,33 +87,33 @@ export function RepoRoutes() {
       {/* /repos/:owner/:repo/plan — repo-specific planning hub */}
       <Route path="plan" element={<RepoPlan />} />
 
-      {/* /repos/:owner/:repo/projects — repo project board */}
-      <Route path="projects" element={<Projects />} />
+      {/* /repos/:owner/:repo/projects — repo project board (dedicated) */}
+      <Route path="projects" element={<RepoProjects />} />
       <Route path="projects/:projectId" element={guard(<ProjectView />)} />
 
       {/* Work items within a project */}
-      <Route path="projects/tasks" element={guard(<Projects />)} />
-      <Route path="projects/:projectId/tasks" element={guard(<Projects />)} />
+      <Route path="projects/tasks" element={guard(<RepoProjects />)} />
+      <Route path="projects/:projectId/tasks" element={guard(<RepoProjects />)} />
       <Route path="projects/:projectId/tasks/:taskId" element={guard(<TaskDetails />)} />
 
-      <Route path="projects/epics" element={guard(<Projects />)} />
-      <Route path="projects/:projectId/epics" element={guard(<Projects />)} />
+      <Route path="projects/epics" element={guard(<RepoProjects />)} />
+      <Route path="projects/:projectId/epics" element={guard(<RepoProjects />)} />
       <Route path="projects/:projectId/epics/:epicId" element={guard(<TaskDetails />)} />
 
-      <Route path="projects/stories" element={guard(<Projects />)} />
-      <Route path="projects/:projectId/stories" element={guard(<Projects />)} />
+      <Route path="projects/stories" element={guard(<RepoProjects />)} />
+      <Route path="projects/:projectId/stories" element={guard(<RepoProjects />)} />
       <Route path="projects/:projectId/stories/:storyId" element={guard(<TaskDetails />)} />
 
-      <Route path="projects/phases" element={guard(<Projects />)} />
-      <Route path="projects/:projectId/phases" element={guard(<Projects />)} />
+      <Route path="projects/phases" element={guard(<RepoProjects />)} />
+      <Route path="projects/:projectId/phases" element={guard(<RepoProjects />)} />
       <Route path="projects/:projectId/phases/:phaseId" element={guard(<TaskDetails />)} />
 
-      <Route path="projects/sprints" element={guard(<Projects />)} />
-      <Route path="projects/:projectId/sprints" element={guard(<Projects />)} />
+      <Route path="projects/sprints" element={guard(<RepoProjects />)} />
+      <Route path="projects/:projectId/sprints" element={guard(<RepoProjects />)} />
       <Route path="projects/:projectId/sprints/:sprintId" element={guard(<TaskDetails />)} />
 
-      {/* Repo project views */}
-      <Route path="projects/kanban" element={<Kanban />} />
+      {/* Repo project views (dedicated repo-scoped kanban) */}
+      <Route path="projects/kanban" element={<RepoKanban />} />
       <Route path="projects/kanban/:projectId" element={guard(<ProjectView />)} />
       <Route path="projects/roadmap" element={<Roadmap />} />
       <Route path="projects/roadmap/:projectId" element={guard(<ProjectView />)} />

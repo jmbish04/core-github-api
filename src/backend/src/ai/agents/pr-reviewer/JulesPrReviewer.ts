@@ -7,14 +7,12 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
-import { OpenAI } from 'openai';
 import { 
   createAgent, 
   routeToAgent 
 } from '../honi';
 import { Agent, run } from '@openai/agents';
-import { setDefaultOpenAIClient } from '@openai/agents-openai';
-import { AIGateway } from '../../utils/ai-gateway';
+import { setupOpenAIAgentClient, getJulesClient } from '../../providers';
 
 // Validation schema for incoming GitHub Webhook PR payloads
 const PrReviewTaskSchema = z.object({
@@ -36,20 +34,11 @@ const runtime = createAgent<Env>({
   description: "Autonomous Jules orchestrator for GitHub Pull Request reviews.",
 
   async onTask(task: z.infer<typeof PrReviewTaskSchema>, { env, ctx: _ctx }: { env: Env, ctx: any }) {
-    const julesApiKey = typeof env.JULES_API_KEY === "string" ? env.JULES_API_KEY : await (env.JULES_API_KEY as any)?.get?.();
-
-    // 1. Initialize Jules SDK 
-    const { jules } = await import('@google/jules-sdk');
-    const julesClient = jules.with({ apiKey: julesApiKey });
+    // 1. Initialize Jules SDK via Centralized Provider
+    const julesClient = await getJulesClient(env);
 
     // 2. Initialize reasoning brain via Cloudflare AI Gateway & OpenAI Agents SDK -- using WorkersAI gpt-oss-120b
-    const { baseUrl, apiKey, aigToken } = await AIGateway.getBaseUrl(env, { provider: "workers-ai" });
-    const openai = new OpenAI({
-      apiKey: apiKey || '',
-      baseURL: baseUrl,
-      defaultHeaders: aigToken ? { 'cf-aig-authorization': `Bearer ${aigToken}` } : undefined,
-    });
-    setDefaultOpenAIClient(openai);
+    await setupOpenAIAgentClient(env, "workers-ai");
 
     const overseer = new Agent({
       name: "Overseer",

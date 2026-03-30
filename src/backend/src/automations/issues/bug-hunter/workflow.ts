@@ -10,7 +10,7 @@
 
 import { z } from "zod";
 import { generateStructuredResponse } from "@/ai/providers";
-import { resolveDefaultAiModel, resolveDefaultAiProvider } from "@/ai/agents/support/agent-ai";
+
 import { execInSandbox, writeSandboxFile, createGitHubApp, getInstallationToken, toShortLog } from "../../shared/sandbox";
 import { shellEscape, sanitizeForPath } from "@/ai/mcp/tools/sandbox-sdk";
 
@@ -64,8 +64,7 @@ export function shouldRunBugHunter(payload: any): boolean {
  * @param issueBody - Natural language raw description provided by author.
  */
 async function parseIssueWithGemini(env: Env, issueTitle: string, issueBody: string) {
-  const provider = resolveDefaultAiProvider(env);
-  const model = (env as any).BUG_HUNTER_MODEL || resolveDefaultAiModel(env, provider);
+  const bugHunterModel = (env as any).BUG_HUNTER_MODEL as string | undefined;
   
   const prompt = [
     "Parse this GitHub bug report into structured engineering notes.",
@@ -80,8 +79,7 @@ async function parseIssueWithGemini(env: Env, issueTitle: string, issueBody: str
     prompt,
     zodToJsonSchema(ParsedIssueSchema as any, "bug_hunter_issue") as any,
     "Parse bug reports into concise, deterministic engineering notes. Return only structured JSON.",
-    { model },
-    provider,
+    { model: bugHunterModel },
   );
   
   return result;
@@ -95,8 +93,7 @@ async function parseIssueWithGemini(env: Env, issueTitle: string, issueBody: str
  * @param parsedIssue - Clean, strongly typed logical requirements definition outlining reproduction state.
  */
 async function generateFailingVitest(env: Env, parsedIssue: z.infer<typeof ParsedIssueSchema>) {
-  const provider = resolveDefaultAiProvider(env);
-  const model = (env as any).BUG_HUNTER_MODEL || resolveDefaultAiModel(env, provider);
+  const bugHunterModel = (env as any).BUG_HUNTER_MODEL as string | undefined;
   
   const prompt = [
     "Write a single-file Vitest test that reproduces the bug.",
@@ -116,8 +113,7 @@ async function generateFailingVitest(env: Env, parsedIssue: z.infer<typeof Parse
     prompt,
     zodToJsonSchema(GeneratedTestSchema as any, "bug_hunter_test") as any,
     "Generate a single-file failing Vitest reproduction test. Return only structured JSON with valid TypeScript in testCode.",
-    { model },
-    provider,
+    { model: bugHunterModel },
   );
   
   return result;

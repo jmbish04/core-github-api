@@ -8,26 +8,18 @@
  * @module AI/Providers/Anthropic
  */
 
-import { resolveDefaultAiModel } from "./config";
-import { AIGateway } from "../utils/ai-gateway";
-import { getAnthropicApiKey } from "@utils/secrets";
+import { resolveDefaultAiModel } from "./ai-gateway/config";
 import { cleanJsonOutput } from "@/ai/utils/sanitizer";
+import { Logger } from "@/lib/logger";
 import { AIOptions, TextWithToolsResponse, StructuredWithToolsResponse, UnifiedModel, ModelFilter, ToolCall } from "./index";
-import { Agent, tool } from "@/ai/agents/runtime/openai";
+import { Agent, tool, run } from "@/ai/agents/runtime/openai";
+import { setupOpenAIAgentClient } from "./clients";
+
+import { verifyApiKey as verify } from '@/ai/providers/ai-gateway/keys';
+import { normalizeModelForGateway } from './ai-gateway/normalize';
 
 export async function verifyApiKey(env: Env): Promise<boolean> {
-  try {
-    const client = await AIGateway.createUniversalClient(env, "anthropic");
-    await client.chat.completions.create({
-      model: "anthropic/claude-3-5-sonnet-latest",
-      max_tokens: 1,
-      messages: [{ role: "user", content: "hi" }]
-    });
-    return true;
-  } catch (error) {
-    console.error("Anthropic Verification Error:", error);
-    return false;
-  }
+  return verify(env, 'anthropic');
 }
 
 async function executeWithFallback<T>(
@@ -50,8 +42,8 @@ async function executeWithFallback<T>(
 export async function generateText(env: Env, prompt: string, systemPrompt?: string, options?: AIOptions): Promise<string> {
   const initialModel = options?.model || resolveDefaultAiModel(env, "anthropic");
   return executeWithFallback(env, initialModel, undefined, async (model) => {
-    const namespacedModel = model.includes('/') ? model : `anthropic/${model}`;
-    const runner = await AIGateway.createUniversalGatewayRunner(env, "anthropic", namespacedModel);
+    const namespacedModel = normalizeModelForGateway("anthropic", model);
+    await setupOpenAIAgentClient(env, "anthropic");
     
     const agent = new Agent({
       name: "Anthropic_Agent",
@@ -59,7 +51,7 @@ export async function generateText(env: Env, prompt: string, systemPrompt?: stri
       model: namespacedModel,
     });
 
-    const result = await runner.run(agent, prompt);
+    const result = await run(agent, prompt);
     return String(result.finalOutput ?? "");
   });
 }
@@ -67,8 +59,8 @@ export async function generateText(env: Env, prompt: string, systemPrompt?: stri
 export async function generateStructuredResponse<T = any>(env: Env, prompt: string, schema: object, systemPrompt?: string, options?: AIOptions): Promise<T> {
   const initialModel = options?.model || resolveDefaultAiModel(env, "anthropic");
   return executeWithFallback(env, initialModel, 'structured_response', async (model) => {
-    const namespacedModel = model.includes('/') ? model : `anthropic/${model}`;
-    const client = await AIGateway.createUniversalClient(env, "anthropic");
+    const namespacedModel = normalizeModelForGateway("anthropic", model);
+    const client = await setupOpenAIAgentClient(env, "anthropic");
     const messages: any[] = [];
     if (systemPrompt) messages.push({ role: "system", content: systemPrompt });
     messages.push({ role: "user", content: prompt });
@@ -84,8 +76,8 @@ export async function generateStructuredResponse<T = any>(env: Env, prompt: stri
 export async function generateTextWithTools(env: Env, prompt: string, tools: any[], systemPrompt?: string, options?: AIOptions): Promise<TextWithToolsResponse> {
   const initialModel = options?.model || resolveDefaultAiModel(env, "anthropic");
   return executeWithFallback(env, initialModel, 'function_calling', async (model) => {
-    const namespacedModel = model.includes('/') ? model : `anthropic/${model}`;
-    const runner = await AIGateway.createUniversalGatewayRunner(env, "anthropic", namespacedModel);
+    const namespacedModel = normalizeModelForGateway("anthropic", model);
+    await setupOpenAIAgentClient(env, "anthropic");
 
     const capturedToolCalls: ToolCall[] = [];
     const agentTools = tools.map((t, idx) => {
@@ -115,7 +107,7 @@ export async function generateTextWithTools(env: Env, prompt: string, tools: any
       toolUseBehavior: 'run_llm_again'
     });
 
-    const result = await runner.run(agent, prompt);
+    const result = await run(agent, prompt);
     
     return {
       text: String(result.finalOutput || ""),
@@ -127,8 +119,8 @@ export async function generateTextWithTools(env: Env, prompt: string, tools: any
 export async function generateStructuredWithTools<T = any>(env: Env, prompt: string, schema: object, tools: any[], systemPrompt?: string, options?: AIOptions): Promise<StructuredWithToolsResponse<T>> {
   const initialModel = options?.model || resolveDefaultAiModel(env, "anthropic");
   return executeWithFallback(env, initialModel, 'function_calling', async (model) => {
-    const namespacedModel = model.includes('/') ? model : `anthropic/${model}`;
-    const client = await AIGateway.createUniversalClient(env, "anthropic");
+    const namespacedModel = normalizeModelForGateway("anthropic", model);
+    const client = await setupOpenAIAgentClient(env, "anthropic");
     
     const messages: any[] = [];
     if (systemPrompt) messages.push({ role: "system", content: systemPrompt });
@@ -148,7 +140,7 @@ export async function generateStructuredWithTools<T = any>(env: Env, prompt: str
 
 export async function getAnthropicModels(env: Env, filter?: ModelFilter): Promise<UnifiedModel[]> {
   try {
-    const client = await AIGateway.createUniversalClient(env, "anthropic");
+    const client = await setupOpenAIAgentClient(env, "anthropic");
     const res = await client.models.list();
     const data = res.data || [];
     

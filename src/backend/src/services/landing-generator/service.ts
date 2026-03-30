@@ -5,7 +5,8 @@ import { BlueprintGenerator } from "./blueprint";
 import { TemplateGenerator } from "./template";
 import type { WorkerAnalysis, WranglerConfig, PackageJson } from "./types";
 import TOML from "@iarna/toml";
-import { resolveDefaultAiModel, resolveDefaultAiProvider, runTextAgent } from "@/ai/agents/support/agent-ai";
+import { generateText } from "@/ai/providers";
+import { Logger } from "@/lib/logger";
 
 interface GenerateOptions {
     owner: string;
@@ -22,7 +23,7 @@ export class LandingGeneratorService {
         console.log(`[LandingGenerator] Starting generation for ${options.owner}/${options.repo}`);
 
         // 1. Fetch Repository Files
-        const files = await this.fetchRepoFiles(octokit, options.owner, options.repo);
+        const files = await this.fetchRepoFiles(env, octokit, options.owner, options.repo);
 
         // 2. Parse Technical Configs using Analyzer
         // We'll parse them here to pass structured data to the Analyzer
@@ -69,7 +70,7 @@ export class LandingGeneratorService {
         return await this.createPullRequest(octokit, options, html);
     }
 
-    private static async fetchRepoFiles(octokit: Octokit, owner: string, repo: string): Promise<Record<string, string>> {
+    private static async fetchRepoFiles(env: Env, octokit: Octokit, owner: string, repo: string): Promise<Record<string, string>> {
         const files: Record<string, string> = {};
         const method = "GET /repos/{owner}/{repo}/contents/{path}";
 
@@ -85,7 +86,10 @@ export class LandingGeneratorService {
                     files[path] = Buffer.from(data.content, 'base64').toString('utf-8');
                 }
             } catch (e) {
-                // Ignore 404
+                const logger = new Logger(env, 'LandingGenerator');
+                logger.error(`Failed to fetch ${path}`, e);
+                
+                
             }
         }));
 
@@ -93,9 +97,6 @@ export class LandingGeneratorService {
     }
 
     private static async enhanceAnalysisWithAI(env: any, baseAnalysis: WorkerAnalysis, readme: string, userPrompt?: string): Promise<WorkerAnalysis> {
-        const provider = resolveDefaultAiProvider(env as Env);
-        const model = resolveDefaultAiModel(env as Env, provider);
-
         const systemPrompt = `
 You are an expert Developer Marketing Agent.
 Your goal is to generate a comprehensive "WorkerAnalysis" JSON object for a Cloudflare Worker project.
@@ -130,14 +131,11 @@ ${userPrompt || "Make it sound enterprise-ready."}
 `;
 
         try {
-            const text = await runTextAgent({
-                env: env as Env,
-                provider,
-                model,
-                name: "LandingGeneratorAnalyzer",
-                instructions: `${systemPrompt}\n\nReturn valid JSON only, with no markdown or commentary.`,
-                input: userMessage,
-            });
+            const text = await generateText(
+                env as Env,
+                userMessage,
+                `${systemPrompt}\n\nReturn valid JSON only, with no markdown or commentary.`
+            );
 
             return JSON.parse(text) as WorkerAnalysis;
         } catch (e) {

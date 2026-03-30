@@ -1,10 +1,9 @@
-
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { format } from "date-fns";
-import { Loader2, CheckCircle2, XCircle, AlertCircle, ChevronRight, ChevronDown } from "lucide-react";
+import { Loader2, ChevronRight, ChevronDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -51,13 +50,13 @@ const mapTriggersToEvents = (triggers: string[]): string => {
 
 export function WorkflowRunsTab({ workflow }: WorkflowRunsTabProps) {
   const [runs, setRuns] = useState<WebhookDelivery[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [, setLoading] = useState(false);
   const [startLoading, setStartLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const fetchRuns = async () => {
+  const fetchRuns = useCallback(async () => {
     const events = mapTriggersToEvents(workflow.triggers);
     if (!events) {
         setRuns([]);
@@ -87,12 +86,12 @@ export function WorkflowRunsTab({ workflow }: WorkflowRunsTabProps) {
       setLoading(false);
       setStartLoading(false);
     }
-  };
+  }, [workflow.triggers, page]);
 
   useEffect(() => {
     setStartLoading(true);
     fetchRuns();
-  }, [workflow.key, page]);
+  }, [fetchRuns]);
 
   const toggleExpand = (id: string) => {
     setExpandedId(expandedId === id ? null : id);

@@ -1,12 +1,49 @@
 # Protocol: AI Provider Routing & Resolution
 
-**MANDATORY IMPORT PATH**: Agents must _always and exclusively_ import AI functions from `@/ai/providers`.
-**FORBIDDEN IMPORTS**: It is _never_ acceptable to import directly from specific provider files (e.g., `ai/providers/openai`, `ai/providers/gemini`) or the index file explicitly (e.g., `ai/providers/index`).
+**`@/ai/providers/index.ts`** is the **single public API** for all AI generation.
 
-**FUNCTION USAGE**: When using functions like `generateText`, `generateStructuredResponse`, etc., the agent should specify the `provider` and `model` arguments when known.
+## Mandatory Import Path
 
-**FALLBACK BEHAVIOR**:
+Callers must _always and exclusively_ import AI functions from `@/ai/providers`:
 
-- If no provider or model is provided by the caller, the system relies on the `index.ts` routing to default to `worker-ai`, which then utilizes its internal business logic to select the correct fallback model.
-- Similarly, if a provider is specified but no model is provided, the specific provider module's logic determines the default model.
-- Agents should not hardcode default models unless explicitly required by the business logic.
+```typescript
+// ✅ CORRECT
+import { generateText, generateStructuredResponse } from "@/ai/providers";
+const result = await generateText(env, prompt, system);
+
+// ❌ FORBIDDEN — pre-resolving provider/model
+import { resolveDefaultAiProvider, resolveDefaultAiModel } from "@/ai/agents/support/agent-ai";
+const provider = resolveDefaultAiProvider(env);
+const model = resolveDefaultAiModel(env, provider);
+const result = await AIGateway.runTextWithFallback(env, provider, model, system, prompt);
+
+// ❌ FORBIDDEN — direct provider imports
+import { generateText } from "@/ai/providers/openai";
+
+// ❌ FORBIDDEN — config imports in external code
+import { resolveDefaultAiModel } from "@/ai/providers/ai-gateway/config";
+```
+
+## Resolution Behavior
+
+- If **no provider or model** is passed, the system defaults to `worker-ai` via `resolveInvocation()`.
+- If a **provider** is specified but no model, the default model for that provider is resolved internally.
+- If a **model** is specified via `AIOptions.model`, it is passed through; provider defaults to `worker-ai`.
+
+## Forbidden Imports (External Code)
+
+External code (routes, services, automations, workflows) must **NEVER** import:
+
+1. `resolveDefaultAiProvider` or `resolveDefaultAiModel` from anywhere
+2. `AIGateway` class directly
+3. Individual provider modules (`@/ai/providers/openai`, `@/ai/providers/gemini`, etc.)
+4. `@/ai/providers/ai-gateway/config`
+
+## Allowed Exceptions
+
+These files are **internal** to the AI subsystem and may import resolvers:
+
+- `ai/agents/support/inference.ts` — internal agent helpers
+- `ai/agents/support/agent-ai.ts` — legacy compat layer
+- `ai/agents/runtime/openai.ts` — Agent SDK compat shim
+- `routes/api/agents/models.ts` — model listing endpoint (needs `resolveDefaultAiModel` for defaults display)

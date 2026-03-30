@@ -1,6 +1,6 @@
 // src/routes/api/tasks.ts
 import { Hono } from 'hono';
-// import { Bindings } from '@utils/hono';
+
 import { getDb } from '@db';
 import { tasks, repos, taskEvents, taskComments, workshopProjectTasks } from '@db/schema';
 import { eq, and } from 'drizzle-orm';

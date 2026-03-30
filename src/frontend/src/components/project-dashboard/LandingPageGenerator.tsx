@@ -5,7 +5,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Loader2, Send, Sparkles, Layout } from "lucide-react";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import {} from "@/lib/utils";
 
 // RPC Client
 import { api } from "@/lib/api-client";

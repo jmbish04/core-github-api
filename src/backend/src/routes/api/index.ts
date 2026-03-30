@@ -35,4 +35,4 @@ export { default as prReviewerApi } from '@/ai/agents/pr-reviewer/JulesPrReviewe
 export { default as commentsTools } from '@/ai/mcp/tools/github/comments';
 export { default as cloudflareServicesApi } from './services/cloudflare';
 export { default as sandboxApi } from './sandbox';
-export { default as researchProjectsApi } from './frontend/research/research-projects';
+export { default as researchProjectsApi } from './frontend/research/one-time';

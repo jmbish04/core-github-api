@@ -1,6 +1,6 @@
 import { getDb } from '@db';
 import { standardizationRules } from '@db/schemas/app/standardization';
-import { resolveDefaultAiModel, resolveDefaultAiProvider } from '@/ai/agents/support/agent-ai';
+import { generateText } from '@/ai/providers';
 
 export class RulesStandardization {
   static async enforce(
@@ -79,16 +79,10 @@ export class RulesStandardization {
 
     if (rule.aiInstructions) {
       try {
-        const provider = resolveDefaultAiProvider(env);
-        const model = resolveDefaultAiModel(env, provider);
-        const { AIGateway } = await import('@/ai/utils/ai-gateway');
-
-        const customizedOutput = await AIGateway.runTextWithFallback(
+        const customizedOutput = await generateText(
           env,
-          provider,
-          model,
-          'Customize the file content based on the instructions. Return only the customized file content.',
           `Instructions: ${rule.aiInstructions}\nRepo: ${targetRepo.owner.login}/${targetRepo.name}\nTags: ${targetTags.join(', ')}\n\nFile Content:\n${content}`,
+          'Customize the file content based on the instructions. Return only the customized file content.',
         );
 
         const customized = customizedOutput

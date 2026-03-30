@@ -137,6 +137,7 @@ export type SuggestionItem = {
   command: (props: { editor: Editor; range: Range }) => void;
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const defaultSlashSuggestions: SuggestionOptions<SuggestionItem>["items"] =
   () => [
     {
@@ -1937,6 +1938,7 @@ export type EditorCharacterCountProps = {
   className?: string;
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const EditorCharacterCount = {
   Characters({ children, className }: EditorCharacterCountProps) {
     const { editor } = useCurrentEditor();

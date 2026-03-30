@@ -13,12 +13,7 @@ import {
   fetchProjectContextByOwnerRepo,
   generateUuid 
 } from "./utils";
-import { 
-  resolveDefaultAiModel, 
-  resolveDefaultAiProvider, 
-  runTextAgent, 
-  // streamTextAgent 
-} from "@/ai/agents/support/agent-ai";
+import { runWithOpenAIAgent } from "@/ai/providers";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -163,13 +158,22 @@ app.post("/phases/:phaseId/generate-instructions", async (c) => {
     const epic = await db.select().from(epics).where(eq(epics.id, phaseId)).get();
     if (!epic) return c.json({ error: "Phase/Epic not found" }, 404);
 
-    const provider = resolveDefaultAiProvider(c.env);
-    const model = resolveDefaultAiModel(c.env, provider);
-    const res = await runTextAgent({
-        env: c.env, provider, model, name: "PhaseLead",
-        instructions: "Generate implementable technical instructions in Markdown.",
-        input: `Phase/Epic: ${epic.title}. Description: ${epic.description}`
-    });
+    let repoContextStr = "";
+    if (epic.repoId) {
+        const ctx = await fetchProjectContext(db, epic.repoId);
+        if (ctx) {
+            repoContextStr = `\nRepository Context: ${ctx.repoOwner}/${ctx.repoName}\nProject Description: ${ctx.projectDescription || ctx.repoDescription || "No description provided."}`;
+        }
+    }
+
+    const res = await runWithOpenAIAgent(
+        c.env,
+        `Phase/Epic: ${epic.title}\nDescription: ${epic.description || "No description provided."}${repoContextStr}`,
+        {
+            name: "PhaseLead",
+            instructions: "Generate implementable technical instructions in Markdown."
+        }
+    );
 
     await db.update(epics).set({ 
         description: sql`coalesce(${epics.description}, '') || '\n\n## AI Instructions\n' || ${res}`, 

@@ -37,7 +37,7 @@ export default function ResearchDetail() {
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchData = async () => {
+  const fetchData = React.useCallback(async () => {
       if (!id) return;
       try {
           // Fetch Brief & Candidates
@@ -59,7 +59,7 @@ export default function ResearchDetail() {
       } finally {
           setLoading(false);
       }
-  };
+  }, [id]);
   
   const handleApprove = async (candidateId: string) => {
       try {
@@ -76,12 +76,11 @@ export default function ResearchDetail() {
       }
   };
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     fetchData();
     const interval = setInterval(fetchData, 3000); // 3s polling
     return () => clearInterval(interval);
-  }, [id]);
+  }, [fetchData]);
 
   if (loading && !brief) {
       return <div className="flex h-96 items-center justify-center"><Loader2 className="animate-spin" /></div>;
@@ -121,7 +120,7 @@ export default function ResearchDetail() {
                             {logs.map(log => (
                                 <div key={log.id} className="grid grid-cols-[140px_100px_1fr] gap-2">
                                     <span className="text-zinc-500">{new Date(log.createdAt).toLocaleTimeString()}</span>
-                                    <span className={`font-bold ${log.agentName === 'TopicOrchestrator' ? 'text-blue-400' : 'text-purple-400'}`}>
+                                    <span className={`font-bold ${log.agentName === 'TopicOrchestrator' ? 'text-blue-400' : 'text-zinc-400'}`}>
                                         [{log.agentName}]
                                     </span>
                                     <span className={log.logLevel === 'error' ? 'text-red-400' : 'text-zinc-300'}>

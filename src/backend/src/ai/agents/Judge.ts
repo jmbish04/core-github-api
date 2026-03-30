@@ -9,7 +9,6 @@ import { runAgentStructured } from '@/ai/agents/support/inference';
 import type { PersistentAgentState } from '@/ai/agents/support/types';
 import { ResearchLogger } from '@research-logger';
 import { getDb } from '@db';
-import { resolveDefaultAiProvider, resolveDefaultAiModel } from '@/ai/providers/config';
 
 const judgeRuntime = createAgent<Env>({
   name: 'judge-agent',
@@ -68,8 +67,6 @@ export class JudgeAgent extends JudgeDurableObject {
         instructions: 'You are a critical research judge. Evaluate the following content against the research criteria.',
         prompt: `Criteria: ${criteria}\n\nCandidate Content: ${candidate.content?.substring(0, 5000)}...`,
         schema: CandidateEvaluationSchema,
-        provider: resolveDefaultAiProvider(this.env),
-        model: resolveDefaultAiModel(this.env, resolveDefaultAiProvider(this.env)),
       });
     } catch (error) {
       await researchLogger.logError('Evaluation', error, { raw: 'Structured output failed' });

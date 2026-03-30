@@ -79,5 +79,5 @@ export function mountRoutes(app: OpenAPIHono<{ Bindings: Env }>) {
     .route('/api/docs/agents', docsAgentsRouter)
     .route('/api/pr-reviewer', prReviewerApi)
     .route('/api/sandbox', sandboxApi)
-    .route('/api/research-projects', researchProjectsApi);
+    .route('/api/research', researchProjectsApi);
 }

@@ -8,7 +8,7 @@ import { healthTestDefinitions } from "@/db/schemas/logs/health";
 import { v4 as uuidv4 } from 'uuid';
 import { eq } from 'drizzle-orm';
 import { App } from 'octokit';
-import { getGitHubPrivateKey, getGitHubAppId } from "@utils/secrets";
+import { getGitHubPrivateKey, getGitHubAppId, getGithubToken } from "@utils/secrets";
 import { HoniClient } from '@utils/honi-client';
 
 const healthApi = new Hono<{ Bindings: Env }>();
@@ -175,6 +175,57 @@ healthApi.get('/github-app-webhooks', async (c) => {
             status: 'unhealthy',
             error: err.message || 'Unknown error communicating with GitHub API',
             durationMs: Date.now() - start,
+        }, 500);
+    }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /research-dry-run
+//
+// PURPOSE: Triggers the `research-health-check` event in the research queue repo.
+// ─────────────────────────────────────────────────────────────────────────────
+healthApi.post('/research-dry-run', async (c) => {
+    const start = Date.now();
+    try {
+        const ghToken = await getGithubToken(c.env);
+        if (!ghToken) {
+            return c.json({ status: 'error', error: "Missing GH_TOKEN or GITHUB_PERSONAL_ACCESS_TOKEN" }, 500);
+        }
+
+        const dispatcherUri = c.env.RESEARCH_QUEUE_REPO_DISPATCHER_URI || "https://api.github.com/repos/jmbish04/core-github-research/dispatches";
+
+        const res = await fetch(dispatcherUri, {
+            method: "POST",
+            headers: {
+                "Accept": "application/vnd.github.v3+json",
+                "Authorization": `Bearer ${ghToken}`,
+                "User-Agent": "Core-GitHub-API-Health",
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                event_type: "research-health-check",
+                client_payload: {
+                    timestamp: new Date().toISOString()
+                }
+            })
+        });
+
+        if (!res.ok) {
+            const body = await res.text();
+            throw new Error(`GitHub API responded with ${res.status}: ${body}`);
+        }
+
+        return c.json({
+            status: "success",
+            message: "Dry-run dispatch sent successfully",
+            durationMs: Date.now() - start
+        });
+    } catch (err: any) {
+        console.error('[health/research-dry-run] Error:', err);
+        return c.json({
+            status: "error",
+            error: err.message,
+            durationMs: Date.now() - start
         }, 500);
     }
 });

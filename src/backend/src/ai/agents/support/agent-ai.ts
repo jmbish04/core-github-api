@@ -8,7 +8,7 @@
  * @module AI/Config
  */
 
-import { AIGateway } from "@/ai/utils/ai-gateway";
+
 
 /**
  * Union of supported AI provider identifiers.
@@ -30,14 +30,7 @@ export const DEFAULT_AI_PROVIDER: SupportedProvider = "worker-ai";
 /** Default model for Cloudflare Workers AI. llama-3.3-70b is preferred for reasoning. */
 export const DEFAULT_WORKERS_AI_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 
-const PROVIDER_TO_GATEWAY: Record<SupportedProvider, string> = {
-  "worker-ai": "workers-ai",
-  "workers-ai": "workers-ai",
-  openai: "openai",
-  gemini: "google-ai-studio",
-  "google-ai-studio": "google-ai-studio",
-  anthropic: "anthropic",
-};
+
 
 /**
  * Normalizes a string into a SupportedProvider type.
@@ -74,10 +67,10 @@ function normalizeProvider(provider?: string): SupportedProvider {
  * @returns The resolved provider identifier.
  * @agent-note Use this to ensure consistent provider usage across different execution contexts.
  */
-export function resolveDefaultAiProvider(env: any): SupportedProvider {
+export function resolveDefaultAiProvider(env: Env): SupportedProvider {
   const configured =
-    (env as any & { AI_DEFAULT_PROVIDER?: string; AI_PROVIDER?: string }).AI_DEFAULT_PROVIDER ||
-    (env as any & { AI_DEFAULT_PROVIDER?: string; AI_PROVIDER?: string }).AI_PROVIDER;
+    env.AI_DEFAULT_PROVIDER ||
+    (env as unknown as Record<string, unknown>).AI_PROVIDER as string;
   return normalizeProvider(configured);
 }
 
@@ -89,10 +82,10 @@ export function resolveDefaultAiProvider(env: any): SupportedProvider {
  * @param provider - Optional provider to resolve for.
  * @returns The model string identifier.
  */
-export function resolveDefaultAiModel(env: any, provider?: SupportedProvider): string {
+export function resolveDefaultAiModel(env: Env, provider?: SupportedProvider): string {
   const model =
-    (env as any & { AI_DEFAULT_MODEL?: string; WORKERS_AI_MODEL?: string }).AI_DEFAULT_MODEL ||
-    (env as any & { AI_DEFAULT_MODEL?: string; WORKERS_AI_MODEL?: string }).WORKERS_AI_MODEL;
+    env.AI_DEFAULT_MODEL ||
+    (env as unknown as Record<string, unknown>).WORKERS_AI_MODEL as string;
   if (model && model.trim()) {
     return model.trim();
   }
@@ -107,73 +100,12 @@ export function resolveDefaultAiModel(env: any, provider?: SupportedProvider): s
 }
 
 export async function resolveGatewayApiKey(env: Env): Promise<string> {
-  const apiKeyToken = env.AI_GATEWAY_TOKEN as any;
-  const apiKey = typeof apiKeyToken === 'string' ? apiKeyToken : await apiKeyToken?.get?.();
+  const apiKeyToken = env.AI_GATEWAY_TOKEN as unknown;
+  const apiKey = typeof apiKeyToken === 'string' ? apiKeyToken : await (apiKeyToken as { get?: () => Promise<string> })?.get?.();
   if (!apiKey) {
     throw new Error("AI_GATEWAY_TOKEN is required for AI SDK calls.");
   }
   return apiKey;
 }
 
-/**
- * Generates the AI Gateway URL for a specific provider.
- * 
- * @param env - Cloudflare Environment bindings.
- * @param provider - Target AI provider.
- * @returns The full URL to the Cloudflare AI Gateway endpoint.
- */
-export async function getAiGatewayUrl(
-  env: Env,
-  provider: SupportedProvider,
-): Promise<string> {
-  const gatewayProvider = PROVIDER_TO_GATEWAY[provider];
-  const { baseUrl } = await AIGateway.getBaseUrl(env as any, { provider: gatewayProvider });
-  return baseUrl;
-}
 
-export async function getAiBaseUrl(
-  env: Env,
-  provider: SupportedProvider,
-): Promise<string> {
-  const { baseUrl } = await AIGateway.getBaseUrl(env as any, { provider });
-  return baseUrl;
-}
-
-/**
- * Executes a text-based agent interaction (non-streaming).
- * 
- * @param options - Configuration for the agent run.
- *  - name: Human-readable name for tracing.
- *  - instructions: System prompt/role for the agent.
- *  - input: User prompt or task.
- * @returns The final text response from the agent.
- */
-export async function streamTextAgent(options: {
-  env: Env;
-  provider?: SupportedProvider;
-  model?: string;
-  name: string;
-  instructions: string;
-  input: string;
-}) {
-  const text = await runTextAgent(options);
-  return {
-    async *toTextStream() {
-      yield text;
-    },
-  };
-}
-
-export async function runTextAgent(options: {
-  env: Env;
-  provider?: SupportedProvider;
-  model?: string;
-  name: string;
-  instructions: string;
-  input: string;
-}): Promise<string> {
-  const provider = options.provider || resolveDefaultAiProvider(options.env);
-  const model = options.model || resolveDefaultAiModel(options.env, provider);
-  const { AIGateway } = await import("@/ai/utils/ai-gateway");
-  return await AIGateway.runTextWithFallback(options.env, provider, model, options.instructions, options.input);
-}

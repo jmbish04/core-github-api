@@ -9,7 +9,7 @@
  */
 import { generateText, generateStructuredResponse, generateEmbedding } from "@/ai/providers";
 import { z } from "zod";
-import { AIGateway } from "./utils/ai-gateway";
+import { AIGateway } from "./providers/ai-gateway";
 import { cleanJsonOutput, sanitizeAndFormatResponse } from "./utils/sanitizer";
 import { analyzeFailure } from "./utils/diagnostician";
 import { HealthStepResult } from "@/health/types";

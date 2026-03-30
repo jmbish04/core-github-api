@@ -2,19 +2,11 @@ import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { getDb } from "@db";
 import { dailyTrends } from "@/db/schemas/github/webhooks";
 import { desc } from "drizzle-orm";
+import { createSelectSchema } from "drizzle-zod";
 
 const app = new OpenAPIHono<{ Bindings: Env }>();
 
-const DailyTrendSchema = z.object({
-  id: z.string(),
-  date: z.string(),
-  category: z.string(),
-  title: z.string(),
-  url: z.string(),
-  description: z.string().nullable(),
-  sentInEmail: z.boolean(),
-  createdAt: z.string(),
-});
+const DailyTrendsSchema = createSelectSchema(dailyTrends);
 
 app.openapi(
   createRoute({
@@ -29,14 +21,7 @@ app.openapi(
         content: {
           "application/json": {
             schema: z.object({
-              trends: z.array(z.object({
-                id: z.number(),
-                date: z.string(),
-                trendSummary: z.string(),
-                topPicks: z.any(), // JSON
-                sentInEmail: z.boolean(),
-                createdAt: z.string()
-              })),
+              trends: z.array(DailyTrendsSchema),
             }),
           },
         },

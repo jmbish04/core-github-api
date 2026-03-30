@@ -1,5 +1,5 @@
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi';
-import { Bindings } from '@utils/hono';
+
 import { LandingGeneratorService } from '@services/landing-generator/service';
 
 const landingGeneratorApi = new OpenAPIHono<{ Bindings: Env }>();

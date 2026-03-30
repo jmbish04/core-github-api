@@ -12,8 +12,6 @@ import { GitHubCommitService } from '@/services/ux/GitHubCommitService';
 import { getDb, workshopUxRuns, workshopUxPages, workshopUxTaskLogs } from '@db';
 import { eq } from 'drizzle-orm';
 import { Agent, run } from '@openai/agents';
-import { AIGateway } from '@/ai/utils/ai-gateway';
-import { OpenAI } from 'openai';
 import { setDefaultOpenAIClient } from '@openai/agents-openai';
 import { getStandardizationRepo } from '@/automations/push/orchestration/sync/standardization-assets';
 import { createAgent } from '@/ai/agents/honi';
@@ -208,12 +206,8 @@ export class UxResearcher extends baseUxAgent.Agent {
         });
 
         // Initialize reasoning brain
-        const { baseUrl, apiKey, aigToken } = await AIGateway.getBaseUrl(this.env, { provider: "workers-ai" });
-        const openai = new OpenAI({
-            apiKey: apiKey || '',
-            baseURL: baseUrl,
-            defaultHeaders: aigToken ? { 'cf-aig-authorization': `Bearer ${aigToken}` } : undefined,
-        });
+        const { setupOpenAIAgentClient } = await import('@/ai/providers');
+        const openai = await setupOpenAIAgentClient(this.env, 'workers-ai');
         setDefaultOpenAIClient(openai);
 
         const orchestrator = new Agent({

@@ -7,12 +7,18 @@
  * 
  * @module AI/Providers
  */
-import { resolveDefaultAiProvider, SupportedProvider } from "./config";
+import { 
+  resolveDefaultAiProvider,
+  resolveDefaultAiModel,
+  normalizeProvider,
+  SupportedProvider 
+} from "./ai-gateway/config";
 import * as openai from "./openai";
 import * as gemini from "./gemini";
 import * as anthropic from "./anthropic";
 import * as workerAi from "./worker-ai";
 import * as jules from "./jules";
+import { Logger } from "@/lib/logger";
 import { z } from "zod";
 
 /**
@@ -94,6 +100,9 @@ export type ModelFilter = ModelCapability;
 
 export async function verifyApiKey(env: Env, providerOverride?: SupportedProvider | 'jules'): Promise<boolean> {
   const provider = providerOverride || resolveDefaultAiProvider(env);
+  const logger = new Logger(env, 'AIRouter');
+  logger.info(`verifyApiKey`, { provider });
+  await logger.flush();
   switch (provider) {
     case 'openai': return openai.verifyApiKey(env);
     case 'gemini': return gemini.verifyApiKey(env);
@@ -101,6 +110,31 @@ export async function verifyApiKey(env: Env, providerOverride?: SupportedProvide
     case 'jules': return jules.verifyApiKey(env);
     default: return workerAi.verifyApiKey(env);
   }
+}
+
+export function resolveInvocation(
+  env: Env,
+  providerOverride?: string,
+  modelOverride?: string
+): { provider: SupportedProvider | 'jules'; model?: string } {
+  if (!providerOverride && !modelOverride) {
+    const provider = resolveDefaultAiProvider(env);
+    return { provider, model: resolveDefaultAiModel(env, provider as any) };
+  }
+  if (providerOverride && !modelOverride) {
+    const prov = providerOverride === 'jules' ? 'jules' : normalizeProvider(providerOverride);
+    return { 
+      provider: prov, 
+      model: prov === 'jules' ? undefined : resolveDefaultAiModel(env, prov as any) 
+    };
+  }
+  if (!providerOverride && modelOverride) {
+    return { provider: 'worker-ai', model: modelOverride };
+  }
+  return { 
+    provider: providerOverride === 'jules' ? 'jules' : normalizeProvider(providerOverride!), 
+    model: modelOverride 
+  };
 }
 
 /**
@@ -120,23 +154,27 @@ export async function generateText(
   options?: AIOptions,
   providerOverride?: SupportedProvider
 ): Promise<string> {
-  const provider = providerOverride || resolveDefaultAiProvider(env) || 'worker-ai';
+  const { provider, model } = resolveInvocation(env, providerOverride, options?.model);
+  const finalOptions = { ...options, model };
+  const logger = new Logger(env, 'AIRouter');
+  logger.info(`generateText`, { provider, model });
+  await logger.flush();
   
   try {
-    switch (provider as string) {
-      case 'openai': return await openai.generateText(env, prompt, systemPrompt, options);
-      case 'gemini': return await gemini.generateText(env, prompt, systemPrompt, options);
-      case 'anthropic': return await anthropic.generateText(env, prompt, systemPrompt, options);
-      case 'jules': return await jules.generateText(env, prompt, systemPrompt, options);
-      case 'worker-ai': return await workerAi.generateText(env, prompt, systemPrompt, options);
-      default: return await workerAi.generateText(env, prompt, systemPrompt, options);
+    switch (provider) {
+      case 'openai': return await openai.generateText(env, prompt, systemPrompt, finalOptions);
+      case 'gemini': return await gemini.generateText(env, prompt, systemPrompt, finalOptions);
+      case 'anthropic': return await anthropic.generateText(env, prompt, systemPrompt, finalOptions);
+      case 'jules': return await jules.generateText(env, prompt, systemPrompt, finalOptions);
+      case 'worker-ai': return await workerAi.generateText(env, prompt, systemPrompt, finalOptions);
+      default: return await workerAi.generateText(env, prompt, systemPrompt, finalOptions);
     }
   } catch (error: any) {
     if (provider !== 'worker-ai') {
       const alert: FallbackAlert = { fallbackUsed: true, originalProvider: provider, errorMessage: error.message || String(error) };
       console.warn(`[AI_FALLBACK] ${provider} failed during generateText. Routing to worker-ai.`, alert);
       if (options?.onFallback) options.onFallback(alert);
-      return await workerAi.generateText(env, prompt, systemPrompt, options);
+      return await workerAi.generateText(env, prompt, systemPrompt, finalOptions);
     }
     throw error;
   }
@@ -150,23 +188,24 @@ export async function generateStructuredResponse<T>(
   options?: AIOptions,
   providerOverride?: SupportedProvider
 ): Promise<T> {
-  const provider = providerOverride || resolveDefaultAiProvider(env) || 'worker-ai';
+  const { provider, model } = resolveInvocation(env, providerOverride, options?.model);
+  const finalOptions = { ...options, model };
   
   try {
-    switch (provider as string) {
-      case 'openai': return await openai.generateStructuredResponse<T>(env, prompt, schema as any, systemPrompt, options);
-      case 'gemini': return await gemini.generateStructuredResponse<T>(env, prompt, schema, systemPrompt, options);
-      case 'anthropic': return await anthropic.generateStructuredResponse<T>(env, prompt, schema as any, systemPrompt, options);
-      case 'jules': return await jules.generateStructuredResponse<T>(env, prompt, schema, systemPrompt, options);
-      case 'worker-ai': return await workerAi.generateStructuredResponse<T>(env, prompt, schema, systemPrompt, options);
-      default: return await workerAi.generateStructuredResponse<T>(env, prompt, schema, systemPrompt, options);
+    switch (provider) {
+      case 'openai': return await openai.generateStructuredResponse<T>(env, prompt, schema as any, systemPrompt, finalOptions);
+      case 'gemini': return await gemini.generateStructuredResponse<T>(env, prompt, schema, systemPrompt, finalOptions);
+      case 'anthropic': return await anthropic.generateStructuredResponse<T>(env, prompt, schema as any, systemPrompt, finalOptions);
+      case 'jules': return await jules.generateStructuredResponse<T>(env, prompt, schema, systemPrompt, finalOptions);
+      case 'worker-ai': return await workerAi.generateStructuredResponse<T>(env, prompt, schema, systemPrompt, finalOptions);
+      default: return await workerAi.generateStructuredResponse<T>(env, prompt, schema, systemPrompt, finalOptions);
     }
   } catch (error: any) {
     if (provider !== 'worker-ai') {
       const alert: FallbackAlert = { fallbackUsed: true, originalProvider: provider, errorMessage: error.message || String(error) };
       console.warn(`[AI_FALLBACK] ${provider} failed during generateStructuredResponse. Routing to worker-ai.`, alert);
       if (options?.onFallback) options.onFallback(alert);
-      return await workerAi.generateStructuredResponse<T>(env, prompt, schema, systemPrompt, options);
+      return await workerAi.generateStructuredResponse<T>(env, prompt, schema, systemPrompt, finalOptions);
     }
     throw error;
   }
@@ -180,23 +219,24 @@ export async function generateTextWithTools(
   options?: AIOptions,
   providerOverride?: SupportedProvider
 ): Promise<TextWithToolsResponse> {
-  const provider = providerOverride || resolveDefaultAiProvider(env) || 'worker-ai';
+  const { provider, model } = resolveInvocation(env, providerOverride, options?.model);
+  const finalOptions = { ...options, model };
   
   try {
-    switch (provider as string) {
-      case 'openai': return await openai.generateTextWithTools(env, prompt, tools, systemPrompt, options);
-      case 'gemini': return await gemini.generateTextWithTools(env, prompt, tools, systemPrompt, options);
-      case 'anthropic': return await anthropic.generateTextWithTools(env, prompt, tools, systemPrompt, options);
-      case 'jules': return await jules.generateTextWithTools(env, prompt, tools, systemPrompt, options);
-      case 'worker-ai': return await workerAi.generateTextWithTools(env, prompt, tools, systemPrompt, options);
-      default: return await workerAi.generateTextWithTools(env, prompt, tools, systemPrompt, options);
+    switch (provider) {
+      case 'openai': return await openai.generateTextWithTools(env, prompt, tools, systemPrompt, finalOptions);
+      case 'gemini': return await gemini.generateTextWithTools(env, prompt, tools, systemPrompt, finalOptions);
+      case 'anthropic': return await anthropic.generateTextWithTools(env, prompt, tools, systemPrompt, finalOptions);
+      case 'jules': return await jules.generateTextWithTools(env, prompt, tools, systemPrompt, finalOptions);
+      case 'worker-ai': return await workerAi.generateTextWithTools(env, prompt, tools, systemPrompt, finalOptions);
+      default: return await workerAi.generateTextWithTools(env, prompt, tools, systemPrompt, finalOptions);
     }
   } catch (error: any) {
     if (provider !== 'worker-ai') {
       const alert: FallbackAlert = { fallbackUsed: true, originalProvider: provider, errorMessage: error.message || String(error) };
       console.warn(`[AI_FALLBACK] ${provider} failed during generateTextWithTools. Routing to worker-ai.`, alert);
       if (options?.onFallback) options.onFallback(alert);
-      return await workerAi.generateTextWithTools(env, prompt, tools, systemPrompt, options);
+      return await workerAi.generateTextWithTools(env, prompt, tools, systemPrompt, finalOptions);
     }
     throw error;
   }
@@ -211,23 +251,24 @@ export async function generateStructuredWithTools<T>(
   options?: AIOptions,
   providerOverride?: SupportedProvider
 ): Promise<StructuredWithToolsResponse<T>> {
-  const provider = providerOverride || resolveDefaultAiProvider(env) || 'worker-ai';
+  const { provider, model } = resolveInvocation(env, providerOverride, options?.model);
+  const finalOptions = { ...options, model };
   
   try {
-    switch (provider as string) {
-      case 'openai': return await openai.generateStructuredWithTools<T>(env, prompt, schema as any, tools, systemPrompt, options);
-      case 'gemini': return await gemini.generateStructuredWithTools<T>(env, prompt, schema, tools, systemPrompt, options);
-      case 'anthropic': return await anthropic.generateStructuredWithTools<T>(env, prompt, schema as any, tools, systemPrompt, options);
-      case 'jules': return await jules.generateStructuredWithTools<T>(env, prompt, schema, tools, systemPrompt, options);
-      case 'worker-ai': return await workerAi.generateStructuredWithTools<T>(env, prompt, schema, tools, systemPrompt, options);
-      default: return await workerAi.generateStructuredWithTools<T>(env, prompt, schema, tools, systemPrompt, options);
+    switch (provider) {
+      case 'openai': return await openai.generateStructuredWithTools<T>(env, prompt, schema as any, tools, systemPrompt, finalOptions);
+      case 'gemini': return await gemini.generateStructuredWithTools<T>(env, prompt, schema, tools, systemPrompt, finalOptions);
+      case 'anthropic': return await anthropic.generateStructuredWithTools<T>(env, prompt, schema as any, tools, systemPrompt, finalOptions);
+      case 'jules': return await jules.generateStructuredWithTools<T>(env, prompt, schema, tools, systemPrompt, finalOptions);
+      case 'worker-ai': return await workerAi.generateStructuredWithTools<T>(env, prompt, schema, tools, systemPrompt, finalOptions);
+      default: return await workerAi.generateStructuredWithTools<T>(env, prompt, schema, tools, systemPrompt, finalOptions);
     }
   } catch (error: any) {
     if (provider !== 'worker-ai') {
       const alert: FallbackAlert = { fallbackUsed: true, originalProvider: provider, errorMessage: error.message || String(error) };
       console.warn(`[AI_FALLBACK] ${provider} failed during generateStructuredWithTools. Routing to worker-ai.`, alert);
       if (options?.onFallback) options.onFallback(alert);
-      return await workerAi.generateStructuredWithTools<T>(env, prompt, schema, tools, systemPrompt, options);
+      return await workerAi.generateStructuredWithTools<T>(env, prompt, schema, tools, systemPrompt, finalOptions);
     }
     throw error;
   }
@@ -241,20 +282,22 @@ export async function generateTextFromFiles(
   options?: AIOptions,
   providerOverride?: SupportedProvider | 'jules'
 ): Promise<string> {
-  const provider = providerOverride || 'gemini';
+  // Default to 'gemini' for file/multimodal operations (best multimodal support)
+  const { provider, model } = resolveInvocation(env, providerOverride || 'gemini', options?.model);
+  const finalOptions = { ...options, model };
   try {
-    switch (provider as string) {
-      case 'gemini': return await gemini.generateTextFromFiles(env, prompt, files, systemPrompt, options);
-      case 'jules': return await jules.generateTextFromFiles(env, prompt, files, systemPrompt, options);
-      case 'worker-ai': return await workerAi.generateTextFromFiles(env, prompt, files, systemPrompt, options);
-      default: return await gemini.generateTextFromFiles(env, prompt, files, systemPrompt, options);
+    switch (provider) {
+      case 'gemini': return await gemini.generateTextFromFiles(env, prompt, files, systemPrompt, finalOptions);
+      case 'jules': return await jules.generateTextFromFiles(env, prompt, files, systemPrompt, finalOptions);
+      case 'worker-ai': return await workerAi.generateTextFromFiles(env, prompt, files, systemPrompt, finalOptions);
+      default: return await gemini.generateTextFromFiles(env, prompt, files, systemPrompt, finalOptions);
     }
   } catch (error: any) {
     if (provider !== 'worker-ai') {
       const alert: FallbackAlert = { fallbackUsed: true, originalProvider: provider, errorMessage: error.message || String(error) };
       console.warn(`[AI_FALLBACK] ${provider} failed during generateTextFromFiles. Routing to worker-ai.`, alert);
       if (options?.onFallback) options.onFallback(alert);
-      return await workerAi.generateTextFromFiles(env, prompt, files, systemPrompt, options);
+      return await workerAi.generateTextFromFiles(env, prompt, files, systemPrompt, finalOptions);
     }
     throw error;
   }
@@ -269,20 +312,22 @@ export async function generateStructuredResponseFromFiles<T>(
   options?: AIOptions,
   providerOverride?: SupportedProvider
 ): Promise<T> {
-  const provider = providerOverride || 'gemini';
+  // Default to 'gemini' for file/multimodal operations (best multimodal support)
+  const { provider, model } = resolveInvocation(env, providerOverride || 'gemini', options?.model);
+  const finalOptions = { ...options, model };
   try {
-    switch (provider as string) {
-      case 'gemini': return await gemini.generateStructuredResponseFromFiles<T>(env, prompt, files, schema, systemPrompt, options);
-      case 'jules': return await jules.generateStructuredResponseFromFiles<T>(env, prompt, files, schema, systemPrompt, options);
-      case 'worker-ai': return await workerAi.generateStructuredResponseFromFiles<T>(env, prompt, files, schema, systemPrompt, options);
-      default: return await gemini.generateStructuredResponseFromFiles<T>(env, prompt, files, schema, systemPrompt, options);
+    switch (provider) {
+      case 'gemini': return await gemini.generateStructuredResponseFromFiles<T>(env, prompt, files, schema, systemPrompt, finalOptions);
+      case 'jules': return await jules.generateStructuredResponseFromFiles<T>(env, prompt, files, schema, systemPrompt, finalOptions);
+      case 'worker-ai': return await workerAi.generateStructuredResponseFromFiles<T>(env, prompt, files, schema, systemPrompt, finalOptions);
+      default: return await gemini.generateStructuredResponseFromFiles<T>(env, prompt, files, schema, systemPrompt, finalOptions);
     }
   } catch (error: any) {
     if (provider !== 'worker-ai') {
       const alert: FallbackAlert = { fallbackUsed: true, originalProvider: provider, errorMessage: error.message || String(error) };
       console.warn(`[AI_FALLBACK] ${provider} failed during generateStructuredResponseFromFiles. Routing to worker-ai.`, alert);
       if (options?.onFallback) options.onFallback(alert);
-      return await workerAi.generateStructuredResponseFromFiles<T>(env, prompt, files, schema, systemPrompt, options);
+      return await workerAi.generateStructuredResponseFromFiles<T>(env, prompt, files, schema, systemPrompt, finalOptions);
     }
     throw error;
   }
@@ -413,4 +458,85 @@ export async function completeTask(env: Env, repoUrl: string, issueId: string): 
 
 export async function createPlan(env: Env, prompt: string): Promise<string> {
     return await jules.createPlan(env, prompt);
+}
+
+/**
+ * Universal OpenAI SDK Helper Methods (via AI Gateway Compat Mode)
+ */
+
+export { 
+  getJulesClient 
+} from './jules';
+import { 
+  createOpenAIChatClient, 
+  createOpenAIAgent, 
+  setupOpenAIAgentClient, 
+  OpenAIAgentOptions 
+} from './clients';
+export { 
+  createOpenAIChatClient, 
+  createOpenAIAgent, 
+  setupOpenAIAgentClient, 
+  type OpenAIAgentOptions 
+};
+
+/**
+ * Runs a text prompt using the native OpenAI Chat SDK via AI Gateway compat mode.
+ */
+export async function runWithOpenAIChat(
+  env: Env,
+  prompt: string,
+  instructions: string,
+  options?: AIOptions,
+  providerOverride?: SupportedProvider | 'cloudflare' | 'google'
+): Promise<string> {
+  const invocation = resolveInvocation(env, providerOverride, options?.model);
+  const client = await createOpenAIChatClient(env, invocation.provider as SupportedProvider);
+  let model = invocation.model!;
+  
+  if (invocation.provider !== 'worker-ai' && invocation.provider !== 'jules' && !model.includes('/')) {
+     const prefix = invocation.provider === 'gemini' ? 'google-ai-studio' : invocation.provider;
+     model = `${prefix}/${model}`;
+  }
+
+  const response = await client.chat.completions.create({
+    model: model || resolveDefaultAiModel(env, 'worker-ai'),
+    messages: [
+      { role: 'system', content: instructions },
+      { role: 'user', content: prompt }
+    ]
+  });
+
+  return response.choices?.[0]?.message?.content || '';
+}
+
+/**
+ * Runs a task using the native @openai/agents SDK via AI Gateway compat mode.
+ */
+export async function runWithOpenAIAgent(
+  env: Env,
+  prompt: string,
+  agentOptions: OpenAIAgentOptions,
+  options?: AIOptions,
+  providerOverride?: SupportedProvider | 'cloudflare' | 'google'
+): Promise<any> {
+  const invocation = resolveInvocation(env, providerOverride, options?.model);
+  let model = invocation.model!;
+  
+  if (invocation.provider !== 'worker-ai' && invocation.provider !== 'jules' && !model.includes('/')) {
+     const prefix = invocation.provider === 'gemini' ? 'google-ai-studio' : invocation.provider;
+     model = `${prefix}/${model}`;
+  }
+
+  const agentOpts = {
+    ...agentOptions,
+    model: model || resolveDefaultAiModel(env, 'worker-ai')
+  };
+
+  const agent = await createOpenAIAgent(env, invocation.provider as SupportedProvider, agentOpts);
+  
+  const { run } = await import('@openai/agents');
+  const result = await run(agent, prompt);
+  
+  return result.finalOutput;
 }

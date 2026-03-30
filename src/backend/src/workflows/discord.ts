@@ -26,7 +26,7 @@
  */
 
 import { drizzle } from "drizzle-orm/d1";
-import { eq, and, desc } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { WorkflowEntrypoint, WorkflowStep, WorkflowEvent } from "cloudflare:workers";
 import { createId } from "@paralleldrive/cuid2";
 import { discordScanLog, discordMessages } from "@/db/schemas/discord";

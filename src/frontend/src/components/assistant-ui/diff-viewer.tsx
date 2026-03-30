@@ -547,9 +547,14 @@ export {
   DiffViewerSplitLine,
   DiffViewerFileBadge,
   DiffViewerStats,
+  // eslint-disable-next-line react-refresh/only-export-components
   diffViewerVariants,
+  // eslint-disable-next-line react-refresh/only-export-components
   diffLineVariants,
+  // eslint-disable-next-line react-refresh/only-export-components
   diffLineTextVariants,
+  // eslint-disable-next-line react-refresh/only-export-components
   parsePatch,
+  // eslint-disable-next-line react-refresh/only-export-components
   computeDiff,
 };

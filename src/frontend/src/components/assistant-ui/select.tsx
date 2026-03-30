@@ -240,5 +240,6 @@ export {
   SelectSeparator,
   SelectScrollUpButton,
   SelectScrollDownButton,
+  // eslint-disable-next-line react-refresh/only-export-components
   selectTriggerVariants,
 };

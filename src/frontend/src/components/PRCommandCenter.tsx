@@ -4,7 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { GitPullRequest, Loader2, MessageSquare, Sparkles, ExternalLink, FileCode, ArrowLeft } from 'lucide-react';
+import { GitPullRequest, Loader2, MessageSquare, Sparkles, ExternalLink, FileCode, ArrowLeft, Bot } from 'lucide-react';
 import { PrCommentExtractor } from '@/components/tools/PrCommentExtractor';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -67,6 +67,20 @@ const STATUS_LABELS: Record<string, { label: string; variant: 'default' | 'secon
     comments_fixed: { label: 'Comments Fixed', variant: 'default' },
 };
 
+const AGENT_BADGE_COLORS: Record<string, string> = {
+    copilot: 'text-green-400 border-green-900 bg-green-950/20',
+    claude: 'text-amber-400 border-amber-900 bg-amber-950/20',
+    jules: 'text-blue-400 border-blue-900 bg-blue-950/20',
+    codex: 'text-violet-400 border-violet-900 bg-violet-950/20',
+    devin: 'text-teal-400 border-teal-900 bg-teal-950/20',
+    detected: 'text-cyan-400 border-cyan-900 bg-cyan-950/20',
+    unknown: 'text-zinc-400 border-zinc-700 bg-zinc-900/20',
+};
+
+function getAgentBadgeClasses(agent: string): string {
+    return AGENT_BADGE_COLORS[agent] || AGENT_BADGE_COLORS.unknown;
+}
+
 export function PRCommandCenter({ repoOwner, repoName, initialPrs }: PRCommandCenterProps) {
     const [selectedPrNumber, setSelectedPrNumber] = useState<number | null>(() => {
         const match = window.location.pathname.match(/\/pr-command\/(\d+)/);
@@ -76,6 +90,7 @@ export function PRCommandCenter({ repoOwner, repoName, initialPrs }: PRCommandCe
     const [reviewStatuses, setReviewStatuses] = useState<Record<number, PRReviewStatus>>({});
     const [overview, setOverview] = useState<PROverview | null>(null);
     const [loadingOverview, setLoadingOverview] = useState(false);
+    const [assignedAgent, setAssignedAgent] = useState<{ agent: string; tag: string } | null>(null);
 
     // Sync URL when selected PR changes
     useEffect(() => {
@@ -113,7 +128,7 @@ export function PRCommandCenter({ repoOwner, repoName, initialPrs }: PRCommandCe
         if (initialPrs.length > 0) fetchStatuses();
     }, [initialPrs, repoOwner, repoName]);
 
-    // Fetch overview when a PR is selected
+    // Fetch overview and assigned agent when a PR is selected
     useEffect(() => {
         if (!selectedPrNumber) return;
         let cancelled = false;
@@ -133,7 +148,21 @@ export function PRCommandCenter({ repoOwner, repoName, initialPrs }: PRCommandCe
             }
         };
 
+        const fetchAgent = async () => {
+            setAssignedAgent(null);
+            try {
+                const res = await fetch(`/api/pr/${repoOwner}/${repoName}/${selectedPrNumber}/assigned-agent`, { credentials: 'include' });
+                if (res.ok) {
+                    const data = await res.json() as { agent: string; tag: string };
+                    if (!cancelled) setAssignedAgent(data);
+                }
+            } catch (err) {
+                console.error('[PRCommandCenter] Agent detection failed:', err);
+            }
+        };
+
         void fetchOverview();
+        void fetchAgent();
         return () => { cancelled = true; };
     }, [selectedPrNumber, repoOwner, repoName]);
 
@@ -237,6 +266,12 @@ export function PRCommandCenter({ repoOwner, repoName, initialPrs }: PRCommandCe
                                 {selectedPr.state}
                             </Badge>
                             {selectedPr.draft && <Badge variant="secondary">Draft</Badge>}
+                            {assignedAgent && assignedAgent.agent !== 'unassigned' && (
+                                <Badge variant="outline" className={getAgentBadgeClasses(assignedAgent.agent)}>
+                                    <Bot className="w-3 h-3 mr-1" />
+                                    {assignedAgent.tag}
+                                </Badge>
+                            )}
                             <Button 
                                 variant="secondary" 
                                 size="sm" 

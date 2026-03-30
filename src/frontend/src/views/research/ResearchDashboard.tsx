@@ -88,8 +88,8 @@ export default function ResearchDashboard() {
             placeholder="Custom search topic..."
             className="w-full md:w-64 bg-zinc-900 border-zinc-800 text-white"
           />
-          <Button onClick={handleTrigger} disabled={loading} className="w-full sm:w-auto bg-purple-600 hover:bg-purple-500">
-            {loading ? 'Orchestrating...' : 'Run Research'}
+          <Button onClick={handleTrigger} disabled={loading} className="w-full sm:w-auto bg-zinc-100 text-zinc-900 hover:bg-zinc-200">
+            {loading ? 'Starting...' : 'Start Research Run'}
           </Button>
         </div>
       </div>

@@ -8,6 +8,7 @@
  * @module AI/Utils/Diagnostician
  */
 import { generateStructuredResponse } from "@/ai/providers";
+import { Logger } from "@/lib/logger";
 import { z } from "zod";
 
 /**
@@ -112,7 +113,9 @@ export async function analyzeFailure(
         
         return analysis;
     } catch (error: any) {
-        console.error(`AI Analysis critical error for ${stepName}: `, error);
+        const logger = new Logger(env, 'Diagnostician');
+        logger.error(`Analysis failed for step="${stepName}"`, { error: error.message, stack: error.stack });
+        await logger.flush();
         
         return {
             rootCause: `Agent execution failed: ${error.message || "400 Bad Request"}`,

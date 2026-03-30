@@ -10,7 +10,6 @@ import { getOctokit } from '@/services/octokit/core';
 import { getWebhooksDb } from '@/db';
 import { searches, repoAnalysis } from '@/db/schemas/github/webhooks';
 import { eq, and, inArray } from 'drizzle-orm';
-import type { Bindings } from '@/utils/hono';
 import { HoniClient } from '@utils/honi-client';
 
 interface GithubSearchWorkflowParams {
@@ -21,9 +20,7 @@ interface GithubSearchWorkflowParams {
 
 
 
-type WorkflowEnv = Bindings & Env;
-
-export class GithubSearchWorkflow extends WorkflowEntrypoint<WorkflowEnv, GithubSearchWorkflowParams> {
+export class GithubSearchWorkflow extends WorkflowEntrypoint<Env, GithubSearchWorkflowParams> {
 
   public async run(event: Readonly<WorkflowEvent<GithubSearchWorkflowParams>>, step: WorkflowStep): Promise<void> {
     const { sessionId, searchId, searchTerm } = event.payload;

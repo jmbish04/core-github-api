@@ -3,10 +3,14 @@
 	"main": "src/backend/src/index.ts",
 	"compatibility_date": "2026-03-12",
 	"compatibility_flags": [
-		"nodejs_compat"
+		"nodejs_compat",
+		"no_handle_cross_request_promise_resolution"
 	],
 	// "minify": true,
 	"workers_dev": true,
+	"dev": {
+		"port": 8787
+	},
 	"preview_urls": true,
 	"observability": {
 		"enabled": true,
@@ -40,6 +44,8 @@
 		"TEMPLATES_REPO_NAME": "core-repo-templates",
 		"STANDARDIZATION_REPO_NAME": "core-github-standardization",
 		"HEALTH_TEST_REPO_NAME": "testing-oktokit-commands",
+		"RESEARCH_QUEUE_REPO_NAME": "core-github-research",
+		"RESEARCH_QUEUE_REPO_DISPATCHER_URI": "https://api.github.com/repos/jmbish04/core-github-research/dispatches",
 		"BASE_URL": "https://core-github-api.hacolby.workers.dev",
 		"WEBHOOK_URL": "https://core-github-api.hacolby.workers.dev/api/webhooks",
 		"MAX_AI_BUDGET": "50",
@@ -614,6 +620,11 @@
 			"name": "core-github-api-edgraph",
 			"binding": "EDGRAPH",
 			"service": "core-github-api-edgraph"
+		},
+		{
+			"binding": "CLAUDE_AGENT",
+			"service": "claude-agent-worker",
+			"entrypoint": "ClaudeAgentRPC"
 		}
 	]
 }

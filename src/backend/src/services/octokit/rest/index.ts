@@ -6,7 +6,7 @@
 
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
 import { getOctokit } from '@services/octokit/core'
-import { Bindings } from '@utils/hono'
+
 import { etagCache } from '@utils/etagCache'
 
 // --- 1. Zod Schema Definitions ---

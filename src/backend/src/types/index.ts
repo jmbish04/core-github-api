@@ -4,3 +4,4 @@ export * from "./github";
 export * from "./ai-chat";
 export * from "./project-management";
 export * from "./cloudflare";
+export * from "./claude-agent";

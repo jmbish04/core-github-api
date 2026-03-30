@@ -2,13 +2,12 @@
  * @file useHoniChatRuntime.ts
  * @description Local runtime adapter for the Honi websocket agents using assistant-ui logic.
  */
-import { useLocalRuntime, ThreadMessage } from "@assistant-ui/react";
-import { useRef, useState, useCallback, useEffect } from "react";
+import { useLocalRuntime } from "@assistant-ui/react";
+import { useRef, useEffect } from "react";
 
 export function useHoniChatRuntime(agentId: string, sessionId: string) {
   const wsRef = useRef<WebSocket | null>(null);
   const abortRef = useRef(false);
-  const [isRunning, setIsRunning] = useState(false);
 
   // Auto-connect to WS when thread changes
   useEffect(() => {
@@ -24,7 +23,7 @@ export function useHoniChatRuntime(agentId: string, sessionId: string) {
   }, [agentId, sessionId]);
 
   const runtime = useLocalRuntime({
-    async *run({ messages }) {
+    async run({ messages }) {
       if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
         throw new Error("WebSocket not connected");
       }
@@ -37,7 +36,6 @@ export function useHoniChatRuntime(agentId: string, sessionId: string) {
         .map((c: any) => c.text)
         .join("");
 
-      setIsRunning(true);
       abortRef.current = false;
 
       ws.send(JSON.stringify({
@@ -50,11 +48,11 @@ export function useHoniChatRuntime(agentId: string, sessionId: string) {
       }));
 
       // Honi returns progress events and a final result. We just yield the final result.
-      return new Promise<void>((resolve, reject) => {
+      return new Promise<any>((resolve) => {
         const handleMessage = (event: MessageEvent) => {
           if (abortRef.current) {
             ws.removeEventListener("message", handleMessage);
-            resolve();
+            resolve({ content: [] });
             return;
           }
 

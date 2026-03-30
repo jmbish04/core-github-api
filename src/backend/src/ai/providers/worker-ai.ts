@@ -7,13 +7,15 @@
  * 
  * @module AI/Providers/WorkerAI
  */
-import { resolveDefaultAiModel } from "./config";
+import { resolveDefaultAiModel } from "./ai-gateway/config";
 import { cleanJsonOutput, sanitizeAndFormatResponse } from "@/ai/utils/sanitizer";
 import { AIOptions, TextWithToolsResponse, StructuredWithToolsResponse, ModelCapability, UnifiedModel, ModelFilter, FileInput } from "./index";
-import { AIGateway } from "../utils/ai-gateway";
+import { AIGateway } from "./ai-gateway";
+import { Logger } from "@/lib/logger";
 import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { getCfSdkClient } from "@/cloudflare/client";
+import { setupOpenAIAgentClient } from "./clients";
 
 /** Primary model for reasoning tasks (e.g., Llama 3 or GPT-OSS). */
 export const REASONING_MODEL = "@cf/openai/gpt-oss-120b";
@@ -30,7 +32,10 @@ export const EMBEDDING_MODEL = "@cf/baai/bge-large-en-v1.5";
  * @returns A mock OpenAI-like client object interface.
  */
 async function getAIClient(env: Env): Promise<any> {
-    return AIGateway.createUniversalClient(env, "workers-ai");
+    const logger = new Logger(env, 'WorkerAI');
+    logger.info('Initializing client via AI Gateway');
+    await logger.flush();
+    return setupOpenAIAgentClient(env, "workers-ai");
 }
 
 /**
@@ -46,7 +51,9 @@ export async function verifyApiKey(env: Env): Promise<boolean> {
     });
     return true;
   } catch (error) {
-    console.error("Workers AI Verification Error:", error);
+    const logger = new Logger(env, 'WorkerAI');
+    logger.error('Verification failed', { error: error instanceof Error ? error.message : String(error) });
+    await logger.flush();
     return false;
   }
 }

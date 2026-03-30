@@ -13,7 +13,8 @@
  *
  * @module AI/GatewayHealth
  */
-import { AIGateway } from './utils/ai-gateway';
+import { AIGateway } from './index';
+import { Logger } from '@/lib/logger';
 import { HealthStepResult } from '@/health/types';
 
 interface ProviderResult {
@@ -49,10 +50,12 @@ function byokHeaders(token: string): Record<string, string> {
 async function probeWorkersAI(env: Env, token: string): Promise<ProviderResult> {
     const t0 = Date.now();
     try {
-        const { baseUrl } = await AIGateway.getBaseUrl(env, { provider: 'workers-ai' });
-        // Workers AI via gateway uses the OpenAI-compatible /chat/completions endpoint
+        const { baseUrl } = await AIGateway.getBaseUrl(env, { provider: 'workers-ai', endpoint: 'chat', openai_compatible: true });
         const model = '@cf/meta/llama-3.1-8b-instruct';
-        const res = await fetch(`${baseUrl}/chat/completions`, {
+        const logger = new Logger(env, 'GatewayHealth');
+        logger.info(`Probing Workers AI`, { model, url: baseUrl });
+        await logger.flush();
+        const res = await fetch(baseUrl, {
             method: 'POST',
             headers: byokHeaders(token),
             body: JSON.stringify({
@@ -65,7 +68,7 @@ async function probeWorkersAI(env: Env, token: string): Promise<ProviderResult> 
 
         if (!res.ok) {
             const body = await res.text();
-            return { status: 'FAILURE', latency: Date.now() - t0, model, error: `HTTP ${res.status}: ${body.slice(0, 300)}`, critical: true };
+            return { status: 'FAILURE', latency: Date.now() - t0, model, error: `HTTP ${res.status}: ${body}`, critical: true };
         }
 
         const data = await res.json<any>();
@@ -83,8 +86,11 @@ async function probeOpenAI(env: Env, token: string): Promise<ProviderResult> {
     const t0 = Date.now();
     const model = 'gpt-4o-mini';
     try {
-        const { baseUrl } = await AIGateway.getBaseUrl(env, { provider: 'openai' });
-        const res = await fetch(`${baseUrl}/chat/completions`, {
+        const { baseUrl } = await AIGateway.getBaseUrl(env, { provider: 'openai', endpoint: 'chat', openai_compatible: true });
+        const logger = new Logger(env, 'GatewayHealth');
+        logger.info(`Probing OpenAI`, { model, url: baseUrl });
+        await logger.flush();
+        const res = await fetch(baseUrl, {
             method: 'POST',
             headers: byokHeaders(token),
             body: JSON.stringify({
@@ -98,9 +104,9 @@ async function probeOpenAI(env: Env, token: string): Promise<ProviderResult> {
         if (!res.ok) {
             const body = await res.text();
             if (res.status === 429 || body.includes('insufficient_quota') || body.includes('credit balance is too low')) {
-                return { status: 'SKIPPED', latency: Date.now() - t0, model, error: `Quota Exceeded: ${body.slice(0, 100)}` };
+                return { status: 'SKIPPED', latency: Date.now() - t0, model, error: `Quota Exceeded: ${body}` };
             }
-            return { status: 'WARNING', latency: Date.now() - t0, model, error: `HTTP ${res.status}: ${body.slice(0, 300)}` };
+            return { status: 'WARNING', latency: Date.now() - t0, model, error: `HTTP ${res.status}: ${body}` };
         }
 
         const data = await res.json<any>();
@@ -118,9 +124,11 @@ async function probeAnthropic(env: Env, token: string): Promise<ProviderResult> 
     const t0 = Date.now();
     const model = 'claude-3-5-haiku-latest';
     try {
-        const { baseUrl } = await AIGateway.getBaseUrl(env, { provider: 'anthropic' });
-        // Anthropic via AI Gateway uses OpenAI-compatible /chat/completions
-        const res = await fetch(`${baseUrl}/chat/completions`, {
+        const { baseUrl } = await AIGateway.getBaseUrl(env, { provider: 'anthropic', endpoint: 'chat', openai_compatible: true });
+        const logger = new Logger(env, 'GatewayHealth');
+        logger.info(`Probing Anthropic`, { model, url: baseUrl });
+        await logger.flush();
+        const res = await fetch(baseUrl, {
             method: 'POST',
             headers: byokHeaders(token),
             body: JSON.stringify({
@@ -134,9 +142,9 @@ async function probeAnthropic(env: Env, token: string): Promise<ProviderResult> 
         if (!res.ok) {
             const body = await res.text();
             if (res.status === 429 || body.includes('insufficient_quota') || body.includes('credit balance is too low')) {
-                return { status: 'SKIPPED', latency: Date.now() - t0, model, error: `Quota Exceeded: ${body.slice(0, 100)}` };
+                return { status: 'SKIPPED', latency: Date.now() - t0, model, error: `Quota Exceeded: ${body}` };
             }
-            return { status: 'WARNING', latency: Date.now() - t0, model, error: `HTTP ${res.status}: ${body.slice(0, 300)}` };
+            return { status: 'WARNING', latency: Date.now() - t0, model, error: `HTTP ${res.status}: ${body}` };
         }
 
         const data = await res.json<any>();

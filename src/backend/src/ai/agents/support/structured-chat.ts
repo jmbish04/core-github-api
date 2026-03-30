@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
-import { resolveDefaultAiModel, resolveDefaultAiProvider } from '@/ai/providers/config';
-import { AIGateway } from '@/ai/utils/ai-gateway';
+import { resolveDefaultAiModel, resolveDefaultAiProvider } from '@/ai/providers/ai-gateway/config';
 import type { AgentStateStore } from './state-store';
 import { runAgentText } from './inference';
 import type { ContentBlock, StructuredChatResult, StructuredChatState } from './types';
@@ -72,7 +71,7 @@ export async function runStructuredChat<State extends StructuredChatState>(optio
   requestedModel?: string;
   responseSchema?: z.ZodTypeAny | Record<string, unknown>;
 }): Promise<StructuredChatResult> {
-  const { env, store, agentName, systemPrompt, message } = options;
+  const { env, store, agentName, systemPrompt, message, responseSchema } = options;
   await store.ready();
   await store.setStatus('running');
 
@@ -85,23 +84,18 @@ export async function runStructuredChat<State extends StructuredChatState>(optio
     options.source,
   );
 
-  const responseSchema = options.responseSchema || BASE_RESPONSE_SCHEMA;
-  const responseSchemaJson = isZodSchema(responseSchema)
-    ? zodToJsonSchema(responseSchema as any, `${agentName}_chat_output`)
-    : responseSchema;
+  const responseSchemaJson = responseSchema;
 
   let rawResult: unknown;
   try {
-    rawResult = await AIGateway.runStructuredResponseWithModelFallback(
+    const { generateStructuredResponse } = await import('@/ai/providers');
+    rawResult = await generateStructuredResponse(
       env,
-      provider,
-      modelUsed,
-      [
-        systemPrompt,
-        'Return JSON matching this schema exactly:',
-        JSON.stringify(responseSchemaJson, null, 2),
-      ].join('\n\n'),
       prompt,
+      responseSchemaJson as any,
+      systemPrompt,
+      { model: modelUsed },
+      provider
     );
   } catch (error) {
     store.logger.warn(`${agentName} structured response failed; falling back to text`, { error });

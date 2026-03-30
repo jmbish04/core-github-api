@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Table, TableBody, TableCell, TableRow, TableHeader, TableHead } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
+import {} from "@/components/ui/badge";
 
 export function CloudflareWorkerCosts({ workerName }: { workerName: string }) {
     const [period, setPeriod] = useState("30d");

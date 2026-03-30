@@ -3,7 +3,7 @@ import { getSandbox, parseSSEStream, type ExecEvent } from '@cloudflare/sandbox'
 import { Shell, Editor } from '@cloudflare/sandbox/openai';
 import { Agent, run, shellTool, applyPatchTool, setDefaultOpenAIClient } from '@openai/agents';
 import OpenAI from 'openai';
-import { AIGateway } from '@/ai/utils/ai-gateway';
+import { setupOpenAIAgentClient } from '@/ai/providers';
 import sandboxHandler from '@/ai/agents/SandboxAgent';
 
 const app = new OpenAPIHono<{ Bindings: Env }>();
@@ -15,20 +15,7 @@ const app = new OpenAPIHono<{ Bindings: Env }>();
 // through the `compat` (workers-ai) gateway slot.
 // ──────────────────────────────────────────────
 async function createGatewayClient(env: Env): Promise<OpenAI> {
-  const { baseUrl, apiKey, aigToken } = await AIGateway.getBaseUrl(env, {
-    provider: 'workers-ai',
-  });
-
-  const defaultHeaders: Record<string, string> = {};
-  if (aigToken) {
-    defaultHeaders['cf-aig-authorization'] = `Bearer ${aigToken}`;
-  }
-
-  return new OpenAI({
-    apiKey: apiKey || 'no-key', // AI Gateway BYOK — key injected by Gateway
-    baseURL: baseUrl,
-    defaultHeaders,
-  });
+  return setupOpenAIAgentClient(env, 'workers-ai');
 }
 
 // ──────────────────────────────────────────────

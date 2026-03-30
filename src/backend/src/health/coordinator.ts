@@ -10,7 +10,7 @@ import { analyzeFailure } from '@/ai/utils/diagnostician'; // eslint-disable-lin
 // ─── Import ALL distributed modular checks ──────────────────────────────
 import { checkGitHubAPIHealth, checkWebhooksHealth, checkGitHubAppAuthHealth } from '@/workflows/health';
 import { checkHealth as checkAIHealth } from '@/ai/health';
-import { checkAIGatewayHealth } from '@/ai/gateway-health';
+import { checkAIGatewayHealth } from '@/ai/providers/ai-gateway/health';
 import { checkHealth as checkAgentsHealth } from '@/ai/agents/health';
 import { checkHealth as checkMCPHealth } from '@/ai/mcp/health';
 import { checkHealth as checkBrowserHealth } from '@/ai/mcp/tools/browser/health';

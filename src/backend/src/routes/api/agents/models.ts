@@ -6,7 +6,7 @@
 
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi';
 import { getModels } from '@/ai/providers/index';
-import { resolveDefaultAiModel } from '@/ai/providers/config';
+import { resolveDefaultAiModel } from '@/ai/providers/ai-gateway/config';
 import { REASONING_MODEL, STRUCTURING_MODEL } from '@/ai/providers/worker-ai';
 
 const modelsApi = new OpenAPIHono<{ Bindings: Env }>();

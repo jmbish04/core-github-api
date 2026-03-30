@@ -42,7 +42,9 @@ const monthAtom = atom<CalendarState["month"]>(
 );
 const yearAtom = atom<CalendarState["year"]>(new Date().getFullYear());
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useCalendarMonth = () => useAtom(monthAtom);
+// eslint-disable-next-line react-refresh/only-export-components
 export const useCalendarYear = () => useAtom(yearAtom);
 
 type CalendarContextProps = {
@@ -84,6 +86,7 @@ type ComboboxProps = {
   className?: string;
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const monthsForLocale = (
   localeName: Intl.LocalesArgument,
   monthFormat: Intl.DateTimeFormatOptions["month"] = "long"
@@ -96,6 +99,7 @@ export const monthsForLocale = (
   );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const daysForLocale = (
   locale: Intl.LocalesArgument,
   startDay: number

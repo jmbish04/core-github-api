@@ -11,7 +11,7 @@ import {
   detectWranglerConfig, 
   extractWranglerBindings
 } from "./utils";
-import { runTextAgent, resolveDefaultAiModel, resolveDefaultAiProvider } from "@/ai/agents/support/agent-ai";
+import { generateText } from "@/ai/providers";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -64,15 +64,13 @@ app.post("/:owner/:repo/bindings", async (c) => {
  * AI diagnostic tool for interpreting Cloudflare deployment failure logs.
  */
 app.post("/:owner/:repo/analyze-deployment", async (c) => {
-  const provider = resolveDefaultAiProvider(c.env);
-  const model = resolveDefaultAiModel(c.env, provider);
   const body = await c.req.json() as any;
 
-  const analysis = await runTextAgent({
-    env: c.env, provider, model, name: "DiagnosticsAgent",
-    instructions: "Diagnose Cloudflare deployment failures accurately.",
-    input: `Analyze logs: ${body.logs}`
-  });
+  const analysis = await generateText(
+    c.env,
+    `Analyze logs: ${body.logs}`,
+    "Diagnose Cloudflare deployment failures accurately."
+  );
 
   return c.json({ success: true, analysis });
 });

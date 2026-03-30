@@ -26,3 +26,18 @@ Thumbs.db
 
 # Secrets
 .env
+.claude
+
+# Local generated/build artifacts
+/public/
+/tmp/
+/conversations.json
+/src/frontend/.astro/
+/src/frontend/eslint*.json
+/src/frontend/*lint*.json
+/src/frontend/lint*.txt
+/src/backend/lint.txt
+/src/backend/src/tree.txt
+/scripts/github/ai_conversation_patterns/conversations*.json
+/scripts/github/ai_conversation_patterns/conversations.db
+/scripts/github/ai_conversation_patterns/tmp_scan_paginated.json

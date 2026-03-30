@@ -1,9 +1,8 @@
-import { Bindings } from './hono';
 
 export async function logSecretStatus(env: Env) {
   console.log('🔍 [DEBUG] Checking Secrets Availability...');
 
-  const secretsToCheck: (keyof Bindings)[] = [
+  const secretsToCheck: (keyof Env)[] = [
     'GITHUB_CLIENT_ID',
     'GITHUB_CLIENT_SECRET',
     'GITHUB_PERSONAL_ACCESS_TOKEN',

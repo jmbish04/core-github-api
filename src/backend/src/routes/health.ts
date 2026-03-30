@@ -6,7 +6,7 @@
 
 import type { Context } from 'hono'
 
-import type { Bindings } from '@utils/hono'
+
 
 /**
  * Creates the JSON payload returned by the health endpoint.

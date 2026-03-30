@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { 
-    Blocks, CheckCircle2, MessageSquare, History, Bot, Paperclip, 
+      MessageSquare, History, Bot, Paperclip, 
     Send, FileText, Download, Network, Database, Pencil, Webhook
 } from 'lucide-react';
 

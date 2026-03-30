@@ -43,6 +43,7 @@ import googleDocsApi from "./google-docs";
 import googleSheetsApi from "./google-sheets";
 import mergeApi from "./merge";
 import customCliApi from "./custom-cli";
+import resolveConflictsApi from "./resolve-conflicts";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -57,6 +58,7 @@ app.route("/examples/google-docs", googleDocsApi);
 app.route("/examples/google-sheets", googleSheetsApi);
 app.route("/examples/merge", mergeApi);
 app.route("/examples/custom-cli", customCliApi);
+app.route("/resolve-conflicts", resolveConflictsApi);
 
 
 // ─── Zod Schemas ──────────────────────────────────────────────────────────────

@@ -1,4 +1,4 @@
-import { FiGithub, FiFileText, FiDatabase, FiCloud, FiCheckCircle, FiAlertCircle, FiTrello, FiZap, FiCode, FiCpu, FiMessageSquare, FiLayout, FiFile, FiSearch, FiList } from "react-icons/fi";
+import { FiGithub, FiDatabase, FiCloud, FiCheckCircle, FiTrello, FiZap, FiCode, FiCpu, FiMessageSquare, FiLayout, FiFile, FiSearch, FiList } from "react-icons/fi";
 import type { Node, Edge } from '@xyflow/react';
 import FunctionIcon from './FunctionIcon';
 import type { TurboNodeData } from './TurboNode';
