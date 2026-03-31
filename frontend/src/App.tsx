@@ -50,6 +50,11 @@ import { AlertsProvider } from "@/context/alerts-context";
 import { JulesLiveProvider } from "@/context/jules-live-context";
 import { Toaster } from "sonner";
 
+// Sentinel Learning Engine
+import SentinelDashboard from "@/views/control/global/SentinelDashboard";
+import SentinelKanban from "@/views/control/global/SentinelKanban";
+import SentinelHud from "@/views/repos/SentinelHud";
+
 function guard(element: React.ReactElement) {
   return <RequireAuth>{element}</RequireAuth>;
 }
@@ -123,6 +128,11 @@ function App() {
             <Route path="/workshop" element={guard(<AgentWorkshop />)} />
             <Route path="/workshop/command-center" element={guard(<GlobalCommandCenter />)} />
             <Route path="/workshop/takeover" element={guard(<WorkshopTakeover />)} />
+
+            {/* Sentinel Learning Engine */}
+            <Route path="/sentinel" element={guard(<SentinelDashboard />)} />
+            <Route path="/sentinel/kanban" element={guard(<SentinelKanban />)} />
+            <Route path="/repos/:owner/:repo/sentinel" element={guard(<SentinelHud />)} />
 
             {/* Project-First Navigation Routes */}
             <Route path="/project/:owner/:repo/dashboard" element={guard(<ProjectDashboard />)} />

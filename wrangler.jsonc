@@ -290,6 +290,10 @@
 			{
 				"name": "STANDARDIZATION_AGENT",
 				"class_name": "StandardizationAgent"
+			},
+			{
+				"name": "LEARNING_AGENT",
+				"class_name": "LearningAgent"
 			}
 		]
 	},
@@ -367,6 +371,12 @@
 			"new_sqlite_classes": [
 				"StandardizationAgent"
 			]
+		},
+		{
+			"tag": "v7",
+			"new_sqlite_classes": [
+				"LearningAgent"
+			]
 		}
 	],
 	"workflows": [
@@ -389,6 +399,11 @@
 			"name": "topic-research-workflow",
 			"binding": "TOPIC_RESEARCH_WORKFLOW",
 			"class_name": "TopicResearchWorkflow"
+		},
+		{
+			"name": "stitch-loop-workflow",
+			"binding": "STITCH_LOOP_WORKFLOW",
+			"class_name": "StitchLoopWorkflow"
 		}
 	],
 	"browser": {
@@ -482,7 +497,9 @@
 			"0 3 * * 7",
 			// Every 6 hours - App Store AI Summary Backfill
 			// Processes unsummarized apps with Worker AI and saves to D1
-			"0 */6 * * *"
+			"0 */6 * * *",
+			// Every 4 hours - Sentinel Learning Agent ingestion & analysis
+			"0 */4 * * *"
 		]
 	}
 }

@@ -23,6 +23,8 @@ import { RepoSync } from '@/automations/repository/RepoSync';
 import { StatsUpdate } from '@/automations/repository/StatsUpdate';
 import { LeakPlumber } from '@/automations/security/LeakPlumber';
 import { TelemetryIngestion } from '@/automations/telemetry/TelemetryIngestion';
+import { SentinelInterceptor } from '@/automations/pr/SentinelInterceptor';
+import { SentinelPostMerge } from '@/automations/pr/SentinelPostMerge';
 
 export type RegisteredAutomation = AutomationClass<any>;
 
@@ -49,6 +51,8 @@ export const REGISTERED_AUTOMATIONS: RegisteredAutomation[] = [
   JulesStandardsPush,
   RepoStandardization,
   LeakPlumber,
+  SentinelInterceptor,
+  SentinelPostMerge,
 ];
 
 const AUTOMATIONS_BY_CLASS = new Map<string, RegisteredAutomation>(

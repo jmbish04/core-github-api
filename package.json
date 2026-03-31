@@ -47,7 +47,8 @@
     "migrate:remote:core": "yes | wrangler d1 migrations apply DB --remote",
     "migrate:local:webhooks": "yes | wrangler d1 migrations apply DB_WEBHOOKS --local",
     "migrate:remote:webhooks": "yes | wrangler d1 migrations apply DB_WEBHOOKS --remote",
-    "secrets:audit": "node scripts/audit-secrets.mjs"
+    "secrets:audit": "node scripts/audit-secrets.mjs",
+    "db:auto": "pnpm run db:generate:all && pnpm run migrate:remote:all && wrangler types"
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "^8.4.1",

@@ -107,6 +107,9 @@ function createOurMcpServer(env: Env) {
   return server;
 }
 
+// --- Sentinel API ---
+import sentinelApi from './routes/api/sentinel';
+
 // --- 2. Hono App & OpenAPI Setup ---
 const app = new OpenAPIHono<{ Bindings: Env }>();
 
@@ -126,6 +129,9 @@ app.get('/scalar', apiReference({ spec: { url: '/openapi.json' } }));
 app.get('/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString() }));
 app.get('/context', (c) => c.json({ environment: 'production', transport: 'streamable-http' }));
 app.get('/docs', (c) => c.redirect('/scalar'));
+
+// --- Sentinel API Routes ---
+app.route('/api/sentinel', sentinelApi);
 
 // --- MCP Endpoint ---
 // We use app.all to capture both GET (SSE/Discovery) and POST (RPC execution) traffic 
