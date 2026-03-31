@@ -92,9 +92,10 @@ const server = createServer(app);
  * Configured with permissive CORS settings. In production, consider
  * restricting the `origin` to specific allowed domains.
  */
+const allowedOrigins = process.env.CORS_ALLOWED_ORIGINS?.split(',') || ['http://localhost:4321']; // Example default
 const io = new Server(server, {
   cors: {
-    origin: "*",
+    origin: allowedOrigins,
     methods: ["GET", "POST"]
   }
 });
