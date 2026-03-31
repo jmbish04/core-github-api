@@ -9,15 +9,14 @@
 // Centralized AI Services Export
 
 // Providers (Namespaced to avoid function name collisions)
-export * as Gemini from "./providers/gemini";
-export * as OpenAI from "./providers/openai";
-export * as WorkerAI from "./providers/worker-ai";
+export * as Gemini from "@/ai/providers/gemini";
+export * as OpenAI from "@/ai/providers/openai";
+export * as WorkerAI from "@/ai/providers/worker-ai";
 
 // Utilities
-export * from "./utils/sanitizer";
-export * from "./utils/diagnostician";
-export * from "./utils/ai-gateway";
+export * from "@/ai/utils/sanitizer";
+export * from "@/ai/utils/diagnostician";
+export * from "@/ai/providers/ai-gateway";
 
 // Services
-export * from "./health";
-
+export * from "@/ai/health";

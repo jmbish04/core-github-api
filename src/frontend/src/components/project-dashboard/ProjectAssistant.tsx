@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { useParams } from "react-router-dom";
 
 type AssistantMessage = {
   id: string;
@@ -47,6 +48,7 @@ type AssistantResponse = {
 };
 
 export function ProjectAssistant({
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   projectId,
   projectName,
   initialPrompt,
@@ -56,6 +58,10 @@ export function ProjectAssistant({
   className,
   suggestions = ["PRD", "Planning", "Jules Tasks", "Repo Analysis"],
 }: ProjectAssistantProps) {
+  const params = useParams();
+  const repoOwner = params.owner || params.username || "";
+  const repoName = params.repo || params.repo_name || "";
+  
   const [input, setInput] = useState("");
   const [isRunning, setIsRunning] = useState(false);
   const [messages, setMessages] = useState<AssistantMessage[]>([
@@ -86,8 +92,8 @@ export function ProjectAssistant({
 
   const runPrompt = async (prompt: string) => {
     const clean = prompt.trim();
-    if (!clean || !projectId) {
-         if (!projectId) appendMessage("assistant", "Error: Project ID is missing. Cannot send request.");
+    if (!clean || !repoOwner || !repoName) {
+         if (!repoOwner || !repoName) appendMessage("assistant", "Error: Project repository context is missing. Cannot send request.");
          return;
     }
 
@@ -95,7 +101,7 @@ export function ProjectAssistant({
     setIsRunning(true);
 
     try {
-      const response = await fetch(`/api/projects/${projectId}/assistant`, {
+      const response = await fetch(`/api/repos/${encodeURIComponent(repoOwner)}/${encodeURIComponent(repoName)}/assistant`, {
         method: "POST",
         headers: {
           "content-type": "application/json",
@@ -110,7 +116,7 @@ export function ProjectAssistant({
       try {
         data = JSON.parse(text);
       } catch (e) {
-         throw new Error(`Server returned non-JSON response: ${text.slice(0, 100)}...`);
+         throw new Error(`Server returned non-JSON response: ${text}`, { cause: e });
       }
 
       if (!response.ok || !data.success) {

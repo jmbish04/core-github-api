@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1774572300650,
+      "tag": "0000_chubby_starjammers",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1774572671890,
+      "tag": "0001_equal_silverclaw",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1774615025098,
+      "tag": "0002_sparkling_dragon_man",
+      "breakpoints": true
+    }
+  ]
+}

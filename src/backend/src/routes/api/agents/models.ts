@@ -6,7 +6,7 @@
 
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi';
 import { getModels } from '@/ai/providers/index';
-import { resolveDefaultAiModel } from '@/ai/providers/config';
+import { resolveDefaultAiModel } from '@/ai/providers/ai-gateway/config';
 import { REASONING_MODEL, STRUCTURING_MODEL } from '@/ai/providers/worker-ai';
 
 const modelsApi = new OpenAPIHono<{ Bindings: Env }>();
@@ -22,6 +22,7 @@ const ModelsResponseSchema = z.object({
 });
 
 modelsApi.openapi(createRoute({
+    operationId: 'getRoot',
   method: 'get',
   path: '/',
   description: 'Fetch available AI models from all providers',
@@ -128,6 +129,7 @@ modelsApi.openapi(createRoute({
 });
 
 modelsApi.openapi(createRoute({
+    operationId: 'getHealth',
   method: 'get',
   path: '/health',
   description: 'System health check for models service across all providers and filters',

@@ -24,6 +24,7 @@ export default tseslint.config(
       // Standard quality-of-life adjustments for Cloudflare Workers
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
       '@typescript-eslint/explicit-function-return-type': 'off',
+      'no-irregular-whitespace': 'off',
     },
   }
 );

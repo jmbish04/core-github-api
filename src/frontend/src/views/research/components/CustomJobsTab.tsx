@@ -12,7 +12,7 @@ export default function CustomJobsTab({ onEditDraft, onViewReport }: { onEditDra
   useEffect(() => {
     const fetchJobs = async () => {
       try {
-        const res = await api['research-projects'].projects.$get({ query: { type: 'custom' } });
+        const res = await api['research'].projects.$get({ query: { type: 'custom' } });
         setProjects((await res.json()) as any);
       } catch (e) {
         console.error(e);
@@ -58,13 +58,13 @@ export default function CustomJobsTab({ onEditDraft, onViewReport }: { onEditDra
           <h3 className="text-sm font-bold text-zinc-400 uppercase tracking-wider mb-3">In Progress</h3>
           <div className="grid grid-cols-1 gap-4">
             {processing.map(p => (
-              <Card key={p.id} className="bg-zinc-950 border-purple-900/50 cursor-pointer hover:bg-zinc-900/50" onClick={() => onViewReport(p.id)}>
+              <Card key={p.id} className="bg-zinc-950 border-zinc-900/50 cursor-pointer hover:bg-zinc-900/50" onClick={() => onViewReport(p.id)}>
                 <CardHeader className="p-6 pb-2 flex flex-row justify-between items-center">
                   <CardTitle className="font-bold text-lg">{p.title}</CardTitle>
-                  <span className="text-xs text-purple-400 animate-pulse">{p.progress}%</span>
+                  <span className="text-xs text-zinc-400 animate-pulse">{p.progress}%</span>
                 </CardHeader>
                 <CardContent className="p-6 pt-0 space-y-4">
-                  <Progress value={p.progress} className="h-1 bg-zinc-800 [&>div]:bg-purple-600" />
+                  <Progress value={p.progress} className="h-1 bg-zinc-800 [&>div]:bg-zinc-100" />
                   <div className="space-y-2 pt-2">
                     <Skeleton className="h-3 w-3/4 bg-zinc-800" />
                     <Skeleton className="h-3 w-1/2 bg-zinc-800" />

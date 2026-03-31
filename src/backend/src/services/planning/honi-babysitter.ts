@@ -1,6 +1,6 @@
 import { generateStructuredResponse } from "@/ai/providers";
 import { queryMCP } from "@/ai/mcp/mcp-client";
-import { getDb, projectPlans, workshopProjects, workshopProjectTasks } from "@db";
+import { getDb, epics, stories, tasks, workshopProjects, workshopProjectTasks } from "@db";
 import type { Phase, Task as WorkshopTask } from "@db/schemas/workshop/project_tasks";
 import type { PlanningWorkstream } from "@/lib/schemas/jules";
 import { zodToJsonSchema } from "zod-to-json-schema";
@@ -457,94 +457,67 @@ export async function persistPlanBreakdown(
   const db = getDb(env.DB);
   const docsLookup = await enrichDocsQueries(env, breakdown);
   const targetProjectId = input.projectId || input.requestId;
-  const now = new Date().toISOString();
+  const now = new Date();
+  const nowStr = now.toISOString();
 
-  const planRows: Array<typeof projectPlans.$inferInsert> = [];
-  let orderIndex = 0;
-
+  const epicRows: Array<typeof epics.$inferInsert> = [];
+  const storyRows: Array<typeof stories.$inferInsert> = [];
+  const taskRows: Array<typeof tasks.$inferInsert> = [];
+  
   breakdown.epics.forEach((epic, epicIndex) => {
     const epicId = `${input.requestId}:epic:${epicIndex + 1}`;
-    planRows.push({
+    epicRows.push({
       id: epicId,
-      projectId: targetProjectId,
-      parentId: null,
-      itemType: "epic",
+      repoId: targetProjectId,
       title: epic.title,
       description: epic.description,
       status: "todo",
       priority: "high",
-      orderIndex: orderIndex++,
-      metadataJson: JSON.stringify({
-        requestId: input.requestId,
-        workstream: input.workstream,
-        docsQueries: epic.docsQueries,
-        docsContext: epic.docsQueries.reduce<Record<string, string>>((accumulator, query) => {
-          accumulator[query] = docsLookup.get(query) || "";
-          return accumulator;
-        }, {}),
-      }),
       createdAt: now,
       updatedAt: now,
     });
 
     epic.stories.forEach((story, storyIndex) => {
       const storyId = `${input.requestId}:story:${epicIndex + 1}:${storyIndex + 1}`;
-      planRows.push({
+      storyRows.push({
         id: storyId,
-        projectId: targetProjectId,
+        repoId: targetProjectId,
         parentId: epicId,
-        itemType: "story",
         title: story.title,
         description: story.description,
         status: "todo",
         priority: "medium",
-        orderIndex: orderIndex++,
-        metadataJson: JSON.stringify({
-          requestId: input.requestId,
-          workstream: input.workstream,
-          docsQueries: story.docsQueries,
-          docsContext: story.docsQueries.reduce<Record<string, string>>((accumulator, query) => {
-            accumulator[query] = docsLookup.get(query) || "";
-            return accumulator;
-          }, {}),
-        }),
         createdAt: now,
         updatedAt: now,
       });
 
       story.tasks.forEach((task, taskIndex) => {
         const taskId = `${input.requestId}:task:${epicIndex + 1}:${storyIndex + 1}:${taskIndex + 1}`;
-        planRows.push({
+        taskRows.push({
           id: taskId,
-          projectId: targetProjectId,
+          repoId: targetProjectId,
           parentId: storyId,
-          itemType: "task",
           title: task.title,
           description: task.description,
           status: "todo",
           priority: "medium",
           assignee: task.assignee,
-          orderIndex: orderIndex++,
-          metadataJson: JSON.stringify({
-            requestId: input.requestId,
-            workstream: input.workstream,
-            requirements: task.requirements,
-            successCriteria: task.successCriteria,
-            docsQueries: task.docsQueries,
-            docsContext: task.docsQueries.reduce<Record<string, string>>((accumulator, query) => {
-              accumulator[query] = docsLookup.get(query) || "";
-              return accumulator;
-            }, {}),
-          }),
-          createdAt: now,
-          updatedAt: now,
+          kanbanColumn: "backlog",
+          createdAt: nowStr,
+          updatedAt: nowStr,
         });
       });
     });
   });
 
-  if (planRows.length > 0) {
-    await db.insert(projectPlans).values(planRows);
+  if (epicRows.length > 0) {
+    await db.insert(epics).values(epicRows);
+  }
+  if (storyRows.length > 0) {
+    await db.insert(stories).values(storyRows);
+  }
+  if (taskRows.length > 0) {
+    await db.insert(tasks).values(taskRows);
   }
 
   const workshopProjectId = input.requestId;
@@ -562,8 +535,8 @@ export async function persistPlanBreakdown(
         sourceProjectId: input.projectId || null,
         workstream: input.workstream,
       },
-      createdAt: now,
-      updatedAt: now,
+      createdAt: nowStr,
+      updatedAt: nowStr,
     })
     .onConflictDoUpdate({
       target: workshopProjects.id,
@@ -576,7 +549,7 @@ export async function persistPlanBreakdown(
           sourceProjectId: input.projectId || null,
           workstream: input.workstream,
         },
-        updatedAt: now,
+        updatedAt: nowStr,
       },
     });
 
@@ -636,20 +609,20 @@ export async function persistPlanBreakdown(
       id: input.requestId,
       projectId: workshopProjectId,
       projectName: workshopProjectName,
-      generatedDate: now,
+      generatedDate: nowStr,
       totalPhases: phases.length,
       phases,
-      createdAt: now,
-      updatedAt: now,
+      createdAt: nowStr,
+      updatedAt: nowStr,
     })
     .onConflictDoUpdate({
       target: workshopProjectTasks.id,
       set: {
         projectName: workshopProjectName,
-        generatedDate: now,
+        generatedDate: nowStr,
         totalPhases: phases.length,
         phases,
-        updatedAt: now,
+        updatedAt: nowStr,
       },
     });
 

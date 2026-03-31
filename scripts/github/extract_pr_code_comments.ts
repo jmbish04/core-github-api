@@ -3,16 +3,16 @@ import { Octokit } from '@octokit/rest';
 // Environment variables provided by shell or runtime
 
 // Configuration
-const GITHUB_TOKEN = process.env.GH_TOKEN_CORE_GITHUB_WORKER;
+const GITHUB_PERSONAL_ACCESS_TOKEN = process.env.GITHUB_PERSONAL_ACCESS_TOKEN;
 
-if (!GITHUB_TOKEN) {
-    console.error("Error: GH_TOKEN_CORE_GITHUB_WORKER environment variable is not set.");
-    console.error("Please export it: export GH_TOKEN_CORE_GITHUB_WORKER='your_token_here'");
+if (!GITHUB_PERSONAL_ACCESS_TOKEN) {
+    console.error("Error: GITHUB_PERSONAL_ACCESS_TOKEN environment variable is not set.");
+    console.error("Please export it: export GITHUB_PERSONAL_ACCESS_TOKEN='your_token_here'");
     process.exit(1);
 }
 
 const octokit = new Octokit({
-    auth: GITHUB_TOKEN,
+    auth: GITHUB_PERSONAL_ACCESS_TOKEN,
 });
 
 function parsePrUrl(url: string) {

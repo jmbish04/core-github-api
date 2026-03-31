@@ -4,7 +4,7 @@
  * Optimized for AI coding agents with clear block-level documentation.
  */
 
-import { repositories, projects } from "@db/schema";
+import { repositories } from "@db/schema";
 import { getDb } from "@db";
 import { eq } from "drizzle-orm";
 import JSON5 from "json5";
@@ -41,6 +41,7 @@ export function parseJsonc(raw: string): any {
         .replace(/,\s*([\]}])/g, "$1");
       return JSON.parse(stripped);
     } catch (fallbackErr: any) {
+      console.error("Failed to parse JSONC/JSON5", JSON.stringify(fallbackErr));
       throw err;
     }
   }
@@ -67,6 +68,7 @@ export function inferLanguage(path: string): string {
 
 /**
  * Fetches comprehensive project and repository context from the database.
+ * Now maps the repository entity directly to the legacy project context format.
  */
 export async function fetchProjectContext(
   db: ReturnType<typeof getDb>,
@@ -74,14 +76,14 @@ export async function fetchProjectContext(
 ) {
   const rows = await db
     .select({
-      projectId: projects.id,
-      projectName: projects.name,
-      projectDescription: projects.description,
-      projectStatus: projects.status,
-      projectCreatedAt: projects.createdAt,
-      projectUpdatedAt: projects.updatedAt,
-      projectOwner: projects.owner,
-      repoId: projects.repoId,
+      projectId: repositories.id,
+      projectName: repositories.name,
+      projectDescription: repositories.description,
+      projectStatus: repositories.lifecycleStage,
+      projectCreatedAt: repositories.createdAt,
+      projectUpdatedAt: repositories.updatedAt,
+      projectOwner: repositories.owner,
+      repoId: repositories.id,
       repoOwner: repositories.owner,
       repoName: repositories.name,
       repoUrl: repositories.repoUrl,
@@ -89,13 +91,51 @@ export async function fetchProjectContext(
       repoInfrastructure: repositories.infrastructure,
       repoUpdatedAt: repositories.updatedAt,
     })
-    .from(projects)
-    .leftJoin(repositories, eq(projects.repoId, repositories.id))
-    .where(eq(projects.id, projectId))
+    .from(repositories)
+    .where(eq(repositories.id, projectId))
     .limit(1);
 
   return rows[0] || null;
 }
+
+/**
+ * Fetches project/repository context by owner + repo name pair.
+ * Preferred over fetchProjectContext for routes using /:owner/:repo params
+ * to avoid compound-ID slug ambiguity.
+ */
+export async function fetchProjectContextByOwnerRepo(
+  db: ReturnType<typeof getDb>,
+  owner: string,
+  repo: string,
+) {
+  const { and, sql } = await import("drizzle-orm");
+  const rows = await db
+    .select({
+      projectId: repositories.id,
+      projectName: repositories.name,
+      projectDescription: repositories.description,
+      projectStatus: repositories.lifecycleStage,
+      projectCreatedAt: repositories.createdAt,
+      projectUpdatedAt: repositories.updatedAt,
+      projectOwner: repositories.owner,
+      repoId: repositories.id,
+      repoOwner: repositories.owner,
+      repoName: repositories.name,
+      repoUrl: repositories.repoUrl,
+      repoDescription: repositories.description,
+      repoInfrastructure: repositories.infrastructure,
+      repoUpdatedAt: repositories.updatedAt,
+    })
+    .from(repositories)
+    .where(and(
+      sql`lower(${repositories.owner}) = lower(${owner})`,
+      sql`lower(${repositories.name}) = lower(${repo})`,
+    ))
+    .limit(1);
+
+  return rows[0] || null;
+}
+
 
 /**
  * Extract resource bindings from a hydrated wrangler configuration object.
@@ -154,7 +194,9 @@ export async function detectWranglerConfig(
         }
         return { fileName, config: parseJsonc(text) };
       }
-    } catch {}
+    } catch (err: any) {
+      console.error("Failed to parse wrangler config", JSON.stringify(err));
+    }
   }
   return null;
 }

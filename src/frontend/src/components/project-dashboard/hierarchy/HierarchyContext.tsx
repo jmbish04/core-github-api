@@ -1,11 +1,13 @@
-import React, { createContext, useContext, useState, useTransition } from 'react';
+/* eslint-disable react-refresh/only-export-components */
+import React, { createContext, useContext, useState } from 'react';
 import { toast } from "sonner";
 import type { UpdateItemInput } from '@/lib/validations';
 import { api } from '@/lib/api-client';
 
 interface HierarchyContextType {
-  data: any; // Type strictly with schema later
+  data: any;
   updateItem: (payload: UpdateItemInput) => Promise<void>;
+  moveItem: (type: 'epic' | 'story' | 'task', id: string, newParentId: string) => Promise<void>;
   addItem: (type: 'epic' | 'story' | 'task', parentId: string, title: string) => Promise<void>;
   deleteItem: (type: 'epic' | 'story' | 'task', id: string) => Promise<void>;
   isPending: boolean;
@@ -15,31 +17,29 @@ const HierarchyContext = createContext<HierarchyContextType | null>(null);
 
 // --- Recursive Helpers (Immutable) ---
 
-export const updateNestedHierarchy = (node: any, targetId: string, updates: any): any => {
+export function updateNestedHierarchy(node: any, targetId: string, updates: any): any {
   if (node.id === targetId) return { ...node, ...updates };
 
   const childKeys = ['epics', 'userStories', 'tasks'];
   for (const key of childKeys) {
     if (node[key] && Array.isArray(node[key])) {
-      // Optimization: Only map if target is in this branch
-      // (For now, we just map all for simplicity, or use findNodeById check if tree is huge)
-       return {
-          ...node,
-          [key]: node[key].map((child: any) => updateNestedHierarchy(child, targetId, updates))
-       };
+      return {
+        ...node,
+        [key]: node[key].map((child: any) => updateNestedHierarchy(child, targetId, updates))
+      };
     }
   }
   return node;
-};
+}
 
-export const addChildToNode = (node: any, parentId: string, newChild: any, childKey: string): any => {
+export function addChildToNode(node: any, parentId: string, newChild: any, childKey: string): any {
   if (node.id === parentId) {
     return {
       ...node,
       [childKey]: [...(node[childKey] || []), newChild]
     };
   }
-  
+
   const keys = ['epics', 'userStories', 'tasks'];
   for (const key of keys) {
     if (node[key]) {
@@ -50,12 +50,12 @@ export const addChildToNode = (node: any, parentId: string, newChild: any, child
     }
   }
   return node;
-};
+}
 
-export const removeNodeById = (node: any, targetId: string): any => {
+export function removeNodeById(node: any, targetId: string): any {
   const keys = ['epics', 'userStories', 'tasks'];
-  
-  let newNode = { ...node };
+
+  const newNode = { ...node };
   for (const key of keys) {
     if (newNode[key]) {
       newNode[key] = newNode[key]
@@ -64,46 +64,88 @@ export const removeNodeById = (node: any, targetId: string): any => {
     }
   }
   return newNode;
-};
+}
 
 
 // --- Provider ---
 
 export function HierarchyProvider({ initialData, projectId, children }: { initialData: any, projectId: string, children: React.ReactNode }) {
-  // Hydration Safety: Ensure initialData is safe (dates as strings)
   const [data, setData] = useState(initialData);
-  const [isPending, startTransition] = useTransition();
+  const [isPending, setIsPending] = useState(false);
 
   const updateItem = async (payload: UpdateItemInput) => {
     const { type, id, data: updateData } = payload;
     if (!id) return;
 
-    // 1. Optimistic Update
     const previousData = data;
     setData((prev: any) => {
        if (prev.id === id) return { ...prev, ...updateData };
-       // Assuming updateNestedHierarchy is defined in scope or imported
        return updateNestedHierarchy(prev, id, updateData);
     });
 
-    // 2. Background Sync
+    setIsPending(true);
     try {
       const res = await api.projects[':projectId'].hierarchy.$patch({
         param: { projectId },
-        json: { ...payload, id } 
+        json: { ...payload, id }
       });
 
       if (!res.ok) throw new Error("Failed to sync");
       toast.success(`${type} updated`);
-    } catch (err) {
+    } catch {
       setData(previousData);
       toast.error("Sync failed. Reverted.");
+    } finally {
+      setIsPending(false);
+    }
+  };
+
+  const moveItem = async (type: 'epic' | 'story' | 'task', id: string, newParentId: string) => {
+    const childKeyMap: Record<string, string> = { epic: 'epics', story: 'userStories', task: 'tasks' };
+    const childKey = childKeyMap[type];
+
+    // Find the item first to copy its data
+    let movedItem: any = null;
+    const findItem = (node: any) => {
+      if (node.id === id) movedItem = node;
+      const keys = ['epics', 'userStories', 'tasks'];
+      for (const k of keys) {
+        if (node[k]) {
+          node[k].forEach(findItem);
+        }
+      }
+    };
+    findItem(data);
+
+    if (!movedItem) return;
+
+    const previousData = data;
+    setData((prev: any) => {
+      const withoutItem = removeNodeById(prev, id);
+      return addChildToNode(withoutItem, newParentId, movedItem, childKey);
+    });
+
+    setIsPending(true);
+    try {
+      const res = await api.projects[':projectId'].hierarchy.$patch({
+        param: { projectId },
+        json: { type, id, parentId: newParentId, data: {} }
+      });
+
+      if (!res.ok) throw new Error("Failed to move");
+      toast.success(`${type} moved successfully`);
+    } catch {
+      setData(previousData);
+      toast.error("Move failed. Reverted.");
+    } finally {
+      setIsPending(false);
     }
   };
 
   const addItem = async (type: 'epic' | 'story' | 'task', parentId: string, title: string) => {
     const childKeyMap: Record<string, string> = { epic: 'epics', story: 'userStories', task: 'tasks' };
-    
+
+    setIsPending(true);
     try {
       const res = await api.projects[':projectId'].hierarchy.$post({
         param: { projectId },
@@ -111,19 +153,22 @@ export function HierarchyProvider({ initialData, projectId, children }: { initia
       });
 
       if (!res.ok) throw new Error("Failed to create");
-      
+
       const newRow = (await res.json()) as any;
       setData((prev: any) => addChildToNode(prev, parentId, newRow, childKeyMap[type]));
       toast.success(`${type} created`);
-    } catch (err) {
+    } catch {
         toast.error("Failed to create item");
+    } finally {
+      setIsPending(false);
     }
   };
 
   const deleteItem = async (type: 'epic' | 'story' | 'task', id: string) => {
     const previousData = data;
-    setData((prev: any) => removeNodeById(prev, id)); // Optimistic delete
+    setData((prev: any) => removeNodeById(prev, id));
 
+    setIsPending(true);
     try {
       const res = await api.projects[':projectId'].hierarchy.$delete({
         param: { projectId },
@@ -132,20 +177,22 @@ export function HierarchyProvider({ initialData, projectId, children }: { initia
 
       if (!res.ok) throw new Error("Failed to delete");
        toast.success(`${type} deleted`);
-    } catch (err) {
+    } catch {
       setData(previousData);
       toast.error("Delete failed. Reverted.");
+    } finally {
+      setIsPending(false);
     }
   };
 
   return (
-    <HierarchyContext.Provider value={{ data, updateItem, addItem, deleteItem, isPending }}>
+    <HierarchyContext.Provider value={{ data, updateItem, moveItem, addItem, deleteItem, isPending }}>
       {children}
     </HierarchyContext.Provider>
   );
 }
 
-export const useHierarchy = () => {
+export function useHierarchy() {
     const context = useContext(HierarchyContext);
     if (!context) throw new Error("useHierarchy must be used within HierarchyProvider");
     return context;

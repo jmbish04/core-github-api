@@ -1,0 +1,634 @@
+{
+  "_meta": {
+    "description": "D1 seed data for the pm_projects/pm_epics/pm_stories/pm_tasks hierarchy tables. workspaceId maps to the repo route: /repos/jmbish04/core-github-api/projects",
+    "tables": ["pm_projects", "pm_epics", "pm_stories", "pm_tasks"],
+    "schema_file": "backend/src/db/schemas/projects/hierarchy.ts",
+    "seeded_at": "2026-03-29"
+  },
+  "pm_projects": [
+    {
+      "id": "proj-learning-engine-001",
+      "workspaceId": "jmbish04/core-github-api",
+      "title": "AI Learning & Pattern Recognition Engine",
+      "description": "A continuous improvement service that extracts all AI coding conversations (Jules, Gemini, Stitch), enriches them with Cloudflare Docs context, identifies recurring failure patterns, and automatically submits PRs to core-github-standardization to immunize future agents against known mistakes.",
+      "status": "in_progress"
+    }
+  ],
+  "pm_epics": [
+    {
+      "id": "epic-001-schema",
+      "projectId": "proj-learning-engine-001",
+      "title": "Database Schema — Learning Micro-Domain",
+      "description": "Create all 10 Drizzle ORM schema files for the learning domain under backend/src/db/schemas/github/learning/. Reuse existing app/tags.ts — no duplicate tags table.",
+      "status": "todo",
+      "priority": "high"
+    },
+    {
+      "id": "epic-002-ingestion",
+      "projectId": "proj-learning-engine-001",
+      "title": "Learning Ingestion Service",
+      "description": "Port log_conversations.py logic into a TypeScript LearningIngestionService. Sources: Jules SDK (JulesService), GitHub Octokit (getOctokit), Stitch MCP. Deduplication via sourceIdentifier unique index.",
+      "status": "todo",
+      "priority": "high"
+    },
+    {
+      "id": "epic-003-agent",
+      "projectId": "proj-learning-engine-001",
+      "title": "LearningAgent Durable Object",
+      "description": "Stateful Durable Object agent with Contemplation Gate (anti-light-switch). Tools: enrichMessage (CF Docs), tagMessage, analyzeMessage (Workers AI), createInsight, contemplateFix (Vectorize + D1 reflection), submitImprovementPr, issueRemediationComment.",
+      "status": "todo",
+      "priority": "high"
+    },
+    {
+      "id": "epic-004-workflow",
+      "projectId": "proj-learning-engine-001",
+      "title": "Cloudflare Workflow + Daily Cron",
+      "description": "LearningWorkflow using Cloudflare Workflows product for durable step execution. Daily cron at 0 6 * * * UTC. Manual trigger via POST /api/learning/sync.",
+      "status": "todo",
+      "priority": "medium"
+    },
+    {
+      "id": "epic-005-api",
+      "projectId": "proj-learning-engine-001",
+      "title": "API Routes",
+      "description": "Hono OpenAPI routes at /api/learning/ for sync trigger, session listing, insight search/filter, global standardization score, and upscale endpoint for Jules orchestration.",
+      "status": "todo",
+      "priority": "medium"
+    },
+    {
+      "id": "epic-006-interceptor",
+      "projectId": "proj-learning-engine-001",
+      "title": "Active PR Interceptor (Real-time Remediation)",
+      "description": "Webhook-driven interceptor that fires on PR opened/synchronize events. Scans PR diff against known ai_insights patterns and posts remediation comments via user-persona token. Includes D1-backed merge queue for post-merge template hardening.",
+      "status": "todo",
+      "priority": "medium"
+    },
+    {
+      "id": "epic-007-frontend",
+      "projectId": "proj-learning-engine-001",
+      "title": "Frontend Control Plane (Astro + Dark Shadcn)",
+      "description": "4 Astro pages under frontend/src/pages/learning/: dashboard (Recharts trendlines), sessions (Shadcn Table audit log), board (kibo-ui Kanban: DETECTED→IN_VERIFICATION→IMMUNIZED), showcase (Standardization library + Upscale button).",
+      "status": "todo",
+      "priority": "low"
+    },
+    {
+      "id": "epic-008-health",
+      "projectId": "proj-learning-engine-001",
+      "title": "Health Monitoring",
+      "description": "Add /health/learning endpoint to existing health suite. Monitor AI Gateway latency, Sandbox SDK container availability, last successful learning run timestamp, open insight PR count.",
+      "status": "todo",
+      "priority": "low"
+    }
+  ],
+  "pm_stories": [
+    {
+      "id": "story-001-01",
+      "epicId": "epic-001-schema",
+      "title": "Create 10 Drizzle schema files",
+      "description": "One file per table: sessions.ts, threads.ts, messages.ts, enrichment.ts, tagMapping.ts, aiInsights.ts, aiInsightMessages.ts, aiInsightPrs.ts, aiInsightPrMapping.ts, aiPrReflections.ts. Each exported with Zod OpenAPI schemas.",
+      "status": "todo",
+      "priority": "high"
+    },
+    {
+      "id": "story-001-02",
+      "epicId": "epic-001-schema",
+      "title": "Wire schema barrel and run migration",
+      "description": "Create learning/index.ts barrel. Add 'export * from ./learning' to backend/src/db/schemas/github/index.ts. Run npm run migrate:db and verify 10 new learning_* tables in D1.",
+      "status": "todo",
+      "priority": "high"
+    },
+    {
+      "id": "story-002-01",
+      "epicId": "epic-002-ingestion",
+      "title": "Jules ingestion",
+      "description": "Use existing JulesService from backend/src/services/julius/jules.ts. List all sessions + activities. Map session → learning_threads (source: jules), activities → learning_messages. Dedup by sourceIdentifier unique index.",
+      "status": "todo",
+      "priority": "high"
+    },
+    {
+      "id": "story-002-02",
+      "epicId": "epic-002-ingestion",
+      "title": "GitHub PR ingestion",
+      "description": "Use getOctokit() from backend/src/services/octokit/core.ts. Search merged PRs by jmbish04. Fetch PR body + issue comments + review comments. Map PR → thread, comments → messages. Dedup by PR URL.",
+      "status": "todo",
+      "priority": "high"
+    },
+    {
+      "id": "story-002-03",
+      "epicId": "epic-002-ingestion",
+      "title": "Stitch ingestion",
+      "description": "Call Stitch MCP paginated API (mirrors _sync_stitch from log_conversations.py). Map project/screen → thread, prompts → messages. Dedup by stitch/{projectId}/{screenName}.",
+      "status": "todo",
+      "priority": "medium"
+    },
+    {
+      "id": "story-003-01",
+      "epicId": "epic-003-agent",
+      "title": "Core agent tools: enrich, tag, analyze",
+      "description": "Implement enrichMessage (CF Docs MCP → learning_enrichment), tagMessage (query app.tags → learning_tag_mapping, createTag if new), analyzeMessage (Workers AI → messages.aiAnalysis). All inference via AI Gateway.",
+      "status": "todo",
+      "priority": "high"
+    },
+    {
+      "id": "story-003-02",
+      "epicId": "epic-003-agent",
+      "title": "Pattern detection and insight creation",
+      "description": "Group threads by category. If 3+ threads share the same correction pattern → createInsight (learning_ai_insights, status: PENDING). Link messages via learning_ai_insight_messages for audit traceability.",
+      "status": "todo",
+      "priority": "high"
+    },
+    {
+      "id": "story-003-03",
+      "epicId": "epic-003-agent",
+      "title": "Contemplation Gate (anti-light-switch)",
+      "description": "Before submitting any PR: query VECTORIZE_INDEX for semantic similarity to prior patterns. Query ai_pr_reflections for prior outcomes. If category was already addressed and deemed successful → skip. If FAILED → escalate to UPGRADE_TEMPLATE target (core-github-standardization).",
+      "status": "todo",
+      "priority": "high"
+    },
+    {
+      "id": "story-003-04",
+      "epicId": "epic-003-agent",
+      "title": "Signal-driven vectorization",
+      "description": "Only vectorize messages with ai_analysis populated OR linked to an ai_insight. Vectorize into VECTORIZE_INDEX binding. Do NOT vectorize every raw prompt — prevents noise in semantic search.",
+      "status": "todo",
+      "priority": "medium"
+    },
+    {
+      "id": "story-004-01",
+      "epicId": "epic-004-workflow",
+      "title": "LearningWorkflow class",
+      "description": "Create backend/src/workflows/learning.ts following pattern from backend/src/workflows/health.ts. Steps: createSession, ingestConversations, runAnalysis, finalizeSession. Each step has timeout + retry.",
+      "status": "todo",
+      "priority": "medium"
+    },
+    {
+      "id": "story-004-02",
+      "epicId": "epic-004-workflow",
+      "title": "Register workflow and cron in wrangler.jsonc",
+      "description": "Add to workflows array: { name: learning-workflow, class_name: LearningWorkflow, binding: LEARNING_WORKFLOW }. Add to triggers.crons: '0 6 * * *'.",
+      "status": "todo",
+      "priority": "medium"
+    },
+    {
+      "id": "story-005-01",
+      "epicId": "epic-005-api",
+      "title": "Core learning routes",
+      "description": "POST /api/learning/sync (manual trigger → dispatch LearningWorkflow), GET /api/learning/sessions, GET /api/learning/insights (filter by category/status/q), GET /api/learning/insights/:id.",
+      "status": "todo",
+      "priority": "medium"
+    },
+    {
+      "id": "story-005-02",
+      "epicId": "epic-005-api",
+      "title": "Upscale and global insights routes",
+      "description": "GET /api/learning/insights/global (aggregated Standardization Score per category). POST /api/learning/upscale (fetch standardization files + start Jules session for active repo audit).",
+      "status": "todo",
+      "priority": "medium"
+    },
+    {
+      "id": "story-006-01",
+      "epicId": "epic-006-interceptor",
+      "title": "PR webhook interceptor",
+      "description": "Wire learning-interceptor.ts into existing PR webhook handlers (backend/src/automations/pr/). On PR opened/synchronize: scan diff vs known ai_insights patterns. If match → post comment via user-persona GH token targeting assigned agent.",
+      "status": "todo",
+      "priority": "medium"
+    },
+    {
+      "id": "story-006-02",
+      "epicId": "epic-006-interceptor",
+      "title": "Post-merge template hardening queue",
+      "description": "After PR merge webhook: check if merged PR was flagged in learning_ai_insight_prs. If yes → trigger Jules session to apply fix to core-github-standardization. Use D1 mergeQueueStatus field to prevent duplicate triggers.",
+      "status": "todo",
+      "priority": "medium"
+    },
+    {
+      "id": "story-007-01",
+      "epicId": "epic-007-frontend",
+      "title": "/learning/dashboard — Trendlines",
+      "description": "Recharts line chart: 'Manual Corrections per PR' vs 'Immunized Rules' over time. Queries learning_sessions aggregated data. Dark Shadcn theme.",
+      "status": "todo",
+      "priority": "low"
+    },
+    {
+      "id": "story-007-02",
+      "epicId": "epic-007-frontend",
+      "title": "/learning/sessions — Audit Log",
+      "description": "Shadcn Table of analysis runs. Expandable Collapsible rows → threads → enrichment → CF Docs grounding responses → ai_analysis per message.",
+      "status": "todo",
+      "priority": "low"
+    },
+    {
+      "id": "story-007-03",
+      "epicId": "epic-007-frontend",
+      "title": "/learning/board — Insight Kanban",
+      "description": "kibo-ui Kanban board mapping learning_ai_insights.status: DETECTED (PENDING) → IN_VERIFICATION → IMMUNIZED. Drag-and-drop updates status via PATCH /api/learning/insights/:id.",
+      "status": "todo",
+      "priority": "low"
+    },
+    {
+      "id": "story-007-04",
+      "epicId": "epic-007-frontend",
+      "title": "/learning/showcase — Standards Library + Upscale",
+      "description": "Grid of Shadcn Cards for every standard in core-github-standardization (tsconfig.json, AGENTS.md, /health/index.ts, etc). Each card: 'View Content' dialog (fetches raw file from GitHub) + 'Upscale Current Repo' primary button → POST /api/learning/upscale.",
+      "status": "todo",
+      "priority": "low"
+    },
+    {
+      "id": "story-008-01",
+      "epicId": "epic-008-health",
+      "title": "/health/learning endpoint",
+      "description": "Create backend/src/health/learning.ts. Checks: AI Gateway latency for CF Docs enrichment, Sandbox SDK container availability, last successful learning_sessions run timestamp, count of open learning_ai_insight_prs. Register in existing health suite.",
+      "status": "todo",
+      "priority": "low"
+    }
+  ],
+  "pm_tasks": [
+    {
+      "id": "task-001-01-01",
+      "storyId": "story-001-01",
+      "title": "Create sessions.ts — learning_sessions table",
+      "description": "Fields: id (int PK autoincrement), timestamp (text ISO default), actionTaken (boolean default false), actionRationale (text nullable). Include createSelectSchema + createInsertSchema with .openapi().",
+      "status": "todo",
+      "priority": "high",
+      "order": 1
+    },
+    {
+      "id": "task-001-01-02",
+      "storyId": "story-001-01",
+      "title": "Create threads.ts — learning_threads table",
+      "description": "Fields: id, sessionId FK, timestamp, source enum(jules/stitch/github_pr/github_comment/other), sourceIdentifier (unique), githubRepo. Add unique index on sourceIdentifier for deduplication.",
+      "status": "todo",
+      "priority": "high",
+      "order": 2
+    },
+    {
+      "id": "task-001-01-03",
+      "storyId": "story-001-01",
+      "title": "Create messages.ts — learning_messages table",
+      "description": "Fields: id, sessionId FK, threadId FK, timestamp, author, message, aiAnalysis (nullable, updated post-processing). Add indexes on threadId and sessionId.",
+      "status": "todo",
+      "priority": "high",
+      "order": 3
+    },
+    {
+      "id": "task-001-01-04",
+      "storyId": "story-001-01",
+      "title": "Create enrichment.ts — learning_enrichment table",
+      "description": "Fields: id, messageId FK, timestamp (default now), queryForMcp, mcpResponse (nullable), aiAnalysis (nullable). 1:many per message for multiple CF Docs queries.",
+      "status": "todo",
+      "priority": "high",
+      "order": 4
+    },
+    {
+      "id": "task-001-01-05",
+      "storyId": "story-001-01",
+      "title": "Create tagMapping.ts — learning_tag_mapping table",
+      "description": "IMPORTANT: references existing app/tags.ts (tags.id as text FK). Fields: id, tagId (→ tags.id), messageId FK, rationale. Do NOT create a new learning_tags table.",
+      "status": "todo",
+      "priority": "high",
+      "order": 5
+    },
+    {
+      "id": "task-001-01-06",
+      "storyId": "story-001-01",
+      "title": "Create aiInsights.ts — learning_ai_insights table",
+      "description": "Fields: id, sessionId FK, threadId FK, timestamp, category, insightAnalysis, suggestedImprovement, observedAttemptsReview, status enum(PENDING/IN_VERIFICATION/IMMUNIZED/REVERTED/OBSERVED). Index on category.",
+      "status": "todo",
+      "priority": "high",
+      "order": 6
+    },
+    {
+      "id": "task-001-01-07",
+      "storyId": "story-001-01",
+      "title": "Create aiInsightMessages.ts — learning_ai_insight_messages table",
+      "description": "Links messages to insights for audit traceability. Fields: id, aiInsightId FK, messageId FK, sessionId FK.",
+      "status": "todo",
+      "priority": "high",
+      "order": 7
+    },
+    {
+      "id": "task-001-01-08",
+      "storyId": "story-001-01",
+      "title": "Create aiInsightPrs.ts — learning_ai_insight_prs table",
+      "description": "Tracks PRs submitted to fix flagged issues. Fields: id, sessionId FK, timestamp, repoOwner, repoName, prNumber, prUrl, prDescription, outcome enum(OPEN/MERGED/CLOSED/REVERTED).",
+      "status": "todo",
+      "priority": "high",
+      "order": 8
+    },
+    {
+      "id": "task-001-01-09",
+      "storyId": "story-001-01",
+      "title": "Create aiInsightPrMapping.ts — learning_ai_insight_pr_mapping table",
+      "description": "Links insights to their fix PRs. Fields: id, insightId FK, insightPrId FK, aiRationale, aiSuccessCriteria.",
+      "status": "todo",
+      "priority": "high",
+      "order": 9
+    },
+    {
+      "id": "task-001-01-10",
+      "storyId": "story-001-01",
+      "title": "Create aiPrReflections.ts — learning_ai_pr_reflections table",
+      "description": "Anti-light-switch guard. Fields: id, sessionId FK, newInsightId FK, priorInsightId FK (nullable), insightPrId FK (nullable), agentAnalysis, prSuccessDetermination.",
+      "status": "todo",
+      "priority": "high",
+      "order": 10
+    },
+    {
+      "id": "task-001-02-01",
+      "storyId": "story-001-02",
+      "title": "Create learning/index.ts barrel",
+      "description": "Export all 10 schema files from backend/src/db/schemas/github/learning/index.ts",
+      "status": "todo",
+      "priority": "high",
+      "order": 1
+    },
+    {
+      "id": "task-001-02-02",
+      "storyId": "story-001-02",
+      "title": "Update backend/src/db/schemas/github/index.ts",
+      "description": "Add: export * from './learning'",
+      "status": "todo",
+      "priority": "high",
+      "order": 2
+    },
+    {
+      "id": "task-001-02-03",
+      "storyId": "story-001-02",
+      "title": "Run D1 migration",
+      "description": "npm run migrate:db — verify 10 new learning_* tables created in D1 console",
+      "status": "todo",
+      "priority": "high",
+      "order": 3
+    },
+    {
+      "id": "task-002-01-01",
+      "storyId": "story-002-01",
+      "title": "Create services/learning/types.ts",
+      "description": "Define ConversationThread, ConversationMessage, IngestionResult interfaces",
+      "status": "todo",
+      "priority": "high",
+      "order": 1
+    },
+    {
+      "id": "task-002-01-02",
+      "storyId": "story-002-01",
+      "title": "Implement Jules ingestion in ingestion.ts",
+      "description": "Use JulesService.listSessions() from backend/src/services/julius/jules.ts. Map session.name → sourceIdentifier, activities → messages. Skip if sourceIdentifier exists (unique constraint).",
+      "status": "todo",
+      "priority": "high",
+      "order": 2
+    },
+    {
+      "id": "task-002-02-01",
+      "storyId": "story-002-02",
+      "title": "Implement GitHub PR ingestion",
+      "description": "Use getOctokit(env) from backend/src/services/octokit/core.ts. Query: is:pr is:merged author:jmbish04. Fetch PR body + /issues/{n}/comments + /pulls/{n}/comments (review comments). Map to threads + messages.",
+      "status": "todo",
+      "priority": "high",
+      "order": 1
+    },
+    {
+      "id": "task-002-03-01",
+      "storyId": "story-002-03",
+      "title": "Implement Stitch ingestion",
+      "description": "Call Stitch MCP paginated API following pattern from log_conversations.py _sync_stitch method. POST /tools/stitch/scan_conversations_paginated. Map project/screen → thread, prompts → messages.",
+      "status": "todo",
+      "priority": "medium",
+      "order": 1
+    },
+    {
+      "id": "task-003-01-01",
+      "storyId": "story-003-01",
+      "title": "Implement enrichMessage tool",
+      "description": "Generate CF Docs query from message content. Call cloudflare-docs MCP search tool. Insert row into learning_enrichment. Routing through AI Gateway.",
+      "status": "todo",
+      "priority": "high",
+      "order": 1
+    },
+    {
+      "id": "task-003-01-02",
+      "storyId": "story-003-01",
+      "title": "Implement tagMessage tool",
+      "description": "Query existing app.tags table. Select matching tags based on message content. Insert into learning_tag_mapping. If genuinely new category (confirmed by Workers AI) → insert new row into app.tags first.",
+      "status": "todo",
+      "priority": "high",
+      "order": 2
+    },
+    {
+      "id": "task-003-01-03",
+      "storyId": "story-003-01",
+      "title": "Implement analyzeMessage tool",
+      "description": "Workers AI (via AI Gateway): synthesize message + enrichment results + applied tags → update learning_messages.aiAnalysis. Model: @cf/meta/llama-3.1-8b-instruct or claude via AI Gateway.",
+      "status": "todo",
+      "priority": "high",
+      "order": 3
+    },
+    {
+      "id": "task-003-02-01",
+      "storyId": "story-003-02",
+      "title": "Implement pattern detection (3-thread threshold)",
+      "description": "After processing all messages: group by correction category. If same category appears in 3+ distinct threads → call createInsight. Insert learning_ai_insights row (status: PENDING).",
+      "status": "todo",
+      "priority": "high",
+      "order": 1
+    },
+    {
+      "id": "task-003-02-02",
+      "storyId": "story-003-02",
+      "title": "Link messages to insights via aiInsightMessages",
+      "description": "For each new ai_insight: insert rows into learning_ai_insight_messages linking the contributing messages. Required for audit traceability.",
+      "status": "todo",
+      "priority": "high",
+      "order": 2
+    },
+    {
+      "id": "task-003-03-01",
+      "storyId": "story-003-03",
+      "title": "Implement contemplateFix tool — Vectorize semantic search",
+      "description": "Generate embedding for current pattern using @cf/baai/bge-small-en-v1.5. Query VECTORIZE_INDEX (topK: 3). If matches found → mark as repeatOffender.",
+      "status": "todo",
+      "priority": "high",
+      "order": 1
+    },
+    {
+      "id": "task-003-03-02",
+      "storyId": "story-003-03",
+      "title": "Implement contemplateFix — D1 prior outcomes check",
+      "description": "Query learning_ai_pr_reflections for prior entries in same category within last 90 days. If prSuccessDetermination = FAILED → action: UPGRADE_TEMPLATE (target core-github-standardization). Otherwise: SUGGEST_PATCH.",
+      "status": "todo",
+      "priority": "high",
+      "order": 2
+    },
+    {
+      "id": "task-003-04-01",
+      "storyId": "story-003-04",
+      "title": "Vectorize filtered messages",
+      "description": "After analyzeMessage: if message has ai_analysis OR is linked to an ai_insight → generate embedding + insert into VECTORIZE_INDEX. Do not vectorize messages with no analysis.",
+      "status": "todo",
+      "priority": "medium",
+      "order": 1
+    },
+    {
+      "id": "task-004-01-01",
+      "storyId": "story-004-01",
+      "title": "Create LearningWorkflow class",
+      "description": "backend/src/workflows/learning.ts. 4 steps: createSession (insert learning_sessions), ingestConversations (LearningIngestionService), runAnalysis (dispatch LearningAgent DO), finalizeSession (update session actionTaken). Follow health.ts pattern.",
+      "status": "todo",
+      "priority": "medium",
+      "order": 1
+    },
+    {
+      "id": "task-004-02-01",
+      "storyId": "story-004-02",
+      "title": "Register LearningWorkflow in wrangler.jsonc",
+      "description": "Add: { name: 'learning-workflow', class_name: 'LearningWorkflow', binding: 'LEARNING_WORKFLOW' } to workflows array.",
+      "status": "todo",
+      "priority": "medium",
+      "order": 1
+    },
+    {
+      "id": "task-004-02-02",
+      "storyId": "story-004-02",
+      "title": "Add daily cron trigger",
+      "description": "Add '0 6 * * *' to triggers.crons in wrangler.jsonc. Wire cron handler to dispatch LearningWorkflow.",
+      "status": "todo",
+      "priority": "medium",
+      "order": 2
+    },
+    {
+      "id": "task-005-01-01",
+      "storyId": "story-005-01",
+      "title": "Implement POST /api/learning/sync",
+      "description": "Dispatch LEARNING_WORKFLOW. Return { workflowRunId, status: 'triggered' }.",
+      "status": "todo",
+      "priority": "medium",
+      "order": 1
+    },
+    {
+      "id": "task-005-01-02",
+      "storyId": "story-005-01",
+      "title": "Implement GET /api/learning/sessions",
+      "description": "List learning_sessions ordered by timestamp desc, limit 50. Use Zod OpenAPI schema.",
+      "status": "todo",
+      "priority": "medium",
+      "order": 2
+    },
+    {
+      "id": "task-005-01-03",
+      "storyId": "story-005-01",
+      "title": "Implement GET /api/learning/insights",
+      "description": "Filter by category, status, q (like search on insightAnalysis). Ordered by timestamp desc. Use Zod OpenAPI schema.",
+      "status": "todo",
+      "priority": "medium",
+      "order": 3
+    },
+    {
+      "id": "task-005-02-01",
+      "storyId": "story-005-02",
+      "title": "Implement GET /api/learning/insights/global",
+      "description": "Aggregate learning_ai_insights grouped by category. Count IMMUNIZED vs PENDING. Return 'Standardization Score' per category.",
+      "status": "todo",
+      "priority": "medium",
+      "order": 1
+    },
+    {
+      "id": "task-005-02-02",
+      "storyId": "story-005-02",
+      "title": "Implement POST /api/learning/upscale",
+      "description": "Fetch standardization file contents from core-github-standardization via GitHub API. Start Jules session with context: 'Audit {repoName} against these standards'. Return { julesSessionId }.",
+      "status": "todo",
+      "priority": "medium",
+      "order": 2
+    },
+    {
+      "id": "task-006-01-01",
+      "storyId": "story-006-01",
+      "title": "Wire PR webhook handler",
+      "description": "Add learning-interceptor.ts call in backend/src/automations/pr/ for opened/synchronize events. Extract AI agent author from PR. Scan diff keywords against top learning_ai_insights categories.",
+      "status": "todo",
+      "priority": "medium",
+      "order": 1
+    },
+    {
+      "id": "task-006-01-02",
+      "storyId": "story-006-01",
+      "title": "Implement remediation comment posting",
+      "description": "Use user-persona GH token (GH_TOKEN). Post comment: '🔍 Pattern analysis detected: {category}. @{agent} please address: {prompt}'. Must use user persona — not app token.",
+      "status": "todo",
+      "priority": "medium",
+      "order": 2
+    },
+    {
+      "id": "task-006-02-01",
+      "storyId": "story-006-02",
+      "title": "Implement merge queue logic",
+      "description": "On PR merged webhook: check learning_ai_insight_prs for matching prUrl. If found and mergeQueueStatus = PENDING_TEMPLATE → trigger Jules session for core-github-standardization update. Update mergeQueueStatus = PROCESSING.",
+      "status": "todo",
+      "priority": "medium",
+      "order": 1
+    },
+    {
+      "id": "task-007-01-01",
+      "storyId": "story-007-01",
+      "title": "Build /learning/dashboard Astro page",
+      "description": "Recharts LineChart showing manual corrections per PR over time vs immunized rules count. Data from GET /api/learning/insights/global. Dark Shadcn theme.",
+      "status": "todo",
+      "priority": "low",
+      "order": 1
+    },
+    {
+      "id": "task-007-02-01",
+      "storyId": "story-007-02",
+      "title": "Build /learning/sessions Astro page",
+      "description": "Shadcn Table with collapsible rows. Columns: date, actionTaken, threadCount, insightCount, prsSubmitted. Expanded: thread list → messages → enrichment docs context.",
+      "status": "todo",
+      "priority": "low",
+      "order": 1
+    },
+    {
+      "id": "task-007-03-01",
+      "storyId": "story-007-03",
+      "title": "Build /learning/board Kanban page",
+      "description": "kibo-ui Kanban board. Columns map to learning_ai_insights.status: PENDING (Detected), IN_VERIFICATION, IMMUNIZED. Cards show category, insightAnalysis, linked PR. Drag → PATCH /api/learning/insights/:id.",
+      "status": "todo",
+      "priority": "low",
+      "order": 1
+    },
+    {
+      "id": "task-007-04-01",
+      "storyId": "story-007-04",
+      "title": "Build /learning/showcase standards grid",
+      "description": "Shadcn Card grid. Fetch standardization file list from GET /repos/jmbish04/core-github-standardization/contents. Each card: filename, last updated, 'View Content' dialog. 'Upscale Current Repo' primary button.",
+      "status": "todo",
+      "priority": "low",
+      "order": 1
+    },
+    {
+      "id": "task-007-04-02",
+      "storyId": "story-007-04",
+      "title": "Implement Upscale button action",
+      "description": "Button click → POST /api/learning/upscale with { repoName: activeRepo }. Show loading state → poll Jules session → display implementation plan in Dialog/Sheet.",
+      "status": "todo",
+      "priority": "low",
+      "order": 2
+    },
+    {
+      "id": "task-008-01-01",
+      "storyId": "story-008-01",
+      "title": "Create backend/src/health/learning.ts",
+      "description": "HealthStepResult checks: (1) AI Gateway latency < 2s for CF Docs query, (2) last learning_sessions.timestamp within 25 hours, (3) open learning_ai_insight_prs count < 10. Return health/failure with details.",
+      "status": "todo",
+      "priority": "low",
+      "order": 1
+    },
+    {
+      "id": "task-008-01-02",
+      "storyId": "story-008-01",
+      "title": "Register learning health check in health suite",
+      "description": "Add checkLearningHealth import to the main health orchestrator. Wire into existing /health route response.",
+      "status": "todo",
+      "priority": "low",
+      "order": 2
+    }
+  ]
+}

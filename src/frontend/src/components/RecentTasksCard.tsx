@@ -4,7 +4,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { CheckCircle2, Circle, Clock, AlertCircle, Bot } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
-import { cn } from '@/lib/utils';
+import {} from '@/lib/utils';
 
 interface Task {
     id: string;

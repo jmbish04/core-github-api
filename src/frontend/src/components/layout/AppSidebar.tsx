@@ -1,10 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { ProjectFolder } from './ProjectFolder';
+import { RepoFolder } from './RepoFolder';
 import { useProjectStore } from '@/stores/useProjectStore';
 import { cn } from '@/lib/utils';
-import { Github, LayoutGrid, LayoutList, Home, Activity, BookOpen, Settings, Wrench, FolderKanban, MessageSquare, Map, CheckSquare, ChevronRight, ChevronDown, FileText, Globe, Webhook, Bot, Telescope } from 'lucide-react';
+import {
+  Github, LayoutGrid, LayoutList, Home, Activity, BookOpen, Settings,
+  Wrench, FolderKanban, MessageSquare, Map, CheckSquare, ChevronRight,
+  ChevronDown, FileText, Globe, Webhook, Bot, Telescope
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export function AppSidebar({ className }: { className?: string }) {
@@ -33,7 +37,7 @@ export function AppSidebar({ className }: { className?: string }) {
   ];
 
   return (
-    <div className={cn("flex flex-col h-screen w-64 border-r bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60", className)}>
+    <div className={cn("flex flex-col h-screen min-w-[264px] border-r bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60", className)}>
       
       {/* Header / Global Nav */}
       <div className="p-4 border-b flex items-center gap-2">
@@ -74,7 +78,7 @@ export function AppSidebar({ className }: { className?: string }) {
                </div>
              ) : (
                activeProjects.map((repo) => (
-                 <ProjectFolder 
+                 <RepoFolder 
                    key={repo.full_name} 
                    repo={repo} 
                  />

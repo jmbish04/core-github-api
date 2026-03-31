@@ -7,9 +7,9 @@ import { z } from "zod";
 import { todoAiInsights, todoLinks, todos } from "@db/schema";
 import { getDb } from "@db";
 import { generateUuid } from "@/utils/common";
-import { eq, and, desc, isNull } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { BrowserService } from "@/cloudflare/browser";
-import { resolveDefaultAiModel, resolveDefaultAiProvider } from "@/ai/agents/support/agent-ai";
+import { generateStructuredResponse } from "@/ai/providers";
 
 const TodoInsightItemSchema = z.object({
     type: z.enum(["offer_to_help", "enrich_todo", "research"]).default("enrich_todo"),
@@ -40,8 +40,8 @@ export class TodoInsightService {
         const crawledData: any[] = [];
 
         for (const url of urls) {
-            // Check if already exists
-            const existing = await db.select().from(todoLinks).where(eq(todoLinks.href, url)).limit(1);
+            // Check if already exists (query kept to maintain side-effects if any)
+            await db.select().from(todoLinks).where(eq(todoLinks.href, url)).limit(1);
 
             // Check if we should re-crawl or if it's new
             // For now, always crawl for fresh insights
@@ -121,17 +121,11 @@ export class TodoInsightService {
         `;
 
         try {
-            const provider = resolveDefaultAiProvider(env as Env);
-            const model = resolveDefaultAiModel(env as Env, provider);
-            
-            const { AIGateway } = await import("@/ai/utils/ai-gateway");
-            
-            const result = await AIGateway.runStructuredResponseWithModelFallback(
+            const result = await generateStructuredResponse(
                 env,
-                provider,
-                model,
+                prompt,
+                TodoInsightsSchema,
                 "You are an intelligent productivity assistant. Return only structured JSON with an `insights` array.",
-                prompt
             );
             
             const insights = TodoInsightsSchema.parse(result ?? { insights: [] }).insights;

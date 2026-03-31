@@ -29,8 +29,9 @@ export async function runGitOperation(env: Env, op: GitOperation) {
 
     // 1. Init Sandbox
     // "engineer-session" shares the sandbox instance/state if needed, or unique ID for isolation
+    const id = "engineer-session";
     const options = await getSandboxOptions(env);
-    const sandbox = await getSandbox(env.SANDBOX as any, "engineer-session", options);
+    const sandbox = getSandbox(env.SANDBOX as any, id, options);
 
     try {
         // 2. Clone

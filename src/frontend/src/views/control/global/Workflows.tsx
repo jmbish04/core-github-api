@@ -157,10 +157,10 @@ export default function Workflows() {
   // --------------------------------------------
 
   return (
-    <div className="flex h-screen bg-zinc-950 text-zinc-50 overflow-hidden">
+    <div className="flex flex-col lg:flex-row h-full text-zinc-50 overflow-hidden">
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0">
-        <header className="border-b border-zinc-800 py-4 px-6 flex items-center justify-between bg-zinc-900/50 backdrop-blur-sm shrink-0">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <header className="border-b border-zinc-800 py-3 px-4 md:py-4 md:px-6 flex flex-col sm:flex-row sm:items-center justify-between bg-zinc-900/50 backdrop-blur-sm shrink-0 gap-2">
           <div className="flex items-center gap-4">
             <Settings2 className="w-6 h-6 text-indigo-400" />
             <h1 className="text-xl font-bold tracking-tight">Global Automations</h1>
@@ -327,8 +327,8 @@ export default function Workflows() {
         </div>
       </div>
       
-      {/* Agent UI Placeholder (Right sidebar) */}
-      <div className="w-[450px] border-l border-zinc-800 bg-zinc-950 flex flex-col shrink-0">
+      {/* Agent UI Placeholder (Right sidebar — desktop only) */}
+      <div className="hidden lg:flex w-[400px] xl:w-[450px] border-l border-zinc-800 bg-zinc-950 flex-col shrink-0">
         <header className="border-b border-zinc-800 p-4 bg-zinc-900/50">
           <h2 className="font-semibold text-sm flex items-center gap-2">
             <Zap className="w-4 h-4 text-emerald-400" /> Automation Architect

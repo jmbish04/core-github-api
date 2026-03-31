@@ -26,7 +26,7 @@ toolsApi.route('/', healthCheck)
 
 import { z } from "zod";
 import * as S from "@/schemas/apiSchemas";
-import { MCPTool } from "@/ai/mcp/index";
+import { MCPTool } from "@/ai/mcp/tools";
 import { DEFAULT_GITHUB_OWNER } from "@github-utils";
 
 export const GITHUB_TOOLS: MCPTool[] = [

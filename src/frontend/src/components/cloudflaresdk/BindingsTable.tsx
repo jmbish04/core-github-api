@@ -1,17 +1,17 @@
 import React, { useState } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Plus, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { AddBindingDialog } from "./AddBindingDialog";
 
 interface BindingsTableProps {
-  projectId: string;
+  repoOwner: string;
+  repoName: string;
   bindings?: Record<string, string[] | null>;
 }
 
-export function BindingsTable({ projectId, bindings }: BindingsTableProps) {
+export function BindingsTable({ repoOwner, repoName, bindings }: BindingsTableProps) {
   const [search, setSearch] = useState("");
 
   const allBindings = React.useMemo(() => {
@@ -46,7 +46,7 @@ export function BindingsTable({ projectId, bindings }: BindingsTableProps) {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <AddBindingDialog projectId={projectId} />
+        <AddBindingDialog repoOwner={repoOwner} repoName={repoName} />
       </div>
 
       <div className="rounded-md border bg-card">

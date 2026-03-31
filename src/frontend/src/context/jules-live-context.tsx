@@ -135,6 +135,9 @@ export function JulesLiveProvider({
 
   const clearEvents = useCallback(() => setEvents([]), []);
 
+  /** Ref to hold the connect function for self-referencing reconnect. */
+  const connectRef = useRef<() => void>(() => {});
+
   /**
    * Establishes the WebSocket connection to the Jules live-feed endpoint.
    * Called on mount and after each disconnect.
@@ -197,7 +200,7 @@ export function JulesLiveProvider({
       );
       reconnectAttemptsRef.current++;
       console.log(`[JulesLive] WebSocket closed. Reconnecting in ${delay}ms...`);
-      reconnectTimerRef.current = setTimeout(connect, delay);
+      reconnectTimerRef.current = setTimeout(() => connectRef.current(), delay);
     };
 
     ws.onerror = (err) => {
@@ -205,6 +208,9 @@ export function JulesLiveProvider({
       ws.close(); // onerror is always followed by onclose — let that handle reconnect
     };
   }, []);
+
+  // Keep connectRef in sync
+  connectRef.current = connect;
 
   // Mount: open connection
   useEffect(() => {
@@ -240,6 +246,7 @@ export function JulesLiveProvider({
  *
  * @throws If used outside `<JulesLiveProvider>`.
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export function useJulesLive(): JulesLiveContextValue {
   const ctx = useContext(JulesLiveContext);
   if (!ctx) {

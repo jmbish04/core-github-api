@@ -6,7 +6,8 @@ import { buildMaxAgentMemory } from '@/ai/agents/memory';
 import { AgentStateStore } from '@/ai/agents/support/state-store';
 import { runAgentText } from '@/ai/agents/support/inference';
 import type { PersistentAgentState } from '@/ai/agents/support/types';
-import { callable, getAgentByName } from '@/ai/agents/runtime/agents';
+import { callable } from '@/ai/agents/runtime/agents';
+import { HoniClient } from '@utils/honi-client';
 import { generateUuid } from '@/utils/common';
 
 const orchestratorRuntime = createAgent<Env>({
@@ -78,7 +79,7 @@ export class OrchestratorAgent extends OrchestratorDurableObject {
   async plan(input: string): Promise<any> {
     try {
       this.store.logger.info(`Planning for goal: ${input}`);
-      const plannerStub = await getAgentByName(this.env.PLANNER, 'global-planner') as any;
+      const plannerStub = HoniClient.getStub(this.env.PLANNER as any, 'global-planner') as any;
       const planResponse = await plannerStub.fetch(
         new Request('http://agent/', {
           method: 'POST',

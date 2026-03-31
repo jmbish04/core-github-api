@@ -24,6 +24,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import { streamText } from "hono/streaming";
+import { HoniClient } from '@utils/honi-client';
 import { JulesService } from "@/services/jules/service";
 import { getDb } from "@db";
 import { julesSessions, julesJobs, julesWebhookEvents } from "@db/schemas/jules";
@@ -42,6 +43,7 @@ import googleDocsApi from "./google-docs";
 import googleSheetsApi from "./google-sheets";
 import mergeApi from "./merge";
 import customCliApi from "./custom-cli";
+import resolveConflictsApi from "./resolve-conflicts";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -56,6 +58,7 @@ app.route("/examples/google-docs", googleDocsApi);
 app.route("/examples/google-sheets", googleSheetsApi);
 app.route("/examples/merge", mergeApi);
 app.route("/examples/custom-cli", customCliApi);
+app.route("/resolve-conflicts", resolveConflictsApi);
 
 
 // ─── Zod Schemas ──────────────────────────────────────────────────────────────
@@ -198,9 +201,7 @@ app.post("/start", zValidator("json", startSessionSchema), async (c) => {
 
     // Optionally start JulesOverseer monitoring
     if (force_overseer) {
-      const id = c.env.JULES_OVERSEER.idFromName("jules-overseer-singleton");
-      const overseer = c.env.JULES_OVERSEER.get(id);
-      c.executionCtx.waitUntil(overseer.fetch("http://internal/schedule/check"));
+      c.executionCtx.waitUntil(HoniClient.fetch(c.env.JULES_OVERSEER as unknown as DurableObjectNamespace, "jules-overseer-singleton", "/schedule/check"));
     }
 
     let status = "connecting";

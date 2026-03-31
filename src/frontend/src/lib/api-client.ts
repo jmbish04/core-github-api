@@ -9,7 +9,7 @@ import type { AppType } from '@api/index';
 
 import Cookies from 'js-cookie';
 
-const getBaseUrl = () => {
+export const getBaseUrl = () => {
     if (import.meta.env.VITE_PUBLIC_API_URL) {
         return import.meta.env.VITE_PUBLIC_API_URL;
     }

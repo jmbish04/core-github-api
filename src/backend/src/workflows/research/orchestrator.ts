@@ -18,8 +18,6 @@ import { z } from "zod";
 import {
   ResearchWorkflowParams,
   CandidateRepo,
-  DeepAnalysis,
-  JudgeScore,
 } from "@/schemas/research";
 import { getOctokit } from "@/services/octokit/core";
 import { generateUuid } from "@/utils/common";

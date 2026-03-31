@@ -4,6 +4,7 @@ const transcribeApi = new OpenAPIHono<{ Bindings: Env }>()
 
 // Define the route for OpenAPI
 const transcribeRoute = createRoute({
+    operationId: 'postRoot',
   method: 'post',
   path: '/',
   summary: 'Transcribes audio to text',

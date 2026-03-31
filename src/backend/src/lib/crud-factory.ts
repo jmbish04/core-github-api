@@ -52,6 +52,7 @@ export function createCrudApi(table: any, tableName: string) {
   // --- 1. LIST ALL ---
   app.openapi(
     createRoute({
+    operationId: 'getRoot',
       method: 'get',
       path: '/',
       responses: { 
@@ -76,6 +77,7 @@ export function createCrudApi(table: any, tableName: string) {
   // --- 2. GET BY ID ---
   app.openapi(
     createRoute({
+    operationId: 'getId',
       method: 'get',
       path: '/{id}',
       request: { params: z.object({ id: z.string() }) },
@@ -96,6 +98,7 @@ export function createCrudApi(table: any, tableName: string) {
   // --- 3. CREATE ---
   app.openapi(
     createRoute({
+    operationId: 'postRoot',
       method: 'post',
       path: '/',
       request: { body: { content: { 'application/json': { schema: InsertSchema } } } },
@@ -113,6 +116,7 @@ export function createCrudApi(table: any, tableName: string) {
   // --- 4. UPDATE ---
   app.openapi(
     createRoute({
+    operationId: 'patchId',
       method: 'patch',
       path: '/{id}',
       request: { 
@@ -134,6 +138,7 @@ export function createCrudApi(table: any, tableName: string) {
   // --- 5. DELETE ---
   app.openapi(
     createRoute({
+    operationId: 'deleteId',
       method: 'delete',
       path: '/{id}',
       request: { params: z.object({ id: z.string() }) },
@@ -151,6 +156,7 @@ export function createCrudApi(table: any, tableName: string) {
   // --- 6. BATCH UPSERT ---
   app.openapi(
     createRoute({
+    operationId: 'postBatch',
       method: 'post',
       path: '/batch',
       request: { 

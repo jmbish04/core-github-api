@@ -62,17 +62,22 @@ export const NAV_SYSTEM: NavItem[] = [
   { label: 'Alerts',        href: '/alerts',            description: 'System alerts and notifications' },
   { label: 'App Store',     href: '/apps',              description: 'Browse installable app integrations' },
   { label: 'Standardization', href: '/standardization', description: 'Repository standardization controls' },
+  { label: 'Swagger API',   href: '/swagger',           description: 'OpenAPI Swagger Documentation' },
+  { label: 'Scaler Reference', href: '/scaler',         description: 'OpenAPI Scaler Reference' },
+  { label: 'OpenAPI JSON',  href: '/openapi.json',     description: 'Raw OpenAPI Specification' },
 ];
 
 export const NAV_PROJECT_CONTEXT: NavItem[] = [
-  { label: 'Project Dashboard',       href: '/project/:owner/:repo/dashboard',  description: 'Per-project overview (replace :owner/:repo)' },
-  { label: 'Project Kanban',          href: '/project/:owner/:repo/kanban',     description: 'Per-project Kanban board' },
-  { label: 'Project Chat',            href: '/project/:owner/:repo/chat',       description: 'Per-project AI chat' },
-  { label: 'Project Roadmap',         href: '/project/:owner/:repo/roadmap',    description: 'Per-project roadmap' },
-  { label: 'Project PR Center',       href: '/project/:owner/:repo/pr-center',  description: 'Pull-request command center' },
-  { label: 'Project Reverse Engineering', href: '/project/:owner/:repo/reverse-engineering', description: 'Run reverse-engineering analysis for a project repository' },
-  { label: 'Project Tools',           href: '/project/:owner/:repo/tools',      description: 'Per-project toolbox' },
-  { label: 'Project Cloudflare Docs', href: '/project/:owner/:repo/tools/cloudflare-docs', description: 'Project-scoped Cloudflare Docs Agent' },
+  { label: 'Project Dashboard',       href: '/repos/:owner/:repo/dashboard',  description: 'Per-project overview' },
+  { label: 'AI Planner',              href: '/repos/:owner/:repo/plan',      description: 'AI-driven planning agent (Honi)' },
+  { label: 'Projects (Backlog)',       href: '/repos/:owner/:repo/projects',   description: 'Epics, stories, and tasks backlog' },
+  { label: 'Project Kanban',          href: '/repos/:owner/:repo/kanban',     description: 'Per-project Kanban board' },
+  { label: 'Project Roadmap',         href: '/repos/:owner/:repo/roadmap',    description: 'Per-project roadmap' },
+  { label: 'Project Chat',            href: '/repos/:owner/:repo/chat',       description: 'Per-project AI chat' },
+  { label: 'Project PR Center',       href: '/repos/:owner/:repo/pr-center',  description: 'Pull-request command center' },
+  { label: 'Project Reverse Engineering', href: '/repos/:owner/:repo/reverse-engineering', description: 'Reverse-engineering analysis' },
+  { label: 'Project Tools',           href: '/repos/:owner/:repo/tools',      description: 'Per-project toolbox' },
+  { label: 'Project Cloudflare Docs', href: '/repos/:owner/:repo/tools/cloudflare-docs', description: 'Project-scoped Cloudflare Docs Agent' },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────

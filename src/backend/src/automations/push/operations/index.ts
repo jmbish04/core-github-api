@@ -1,2 +1,2 @@
-export { ContainerManager } from './container';
-export { SandboxToolRegistry, type ProcessInfo } from './sandbox';
+export { ContainerManager } from './sandbox-sdk/container';
+export { SandboxToolRegistry, type ProcessInfo } from './sandbox-sdk';

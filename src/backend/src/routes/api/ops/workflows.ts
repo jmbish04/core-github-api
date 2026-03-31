@@ -7,7 +7,8 @@ import { eq } from "drizzle-orm";
 import { generateUuid } from "@/utils/common";
 import { DEFAULT_GITHUB_OWNER, DEFAULT_TEMPLATE_REPO } from "@github-utils";
 import { getWebhooksDb } from "@db";
-import { webhookConfigs, automationLogs } from "@/db/schemas/webhooks/automations";
+import { webhookConfigs } from "@/db/schemas/webhooks/automations";
+import { automationLogs } from "@/db/schemas/logs/automation";
 import { desc } from "drizzle-orm";
 import { AutomationRegistry } from "@/automations/core/AutomationRegistry";
 import {
@@ -334,7 +335,7 @@ workflowsApi.post("/configs", zValidator("json", WebhookConfigBody), async (c) =
 // ==========================================
 
 workflowsApi.get("/logs", async (c) => {
-  const db = getWebhooksDb(c.env.DB_WEBHOOKS);
+  const db = getDb(c.env.DB);
   const logs = await db.select()
     .from(automationLogs)
     .orderBy(desc(automationLogs.createdAt))

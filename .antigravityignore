@@ -1,0 +1,60 @@
+# .antigravityignore - Fleet Immune System Context Filter
+
+# --- Core Noise ---
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+.git/
+.wrangler/
+.astro/
+
+# --- User Mandated Exclusions ---
+# Exclude the entire documentation history to prevent token bloat
+docs/
+# Exclude Claude-specific worktrees and metadata
+.claude/**
+.claude/worktrees/**
+.copilot/
+
+# --- Agent Skill Caches (2-4 MB each) ---
+.agent/skills/cloudflare/
+.agent/skills/stitch/
+
+# --- Large Data & Token Chokers ---
+# The conversations.json file is ~6k lines; definitely skip this.
+conversations.json
+conversations_backup.json
+frontend-test-results.json
+results.json
+example-pr-events.json
+*.zip
+pbcopy
+
+# --- Logs & Tree Dumps ---
+# Skip the massive tree dumps and debug logs
+*_tree.txt
+tree.txt
+**/tree.txt
+*.log
+wrangler-debug.txt
+
+# --- Build & Lock Files ---
+# Agents rarely need to "read" the lockfiles; they just need to run pnpm install
+pnpm-lock.yaml
+package-lock.json
+bun.lock
+
+# --- Generated Types & Build Artifacts ---
+worker-configuration.d.ts
+public/_astro/
+*.bak.*
+
+# --- Environment & Package Caches ---
+.pnpm-store/
+.venv/
+tmp/
+
+# --- Database Snapshots ---
+# Snapshot JSONs in migrations are huge and confuse Drizzle agents
+migrations/**/meta/

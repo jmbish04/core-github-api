@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react'
+import React, { useMemo, useState } from 'react'
 import {
   useReactTable,
   getCoreRowModel,
@@ -6,26 +6,45 @@ import {
   flexRender,
   type ColumnDef
 } from '@tanstack/react-table'
-import { ChevronRight, ChevronDown, Plus, Trash2, MoreHorizontal } from 'lucide-react'
+import { ChevronRight, ChevronDown, Plus, Trash2, GripVertical } from 'lucide-react'
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { useHierarchy } from "./HierarchyContext"
-import { EditableCell } from "./EditableCell" // We will create this
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+import { EditableCell } from "./EditableCell"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { Input } from "@/components/ui/input"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+
+import {
+  DndContext,
+  DragOverlay,
+  closestCenter,
+  useSensor,
+  useSensors,
+  PointerSensor,
+  type DragEndEvent,
+  type DragStartEvent
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 
 // Simple Popover to add a child
-const AddChildPopover = ({ type, parentId, onAdd }: { type: 'epic'|'story'|'task', parentId: string, onAdd: (t: string) => void }) => {
+const AddChildPopover = ({ type, onAdd }: { type: 'epic'|'story'|'task', onAdd: (t: string) => void }) => {
     const [title, setTitle] = useState("");
     const [open, setOpen] = useState(false);
     return (
@@ -57,23 +76,69 @@ const AddChildPopover = ({ type, parentId, onAdd }: { type: 'epic'|'story'|'task
     )
 }
 
+// Draggable Row Component
+const DraggableRow = ({ row }: any) => {
+  const {
+    attributes,
+    listeners,
+    transform,
+    transition,
+    setNodeRef,
+    isDragging,
+    setActivatorNodeRef,
+  } = useSortable({
+    id: row.id,
+    data: { row },
+  })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+    position: isDragging ? 'relative' : 'static',
+    zIndex: isDragging ? 1 : 0,
+  } as React.CSSProperties
+
+  return (
+    <TableRow
+      ref={setNodeRef}
+      style={style}
+      className={isDragging ? 'bg-muted/50' : ''}
+    >
+      {/* We inject the drag handle in the first cell */}
+      {row.getVisibleCells().map((cell: any, i: number) => (
+        <TableCell key={cell.id} className="p-2 pl-3">
+          <div className="flex items-center">
+            {i === 0 && (
+              <button
+                ref={setActivatorNodeRef}
+                {...listeners}
+                {...attributes}
+                className="mr-2 cursor-grab text-muted-foreground hover:text-foreground active:cursor-grabbing"
+              >
+                <GripVertical size={16} />
+              </button>
+            )}
+            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+          </div>
+        </TableCell>
+      ))}
+    </TableRow>
+  )
+}
+
 export function HierarchyTable() {
-  const { data, updateItem, addItem, deleteItem } = useHierarchy();
+  const { data, updateItem, addItem, deleteItem, moveItem } = useHierarchy();
   const [expanded, setExpanded] = useState({});
 
-  // Memoize data assuming the PROJECT is the root and we want to show its children
-  // Or if 'data' IS the project, we might want to start with its Epics? 
-  // Let's assume 'data' is the Project object. The table data should be [data] (root) or data.epics (if we hide root)
-  // Let's show Root Project as top level.
   const tableData = useMemo(() => [data], [data]);
 
   const columns = useMemo<ColumnDef<any>[]>(() => [
     {
       accessorKey: 'title',
-      header: 'Task Hierarchy',
+      header: 'Task API / Hierarchy',
       cell: ({ row, getValue }) => {
           const type = row.original.projectId ? 'epic' : row.original.epicId ? 'story' : row.original.storyId ? 'task' : 'project';
-          // Determine next child type
           const nextType = type === 'project' ? 'epic' : type === 'epic' ? 'story' : type === 'story' ? 'task' : null;
 
           return (
@@ -84,19 +149,25 @@ export function HierarchyTable() {
                 </button>
               ) : <span className="w-4" />}
               
+              {type !== 'project' && (
+                 <Badge variant="secondary" className="text-[10px] uppercase font-semibold h-5 px-1.5">{type}</Badge>
+              )}
+
               <EditableCell 
                 value={getValue() as string} 
                 onChange={(val) => updateItem({ type, id: row.original.id, data: { title: val } })}
-                className={row.depth === 0 ? "font-bold" : ""}
+                className={row.depth === 0 ? "font-bold text-base" : "font-medium"}
               />
 
-              {/* Quick Actions (Add Child / Delete) */}
+              {/* Quick Actions */}
               <div className="opacity-0 group-hover:opacity-100 flex items-center transition-opacity ml-2">
                   {nextType && (
                       <AddChildPopover 
                         type={nextType} 
-                        parentId={row.original.id}
-                        onAdd={(title) => addItem(nextType, row.original.id, title)}
+                        onAdd={(title) => {
+                          addItem(nextType, row.original.id, title);
+                          row.toggleExpanded(true);
+                        }}
                       />
                   )}
                   {type !== 'project' && (
@@ -114,13 +185,22 @@ export function HierarchyTable() {
       header: 'Status',
       cell: ({ row, getValue }) => {
          const type = row.original.projectId ? 'epic' : row.original.epicId ? 'story' : row.original.storyId ? 'task' : 'project';
+         if (type === 'project') return null;
          return (
              <EditableCell 
                 value={getValue() as string} 
                 type="select"
                 options={['todo', 'in_progress', 'done', 'backlog']}
                 onChange={(val) => updateItem({ type, id: row.original.id, data: { status: val as any } })}
-                renderDisplay={(val) => <Badge variant="outline" className="capitalize">{val?.replace('_', ' ')}</Badge>}
+                renderDisplay={(val) => {
+                    const statusColors: any = {
+                        todo: "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300",
+                        in_progress: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300",
+                        done: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300",
+                        backlog: "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300"
+                    };
+                    return <Badge variant="outline" className={`capitalize shadow-none border-0 ${statusColors[val] || ''}`}>{val?.replace('_', ' ')}</Badge>
+                }}
              />
          )
       }
@@ -130,20 +210,21 @@ export function HierarchyTable() {
       header: 'Priority',
       cell: ({ row, getValue }) => {
          const type = row.original.projectId ? 'epic' : row.original.epicId ? 'story' : row.original.storyId ? 'task' : 'project';
-         if (type === 'project') return null; // Projects might not have priority in this view
+         if (type === 'project') return null;
          return (
              <EditableCell 
                 value={getValue() as string} 
                 type="select"
                 options={['low', 'medium', 'high', 'urgent']}
                 onChange={(val) => updateItem({ type, id: row.original.id, data: { priority: val as any } })}
-                renderDisplay={(val) => <span className={`capitalize text-xs ${val === 'urgent' ? 'text-red-500 font-bold' : 'text-muted-foreground'}`}>{val}</span>}
+                renderDisplay={(val) => <span className={`capitalize text-xs font-medium ${val === 'urgent' ? 'text-red-500 font-bold' : val === 'high' ? 'text-orange-500' : 'text-muted-foreground'}`}>{val}</span>}
              />
          )
       }
     }
   ], [updateItem, addItem, deleteItem]);
 
+  // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data: tableData,
     columns,
@@ -154,32 +235,99 @@ export function HierarchyTable() {
     getExpandedRowModel: getExpandedRowModel(),
   })
 
+  // DnD Setup
+  const [activeId, setActiveId] = useState<string | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5, // Requires minimum 5px movement before dragging starts
+      },
+    })
+  );
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    setActiveId(null);
+    const { active, over } = event;
+
+    if (!over || active.id === over.id) return;
+
+    // Get table row models to access original typed data
+    const activeRow = table.getRowModel().rows.find(r => r.id === active.id);
+    const overRow = table.getRowModel().rows.find(r => r.id === over.id);
+
+    if (!activeRow || !overRow) return;
+
+    const activeOriginal = activeRow.original;
+    const overOriginal = overRow.original;
+
+    const activeType = activeOriginal.projectId ? 'epic' : activeOriginal.epicId ? 'story' : activeOriginal.storyId ? 'task' : 'project';
+    const overType = overOriginal.projectId ? 'epic' : overOriginal.epicId ? 'story' : overOriginal.storyId ? 'task' : 'project';
+
+    if (activeType === 'task' && overType === 'story') {
+        moveItem('task', activeOriginal.id, overOriginal.id);
+    } else if (activeType === 'story' && overType === 'epic') {
+        moveItem('story', activeOriginal.id, overOriginal.id);
+    } else {
+        console.log(`Cannot drop a ${activeType} into a ${overType}`);
+    }
+  };
+
+  const flattenRows = table.getRowModel().rows.map(row => row.id);
+
   return (
-    <div className="rounded-md border bg-card">
-      <table className="w-full text-sm text-left">
-        <thead className="border-b bg-muted/50">
-          {table.getHeaderGroups().map(headerGroup => (
-            <tr key={headerGroup.id}>
-              {headerGroup.headers.map(header => (
-                <th key={header.id} className="p-3 font-medium text-muted-foreground">
-                  {flexRender(header.column.columnDef.header, header.getContext())}
-                </th>
+    <DndContext 
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+    >
+        <div className="rounded-md border bg-card/50">
+          <Table>
+            <TableHeader className="bg-muted/30">
+              {table.getHeaderGroups().map(headerGroup => (
+                <TableRow key={headerGroup.id}>
+                  {headerGroup.headers.map(header => (
+                    <TableHead key={header.id} className="h-10 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      {flexRender(header.column.columnDef.header, header.getContext())}
+                    </TableHead>
+                  ))}
+                </TableRow>
               ))}
-            </tr>
-          ))}
-        </thead>
-        <tbody>
-          {table.getRowModel().rows.map(row => (
-            <tr key={row.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
-              {row.getVisibleCells().map(cell => (
-                <td key={cell.id} className="p-2 pl-3">
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+            </TableHeader>
+            <TableBody>
+                <SortableContext items={flattenRows} strategy={verticalListSortingStrategy}>
+                  {table.getRowModel().rows.map(row => {
+                      const type = row.original.projectId ? 'epic' : row.original.epicId ? 'story' : row.original.storyId ? 'task' : 'project';
+                      // Root Project cannot be dragged
+                      return type === 'project' ? (
+                          <TableRow key={row.id}>
+                            {row.getVisibleCells().map(cell => (
+                                <TableCell key={cell.id} className="p-2 pl-3">
+                                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                </TableCell>
+                            ))}
+                          </TableRow>
+                      ) : (
+                          <DraggableRow key={row.id} row={row} />
+                      )
+                  })}
+                </SortableContext>
+            </TableBody>
+          </Table>
+        </div>
+        <DragOverlay>
+             {activeId ? (
+                <div className="bg-card border rounded p-2 opacity-80 text-sm flex items-center shadow-lg">
+                    <GripVertical size={16} className="text-muted-foreground mr-2"/>
+                    Moving item...
+                </div>
+            ) : null}
+        </DragOverlay>
+    </DndContext>
   )
 }

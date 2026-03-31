@@ -20,9 +20,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
-    Loader2, Copy, CheckCheck, ExternalLink, Settings2, Cloud,
-    Code2, Zap,
-} from "lucide-react";
+    Loader2, Copy, CheckCheck, Settings2, Cloud,
+    Code2, Zap} from "lucide-react";
 import { toast } from "sonner";
 
 interface Props {

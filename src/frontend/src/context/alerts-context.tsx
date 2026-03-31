@@ -187,6 +187,7 @@ export function AlertsProvider({ children }: { children: React.ReactNode }) {
 
 // ─── Hook ────────────────────────────────────────────────────────────────────
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAlerts(): AlertsContextValue {
   const ctx = useContext(AlertsContext);
   if (!ctx) throw new Error('useAlerts must be used inside <AlertsProvider>');

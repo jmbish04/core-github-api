@@ -1,0 +1,27 @@
+import {
+    sqliteTable,
+    text,
+    integer,
+    index
+} from "drizzle-orm/sqlite-core";
+import { repositories } from "@/db/schemas/github/repos";
+import { epics } from "./epics";
+
+// 2. User Stories (Granular user-centric features)
+export const stories = sqliteTable("stories", {
+    id: text("id").primaryKey(), // UUID
+    repoId: text("repo_id")
+        .notNull()
+        .references(() => repositories.id, { onDelete: "cascade" }),
+    parentId: text("parent_id")
+        .references(() => epics.id, { onDelete: "cascade" }), // Belongs to an Epic
+    title: text("title").notNull(),
+    description: text("description"),
+    status: text("status").$type<"todo" | "in_progress" | "done" | "backlog">().default("todo"),
+    priority: text("priority").$type<"low" | "medium" | "high" | "urgent">().default("medium"),
+    createdAt: integer("created_at", { mode: 'timestamp' }).$defaultFn(() => new Date()),
+    updatedAt: integer("updated_at", { mode: 'timestamp' }).$defaultFn(() => new Date()),
+}, (table) => ({
+    repoIdx: index("idx_stories_repo").on(table.repoId),
+    parentIdx: index("idx_stories_parent").on(table.parentId)
+}));

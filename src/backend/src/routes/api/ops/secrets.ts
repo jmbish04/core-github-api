@@ -37,10 +37,10 @@ app.post("/sync", zValidator("json", syncSecretsSchema), async (c) => {
     // Ensure GitHub Token is available
     const githubToken = await getGithubToken(c.env);
     if (!githubToken) {
-         return c.json({ success: false, error: "GITHUB_TOKEN not configured" }, 500);
+         return c.json({ success: false, error: "GITHUB_PERSONAL_ACCESS_TOKEN not configured" }, 500);
     }
     
-    const results = await syncRepoSecrets({ ...c.env, GITHUB_TOKEN: githubToken} as any, owner, repo, secretsToSync);
+    const results = await syncRepoSecrets({ ...c.env, GITHUB_PERSONAL_ACCESS_TOKEN: githubToken} as any, owner, repo, secretsToSync);
     return c.json({ success: true, results });
   } catch (error: any) {
     return c.json({ success: false, error: error.message }, 500);

@@ -101,12 +101,12 @@ export async function getAgenticWorkerApiKey(env: Env): Promise<string | undefin
 }
 
 export async function getGithubToken(env: Env): Promise<string | undefined> {
-    if (env.GITHUB_TOKEN) {
-        return typeof env.GITHUB_TOKEN === 'string'
-            ? env.GITHUB_TOKEN
-            : await (env.GITHUB_TOKEN as any).get();
+    if (env.GITHUB_PERSONAL_ACCESS_TOKEN) {
+        return typeof env.GITHUB_PERSONAL_ACCESS_TOKEN === 'string'
+            ? env.GITHUB_PERSONAL_ACCESS_TOKEN
+            : await (env.GITHUB_PERSONAL_ACCESS_TOKEN as any).get();
     }
-    return getSecret(env, "GITHUB_TOKEN");
+    return getSecret(env, "GITHUB_PERSONAL_ACCESS_TOKEN");
 }
 
 export async function getOpenaiApiKey(env: Env): Promise<string | undefined> {
@@ -174,15 +174,108 @@ export async function getGithubClientSecret(env: Env): Promise<string | undefine
 
 /**
  * Helper to fetch the full GitHub App Private Key.
- * @param env The worker environment bindings
- * @returns The PEM private key string
+ * Automatically converts PKCS#1 (BEGIN RSA PRIVATE KEY) → PKCS#8 (BEGIN PRIVATE KEY)
  */
 export async function getGitHubPrivateKey(env: Env): Promise<string> {
-    if (env.GITHUB_APP_PRIVATE_KEY) {
-        return env.GITHUB_APP_PRIVATE_KEY;
+    let rawKey = "";
+
+    try {
+        const pt1 = await (env as any).CORE_GITHUB_API_GITHUB_APP_PRIVATE_KEY_PT1?.get() || "";
+        const pt2 = await (env as any).CORE_GITHUB_API_GITHUB_APP_PRIVATE_KEY_PT2?.get() || "";
+        const pt3 = await (env as any).CORE_GITHUB_API_GITHUB_APP_PRIVATE_KEY_PT3?.get() || "";
+        
+        let combined = String(pt1) + String(pt2) + String(pt3);
+
+        if (combined && !combined.includes("-----BEGIN")) {
+            try {
+                combined = atob(combined);
+            } catch (_e) {
+                console.warn("Failed to decode GitHub App Private Key parts, checking fallback...", JSON.stringify(_e));
+                // If it fails to decode, we keep the original string
+            }
+        }
+        
+        rawKey = combined;
+    } catch (e) {
+        console.warn("Failed to fetch split GitHub App Private Key parts, checking fallback...", e);
+    }
+        
+    // Fallback for local testing or if the old key is still around
+    if (!rawKey && (env as any).GITHUB_APP_PRIVATE_KEY) {
+        rawKey = typeof (env as any).GITHUB_APP_PRIVATE_KEY === 'string'
+            ? (env as any).GITHUB_APP_PRIVATE_KEY
+            : await (env as any).GITHUB_APP_PRIVATE_KEY.get();
     }
 
-    throw new Error("Missing GITHUB_APP_PRIVATE_KEY in Environment/Secrets Store");
+    if (!rawKey) {
+        throw new Error("Missing CORE_GITHUB_API_GITHUB_APP_PRIVATE_KEY or parts in Environment/Secrets Store");
+    }
+
+    // Handle literal \n characters if present in env var (common in Cloudflare Secrets)
+    let normalizedRawKey = rawKey;
+    if (normalizedRawKey.includes("\\n")) {
+        normalizedRawKey = normalizedRawKey.replace(/\\n/g, "\n");
+    }
+    
+    // If it's already PKCS#8, return as-is
+    if (normalizedRawKey.includes('BEGIN PRIVATE KEY') && !normalizedRawKey.includes('BEGIN RSA PRIVATE KEY')) {
+        return normalizedRawKey;
+    }
+
+    try {
+        const base64Match = normalizedRawKey.match(/-----BEGIN RSA PRIVATE KEY-----([\s\S]*?)(-----END|$)/);
+        if (!base64Match) {
+            return normalizedRawKey;
+        }
+        
+        // Clean up the body to pure base64
+        const pemBody = base64Match[1].replace(/\s/g, '');
+        const derBuffer = Uint8Array.from(atob(pemBody), c => c.charCodeAt(0));
+        
+        // Wrap the PKCS#1 inner bytes into a PKCS#8 envelope without using crypto.subtle.exportKey
+        const pkcs8Der = wrapPkcs1InPkcs8(derBuffer);
+        const pkcs8Base64 = btoa(String.fromCharCode(...new Uint8Array(pkcs8Der)));
+        const pkcs8Pem = `-----BEGIN PRIVATE KEY-----\n${pkcs8Base64.match(/.{1,64}/g)!.join('\n')}\n-----END PRIVATE KEY-----\n`;
+        
+        return pkcs8Pem;
+    } catch (e) {
+        console.error("PKCS1 Reconstruction/Wrapping Failed:", e);
+        return normalizedRawKey;
+    }
+}
+
+/**
+ * Wraps a raw PKCS#1 RSAPrivateKey DER byte array into a PKCS#8 PrivateKeyInfo DER envelope.
+ */
+function wrapPkcs1InPkcs8(pkcs1Der: Uint8Array): ArrayBuffer {
+    const version = new Uint8Array([0x02, 0x01, 0x00]);
+    const rsaOidBytes = new Uint8Array([0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01, 0x05, 0x00]);
+    const algorithmIdentifier = encodeSequence(rsaOidBytes);
+    const privateKeyOctet = encodeTag(0x04, pkcs1Der);
+    const privateKeyInfo = encodeSequence(concatBytes(version, algorithmIdentifier, privateKeyOctet));
+    return privateKeyInfo.buffer.slice(privateKeyInfo.byteOffset, privateKeyInfo.byteOffset + privateKeyInfo.byteLength) as ArrayBuffer;
+}
+
+function encodeLength(len: number): Uint8Array {
+    if (len < 128) return new Uint8Array([len]);
+    if (len < 256) return new Uint8Array([0x81, len]);
+    return new Uint8Array([0x82, (len >> 8) & 0xff, len & 0xff]);
+}
+
+function encodeTag(tag: number, data: Uint8Array): Uint8Array {
+    return concatBytes(new Uint8Array([tag]), encodeLength(data.length), data);
+}
+
+function encodeSequence(data: Uint8Array): Uint8Array {
+    return encodeTag(0x30, data);
+}
+
+function concatBytes(...arrays: Uint8Array[]): Uint8Array {
+    const total = arrays.reduce((n, a) => n + a.length, 0);
+    const out = new Uint8Array(total);
+    let offset = 0;
+    for (const arr of arrays) { out.set(arr, offset); offset += arr.length; }
+    return out;
 }
 
 /**

@@ -7,14 +7,11 @@
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
 import { getOctokit } from '@services/octokit/core'
 
-import { makeWorkflowTemplates, shouldIncludeCloudflareWorkflow } from '@/services/github/workflow-templates'
+import { makeWorkflowTemplates } from '@/services/github/workflow-templates'
 import { encode } from '@utils/base64'
-import { getDb, schema } from '@db'
-import { projects } from '@db/schemas/projects/roadmap'
+import { getDb } from '@db'
 import {
-  repositories,
-  type GitHubRepository,
-  type NewGitHubRepository
+  repositories
 } from '@db/schemas/github/repos';
 
 import { DEFAULT_GITHUB_OWNER } from "@github-utils";
@@ -267,11 +264,8 @@ app.openapi(retrofitRoute, async (c) => {
 
     for (const repo of targetRepos) {
         try {
-            const rootFiles: any[] = [] // Optimization: Skip checking root files for tool simplicity or query if needed
-            // For simplicity in tool, assume we try to add all default workflows
             const retrofitTemplates = makeWorkflowTemplates(c.env.GITHUB_REPO_STANDARDIZATION);
             for (const wf of retrofitTemplates) {
-                // Check wrangler logic if strictly needed, or just try
                 await upsertWorkflowFile(octokit, owner, repo.name, wf.path, wf.content, force)
             }
             success++
@@ -295,10 +289,10 @@ export default app
  * Helper to get token from Env
  */
 async function getToken(env: Env): Promise<string> {
-  if (!env.GITHUB_TOKEN) {
-    throw new Error("Missing GITHUB_TOKEN in environment");
+  if (!env.GITHUB_PERSONAL_ACCESS_TOKEN) {
+    throw new Error("Missing GITHUB_PERSONAL_ACCESS_TOKEN in environment");
   }
-  return await env.GITHUB_TOKEN.get();
+  return await env.GITHUB_PERSONAL_ACCESS_TOKEN.get();
 }
 
 /**
@@ -441,7 +435,6 @@ export async function fetchGitHubFiles(
   const logger = new Logger(env, "GitHubTool:FetchFiles");
   logger.info(`Fetching ${files.length} files from ${owner}/${repo}`);
 
-  const token = await getToken(env);
   // Resolve branch once for all files if not provided
   const branch = ref || await getDefaultBranch(env, owner, repo);
 
@@ -490,7 +483,8 @@ export async function getRepoStructure(
   ref?: string
 ): Promise<any> {
   const logger = new Logger(env, "GitHubTool:RepoStructure");
-  const token = getToken(env);
+  logger.info(`Fetching repo structure for ${owner}/${repo}/${path} ref=${ref}`);
+  const token = await getToken(env);
   const branch = ref || await getDefaultBranch(env, owner, repo);
   const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
 
@@ -522,7 +516,7 @@ export async function searchRepoCode(
 ): Promise<any> {
   const logger = new Logger(env, "GitHubTool:SearchCode");
   logger.info(`Searching code in ${owner}/${repo} query="${query}"`);
-  const token = getToken(env);
+  const token = await getToken(env);
   const url = `https://api.github.com/search/code?q=${encodeURIComponent(
     query
   )}+repo:${owner}/${repo}`;
@@ -567,7 +561,7 @@ export async function extractCodeSnippets(
 > {
   const logger = new Logger(env, "GitHubTool:ExtractSnippets");
   logger.info(`Extracting snippets for snippets`);
-  const token = getToken(env);
+  
   const branch = ref || await getDefaultBranch(env, owner, repo);
 
   const snippets = await Promise.all(
@@ -640,7 +634,7 @@ export async function getPRComments(
 }>> {
   const logger = new Logger(env, "GitHubTool:PRComments");
   logger.info(`Fetching comments for PR ${owner}/${repo}#${prNumber}`);
-  const token = getToken(env);
+  const token = await getToken(env);
   // Get review comments (inline code comments)
   const reviewCommentsUrl = `https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}/comments`;
   const reviewCommentsResponse = await fetch(reviewCommentsUrl, {
@@ -759,7 +753,7 @@ export async function createBranch(
   const logger = new Logger(env, "GitHubTool:CreateBranch");
   logger.info(`Creating branch ${newBranchName} in ${owner}/${repo} from ${baseSha}`);
 
-  const token = getToken(env);
+  const token = await getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}/git/refs`;
   const response = await fetch(url, {
     method: "POST",
@@ -797,7 +791,7 @@ export async function createOrUpdateFile(
   const logger = new Logger(env, "GitHubTool:CreateOrUpdateFile");
   logger.info(`Writing file ${path} to ${owner}/${repo} branch=${branch}`);
 
-  const token = getToken(env);
+  const token = await getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
 
   // Base64 encode content
@@ -843,7 +837,7 @@ export async function createPullRequest(
 ): Promise<{ number: number; html_url: string }> {
   const logger = new Logger(env, "GitHubTool:CreatePR");
   logger.info(`Creating PR: ${title}`);
-  const token = getToken(env);
+  const token = await getToken(env);
   const url = `https://api.github.com/repos/${owner}/${repo}/pulls`;
   const response = await fetch(url, {
     method: "POST",

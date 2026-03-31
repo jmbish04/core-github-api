@@ -7,7 +7,7 @@ import {
   formatAgentFixComment,
   isCodeReviewBot,
   type ExtractedReviewComment,
-} from './tagging';
+} from '@/utils/github/detectAgent';
 
 const AgentTaggerPayloadSchema = z.object({
   action: z.string(),

@@ -169,6 +169,20 @@ export interface GetSessionStatusResponse {
   }>
 }
 
+export interface ResolveMergeConflictsRequest {
+  owner: string
+  repo: string
+  pullNumber: number
+  strategy?: 'ai'
+}
+
+export interface ResolveMergeConflictsResponse {
+  success: boolean
+  sessionId?: string
+  commentUrl?: string
+  error?: string
+}
+
 // ==================== Search Operations ====================
 
 export interface SearchRepositoriesRequest {

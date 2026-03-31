@@ -12,7 +12,7 @@ actionWorkerWs.get(
   upgradeWebSocket(async (c) => {
     // Basic Authentication check
     const apiKey = c.req.query('apiKey') || c.req.header('X-API-Key');
-    const tokenRecord = c.env.GITHUB_TOKEN || c.env.GITHUB_PERSONAL_ACCESS_TOKEN;
+    const tokenRecord = c.env.GITHUB_PERSONAL_ACCESS_TOKEN || c.env.GITHUB_PERSONAL_ACCESS_TOKEN;
     const expectedKey = typeof tokenRecord === 'string' ? tokenRecord : await (tokenRecord as any)?.get();
     if (!apiKey || apiKey !== expectedKey) { // Or whatever pre-shared key we use
       // Rejecting via HTTP response if possible, though upgradeWebSocket might need to handle this inside

@@ -6,8 +6,8 @@
 
 import { OpenAPIHono, createRoute } from '@hono/zod-openapi'
 import { z } from 'zod'
-import { Bindings } from "@utils/hono";
-import { getAgentByName } from '@/ai/agents/runtime/agents'
+
+import { HoniClient } from '@utils/honi-client';
 
 const sessionStatusApi = new OpenAPIHono<{ Bindings: Env }>()
 type OrchestratorStub = DurableObjectStub<undefined> & {
@@ -37,9 +37,8 @@ const route = createRoute({
 
 sessionStatusApi.openapi(route, async (c) => {
   const { id } = c.req.valid('param')
-  const getByName = getAgentByName as any
-  const orchestrator = await getByName(
-    c.env.ORCHESTRATOR,
+  const orchestrator = HoniClient.getStub(
+    c.env.ORCHESTRATOR as any,
     'orchestrator'
   ) as OrchestratorStub
   const results = await orchestrator.getStatus(id)

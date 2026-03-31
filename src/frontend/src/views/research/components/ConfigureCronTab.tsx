@@ -10,7 +10,7 @@ export default function ConfigureCronTab({ onEditDraft, onViewReport }: { onEdit
   useEffect(() => {
     const fetchJobs = async () => {
       try {
-        const res = await api['research-projects'].projects.$get({ query: { type: 'cron' } });
+        const res = await api['research'].projects.$get({ query: { type: 'cron' } });
         setProjects((await res.json()) as any);
       } catch (e) {
         console.error(e);

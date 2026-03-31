@@ -1,6 +1,6 @@
 import type { Logger } from '@/lib/logger';
-import { resolveDefaultAiModel, resolveDefaultAiProvider, type SupportedProvider } from '@/ai/providers/config';
-import { AIGateway } from '@/ai/utils/ai-gateway';
+import { resolveDefaultAiModel, resolveDefaultAiProvider, type SupportedProvider } from '@/ai/providers/ai-gateway/config';
+import { generateText, generateStructuredResponse } from '@/ai/providers';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import type { z } from 'zod';
 import type { AgentTool } from './types';
@@ -53,12 +53,12 @@ export async function runAgentText(input: {
 
   input.logger?.info(`Running text model ${model} on ${provider}`);
 
-  return AIGateway.runTextWithFallback(
+  return generateText(
     input.env,
-    provider,
-    model,
-    `${input.instructions}${buildToolInstructions(input.tools)}`,
     input.prompt,
+    `${input.instructions}${buildToolInstructions(input.tools)}`,
+    { model },
+    provider
   );
 }
 
@@ -79,10 +79,10 @@ export async function runAgentStructured<T = unknown>(input: {
 
   input.logger?.info(`Running structured model ${model} on ${provider}`);
 
-  const result = await AIGateway.runStructuredResponseWithModelFallback(
+  return generateStructuredResponse(
     input.env,
-    provider,
-    model,
+    input.prompt,
+    input.schema,
     [
       input.instructions,
       buildToolInstructions(input.tools),
@@ -91,8 +91,7 @@ export async function runAgentStructured<T = unknown>(input: {
     ]
       .filter(Boolean)
       .join('\n\n'),
-    input.prompt,
+    { model },
+    provider
   );
-
-  return input.schema.parse(result);
 }

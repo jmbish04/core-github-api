@@ -9,19 +9,34 @@
  * @module AI/Providers/Gemini
  */
 import { cleanJsonOutput } from "@/ai/utils/sanitizer";
-import { AIGateway } from "../utils/ai-gateway";
-import { AIOptions, TextWithToolsResponse, StructuredWithToolsResponse, ModelCapability, UnifiedModel, ModelFilter, FileInput } from "./index";
+import { AIGateway } from "./ai-gateway";
+import { Logger } from "@/lib/logger";
+import { 
+    AIOptions, 
+    TextWithToolsResponse, 
+    StructuredWithToolsResponse, 
+    ModelCapability, 
+    UnifiedModel, 
+    ModelFilter, 
+    FileInput 
+} from "./index";
 import { z } from "zod";
 
 export const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
 export const REASONING_GEMINI_MODEL = "gemini-2.5-pro";
 
 async function getGeminiClient(env: Env): Promise<any> {
+    const logger = new Logger(env, 'Gemini');
+    logger.info('Initializing SDK client');
     const { baseUrl, apiKey, aigToken } = await AIGateway.getBaseUrl(env, { provider: "gemini" });
+
+    // In BYOK mode apiKey is '' — AI Gateway injects the stored Gemini key via cf-aig-authorization.
+    // Appending ?key= with an empty value causes a 400 from Google's API, so we omit it.
+    const keyParam = apiKey ? `?key=${apiKey}` : '';
 
     return {
         generateContent: async (model: string, data: any) => {
-            const res = await fetch(`${baseUrl}/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+            const res = await fetch(`${baseUrl}/v1beta/models/${model}:generateContent${keyParam}`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -29,11 +44,17 @@ async function getGeminiClient(env: Env): Promise<any> {
                 },
                 body: JSON.stringify(data)
             });
-            if (!res.ok) throw new Error(`Gemini API Error: ${await res.text()}`);
+            if (!res.ok) {
+              const errText = await res.text();
+              logger.error(`generateContent failed`, { status: res.status, body: errText });
+              await logger.flush();
+              throw new Error(`Gemini API Error: ${errText}`);
+            }
             return await res.json();
         },
         getModels: async () => {
-            const res = await fetch(`${baseUrl}/v1beta/models?key=${apiKey}`, {
+            const modelsUrl = apiKey ? `${baseUrl}/v1beta/models?key=${apiKey}` : `${baseUrl}/v1beta/models`;
+            const res = await fetch(modelsUrl, {
                 method: "GET",
                 headers: {
                     ...(aigToken ? { "cf-aig-authorization": `Bearer ${aigToken}` } : {})
@@ -47,8 +68,11 @@ async function getGeminiClient(env: Env): Promise<any> {
 
 export async function verifyApiKey(env: Env): Promise<boolean> {
     try {
-        const { apiKey } = await AIGateway.getBaseUrl(env, { provider: "gemini" });
-        return apiKey !== "dummy";
+        const { apiKey, aigToken } = await AIGateway.getBaseUrl(env, { provider: "gemini" });
+        // BYOK mode: gateway token is present → gateway injects stored provider key → auth is valid
+        if (aigToken) return true;
+        // Direct mode: check that a real key was resolved (not empty)
+        return apiKey !== '';
     } catch {
         return false;
     }
@@ -78,7 +102,8 @@ export async function generateText(env: Env, prompt: string, systemPrompt?: stri
         const msgs = systemPrompt ? `System: ${systemPrompt}\n\nUser: ${prompt}` : prompt;
         const body: any = { contents: [{ role: "user", parts: [{ text: msgs }] }] };
         
-        const res = await client.generateContent(model, body);
+        const modelForGateway = AIGateway.normalizeModelForGateway("gemini", model);
+        const res = await client.generateContent(modelForGateway, body);
         return res.candidates?.[0]?.content?.parts?.[0]?.text || "";
     });
 }
@@ -94,7 +119,8 @@ export async function generateStructuredResponse<T>(env: Env, prompt: string, sc
             generationConfig: { responseMimeType: "application/json" }
         };
         
-        const res = await client.generateContent(model, body);
+        const modelForGateway = AIGateway.normalizeModelForGateway("gemini", model);
+        const res = await client.generateContent(modelForGateway, body);
         const text = res.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
         const rawParsed = JSON.parse(cleanJsonOutput(text));
         return schema.parse(rawParsed);
@@ -117,7 +143,8 @@ export async function generateTextWithTools(env: Env, prompt: string, tools: any
         tools: [{ functionDeclarations }]
     };
 
-    const res = await client.generateContent(model, body);
+    const modelForGateway = AIGateway.normalizeModelForGateway("gemini", model);
+    const res = await client.generateContent(modelForGateway, body);
     const candidate = res.candidates?.[0];
     const parts = candidate?.content?.parts || [];
     
@@ -156,7 +183,8 @@ export async function generateStructuredWithTools<T>(env: Env, prompt: string, s
         tools: [{ functionDeclarations }]
     };
 
-    const res = await client.generateContent(model, body);
+    const modelForGateway = AIGateway.normalizeModelForGateway("gemini", model);
+    const res = await client.generateContent(modelForGateway, body);
     const candidate = res.candidates?.[0];
     const parts = candidate?.content?.parts || [];
     
@@ -198,7 +226,8 @@ export async function generateTextFromFiles(env: Env, prompt: string, files: Fil
     parts.push({ text: systemPrompt ? `System: ${systemPrompt}\n\nUser: ${prompt}` : prompt });
 
     const body: any = { contents: [{ role: "user", parts }] };
-    const res = await client.generateContent(model, body);
+    const modelForGateway = AIGateway.normalizeModelForGateway("gemini", model);
+    const res = await client.generateContent(modelForGateway, body);
     return res.candidates?.[0]?.content?.parts?.[0]?.text || "";
 }
 
@@ -216,7 +245,8 @@ export async function generateStructuredResponseFromFiles<T>(env: Env, prompt: s
         generationConfig: { responseMimeType: "application/json" }
     };
 
-    const res = await client.generateContent(model, body);
+    const modelForGateway = AIGateway.normalizeModelForGateway("gemini", model);
+    const res = await client.generateContent(modelForGateway, body);
     const text = res.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
     const rawParsed = JSON.parse(cleanJsonOutput(text));
     return schema.parse(rawParsed);

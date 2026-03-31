@@ -14,7 +14,7 @@
  * Agent Governance: No native alert() — all notifications use sonner toasts.
  */
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import {
   Dialog,

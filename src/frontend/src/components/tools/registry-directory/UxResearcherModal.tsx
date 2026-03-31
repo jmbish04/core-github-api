@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { toast } from 'sonner';
 import { Microscope, Github, FileCode, X } from 'lucide-react';
-import { client } from '@/lib/api-client';
-import { RegistryItem } from './data';
+import { api } from '@/lib/api-client';
+import type { RegistryItem } from './data';
 
 interface UxResearcherModalProps {
   isOpen: boolean;
@@ -15,7 +15,6 @@ interface UxResearcherModalProps {
 export const UxResearcherModal = ({ isOpen, onClose, registries, initialRepoUrl, initialContext }: UxResearcherModalProps) => {
   const [repoUrl, setRepoUrl] = useState(initialRepoUrl || '');
   const [context, setContext] = useState(initialContext || '');
-  const [loading, setLoading] = useState(false);
   const [report, setReport] = useState<string | null>(null);
   const [step, setStep] = useState(0); // 0: Input, 1: Analyzing, 2: Report
 
@@ -24,13 +23,12 @@ export const UxResearcherModal = ({ isOpen, onClose, registries, initialRepoUrl,
   const handleAnalyze = async () => {
     if (!context.trim() && !repoUrl.trim()) return;
 
-    setLoading(true);
     setStep(1);
 
     const registriesContext = JSON.stringify(registries.map(r => ({ title: r.title, desc: r.description, tags: r.category })));
 
     try {
-      const res = await client.api.tools['shadcn-registry'].research.$post({
+      const res = await api.tools['shadcn-registry'].research.$post({
         json: { repoUrl, context, registriesContext }
       });
 
@@ -45,8 +43,6 @@ export const UxResearcherModal = ({ isOpen, onClose, registries, initialRepoUrl,
       console.error(e);
       toast.error("Analysis failed. Please try with less text or check your connection.");
       setStep(0);
-    } finally {
-      setLoading(false);
     }
   };
 

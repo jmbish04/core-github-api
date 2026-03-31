@@ -19,8 +19,26 @@ type AssistantMessage = {
   content: string;
 };
 
+/**
+ * AssistantModal supports two resolution modes:
+ *
+ * 1. **Project planning mode** — pass `projectId` directly (epics, user stories, backlog).
+ *    The assistant endpoint is `/api/projects/:projectId/assistant`.
+ *
+ * 2. **Repo-scoped mode** — pass `repoOwner` + `repoName`. The modal resolves the
+ *    associated D1 project ID at first call via `/api/repos/by-repo/:owner/:repo`,
+ *    then routes to the same assistant endpoint.
+ *
+ * Both modes produce the same UI; the distinction is only in how the project ID is obtained.
+ */
 type AssistantModalProps = {
-  projectId: string;
+  /** Direct project planning ID (from D1 `repositories.id`). */
+  projectId?: string;
+  /** Repo owner (used for owner/repo resolution when projectId is not available). */
+  repoOwner?: string;
+  /** Repo name (used for owner/repo resolution when projectId is not available). */
+  repoName?: string;
+  /** Display name for the project / repository. */
   projectName: string;
   initialPrompt?: string | null;
   onInitialPromptConsumed?: () => void;
@@ -43,7 +61,9 @@ type AssistantResponse = {
 };
 
 export function AssistantModal({
-  projectId,
+  projectId: directProjectId,
+  repoOwner,
+  repoName,
   projectName,
   initialPrompt,
   onInitialPromptConsumed,
@@ -51,6 +71,8 @@ export function AssistantModal({
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [isRunning, setIsRunning] = useState(false);
+
+
   const [messages, setMessages] = useState<AssistantMessage[]>([
     {
       id: "intro",
@@ -69,13 +91,11 @@ export function AssistantModal({
   const appendMessage = (role: "assistant" | "user", content: string) => {
     setMessages((prev) => [
       ...prev,
-      {
-        id: crypto.randomUUID(),
-        role,
-        content,
-      },
+      { id: crypto.randomUUID(), role, content },
     ]);
   };
+
+
 
   const runPrompt = async (prompt: string) => {
     const clean = prompt.trim();
@@ -85,11 +105,14 @@ export function AssistantModal({
     setIsRunning(true);
 
     try {
-      const response = await fetch(`/api/projects/${projectId}/assistant`, {
+      if (!repoOwner || !repoName) {
+        appendMessage("assistant", "⚠️ Could not resolve project context (missing owner/repo).");
+        return;
+      }
+
+      const response = await fetch(`/api/repos/${encodeURIComponent(repoOwner)}/${encodeURIComponent(repoName)}/assistant`, {
         method: "POST",
-        headers: {
-          "content-type": "application/json",
-        },
+        headers: { "content-type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ prompt: clean }),
       });
@@ -164,6 +187,11 @@ export function AssistantModal({
             </DialogTitle>
             <DialogDescription>
               Agent actions for <strong>{projectName}</strong>
+              {repoOwner && repoName && !directProjectId && (
+                <span className="ml-1 text-muted-foreground">
+                  ({repoOwner}/{repoName})
+                </span>
+              )}
             </DialogDescription>
           </DialogHeader>
 
@@ -229,4 +257,3 @@ export function AssistantModal({
     </>
   );
 }
-

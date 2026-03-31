@@ -18,7 +18,7 @@ export default function ConfigureCronPage() {
            <h2 className="text-xl font-semibold">Scheduled Research</h2>
            <Button 
              onClick={() => navigate('/research/configure-cron/new')} 
-             className="bg-purple-600 hover:bg-purple-500"
+             className="bg-zinc-100 text-zinc-900 hover:bg-zinc-200"
            >
              New Scheduled Job
            </Button>

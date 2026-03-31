@@ -9,12 +9,16 @@
  */
 import { generateText, generateStructuredResponse, generateEmbedding } from "@/ai/providers";
 import { z } from "zod";
-import { AIGateway } from "./utils/ai-gateway";
+import { AIGateway } from "./providers/ai-gateway";
 import { cleanJsonOutput, sanitizeAndFormatResponse } from "./utils/sanitizer";
 import { analyzeFailure } from "./utils/diagnostician";
 import { HealthStepResult } from "@/health/types";
 import { getGeminiApiKey, getOpenaiApiKey } from "@utils/secrets";
 import { verifyCloudflareTokens } from "@utils/cloudflare/tokens";
+
+// Checks whose failure is only a WARNING (not a hard system failure).
+// These are paid third-party providers routed through AI Gateway.
+const GATEWAY_WARNING_ONLY_CHECKS = new Set(['gemini', 'geminiRaw', 'openai', 'openaiRaw', 'anthropic', 'anthropicRaw']);
 
 /**
  * Performs a deep health check of all AI domain components.
@@ -231,7 +235,8 @@ export async function checkHealth(env: Env): Promise<HealthStepResult> {
                 "cf-aig-authorization": `Bearer ${gatewayToken}`,
             };
 
-            const response = await fetch(url, {
+            // BYOK: only cf-aig-authorization is needed; gateway injects the stored provider key
+            const response = await fetch(`${url}/v1beta/models/${model}:generateContent`, {
                 method: "POST",
                 headers,
                 body: JSON.stringify(payload)
@@ -284,8 +289,8 @@ export async function checkHealth(env: Env): Promise<HealthStepResult> {
 
             if (!gatewayToken) throw new Error(`AI_GATEWAY_TOKEN is empty. Gateway Config: { name: "${gatewayName}" }`);
 
-            // When AI Gateway has provider keys configured, only cf-aig-authorization is needed
-            const response = await fetch(url, {
+            // BYOK: only cf-aig-authorization is needed; gateway injects the stored provider key
+            const response = await fetch(`${url}/chat/completions`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -308,6 +313,89 @@ export async function checkHealth(env: Env): Promise<HealthStepResult> {
         });
     }
 
+
+    // --- 5g. Test Anthropic (Raw Fetch via Gateway) ---
+    if (!env.CLOUDFLARE_ACCOUNT_ID || !env.AI_GATEWAY_TOKEN) {
+        subChecks.anthropicRaw = { status: "SKIPPED", reason: "Missing CLOUDFLARE_ACCOUNT_ID or AI_GATEWAY_TOKEN" };
+    } else {
+        await runCheck("anthropicRaw", async () => {
+            const model = "claude-3-5-haiku-latest";
+            const { baseUrl: url } = await AIGateway.getBaseUrl(env, { provider: "anthropic" });
+
+            const gatewayToken = typeof env.AI_GATEWAY_TOKEN === 'object' && env.AI_GATEWAY_TOKEN !== null && 'get' in env.AI_GATEWAY_TOKEN ? await env.AI_GATEWAY_TOKEN.get() : env.AI_GATEWAY_TOKEN as string;
+            const gatewayName = env.AI_GATEWAY_NAME || "core-github-api";
+
+            if (!gatewayToken) throw new Error(`AI_GATEWAY_TOKEN is empty. Gateway Config: { name: "${gatewayName}" }`);
+
+            // BYOK: Anthropic via gateway uses OpenAI-compatible /chat/completions.
+            const response = await fetch(`${url}/chat/completions`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "cf-aig-authorization": `Bearer ${gatewayToken}`,
+                },
+                body: JSON.stringify({
+                    model: `anthropic/${model}`,
+                    messages: [{ role: "user", content: "Reply with: Pong" }],
+                    max_tokens: 20,
+                }),
+                signal: AbortSignal.timeout(20_000),
+            });
+
+            if (!response.ok) {
+                const text = await response.text();
+                throw new Error(`HTTP ${response.status}: ${text.slice(0, 300)}. Gateway Config: { name: "${gatewayName}" }`);
+            }
+
+            const data = await response.json() as any;
+            const text = data?.choices?.[0]?.message?.content || "";
+            if (!text.toLowerCase().includes("pong")) {
+                throw new Error(`Unexpected response: ${JSON.stringify(data).substring(0, 200)}`);
+            }
+            return { success: true, model };
+        });
+    }
+
+    // --- 5h. Test Workers AI (Raw Fetch via Gateway) ---
+    if (!env.CLOUDFLARE_ACCOUNT_ID || !env.AI_GATEWAY_TOKEN) {
+        subChecks.workersAiRaw = { status: "SKIPPED", reason: "Missing CLOUDFLARE_ACCOUNT_ID or AI_GATEWAY_TOKEN" };
+    } else {
+        await runCheck("workersAiRaw", async () => {
+            const model = "@cf/meta/llama-3.1-8b-instruct";
+            const { baseUrl: url } = await AIGateway.getBaseUrl(env, { provider: "workers-ai" });
+
+            const gatewayToken = typeof env.AI_GATEWAY_TOKEN === 'object' && env.AI_GATEWAY_TOKEN !== null && 'get' in env.AI_GATEWAY_TOKEN ? await env.AI_GATEWAY_TOKEN.get() : env.AI_GATEWAY_TOKEN as string;
+            const gatewayName = env.AI_GATEWAY_NAME || "core-github-api";
+
+            if (!gatewayToken) throw new Error(`AI_GATEWAY_TOKEN is empty. Gateway Config: { name: "${gatewayName}" }`);
+
+            const response = await fetch(`${url}/chat/completions`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "cf-aig-authorization": `Bearer ${gatewayToken}`,
+                },
+                body: JSON.stringify({
+                    model,
+                    messages: [{ role: "user", content: "Reply with: Pong" }],
+                    max_tokens: 20,
+                }),
+                signal: AbortSignal.timeout(15_000),
+            });
+
+            if (!response.ok) {
+                const text = await response.text();
+                throw new Error(`HTTP ${response.status}: ${text.slice(0, 300)}. Gateway Config: { name: "${gatewayName}" }`);
+            }
+
+            const data = await response.json() as any;
+            const text = data?.choices?.[0]?.message?.content || "";
+            if (!text.toLowerCase().includes("pong")) {
+                throw new Error(`Unexpected response: ${JSON.stringify(data).substring(0, 200)}`);
+            }
+            return { success: true, model };
+        });
+    }
 
     // --- 6. Test Diagnostician (Self-Test) ---
     if (!env.AI) {
@@ -341,19 +429,36 @@ export async function checkHealth(env: Env): Promise<HealthStepResult> {
     }
 
     // --- Determine Overall Status ---
+    // Paid provider gateway checks (gemini, openai, anthropic) are warnings only.
+    // Core checks (sanitizer, generateText, generateStructured, etc.) are hard failures.
     const allChecks = Object.values(subChecks);
-    const hasFailure = allChecks.some((c: any) => c.status === "FAILURE");
     const allSkipped = allChecks.every((c: any) => c.status === "SKIPPED");
+
+    const hardFailedChecks = Object.entries(subChecks)
+        .filter(([k, v]: [string, any]) => v.status === "FAILURE" && !GATEWAY_WARNING_ONLY_CHECKS.has(k))
+        .map(([k]) => k);
+
+    const warnChecks = Object.entries(subChecks)
+        .filter(([k, v]: [string, any]) => {
+            if (v.status !== "FAILURE") return false;
+            // Treat quota/credit errors as SKIPPED instead of warnings so the health check is clean
+            if (v.error && (v.error.includes('insufficient_quota') || v.error.includes('credit balance is too low') || v.error.includes('429'))) {
+                v.status = "SKIPPED";
+                v.reason = "Quota exceeded";
+                return false;
+            }
+            return GATEWAY_WARNING_ONLY_CHECKS.has(k);
+        })
+        .map(([k]) => k);
 
     let overallStatus: 'success' | 'failure' = 'success';
     let message = "All AI subsystems operational";
 
-    if (hasFailure) {
+    if (hardFailedChecks.length > 0) {
         overallStatus = 'failure';
-        const failedChecks = Object.entries(subChecks)
-            .filter(([_, v]: [string, any]) => v.status === "FAILURE")
-            .map(([k, _]) => k);
-        message = `Failed: ${failedChecks.join(", ")}`;
+        message = `Failed: ${hardFailedChecks.join(", ")}${warnChecks.length > 0 ? ` | Warnings: ${warnChecks.join(", ")}` : ''}`;
+    } else if (warnChecks.length > 0) {
+        message = `Operational with paid-provider warnings: ${warnChecks.join(", ")}`;
     } else if (allSkipped) {
         message = "All checks skipped (bindings missing)";
     }

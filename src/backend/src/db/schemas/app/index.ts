@@ -1,6 +1,7 @@
 /** @file schemas/app/index.ts — Barrel for all app-level schemas */
 export * from './alerts';
 export * from './applications';
+export * from './cloudflare_changelog';
 export * from './config';
 export * from './sessions';
 export * from './settings';

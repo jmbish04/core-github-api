@@ -15,6 +15,7 @@ import { healthResults } from '@db/schemas/logs/health';
 import { julesJobs } from '@/db/schemas/agents/jules';
 import { JulesService } from '@/services/jules/service';
 import { buildSkillContext } from '@services/octokit/skill-fetcher';
+import { getGithubToken } from '@/utils/secrets';
 
 const HealthDiagnosticianOutputSchema = z.object({
   severity: z.enum(['low', 'medium', 'high', 'critical']),
@@ -84,9 +85,7 @@ export class HealthDiagnostician extends HealthDiagnosticianDurableObject {
       target: string;
     }>();
 
-    const ghToken = typeof (this.env as any).GITHUB_TOKEN === 'object' && (this.env as any).GITHUB_TOKEN?.get
-      ? await (this.env as any).GITHUB_TOKEN.get()
-      : (this.env as any).GITHUB_TOKEN;
+    const ghToken = await getGithubToken(this.env as Env);
 
     const octokit = new Octokit({ auth: ghToken });
     const repoOwner = this.env.GITHUB_OWNER || 'jmbish04';

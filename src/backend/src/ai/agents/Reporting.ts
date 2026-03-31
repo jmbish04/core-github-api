@@ -5,7 +5,6 @@ import { runAgentText } from '@/ai/agents/support/inference';
 import type { PersistentAgentState } from '@/ai/agents/support/types';
 import { ResearchLogger } from '@research-logger';
 import { getDb } from '@db';
-import { resolveDefaultAiModel, resolveDefaultAiProvider } from '@/ai/providers/config';
 import { buildSkillContext } from '@services/octokit/skill-fetcher';
 
 const reportingRuntime = createAgent<Env>({
@@ -62,8 +61,6 @@ export class ReportingAgent extends ReportingDurableObject {
       instructions: `You remain objective and thorough. Synthesize the provided sources into a cohesive report.
 Use standard Markdown. Include a "Key Findings", "Detailed Analysis", and "References" section.${await buildSkillContext(this.env as any, 'ReportingAgent')}`,
       prompt,
-      provider: resolveDefaultAiProvider(this.env),
-      model: resolveDefaultAiModel(this.env, resolveDefaultAiProvider(this.env)),
     });
 
     await researchLogger.logToolOutput('ReportGeneration', 'Report generated successfully.');

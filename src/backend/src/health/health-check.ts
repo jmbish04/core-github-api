@@ -5,7 +5,7 @@ import { checkHealth as checkMCP } from "@/ai/mcp/health";
 import { checkGitHubAPIHealth, checkWebhooksHealth } from "@/workflows/health";
 import { checkHealth as checkPlanning } from "@/workflows/planning/health";
 import { checkHealth as checkAgents } from "@/ai/agents/health";
-import { checkHealth as checkBrowser } from "@/ai/mcp/tools/browser/health";
+import { checkHealth as checkSlashCommands } from "@/automations/shared/colby/health";
 import { analyzeFailure } from "@/ai/utils/diagnostician";
 import { v4 as uuidv4 } from 'uuid';
 
@@ -40,6 +40,7 @@ export async function runHealthCheck(
     { id: 'agents', name: 'Agents', fn: checkAgents },
     { id: 'planning', name: 'Planning', fn: checkPlanning },
     // { id: 'workflows', name: 'Workflows', fn: checkWorkflows }
+    { id: 'slash_commands', name: 'Slash Commands', fn: checkSlashCommands },
   ];
 
   try {
@@ -188,7 +189,6 @@ async function saveHealthCheck(db: D1Database, result: any) {
 
 export async function getLatestHealthCheck(db: D1Database) {
   const client = getDb(db);
-  // @ts-ignore - simple select
   const result = await client.query.healthRuns.findMany({
     orderBy: (healthRuns, { desc }) => [desc(healthRuns.created_at)],
     limit: 1

@@ -32,7 +32,7 @@ export function setupFetchInterceptor() {
             duration: 8000,
           });
         }
-      } catch (err) {
+      } catch {
         // Silently ignore clone parsing errors
       }
     }

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Sparkles, Bot, Send, Loader2, X } from 'lucide-react';
-import { client } from '@/lib/api-client';
-import { RegistryItem } from './data';
+import { api } from '@/lib/api-client';
+import type { RegistryItem } from './data';
 
 interface AiAdvisorModalProps {
   isOpen: boolean;
@@ -27,7 +27,7 @@ export const AiAdvisorModal = ({ isOpen, onClose, registries }: AiAdvisorModalPr
     const registriesContext = JSON.stringify(registries.map(r => ({ title: r.title, desc: r.description, category: r.category, tags: r.license })));
 
     try {
-      const res = await client.api.tools['shadcn-registry'].advise.$post({
+      const res = await api.tools['shadcn-registry'].advise.$post({
         json: { query, registriesContext }
       });
 
@@ -37,7 +37,7 @@ export const AiAdvisorModal = ({ isOpen, onClose, registries }: AiAdvisorModalPr
       } else {
         throw new Error('Failed to get recommendations.');
       }
-    } catch (err) {
+    } catch {
       setError("Failed to get recommendations. Please try again.");
     } finally {
       setLoading(false);

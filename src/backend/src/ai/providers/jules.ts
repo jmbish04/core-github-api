@@ -8,10 +8,21 @@
 import * as workerAi from "./worker-ai";
 import { z } from "zod";
 import { getDb } from "@db";
+import { Logger } from "@/lib/logger";
 import { eq } from "drizzle-orm";
 import { planningRequests, planningRequestsUpscaling, planResponses } from "@/db/schemas/workshop/plan_tracking";
-import { persistDerivedPlansFromMarkdown } from "@/services/planning/honi-babysitter";
-import { rewriteQuestionForMCP, generateStructuredResponse as indexGenerateStructured, FileInput, AIOptions, TextWithToolsResponse, StructuredWithToolsResponse } from "./index";
+import { 
+  persistDerivedPlansFromMarkdown 
+} from "@/services/planning/honi-babysitter";
+import { 
+  rewriteQuestionForMCP, 
+  generateStructuredResponse as indexGenerateStructured, 
+  FileInput, 
+  AIOptions, 
+  TextWithToolsResponse, 
+  StructuredWithToolsResponse 
+} from "./index";
+import { AIGateway } from "./ai-gateway";
 
 let jules: any;
 async function initJules() {
@@ -28,6 +39,12 @@ async function initJules() {
 
 export async function verifyApiKey(_env: Env): Promise<boolean> {
   return true; // Assume true since local dev usually has ADC or the CLI handles auth
+}
+
+export async function getJulesClient(env: Env) {
+  const apiKey = await AIGateway.getApiKeyForProvider(env, "jules");
+  await initJules();
+  return jules.with({ apiKey });
 }
 
 export async function generateText(_env: Env, prompt: string, systemPrompt?: string, _options?: AIOptions): Promise<string> {
@@ -172,7 +189,9 @@ export async function createPlan(env: Env, prompt: string, githubRepoUrl?: strin
     const extracted = await indexGenerateStructured<{ topics: string[] }>(env, extractionPrompt, topicExtractionSchema, "You are a senior engineering manager.", { model: "gemini-2.5-flash" }, "gemini");
     topics = extracted.topics;
   } catch (e) {
-    console.error("Failed to extract topics", e);
+    const logger = new Logger(env, 'Jules');
+    logger.error("Failed to extract topics", e);
+    await logger.flush();
   }
 
   // 3. Execution of Research Tasks
@@ -237,7 +256,9 @@ export async function createPlan(env: Env, prompt: string, githubRepoUrl?: strin
     try {
       upscaledPromptResult = await generateText(env, upscalePromptText, "You are an expert prompt engineer.");
     } catch (e) {
-      console.error("Failed to upscale prompt", e);
+      const logger = new Logger(env, 'Jules');
+      logger.error("Failed to upscale prompt", e);
+      await logger.flush();
     }
     
     await db.update(planningRequests)
@@ -270,7 +291,9 @@ export async function createPlan(env: Env, prompt: string, githubRepoUrl?: strin
        projectName: `Plan for ${githubRepoName || "Task"}`
      });
   } catch (e) {
-     console.error("Failed to ingest plan breakdown", e);
+     const logger = new Logger(env, 'Jules');
+     logger.error("Failed to ingest plan breakdown", e);
+     await logger.flush();
   }
 
   return julesOutput;

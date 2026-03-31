@@ -14,12 +14,12 @@
  */
 export async function getSandboxOptions(env: Env) {
     return {
-        sleepAfter: '30s',
+        sleepAfter: env.SANDBOX_SLEEP_AFTER || '30s',
         keepAlive: true,
         normalizeId: true,
         containerTimeouts: {
-            instanceGetTimeoutMS: 180_000,   // 3 minutes for provisioning
-            portReadyTimeoutMS: 180_000, // 3 minutes for startup work
+            instanceGetTimeoutMS: env.SANDBOX_INSTANCE_GET_TIMEOUT_MS || 180_000,   // 3 minutes for provisioning
+            portReadyTimeoutMS: env.SANDBOX_PORT_READY_TIMEOUT_MS || 180_000, // 3 minutes for startup work
         }
     }
 }

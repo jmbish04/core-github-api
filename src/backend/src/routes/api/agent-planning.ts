@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { getDb, planningRequestsUpscaling, planResponses, projectPlans, prReviewChecklists } from "@db";
+import { getDb, planningRequestsUpscaling, planResponses, tasks, prReviewChecklists } from "@db";
 import { eq, and } from "drizzle-orm";
 import { createPlan } from "@/ai/providers/jules";
 import { generateText } from "@/ai/providers";
@@ -51,18 +51,15 @@ planningAgentRouter.get("/:id", async (c) => {
     where: eq(planResponses.planningRequestId, id)
   });
   
-  const tasks = await db.query.projectPlans.findMany({
-    where: and(
-      eq(projectPlans.projectId, id),
-      eq(projectPlans.itemType, "task")
-    )
+  const tasksData = await db.query.tasks.findMany({
+    where: eq(tasks.repoId, id)
   });
   
   const apiUrl = (new URL(c.req.url)).origin;
   
   return c.json({
     markdown: planRes?.response || "Plan not found",
-    tasks,
+    tasks: tasksData,
     instructions: "You are an autonomous coding agent executing a plan. Use the provided bash script to manage task status.",
     bashScript: generateTaskManagementScript(apiUrl)
   });
@@ -106,15 +103,14 @@ planningAgentRouter.get("/tasks/incomplete/:projectId", async (c) => {
   const projectId = c.req.param("projectId");
   const db = getDb(c.env.DB);
   
-  const tasks = await db.query.projectPlans.findMany({
+  const tasksData = await db.query.tasks.findMany({
     where: and(
-      eq(projectPlans.projectId, projectId),
-      eq(projectPlans.itemType, "task"),
-      eq(projectPlans.status, "todo")
+      eq(tasks.repoId, projectId),
+      eq(tasks.status, "todo")
     )
   });
   
-  return c.json({ tasks });
+  return c.json({ tasks: tasksData });
 });
 
 planningAgentRouter.post("/tasks/:taskId/status", async (c) => {
@@ -122,9 +118,9 @@ planningAgentRouter.post("/tasks/:taskId/status", async (c) => {
   const body = await c.req.json();
   const db = getDb(c.env.DB);
   
-  await db.update(projectPlans)
+  await db.update(tasks)
     .set({ status: body.status })
-    .where(eq(projectPlans.id, taskId));
+    .where(eq(tasks.id, taskId));
     
   return c.json({ success: true });
 });

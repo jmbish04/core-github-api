@@ -1,4 +1,8 @@
-import { drizzle } from 'drizzle-orm/d1';
+/**
+ * src/backend/src/lib/logger.ts
+ * CORE LOGGING SYSTEM: Handles D1 buffering, source tracing, and secret masking.
+ */
+import { getDb } from '@db';
 import { systemLogs } from '@db/schema';
 import { generateUuid } from "@/utils/common";
 
@@ -6,22 +10,25 @@ type LogLevel = 'info' | 'warn' | 'error' | 'debug';
 
 export class Logger {
   private logs: Array<typeof systemLogs.$inferInsert> = [];
+  // Regex to identify sensitive keys in metadata objects
+  private readonly SECRET_KEYS = /key|token|secret|password|auth|credential/i;
 
   constructor(private env: Env, private sourceOverride?: string) {}
 
+  /**
+   * Internal trace to find the calling file and line.
+   */
   private getTrace() {
     try {
       throw new Error();
     } catch (e: any) {
-      // Stack format: "Error\n at Logger.getTrace (src/lib/logger.ts:12:13)\n at Logger.log (src/lib/logger.ts:25:22)..."
-      // We want the caller of log(), so usually index 3 or 4 depending on environment.
       const stack = e.stack?.split('\n') || [];
-      // Finding the first line that is NOT logger.ts
-      const callerLine = stack.find((line: string) => line.includes('at ') && !line.includes('logger.ts'));
+      const callerLine = stack.find((line: string) => 
+        line.includes('at ') && !line.includes('logger.ts') && !line.includes('anonymous')
+      );
       
       if (!callerLine) return { file: 'unknown', line: 0 };
 
-      // Parse "at FunctionName (src/path/file.ts:12:34)" or "at src/path/file.ts:12:34"
       const match = callerLine.match(/\((.*):(\d+):\d+\)/) || callerLine.match(/at (.*):(\d+):\d+/);
       if (match) {
         return { file: match[1], line: parseInt(match[2]) };
@@ -30,26 +37,57 @@ export class Logger {
     }
   }
 
+  /**
+   * Synchronous utility for masking strings.
+   * Logic: Keeps first 8 and last 4 chars for better provider identification (e.g., sk-ant-...).
+   */
+  mask(value: string | null | undefined): string {
+    if (!value) return "N/A";
+    if (value.length <= 12) return "********";
+    return `${value.slice(0, 8)}...${value.slice(-4)}`;
+  }
+
+  /**
+   * Deeply scans an object and masks sensitive keys.
+   */
+  private sanitize(obj: any): any {
+    if (!obj || typeof obj !== 'object') return obj;
+    if (Array.isArray(obj)) return obj.map(item => this.sanitize(item));
+
+    const sanitized: any = {};
+    for (const [key, value] of Object.entries(obj)) {
+      if (this.SECRET_KEYS.test(key) && typeof value === 'string') {
+        sanitized[key] = this.mask(value);
+      } else if (typeof value === 'object') {
+        sanitized[key] = this.sanitize(value);
+      } else {
+        sanitized[key] = value;
+      }
+    }
+    return sanitized;
+  }
+
   log(level: LogLevel, message: string, meta?: any) {
     const trace = this.getTrace();
     const file = this.sourceOverride || trace.file;
     const timestamp = new Date();
+    
+    // Auto-sanitize the metadata to prevent accidental leaks in D1 or Console
+    const cleanMeta = this.sanitize(meta);
 
-    // Console output for observability (JSON structured)
     console.log(JSON.stringify({
       level,
       message,
-      meta,
+      meta: cleanMeta,
       source: `${file}:${trace.line}`,
       timestamp: timestamp.toISOString()
     }));
 
-    // Buffer for D1
     this.logs.push({
       id: generateUuid(),
       level,
       message,
-      meta: meta ? JSON.stringify(meta) : null,
+      meta: cleanMeta ? JSON.stringify(cleanMeta) : null,
       sourceFile: file,
       lineNumber: trace.line,
       timestamp
@@ -61,20 +99,14 @@ export class Logger {
   error(message: string, meta?: any) { this.log('error', message, meta); }
   debug(message: string, meta?: any) { this.log('debug', message, meta); }
 
-  /**
-   * Flushes buffered logs to D1.
-   * Should be called at the end of execution (e.g., finally block in workflow).
-   */
   async flush() {
     if (this.logs.length === 0) return;
-    
     try {
-      const db = drizzle(this.env.DB);
-      // Insert in batches if necessary, typically small for single workflow step
+      const db = getDb(this.env.DB);
       await db.insert(systemLogs).values(this.logs).execute();
-      this.logs = []; // Clear buffer
+      this.logs = [];
     } catch (e) {
-      console.error("Failed to flush logs to D1", e);
+      console.error("Critical: Failed to flush logs to D1", e);
     }
   }
 }

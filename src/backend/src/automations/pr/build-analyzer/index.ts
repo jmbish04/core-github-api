@@ -2,10 +2,8 @@ import { z } from 'zod';
 import { BaseAutomation, type AutomationMetadata } from '@/automations/core/BaseAutomation';
 import { appendSignature } from '@/utils/github/signature';
 import { prependColbyPrimer } from '@/automations/shared/colby/primer';
-import { detectPRAuthorAgent } from '../agent-tagger/tagging';
+import { detectPRAuthorAgent } from '../../../utils/github/detectAgent';
 import {
-  analyzeBuildFailure,
-  fetchBuildLogs,
   formatBuildFailureComment,
   inferWorkerName,
 } from './analysis';
@@ -22,6 +20,9 @@ const BuildAnalyzerPayloadSchema = z.object({
   check_run: z.object({
     name: z.string().optional(),
     conclusion: z.string().nullable().optional(),
+    output: z.object({
+       summary: z.string().optional(),
+    }).optional(),
     app: z
       .object({
         name: z.string().optional(),
@@ -109,30 +110,73 @@ export class BuildAnalyzer extends BaseAutomation<BuildAnalyzerPayload> {
         return;
       }
 
-      const workerName = inferWorkerName(
-        payload.repository.full_name || `${payload.repository.owner.login}/${payload.repository.name}`,
-      );
-      const logs = await fetchBuildLogs(this.env, workerName);
+      const { getOctokitAsUser } = await import('@/services/github/client');
+      const { WranglerInspectorService } = await import('@/services/github/wrangler-inspector');
+      const { getCloudflareAccountId, getCloudflareApiToken } = await import('@/utils/secrets');
+      const { BuildLogAnalyzer } = await import('@/services/cloudflare/build-logs');
+
+      const logAnalyzer = new BuildLogAnalyzer(this.env);
+      const summary = payload.check_run.output?.summary || '';
+      const ids = logAnalyzer.extractBuildIdFromCheckRunSummary(summary);
+
+      const accountId =
+        typeof this.env.CLOUDFLARE_ACCOUNT_ID === 'string'
+          ? this.env.CLOUDFLARE_ACCOUNT_ID
+          : await getCloudflareAccountId(this.env);
+      const cfToken =
+        typeof this.env.CLOUDFLARE_API_TOKEN === 'string'
+          ? this.env.CLOUDFLARE_API_TOKEN
+          : await getCloudflareApiToken(this.env);
+
+      const scriptName =
+        (await (new WranglerInspectorService((await getOctokitAsUser(this.env)) as any).getWorkerName(payload.repository.owner.login, payload.repository.name))) ||
+        ids?.scriptName ||
+        inferWorkerName(
+          payload.repository.full_name || `${payload.repository.owner.login}/${payload.repository.name}`,
+        );
+
+      let logs: string | null = null;
+      if (ids && ids.buildUuid) {
+        logs = await logAnalyzer.getBuildLogsByDeploymentId(accountId!, ids.buildUuid, cfToken!);
+      }
+      if (!logs) {
+        logs = await logAnalyzer.getLatestBuildLogs(accountId!, scriptName, cfToken!);
+      }
+
       if (!logs) {
         await this.logExecution('skipped', 'No Cloudflare deployment logs were available.', prNumber);
         return;
       }
 
-      const analysis = await analyzeBuildFailure(this.env, logs, {
-        prNumber,
-        prTitle: pr.data.title,
-        headRef: pr.data.head?.ref || '',
-        repoFullName:
-          payload.repository.full_name ||
-          `${payload.repository.owner.login}/${payload.repository.name}`,
-      });
+      const octokitUser = await getOctokitAsUser(this.env);
 
-      await octokit.rest.issues.createComment({
+      const buildUuidSig = `<!-- build-uuid: ${ids?.buildUuid || 'latest'} -->`;
+      if (issueComments.data.some((c: any) => c.body?.includes(buildUuidSig))) {
+        await this.logExecution(
+          'skipped',
+          `Already commented on build failure (UUID: ${ids?.buildUuid || 'latest'}).`,
+          prNumber,
+        );
+        return;
+      }
+
+      const heuristics = await logAnalyzer.scanHeuristics(logs, cfToken!, accountId!, scriptName);
+      const julesPrompt = await logAnalyzer.analyzeWithJules(logs);
+
+      await octokitUser.rest.issues.createComment({
         owner: payload.repository.owner.login,
         repo: payload.repository.name,
         issue_number: prNumber,
         body: appendSignature(
-          prependColbyPrimer(formatBuildFailureComment(agentInfo.tag, prNumber, analysis)),
+          prependColbyPrimer(
+            formatBuildFailureComment(agentInfo.tag, prNumber, {
+              julesPrompt,
+              instructions: heuristics.instructions,
+              docsContent: heuristics.docsContent,
+              rawLogs: logs,
+              buildUuid: ids?.buildUuid,
+            }),
+          ),
         ),
       });
 

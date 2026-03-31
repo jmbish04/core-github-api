@@ -57,7 +57,7 @@ async function getCompromisedBindings(env: Env, scanOutput: string): Promise<str
 
   const candidates: Array<[string, string | undefined]> = [
     ["WORKER_API_KEY", await getWorkerApiKey(env)],
-    ["GITHUB_TOKEN", githubToken],
+    ["GITHUB_PERSONAL_ACCESS_TOKEN", githubToken],
     ["GEMINI_API_KEY", await getGeminiApiKey(env)],
     ["AI_GATEWAY_TOKEN", await env.AI_GATEWAY_TOKEN?.get()],
     ["CLOUDFLARE_API_TOKEN", cfToken],
@@ -76,7 +76,7 @@ async function getCompromisedBindings(env: Env, scanOutput: string): Promise<str
 
   // Heuristic fallback if direct value comparisons are masked or omitted in output structure logic streams.
   if (cfToken && scanOutput.toLowerCase().includes("cloudflare")) leaked.add("CLOUDFLARE_API_TOKEN");
-  if (githubToken && scanOutput.toLowerCase().includes("github")) leaked.add("GITHUB_TOKEN");
+  if (githubToken && scanOutput.toLowerCase().includes("github")) leaked.add("GITHUB_PERSONAL_ACCESS_TOKEN");
 
   return Array.from(leaked);
 }

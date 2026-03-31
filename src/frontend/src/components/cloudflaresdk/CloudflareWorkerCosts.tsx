@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Table, TableBody, TableCell, TableRow, TableHeader, TableHead } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
+import {} from "@/components/ui/badge";
 
 export function CloudflareWorkerCosts({ workerName }: { workerName: string }) {
     const [period, setPeriod] = useState("30d");
@@ -11,7 +11,7 @@ export function CloudflareWorkerCosts({ workerName }: { workerName: string }) {
     const { data: costData, isLoading, error } = useQuery({
         queryKey: ["cloudflare-worker-cost", workerName, period],
         queryFn: async () => {
-            const res = await fetch(`/api/services/cloudflare/costs/worker/${workerName}?since=${period}`);
+            const res = await fetch(`/api/cloudflare/costs/worker/${workerName}?since=${period}`);
             if (!res.ok) throw new Error("Failed to fetch worker costs");
             return res.json();
         }

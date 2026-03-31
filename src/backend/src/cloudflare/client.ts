@@ -1,3 +1,5 @@
+import Cloudflare from "cloudflare";
+
 // Removed Config import to make module isomorphic
 // import { Config, loadConfig } from "../config"
 
@@ -169,7 +171,6 @@ export async function fetchCloudflare(
     }
 
     // Detect FormData (simple check)
-    // @ts-ignore
     if (options.body instanceof FormData || (options.body && options.body.constructor && options.body.constructor.name === 'FormData')) {
         delete headers["Content-Type"];
     }
@@ -209,3 +210,49 @@ export async function fetchCloudflare(
     const json = await res.json() as any
     return json.result
 }
+
+/**
+ * Returns a pre-authenticated Cloudflare SDK v5 client.
+ *
+ * Token selection uses the same routing logic as `fetchCloudflare`.
+ * Pass `tokenName` to override routing (e.g. "workerAdmin", "d1kv", "aiGateway").
+ *
+ * @example
+ * const cf = getCfSdkClient(env, "workerAdmin");
+ * const workers = await cf.workers.scripts.list({ account_id: "..." });
+ */
+export function getCfSdkClient(env: Env, tokenName?: string): InstanceType<typeof Cloudflare> {
+    const config = getCloudflareConfig(env);
+    const {
+        workerAdminToken,
+        d1KvToken,
+        aiGatewayToken,
+        browserRenderToken,
+        accountTokenAdminToken,
+        userTokenAdmin,
+        zoneDnsRoutesToken,
+    } = config;
+
+    let token: string | undefined;
+    switch (tokenName) {
+        case "workerAdmin":   token = workerAdminToken ?? undefined;        break;
+        case "d1kv":          token = d1KvToken ?? undefined;               break;
+        case "aiGateway":     token = aiGatewayToken ?? undefined;          break;
+        case "browserRender": token = browserRenderToken ?? undefined;      break;
+        case "accountToken":  token = accountTokenAdminToken ?? undefined;  break;
+        case "userToken":     token = userTokenAdmin ?? undefined;          break;
+        case "zoneDns":       token = zoneDnsRoutesToken ?? undefined;      break;
+        // Default: use the worker admin token as a general-purpose fallback
+        default:              token = workerAdminToken ?? d1KvToken ?? undefined;
+    }
+
+    if (!token) {
+        throw new Error(
+            `getCfSdkClient: No token resolved for tokenName="${tokenName ?? "default"}". ` +
+            `Ensure the corresponding secret is bound (e.g. CLOUDFLARE_WORKER_ADMIN_TOKEN).`
+        );
+    }
+
+    return new Cloudflare({ apiToken: token });
+}
+

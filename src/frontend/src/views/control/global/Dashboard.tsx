@@ -89,11 +89,11 @@ export default function DashboardPage() {
                 </div>
             </header>
 
-            <main className="flex-1 overflow-hidden p-6">
-                <div className="space-y-6 h-full">
+            <main className="flex-1 overflow-y-auto md:overflow-hidden p-4 md:p-6">
+                <div className="space-y-6 h-full min-h-min">
                     <CloudflareFleetSpendSummary />
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-[calc(100%-9rem)]">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:h-[calc(100%-9rem)]">
 
                     {/* Left Column: Repository Health */}
                     <div className="flex flex-col gap-6">

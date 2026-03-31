@@ -1,8 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Loader2, PlusIcon, BotIcon, FileTextIcon, MoreHorizontalIcon, CalendarIcon, GanttChartSquareIcon } from "lucide-react";
-// @ts-ignore
+import { Loader2, PlusIcon, BotIcon } from "lucide-react";
 import groupBy from "lodash.groupby";
 
 import {
@@ -26,7 +25,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent } from "@/components/ui/card";
 // import { Markdown } from "@/components/ui/markdown"; 
 
 // --- Types ---
@@ -296,10 +294,10 @@ const RoadmapPage = () => {
         setSelectedFrameworkProject(feature.fullProject);
     };
 
-    if (isLoading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin" /></div>;
+    if (isLoading) return <div className="flex min-h-[60vh] items-center justify-center"><Loader2 className="animate-spin" /></div>;
 
     return (
-        <div className="flex flex-col h-screen bg-background p-6">
+        <div className="flex flex-col h-full p-4 md:p-6">
             <div className="flex items-center justify-between mb-6">
                 <div className="space-y-1">
                     <h1 className="text-2xl font-bold">Strategic Roadmap</h1>

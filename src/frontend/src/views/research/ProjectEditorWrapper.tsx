@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { api } from '@/lib/api-client';
 import ProjectEditor from '@/views/research/components/ProjectEditor';
 import { toast } from 'sonner';
 
@@ -18,8 +17,17 @@ export default function ProjectEditorWrapper({ type }: ProjectEditorWrapperProps
         if (id === 'new') {
             const createDraft = async () => {
                 try {
-                    const res = await api['research-projects'].projects.draft.$post({ json: { type } });
-                    const data = (await res.json()) as any;
+                    const res = await fetch('/api/research/projects/draft', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ type })
+                    });
+                    if (!res.ok) {
+                        const errText = await res.text();
+                        console.error("Draft initialization failed:", errText);
+                        throw new Error("HTTP " + res.status);
+                    }
+                    const data = await res.json();
                     
                     // Immediately redirect the user to the real ID URL so browser history is stable
                     navigate(`/research/${type === 'cron' ? 'configure-cron' : 'custom'}/${data.id}`, { replace: true });
@@ -41,9 +49,9 @@ export default function ProjectEditorWrapper({ type }: ProjectEditorWrapperProps
     if (isCreating || !draftId) {
         return (
             <div className="flex h-[calc(100vh-4rem)] items-center justify-center p-6 text-zinc-400">
-                <div className="flex flex-col items-center gap-4">
-                    <div className="h-8 w-8 animate-spin rounded-full border-4 border-purple-500 border-t-transparent"></div>
-                    <p>Initializing draft...</p>
+                <div className="flex flex-col items-center justify-center h-full p-20 space-y-4">
+                    <div className="h-8 w-8 animate-spin rounded-full border-4 border-zinc-500 border-t-transparent"></div>
+                    <p className="text-zinc-400">Loading orchestrator content...</p>
                 </div>
             </div>
         );

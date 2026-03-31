@@ -12,8 +12,7 @@
 
 import { useNavigate, useLocation } from "react-router-dom";
 import {
-    Activity, Globe, Settings, Bot, FlaskConical,
-} from "lucide-react";
+     Globe, Settings, Bot, FlaskConical} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ─── Nav Item Config ──────────────────────────────────────────────────────────

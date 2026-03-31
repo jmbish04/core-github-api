@@ -21,7 +21,7 @@
 
 import { getOctokit } from '@services/octokit/core'
 import { encode } from '@utils/base64'
-import { getAgentByName } from '@/ai/agents/runtime/agents'
+import { HoniClient } from '@utils/honi-client';
 import type {
   UpsertFileRequest,
   UpsertFileResponse,
@@ -39,6 +39,8 @@ import type {
   CreateSessionResponse,
   GetSessionStatusRequest,
   GetSessionStatusResponse,
+  ResolveMergeConflictsRequest,
+  ResolveMergeConflictsResponse,
   SearchRepositoriesRequest,
   SearchRepositoriesResponse,
   HealthCheckResponse,
@@ -262,12 +264,12 @@ export class GitHubWorkerRPC {
     const octokit = await getOctokit(this.env)
     const { namespace, method, params = {} } = request
 
-    // @ts-ignore - Dynamic method invocation
+    // @ts-expect-error - Dynamic method invocation
     if (!octokit[namespace] || !octokit[namespace][method]) {
       throw new Error(`Method not found: ${namespace}.${method}`)
     }
 
-    // @ts-ignore - Dynamic method invocation
+    // @ts-expect-error - Dynamic method invocation
     const { data, headers, status } = await octokit[namespace][method](params)
 
     return {
@@ -307,9 +309,8 @@ export class GitHubWorkerRPC {
    */
   async createSession(request: CreateSessionRequest): Promise<CreateSessionResponse> {
     const { prompt } = request
-    const getByName = getAgentByName as any
-    const orchestrator = await getByName(
-      this.env.ORCHESTRATOR,
+    const orchestrator = HoniClient.getStub(
+      this.env.ORCHESTRATOR as any,
       'orchestrator'
     ) as DurableObjectStub<undefined> & {
       start(prompt: string): Promise<{ sessionId: string }>;
@@ -323,9 +324,8 @@ export class GitHubWorkerRPC {
    */
   async getSessionStatus(request: GetSessionStatusRequest): Promise<GetSessionStatusResponse> {
     const { sessionId } = request
-    const getByName = getAgentByName as any
-    const orchestrator = await getByName(
-      this.env.ORCHESTRATOR,
+    const orchestrator = HoniClient.getStub(
+      this.env.ORCHESTRATOR as any,
       'orchestrator'
     ) as DurableObjectStub<undefined> & {
       getStatus(sessionId: string): Promise<GetSessionStatusResponse>;
@@ -373,6 +373,65 @@ export class GitHubWorkerRPC {
         forks_count: item.forks_count,
         language: item.language,
       })),
+    }
+  }
+
+  // ==================== Pull Request Operations (Advanced) ====================
+
+  /**
+   * Resolve merge conflicts on a PR using Jules AI
+   */
+  async resolveMergeConflicts(request: ResolveMergeConflictsRequest): Promise<ResolveMergeConflictsResponse> {
+    const octokit = await getOctokit(this.env)
+    const { owner, repo, pullNumber } = request
+    
+    try {
+      const { data: pr } = await octokit.pulls.get({
+        owner,
+        repo,
+        pull_number: pullNumber
+      });
+      
+      const headBranch = pr.head.ref;
+      const baseBranch = pr.base.ref;
+      
+      const prompt = `This PR (#${pullNumber}) has merge conflicts between branch '${headBranch}' and base branch '${baseBranch}'.
+Please do the following:
+1. Run \`git fetch origin ${baseBranch}\`
+2. Run \`git config user.name "Jules AI"\` and \`git config user.email "jules@ezagentsdk.com"\`
+3. Run \`git merge origin/${baseBranch}\` - this will likely have conflicts.
+4. Carefully resolve all merge conflicts in the files.
+5. Run \`git add .\`
+6. Run \`git commit -m "chore: resolve merge conflicts with ${baseBranch}"\`
+7. Run \`git push origin ${headBranch}\`
+After pushing, please summarize the files you resolved.`;
+
+      // Use HoniClient to talk to the orchestrator (or directly to JulesSessionBuilder if imported)
+      // Actually, since JulesSessionBuilder isn't imported here, we might want to just make a direct subrequest 
+      // or import it. Let's import it dynamically if not imported.
+      const { JulesSessionBuilder } = await import('@/services/jules/builder');
+      
+      const builder = new JulesSessionBuilder(this.env)
+        .withPrompt(prompt)
+        .withRepo(owner, repo, headBranch) 
+        .withoutApproval();
+
+      const session = await builder.start();
+      
+      const { data: comment } = await octokit.issues.createComment({
+        owner,
+        repo,
+        issue_number: pullNumber,
+        body: `🤖 **Jules AI** is currently attempting to resolve the merge conflicts between \`${headBranch}\` and \`${baseBranch}\`.\n\nSession ID: \`${session.id}\``
+      });
+      
+      return { 
+        success: true, 
+        sessionId: session.id, 
+        commentUrl: comment.html_url 
+      };
+    } catch (err: any) {
+      return { success: false, error: err.message };
     }
   }
 

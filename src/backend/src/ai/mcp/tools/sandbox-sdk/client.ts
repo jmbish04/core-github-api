@@ -14,7 +14,7 @@
  * The client delegates to `getSandbox()` from the official Sandbox SDK.
  */
 
-import { getSandbox, type Sandbox, type ExecResult, type ExecOptions } from "@cloudflare/sandbox";
+import { getSandbox, type ExecResult, type ExecOptions } from "@cloudflare/sandbox";
 import { getSandboxOptions } from "@/ai/utils/sandbox";
 import type {
   SandboxExecOptions,
@@ -24,6 +24,9 @@ import type {
   ProcessInfo,
   GitCheckoutOptions,
   GitCheckoutResult,
+  WranglerDevPreviewOptions,
+  WranglerDevPreviewResult,
+  PortDiagnosticResult,
 } from "./types";
 
 // Re-export SDK types consumers might want
@@ -224,6 +227,156 @@ export class SandboxClient {
       targetDir,
       timestamp: new Date().toISOString(),
     };
+  }
+
+  // -------------------------------------------------------------------------
+  // Container API (task_runner & system)
+  // -------------------------------------------------------------------------
+
+  /** Execute a task in the container via the task_runner */
+  async executeTask(opts: { command: string; repoUrl?: string; payload?: any }) {
+    const res = await this.sandbox.fetch(new Request("http://localhost:8788/execute", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(opts),
+    }));
+    return res.json();
+  }
+
+  /** Stop the current task_runner process */
+  async stopTask() {
+    const res = await this.sandbox.fetch(new Request("http://localhost:8788/stop", {
+      method: "POST",
+    }));
+    return res.json();
+  }
+
+  /** Proxy a generic fetch request to the container's HTTP API */
+  async proxyFetch(path: string, init?: RequestInit, port: number = 8788) {
+    const url = `http://localhost:${port}${path}`;
+    return this.sandbox.fetch(new Request(url, init as any));
+  }
+
+
+  // -------------------------------------------------------------------------
+  // Python script helpers
+  // -------------------------------------------------------------------------
+
+  /**
+   * Run health.py inside the container.
+   * Returns the parsed JSON output from `python3 /scripts/health.py`.
+   * Checks available: exec | fs | git | proc | net (default: all)
+   */
+  async runHealthScript(
+    checks: "all" | string = "all",
+  ): Promise<{ success: boolean; checks: Record<string, any>; timestamp: string }> {
+    const result = await this.sandbox.exec(
+      `python3 /scripts/health.py --check ${checks}`,
+    );
+
+    try {
+      return JSON.parse(result.stdout);
+    } catch {
+      throw new Error(
+        `health.py produced non-JSON output (exit ${result.exitCode}): ${result.stdout || result.stderr}`,
+      );
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Wrangler dev port passthrough
+  // -------------------------------------------------------------------------
+
+  /**
+   * Start wrangler dev on `port` inside the container,
+   * wait for readiness, then call sandbox.exposePort() so the
+   * running worker is accessible via a preview URL.
+   *
+   * hostname is resolved from opts.hostname ?? new URL(env.BASE_URL).hostname
+   */
+  async startWranglerDevPreview(
+    env: Env,
+    opts: WranglerDevPreviewOptions = {},
+  ): Promise<WranglerDevPreviewResult> {
+    const port = opts.port ?? 8787;
+    const cwdArg = opts.cwd ? ` --cwd ${opts.cwd}` : "";
+
+    // 1. Start wrangler dev inside the container
+    const startResult = await this.sandbox.exec(
+      `python3 /scripts/port_passthrough.py --start --port ${port}${cwdArg}`,
+      { timeout: 45_000 },
+    );
+
+    let parsed: any;
+    try {
+      parsed = JSON.parse(startResult.stdout);
+    } catch {
+      return {
+        ready: false,
+        port,
+        pid: null,
+        url: null,
+        errors: [`port_passthrough.py produced non-JSON: ${startResult.stdout || startResult.stderr}`],
+      };
+    }
+
+    if (!parsed.ready) {
+      return { ready: false, port, pid: parsed.pid ?? null, url: null, errors: parsed.errors ?? [] };
+    }
+
+    // 2. Resolve hostname — prefer explicit opt, then env.BASE_URL, then fallback
+    let hostname: string;
+    try {
+      hostname = opts.hostname ?? new URL((env as any).BASE_URL ?? "").hostname;
+    } catch {
+      hostname = "";
+    }
+
+    if (!hostname) {
+      return {
+        ready: true,
+        port,
+        pid: parsed.pid ?? null,
+        url: `http://localhost:${port}`,
+        errors: ["BASE_URL not set — returning localhost URL. Set env.BASE_URL for a public preview URL."],
+      };
+    }
+
+    // 3. Expose the port via the Sandbox SDK
+    try {
+      const exposed = await this.sandbox.exposePort(port, { hostname });
+      return {
+        ready: true,
+        port,
+        pid: parsed.pid ?? null,
+        url: (exposed as any).url ?? `http://localhost:${port}`,
+        errors: [],
+      };
+    } catch (err: any) {
+      return {
+        ready: true, // wrangler dev IS running
+        port,
+        pid: parsed.pid ?? null,
+        url: `http://localhost:${port}`,
+        errors: [`exposePort failed: ${err?.message ?? String(err)}`],
+      };
+    }
+  }
+
+  async diagnosePortPassthrough(opts: { port?: number } = {}): Promise<PortDiagnosticResult> {
+    const port = opts.port ?? 8787;
+    const result = await this.sandbox.exec(
+      `python3 /scripts/port_passthrough.py --diagnose --port ${port}`,
+      { timeout: 15_000 },
+    );
+
+    try {
+      return JSON.parse(result.stdout) as PortDiagnosticResult;
+    } catch {
+      throw new Error(
+        `port_passthrough.py --diagnose produced non-JSON (exit ${result.exitCode}): ${result.stdout || result.stderr}`,
+      );
+    }
   }
 
   // -------------------------------------------------------------------------

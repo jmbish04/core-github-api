@@ -1,5 +1,5 @@
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi';
-import { Bindings } from '@utils/hono';
+
 import { LandingGeneratorService } from '@services/landing-generator/service';
 
 const landingGeneratorApi = new OpenAPIHono<{ Bindings: Env }>();
@@ -54,7 +54,7 @@ landingGeneratorApi.openapi(generateRoute, async (c) => {
 
     try {
         // Auth check or Token retrieval
-        const githubToken = await c.env.GITHUB_TOKEN?.get();
+        const githubToken = await c.env.GITHUB_PERSONAL_ACCESS_TOKEN?.get();
 
         const result = await LandingGeneratorService.generateLandingPage(c.env, {
             owner,

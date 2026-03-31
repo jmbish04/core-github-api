@@ -11,6 +11,7 @@ import { SandboxClient } from "@/ai/mcp/tools/sandbox-sdk";
 import { getGitHubPrivateKey, getGitHubAppId } from "@/utils/secrets";
 import { truncateOutput } from "@/ai/mcp/tools/sandbox-sdk";
 import type { SandboxExecResult } from "@/ai/mcp/tools/sandbox-sdk";
+import { getSandboxOptions } from "@/ai/utils/sandbox";
 
 /**
  * Builds a SandboxClient derived from the bound environment SANDBOX configuration.
@@ -20,7 +21,9 @@ import type { SandboxExecResult } from "@/ai/mcp/tools/sandbox-sdk";
  * @returns {Promise<SandboxClient>} The configured remote sandbox client ready for file and execution commands.
  */
 export async function getSandboxClientForEnv(env: Env): Promise<SandboxClient> {
-  return SandboxClient.create(env, "proactive-intelligence");
+  const id = "proactive-intelligence";
+  const options = await getSandboxOptions(env);
+  return SandboxClient.create(env, id, options);
 }
 
 /**

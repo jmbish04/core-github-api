@@ -2,14 +2,16 @@
  * @file src/routes/api/research-orchestration.ts
  * @description Endpoints for coordinating the multi-agent research scripts
  */
-import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { drizzle } from "drizzle-orm/d1";
+import { HoniClient } from '@utils/honi-client';
 import { newsletterRepos } from "@/db/schemas/app/research";
 import { inArray } from "drizzle-orm";
+import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 
 const app = new OpenAPIHono<{ Bindings: Env }>();
 
 app.openapi(createRoute({
+    operationId: 'postCheckDeduplication',
   method: "post",
   path: "/check-deduplication",
   description: "Check which repositories have NOT been researched yet",
@@ -56,6 +58,7 @@ app.openapi(createRoute({
 });
 
 app.openapi(createRoute({
+    operationId: 'getConfig',
   method: "get",
   path: "/config",
   description: "Get configuration for the Python agents including AI Gateway URL",
@@ -81,6 +84,7 @@ app.openapi(createRoute({
 });
 
 app.openapi(createRoute({
+    operationId: 'getWsSessionId',
   method: "get",
   path: "/ws/{sessionId}",
   description: "Upgrade connection to WebSocket DO for the given session",
@@ -96,10 +100,7 @@ app.openapi(createRoute({
   }
 }), async (c) => {
   const { sessionId } = c.req.valid("param");
-  const id = c.env.AGENT_SESSION_DO.idFromName(sessionId);
-  const stub = c.env.AGENT_SESSION_DO.get(id);
-
-  return stub.fetch(c.req.raw);
+  return HoniClient.upgradeWebSocket(c.env.AGENT_SESSION_DO, sessionId, c.req.raw, new URL(c.req.url).pathname);
 });
 
 export default app;

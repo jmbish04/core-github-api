@@ -1,20 +1,64 @@
-# Rule: AI Provider Standards (Antigravity)
+# AI Provider Standards
 
-## 1. Zod Supremacy
-- Every structured AI call (`generateStructuredResponse`, `generateStructuredWithTools`) MUST accept a `z.ZodType<T>` payload.
-- Weak interfaces (`any` or `Record<string, unknown>`) are forbidden for output generation.
-- Use `zod-to-json-schema` to natively pipe the schema into the payload's `response_format` for supported compat endpoints.
-- Always call `schema.parse(rawParsed)` on the final JSON result to guarantee structural integrity.
+## URL Construction (CRITICAL)
 
-## 2. Universal File Context
-- Any method ending in `*FromFiles` must handle payloads consisting of `FileInput` objects (`{ name, type, data, isBase64 }`).
-- Providers with native file processing (e.g., Gemini's `inlineData`) should construct standard multi-part arrays.
-- Providers without native large-file limits (e.g., Worker AI) MUST use the transparent Vectorize RAG chunking algorithm if the total string length exceeds 6,000 characters to prevent hitting input limits.
+**NEVER** manually construct AI Gateway URLs or append endpoint paths. Use `AIGateway.getBaseUrl()` with the `endpoint` option — it returns the **full URL** ready for `fetch()`.
 
-## 3. Jules SDK Integration
-- Since Jules operates via long-running chat streams, large structured responses should be handled by getting broad context from Jules, and piping its output into `worker-ai` `generateStructuredResponse` to enforce strict formatting.
-- Explicit reasoning and agent orchestration features (`analyzeRepo`, `completeTask`, `createPlan`) should exclusively utilize Jules.
+```typescript
+// ✅ CORRECT — endpoint specified, baseUrl is the complete URL
+const { baseUrl } = await AIGateway.getBaseUrl(env, { provider: 'openai', endpoint: 'chat' });
+const res = await fetch(baseUrl, { ... });
 
-## 4. No Vercel AI SDK
-- Under no circumstances will you import `ai` or `@ai-sdk/`. It has been banned due to edge runtime parsing inconsistencies on Workers. 
-- Use the native `fetch` API against the Cloudflare AI Gateway instead.
+// ✅ CORRECT — raw base for Gemini's custom native path
+const { baseUrl } = await AIGateway.getBaseUrl(env, { provider: 'gemini' });
+const res = await fetch(`${baseUrl}/v1beta/models/${model}:generateContent`, { ... });
+
+// ❌ FORBIDDEN — manual path appending defeats centralization
+const { baseUrl } = await AIGateway.getBaseUrl(env, { provider: 'openai' });
+const res = await fetch(`${baseUrl}/v1/chat/completions`, { ... });
+```
+
+### Endpoint Options
+- `endpoint: 'chat'` → appends `/v1/chat/completions`
+- `endpoint: 'models'` → appends `/v1/models`
+- No endpoint → raw gateway URL (for Gemini native path only)
+
+## Authentication
+
+- **BYOK Mode** (`AI_GATEWAY_TOKEN` set): Only send `cf-aig-authorization: Bearer {token}`. Do NOT send `Authorization` header — the gateway injects stored provider keys.
+- **Direct Mode** (`AI_GATEWAY_TOKEN` absent): Send `Authorization: Bearer {apiKey}` as usual.
+
+## Imports
+
+- **Canonical**: `import { AIGateway } from '@/ai/providers/ai-gateway'`
+- **Legacy re-export**: `@/ai/utils/ai-gateway` still works but is deprecated
+
+## Logging
+
+All AI providers MUST use the `Logger` class from `src/lib/logger.ts` (NOT raw `console.log`/`console.error`).
+
+> See `.agent/rules/traceability-logging.md` for full enforcement rules.
+
+Standard source overrides:
+
+| Provider | Source Override |
+|----------|----------------|
+| AI Gateway | `'AIGateway'` |
+| Workers AI | `'WorkerAI'` |
+| OpenAI | `'OpenAI'` |
+| Anthropic | `'Anthropic'` |
+| Gemini | `'Gemini'` |
+| Router | `'AIRouter'` |
+| Health | `'GatewayHealth'` |
+| Diagnostician | `'Diagnostician'` |
+
+## Provider Files
+
+| Provider | File | Status |
+|----------|------|--------|
+| Gateway | `src/ai/providers/ai-gateway.ts` | Source of truth |
+| Config | `src/ai/providers/config.ts` | Model resolution only — NO gateway URLs |
+| Workers AI | `src/ai/providers/worker-ai.ts` | Uses gateway client |
+| OpenAI | `src/ai/providers/openai.ts` | Uses gateway client |
+| Anthropic | `src/ai/providers/anthropic.ts` | Uses gateway client |
+| Gemini | `src/ai/providers/gemini.ts` | Uses native client via `getBaseUrl()` |

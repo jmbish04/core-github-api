@@ -6,7 +6,7 @@
 
 import { Hono } from 'hono'
 import type { Context } from 'hono'
-import type { Bindings } from "@utils/hono"
+
 import { getDb } from "@db"
 import { repositories, starredRepos, repoMetrics } from "@db"
 import { sql } from "drizzle-orm"

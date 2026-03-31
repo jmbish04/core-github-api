@@ -331,7 +331,7 @@ export default function DeepResearchChatPage() {
                     </div>
                     <div className="flex items-center gap-2">
                         <Button variant="secondary" size="sm" onClick={handleTestEmail} disabled={isEmailing}
-                            className="bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 border border-purple-500/30 h-7 text-xs">
+                            className="bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 border border-blue-500/30 h-7 text-xs">
                             {isEmailing ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Mail className="w-3.5 h-3.5 mr-1" />}
                             Test Email
                         </Button>

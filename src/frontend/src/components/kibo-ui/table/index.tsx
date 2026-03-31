@@ -39,6 +39,7 @@ export type { ColumnDef } from "@tanstack/react-table";
 
 const sortingAtom = atom<SortingState>([]);
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const TableContext = createContext<{
   data: unknown[];
   columns: ColumnDef<unknown, unknown>[];
@@ -63,6 +64,7 @@ export function TableProvider<TData, TValue>({
   className,
 }: TableProviderProps<TData, TValue>) {
   const [sorting, setSorting] = useAtom(sortingAtom);
+  // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data,
     columns,

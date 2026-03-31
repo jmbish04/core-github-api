@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '@/lib/api-client';
-import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
+import { handleGlobalError } from "@/lib/error-handler";
 
 export const DecisionInbox = () => {
     const [events, setEvents] = useState<any[]>([]);
@@ -24,7 +25,7 @@ export const DecisionInbox = () => {
                 setEvents(data.events);
             }
         } catch (err) {
-            toast.error("Failed to load inbox.");
+            handleGlobalError(`Failed to load inbox: ${err}`);
         } finally {
             setLoading(false);
         }
@@ -40,10 +41,11 @@ export const DecisionInbox = () => {
                 toast.success(`Action ${decision} successfully.`);
                 setEvents(events.filter(e => e.id !== eventId));
             } else {
-                toast.error("Failed to apply decision.");
+                handleGlobalError(`Failed to apply decision. ${res}`);
             }
         } catch (err) {
-            toast.error("Error applying decision.");
+            handleGlobalError(`Error applying decision: ${err}`);
+            
         } finally {
             setProcessingId(null);
         }
