@@ -2,7 +2,7 @@ name: PR Code Block Merger
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
+    types: [opened]
   workflow_dispatch: # Allow manual triggers
 
 jobs:
