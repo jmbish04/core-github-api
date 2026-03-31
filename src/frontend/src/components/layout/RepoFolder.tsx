@@ -20,7 +20,9 @@ import {
   Wrench,
   ChevronDown,
   Component,
-  Layers
+  Layers,
+  LayoutList,
+  KanbanSquare
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
@@ -66,6 +68,9 @@ export function RepoFolder({ repo }: RepoFolderProps) {
     { slug: "plan", label: "AI Planner", icon: Sparkles },
     { slug: "projects", label: "Backlog", icon: ListChecks },
     { slug: "projects/tracker", label: "Projects [Beta]", icon: Layers },
+    { slug: "projects/tracker-beta/list", label: "Tracker List [Beta]", icon: LayoutList },
+    { slug: "projects/tracker-beta/board", label: "Tracker Board [Beta]", icon: KanbanSquare },
+    { slug: "projects/tracker-beta/reports", label: "Tracker Reports [Beta]", icon: BarChart3 },
     { slug: "prs", label: "PRs", icon: GitPullRequest, badge: activePrCount > 0 ? activePrCount : null },
   ];
 

@@ -39,6 +39,12 @@ import RepoProjects from "@/views/repos/Projects";
 import RepoProjectsBeta from "@/views/repos/ProjectsBeta";
 import RepoKanban from "@/views/repos/KanbanBoard";
 
+// Beta Tracker views (Linear/ClickUp-inspired)
+import TrackerLayoutBeta from "@/views/repos/TrackerLayoutBeta";
+import TrackerListViewBeta from "@/views/repos/TrackerListViewBeta";
+import TrackerBoardViewBeta from "@/views/repos/TrackerBoardViewBeta";
+import TrackerReportsViewBeta from "@/views/repos/TrackerReportsViewBeta";
+
 // Global views reused in repo context (scoped by RepoLayout context provider)
 // Retained for routes that haven't yet been given dedicated repo-scoped variants.
 import ProjectView from "@/views/repos/Overview";
@@ -93,6 +99,14 @@ export function RepoRoutes() {
       {/* /repos/:owner/:repo/projects — repo project board (dedicated) */}
       <Route path="projects" element={<RepoProjects />} />
       <Route path="projects/tracker" element={<RepoProjectsBeta />} />
+
+      {/* Beta Tracker — layout route with nested list/board/reports views */}
+      <Route path="projects/tracker-beta" element={<TrackerLayoutBeta />}>
+        <Route index element={<Navigate to="list" replace />} />
+        <Route path="list" element={<TrackerListViewBeta />} />
+        <Route path="board" element={<TrackerBoardViewBeta />} />
+        <Route path="reports" element={<TrackerReportsViewBeta />} />
+      </Route>
       <Route path="projects/:projectId" element={guard(<ProjectView />)} />
 
       {/* Work items within a project */}
