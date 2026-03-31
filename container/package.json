@@ -4,7 +4,7 @@
     "scripts": {
         "build": "tsc",
         "watch": "tsc --watch",
-        "start": "node dist/src/server.js & node dist/agent-sdk.js"
+        "start": "node dist/src/server.js & SERVER_PID=$! && node dist/agent-sdk.js; EXIT_CODE=$?; kill $SERVER_PID 2>/dev/null; exit $EXIT_CODE"
     },
     "dependencies": {
         "@anthropic-ai/claude-agent-sdk": "^0.2.85",

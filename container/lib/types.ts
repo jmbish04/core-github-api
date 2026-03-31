@@ -441,6 +441,8 @@ export interface ServerToClientEvents {
   image_artifact: (payload: ImageArtifactPayload) => void;
   /** Emitted when the agent creates, modifies, or deletes files */
   file_changed: (payload: FileChangedPayload) => void;
+  /** Forwarded structured log entries from the container for live streaming */
+  container_log: (payload: Record<string, unknown>) => void;
 }
 
 /**

@@ -27,24 +27,38 @@ import type { LogLevel, LogDirection, Logger } from './types.js';
 const MAX_STRING_LENGTH = 200;
 
 /**
- * Global socket reference for emitting logs to connected clients.
- * This allows container logs to be forwarded through Socket.IO to the worker.
+ * Per-session socket map for emitting logs to the correct connected client.
+ * Keyed by socket ID to avoid the singleton problem where only the most
+ * recently connected client receives logs.
  */
-let globalSocket: Socket | null = null;
+const socketMap = new Map<string, Socket>();
 
 /**
- * Sets the global socket for log forwarding.
+ * Registers a socket for log forwarding, keyed by its ID.
  * Call this when a socket connects to enable live log streaming.
+ * Pass null to remove the socket (on disconnect).
  */
 export function setLogSocket(socket: Socket | null): void {
-  globalSocket = socket;
+  if (socket) {
+    socketMap.set(socket.id, socket);
+  }
 }
 
 /**
- * Gets the current log socket.
+ * Removes a socket from the log forwarding map.
+ * Call this on socket disconnect to prevent stale references.
+ */
+export function removeLogSocket(socketId: string): void {
+  socketMap.delete(socketId);
+}
+
+/**
+ * Gets all currently connected log sockets.
  */
 export function getLogSocket(): Socket | null {
-  return globalSocket;
+  // Return the most recently added socket for backward compatibility
+  const entries = Array.from(socketMap.values());
+  return entries.length > 0 ? entries[entries.length - 1] : null;
 }
 
 // ============================================================================
@@ -118,21 +132,31 @@ function writeLog(entry: LogEntry): void {
   console.log(logStr);
 
   // Forward important logs via Socket.IO for live streaming to worker/frontend
-  // Forward: errors, warnings, hook events, SDK messages, and key connection events
-  if (globalSocket?.connected) {
-    const event = entry.event || '';
-    const message = entry.message || '';
+  // Route to all connected sockets based on their socketId
+  const event = entry.event || '';
+  const message = entry.message || '';
 
-    const shouldForward = entry.level === 'ERROR' ||
-                          entry.level === 'WARN' ||
-                          event.includes('hook') ||
-                          event.startsWith('SDK_MSG') ||
-                          message.includes('connected') ||
-                          message.includes('Query') ||
-                          message.includes('session');
+  const shouldForward = entry.level === 'ERROR' ||
+                        entry.level === 'WARN' ||
+                        event.includes('hook') ||
+                        event.startsWith('SDK_MSG') ||
+                        message.includes('connected') ||
+                        message.includes('Query') ||
+                        message.includes('session');
 
-    if (shouldForward) {
-      globalSocket.emit('container_log', entry);
+  if (shouldForward) {
+    // If log has a socketId, route to that specific socket; otherwise broadcast to all
+    if (entry.socketId) {
+      const targetSocket = socketMap.get(entry.socketId);
+      if (targetSocket?.connected) {
+        targetSocket.emit('container_log', entry);
+      }
+    } else {
+      for (const socket of socketMap.values()) {
+        if (socket.connected) {
+          socket.emit('container_log', entry);
+        }
+      }
     }
   }
 }

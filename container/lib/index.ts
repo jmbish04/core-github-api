@@ -10,7 +10,7 @@
 export * from './types.js';
 
 // Logger
-export { log, createLogger, getTimestamp, truncateStrings, setLogSocket, getLogSocket } from './logger.js';
+export { log, createLogger, getTimestamp, truncateStrings, setLogSocket, removeLogSocket, getLogSocket } from './logger.js';
 export type { LoggerOptions } from './logger.js';
 
 // MessageStream

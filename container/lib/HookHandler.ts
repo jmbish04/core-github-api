@@ -227,31 +227,31 @@ export class HookHandler {
       const inputObj = input as Record<string, unknown> | null;
       const toolName = inputObj?.tool_name || 'unknown';
 
-      console.log(`[HOOK ENTRY] ${eventName} for ${toolName}, socket=${socket?.id || 'null'}, connected=${socket?.connected}`);
+      this.log.debug(`[HOOK ENTRY] ${eventName} for ${toolName}, socket=${socket?.id || 'null'}, connected=${socket?.connected}`, undefined, socket?.id);
 
       // Capture SDK session ID from hook event data
       this.captureSessionId(inputObj, eventName, socket);
 
       // Check if session is aborted
       if (this.context.abortSignal.aborted) {
-        console.log(`[HOOK ABORT] ${eventName} - session aborted`);
+        this.log.warn(`[HOOK ABORT] ${eventName} - session aborted`, this.context.sessionId);
         return {};
       }
 
       // Handle disconnected socket
       if (!socket || !socket.connected) {
-        console.warn(`[HOOK SKIP] ${eventName} - socket disconnected or null`);
+        this.log.warn(`[HOOK SKIP] ${eventName} - socket disconnected or null`, this.context.sessionId);
         this.log.warn(`Skipping hook ${eventName} (socket disconnected)`, this.context.sessionId);
         return {};
       }
 
       // Use strategy based on hook type
       if (AUTO_CONTINUE_HOOKS.has(eventName)) {
-        console.log(`[HOOK AUTO] ${eventName} - using auto-continue strategy`);
+        this.log.debug(`[HOOK AUTO] ${eventName} - using auto-continue strategy`, undefined, socket.id);
         return this.handleAutoContinueHook(eventName, input, socket);
       }
 
-      console.log(`[HOOK REQUEST] ${eventName} - using request-response strategy`);
+      this.log.debug(`[HOOK REQUEST] ${eventName} - using request-response strategy`, undefined, socket.id);
       return this.handleRequestResponseHook(eventName, input, socket, timeoutMs);
     };
   }
@@ -303,7 +303,7 @@ export class HookHandler {
     }
 
     const sdkSessionId = input.session_id as string;
-    console.log(`[SDK SESSION] Captured SDK session_id from ${eventName} hook: ${sdkSessionId}`);
+    this.log.info(`[SDK SESSION] Captured SDK session_id from ${eventName} hook: ${sdkSessionId}`, socket?.id);
 
     this.log.outgoing(socket.id, 'message[system/init]', { sdk_session_id: sdkSessionId });
 
@@ -359,17 +359,19 @@ export class HookHandler {
         return;
       }
 
-      console.log(`[HookHandler] Detected ${imagePaths.length} image(s):`, imagePaths);
+      this.log.info(`Detected ${imagePaths.length} image artifact(s): ${imagePaths.join(', ')}`, socket.id);
 
       // Emit each image path - the worker will handle upload to R2
       for (const filePath of imagePaths) {
-        socket.emit("image_created", {
+        socket.emit("image_artifact", {
+          type: 'image',
+          url: '', // Worker populates after R2 upload
           sandboxPath: filePath,
-          sessionId: this.context.sessionId,
+          mimeType: filePath.endsWith('.png') ? 'image/png' : filePath.endsWith('.svg') ? 'image/svg+xml' : 'image/jpeg',
         });
       }
     } catch (error) {
-      console.error('[HookHandler] Error detecting image paths:', error);
+      this.log.error('Error detecting image paths', error, socket.id);
     }
   }
 
@@ -386,8 +388,8 @@ export class HookHandler {
     const toolName = inputObj?.tool_name || 'unknown';
     const hookId = `${eventName}-${Date.now()}`;
 
-    console.log(`[HOOK ${hookId}] START: ${eventName} for tool=${toolName}`);
-    console.log(`[HOOK ${hookId}] Socket state: connected=${socket.connected}, id=${socket.id}`);
+    this.log.debug(`[HOOK ${hookId}] START: ${eventName} for tool=${toolName}`, undefined, socket.id);
+    this.log.debug(`[HOOK ${hookId}] Socket state: connected=${socket.connected}, id=${socket.id}`, undefined, socket.id);
 
     this.log.debug(
       `Hook triggered: ${eventName}`,
@@ -405,13 +407,13 @@ export class HookHandler {
           progressCount++;
           const elapsed = Date.now() - startTime;
           const socketNow = this.context.getSocket();
-          console.warn(`[HOOK ${hookId}] WAITING ${progressCount * 5}s (${elapsed}ms elapsed), socket=${socketNow?.id || 'null'}, connected=${socketNow?.connected}`);
+          this.log.warn(`[HOOK ${hookId}] WAITING ${progressCount * 5}s (${elapsed}ms elapsed), socket=${socketNow?.id || 'null'}, connected=${socketNow?.connected}`, this.context.sessionId);
         }, 5000);
 
         // Timeout handler
         const timeout = setTimeout(() => {
           const elapsed = Date.now() - startTime;
-          console.error(`[HOOK ${hookId}] TIMEOUT after ${elapsed}ms (limit=${timeoutMs}ms)`);
+          this.log.error(`[HOOK ${hookId}] TIMEOUT after ${elapsed}ms (limit=${timeoutMs}ms)`, undefined, this.context.sessionId);
           this.log.warn(`Hook ${eventName} timed out after ${timeoutMs}ms`, this.context.sessionId);
           cleanup();
           resolve({});
@@ -420,7 +422,7 @@ export class HookHandler {
         // Disconnect handler
         const onDisconnect = () => {
           const elapsed = Date.now() - startTime;
-          console.error(`[HOOK ${hookId}] DISCONNECT after ${elapsed}ms`);
+          this.log.error(`[HOOK ${hookId}] DISCONNECT after ${elapsed}ms`, undefined, this.context.sessionId);
           this.log.warn(`Client disconnected while waiting for hook ${eventName}`, this.context.sessionId);
           cleanup();
           resolve({});
@@ -435,7 +437,7 @@ export class HookHandler {
         };
 
         // Emit hook request with callback
-        console.log(`[HOOK ${hookId}] EMITTING hook_request to client...`);
+        this.log.debug(`[HOOK ${hookId}] EMITTING hook_request to client...`, undefined, socket.id);
         this.log.outgoing(
           socket.id,
           'hook_request',
@@ -447,22 +449,22 @@ export class HookHandler {
           { event: eventName, data: input },
           (clientResponse: HookResponse) => {
             const elapsed = Date.now() - startTime;
-            console.log(`[HOOK ${hookId}] CALLBACK received after ${elapsed}ms:`, JSON.stringify(clientResponse));
+            this.log.debug(`[HOOK ${hookId}] CALLBACK received after ${elapsed}ms`, clientResponse, socket.id);
             cleanup();
             this.log.incoming(socket.id, `hook_response[${eventName}]`, clientResponse);
             resolve(clientResponse || {});
           }
         );
 
-        console.log(`[HOOK ${hookId}] hook_request emitted, waiting for callback...`);
+        this.log.debug(`[HOOK ${hookId}] hook_request emitted, waiting for callback...`, undefined, socket.id);
       });
 
       const totalTime = Date.now() - startTime;
-      console.log(`[HOOK ${hookId}] COMPLETE in ${totalTime}ms, response:`, JSON.stringify(response));
+      this.log.debug(`[HOOK ${hookId}] COMPLETE in ${totalTime}ms`, response, socket.id);
       return response;
     } catch (error) {
       const elapsed = Date.now() - startTime;
-      console.error(`[HOOK ${hookId}] ERROR after ${elapsed}ms:`, error);
+      this.log.error(`[HOOK ${hookId}] ERROR after ${elapsed}ms`, error, this.context.sessionId);
       this.log.error(`Error in hook ${eventName}`, error, this.context.sessionId);
       return {};
     }

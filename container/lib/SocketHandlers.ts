@@ -12,7 +12,7 @@ import type { SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { ExtendedOptions, Logger } from './types.js';
 import { SessionManager } from './SessionManager.js';
 import { QueryOrchestrator } from './QueryOrchestrator.js';
-import { log as defaultLog, setLogSocket } from './logger.js';
+import { log as defaultLog, setLogSocket, removeLogSocket } from './logger.js';
 
 // ============================================================================
 // TYPES
@@ -385,8 +385,13 @@ export function registerSocketHandlers(socket: Socket, deps: SocketHandlerDeps):
   const log = deps.logger || defaultLog;
   const { sessionManager } = deps;
 
-  // Set global socket for log forwarding to worker
+  // Register socket for log forwarding to worker (keyed by socket ID)
   setLogSocket(socket);
+
+  // Clean up socket from log map on disconnect
+  socket.on('disconnect', () => {
+    removeLogSocket(socket.id);
+  });
 
   // Extract session ID from connection
   const sessionId = socket.handshake.query.sessionId as string;
