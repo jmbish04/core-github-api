@@ -48,6 +48,7 @@ import { AuthProvider } from "@/context/auth-context";
 import { RequireAuth } from "@/components/RequireAuth";
 import ProjectCloudflareDocsPage from "@/views/control/global/ProjectCloudflareDocsPage";
 import AlertsPage from "@/views/control/global/Alerts";
+import { TrackerBeta } from "@/views/control/global/TrackerBeta";
 import { AlertsProvider } from "@/context/alerts-context";
 import { JulesLiveProvider } from "@/context/jules-live-context";
 import { Toaster } from "sonner";
@@ -128,6 +129,10 @@ function App() {
             <Route path="/apps" element={guard(<AppStore />)} />
             <Route path="/alerts" element={guard(<AlertsPage />)} />
 
+            {/* Beta Tracker */}
+            <Route path="/beta/tracker" element={guard(<TrackerBeta />)} />
+            <Route path="/beta/tracker/:view" element={guard(<TrackerBeta />)} />
+
             {/* Workshop Agentic Module */}
             <Route path="/workshop" element={guard(<AgentWorkshop />)} />
             <Route path="/workshop/command-center" element={guard(<GlobalCommandCenter />)} />
@@ -147,6 +152,9 @@ function App() {
             <Route path="/project/:owner/:repo/tools/cloudflare-docs" element={guard(<ProjectCloudflareDocsPage source="project-tools" />)} />
             {/* PR-scoped Cloudflare Docs */}
             <Route path="/project/:owner/:repo/pr-command/:prNumber/cloudflare-docs" element={guard(<ProjectCloudflareDocsPage source="pr" />)} />
+            {/* Beta Tracker (project-scoped) */}
+            <Route path="/project/:owner/:repo/beta-tracker" element={guard(<TrackerBeta />)} />
+            <Route path="/project/:owner/:repo/beta-tracker/:view" element={guard(<TrackerBeta />)} />
             {/* Dashboard tab catch-all (must be AFTER specific routes) */}
             <Route path="/project/:owner/:repo/:tab" element={guard(<ProjectDashboard />)} />
 

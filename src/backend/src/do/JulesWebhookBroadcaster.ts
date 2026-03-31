@@ -12,6 +12,23 @@
  *    Jules event and status route handlers. The routes call the DO via
  *    `POST /internal/broadcast` to fan out to all connected WebSocket clients.
  *
+ * ## Authentication
+ * WebSocket upgrades require a valid API key passed either as:
+ *   - Query param `?apiKey=<key>`
+ *   - Header `X-API-Key: <key>`
+ * Checked against `AGENTIC_WORKER_API_KEY` and `WORKER_API_KEY` bindings.
+ *
+ * ## Project Tagging
+ * Clients may pass `?projectId=<id>` to subscribe to a specific project's
+ * events. The DO tags each WebSocket with `[projectId, 'system:all']` (or
+ * just `['system:all']`). This survives hibernation via the CF Hibernatable
+ * WebSockets API.
+ *
+ * ## Filtered Broadcast
+ * When the broadcast payload includes a `projectId` field, events are sent
+ * only to sockets tagged with that projectId plus `system:all` listeners.
+ * Otherwise all sockets receive the event.
+ *
  * ## Singleton Usage
  * Always address this DO by the fixed name `"jules-broadcaster"`:
  * ```ts
@@ -20,16 +37,32 @@
  * await broadcaster.fetch("http://internal/internal/broadcast", { method: "POST", body: JSON.stringify(message) });
  * ```
  *
- * ## Client Management
- * Connected WebSocket clients are tracked in memory. Clients that close or
- * error are removed automatically. The DO uses the Cloudflare Hibernatable
- * WebSockets API so idle connections do not count against CPU time.
- *
  * @module DO/JulesWebhookBroadcaster
  */
 
 import { DurableObject } from "cloudflare:workers";
 import type { JulesLiveMessage } from "@/services/jules/types";
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Resolves a secret binding that may be either a plain string value or a
+ * Cloudflare Secrets Store object with a `.get()` method.
+ */
+async function resolveSecret(binding: unknown): Promise<string | null> {
+  if (!binding) return null;
+  if (typeof binding === "string") return binding;
+  if (typeof (binding as { get?: () => Promise<string> }).get === "function") {
+    try {
+      return await (binding as { get: () => Promise<string> }).get();
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
 
 /**
  * Durable Object that maintains WebSocket connections and broadcasts
@@ -62,20 +95,52 @@ export class JulesWebhookBroadcaster extends DurableObject<Env> {
 
   /**
    * Upgrades an incoming HTTP request to a WebSocket connection.
-   * The new client is added to the hibernatable WebSocket set and will
-   * receive all future broadcast messages.
    *
-   * Uses CF Hibernatable WebSockets so idle clients do not consume CPU time.
+   * Validates API key from `?apiKey=` query param or `X-API-Key` header.
+   * Tags the socket with `[projectId, 'system:all']` if `?projectId=` is set,
+   * otherwise `['system:all']`.
    *
    * @param request - The request with `Upgrade: websocket` header.
-   * @returns 101 Switching Protocols response.
+   * @returns 101 Switching Protocols or 401 Unauthorized.
    */
-  private handleWebSocketUpgrade(request: Request): Response {
+  private async handleWebSocketUpgrade(request: Request): Promise<Response> {
+    const url = new URL(request.url);
+
+    // --- Auth ---
+    const providedKey =
+      url.searchParams.get("apiKey") ||
+      request.headers.get("X-API-Key");
+
+    if (providedKey) {
+      const [agentKey, workerKey] = await Promise.all([
+        resolveSecret(this.env.AGENTIC_WORKER_API_KEY),
+        resolveSecret(this.env.WORKER_API_KEY),
+      ]);
+
+      const validKeys = [agentKey, workerKey].filter(Boolean) as string[];
+      if (validKeys.length > 0 && !validKeys.includes(providedKey)) {
+        return new Response("Unauthorized", { status: 401 });
+      }
+    } else {
+      // No key provided — reject if secrets are configured
+      const [agentKey, workerKey] = await Promise.all([
+        resolveSecret(this.env.AGENTIC_WORKER_API_KEY),
+        resolveSecret(this.env.WORKER_API_KEY),
+      ]);
+      if (agentKey || workerKey) {
+        return new Response("Unauthorized", { status: 401 });
+      }
+    }
+
+    // --- Project tagging ---
+    const projectId = url.searchParams.get("projectId");
+    const tags: string[] = projectId ? [projectId, "system:all"] : ["system:all"];
+
     const pair = new WebSocketPair();
     const [client, server] = Object.values(pair) as [WebSocket, WebSocket];
 
-    // Accept the server side with hibernation support
-    this.ctx.acceptWebSocket(server);
+    // Accept with hibernation + tags
+    this.ctx.acceptWebSocket(server, tags);
 
     return new Response(null, { status: 101, webSocket: client });
   }
@@ -83,25 +148,42 @@ export class JulesWebhookBroadcaster extends DurableObject<Env> {
   /**
    * Broadcast handler — called by the Jules webhook route handlers when
    * Jules posts an event or status update. Deserializes the payload and
-   * sends it to every currently connected WebSocket client.
+   * sends it to the appropriate connected WebSocket clients.
    *
-   * Clients that have disconnected are silently skipped.
+   * If the payload contains a `projectId`, sends to sockets tagged with
+   * that projectId plus `system:all`. Otherwise sends to all sockets.
    *
    * @param request - POST request with a JSON `JulesLiveMessage` body.
    * @returns 200 OK with a count of clients notified.
    */
   private async handleBroadcast(request: Request): Promise<Response> {
-    let message: JulesLiveMessage;
+    let message: JulesLiveMessage & { projectId?: string };
     try {
-      message = (await request.json()) as JulesLiveMessage;
+      message = (await request.json()) as JulesLiveMessage & { projectId?: string };
     } catch {
       return new Response("Invalid JSON body", { status: 400 });
     }
 
     const payload = JSON.stringify(message);
-    const clients = this.ctx.getWebSockets();
-    let sent = 0;
+    let clients: WebSocket[];
 
+    if (message.projectId) {
+      // Fan out to project subscribers + all-channel listeners, deduped
+      const projectSockets = this.ctx.getWebSockets(message.projectId);
+      const allSockets = this.ctx.getWebSockets("system:all");
+      const seen = new Set<WebSocket>();
+      clients = [];
+      for (const ws of [...projectSockets, ...allSockets]) {
+        if (!seen.has(ws)) {
+          seen.add(ws);
+          clients.push(ws);
+        }
+      }
+    } else {
+      clients = this.ctx.getWebSockets();
+    }
+
+    let sent = 0;
     for (const ws of clients) {
       try {
         ws.send(payload);
@@ -119,25 +201,27 @@ export class JulesWebhookBroadcaster extends DurableObject<Env> {
   // ── Hibernatable WebSocket lifecycle ────────────────────────────────────────
 
   /**
-   * Called when a client sends a message. The frontend does not currently
-   * send upstream messages, but this is here for future extensibility
-   * (e.g. subscribing to specific session IDs).
+   * Called when a client sends a message.
+   * Handles `{"type":"ping"}` → responds with `{"type":"pong","timestamp":...}`.
    *
-   * @param _ws - The WebSocket that sent the message.
-   * @param _message - The raw message string or ArrayBuffer.
+   * @param ws - The WebSocket that sent the message.
+   * @param message - The raw message string or ArrayBuffer.
    */
-  async webSocketMessage(_ws: WebSocket, _message: string | ArrayBuffer): Promise<void> {
-    // Reserved for future upstream messaging (e.g. session-specific subscriptions)
+  async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
+    try {
+      const text = typeof message === "string" ? message : new TextDecoder().decode(message);
+      const parsed = JSON.parse(text) as { type?: string };
+      if (parsed?.type === "ping") {
+        ws.send(JSON.stringify({ type: "pong", timestamp: Date.now() }));
+      }
+    } catch {
+      // Non-JSON messages are silently ignored
+    }
   }
 
   /**
    * Called when a WebSocket client closes its connection.
    * The Durable Object automatically removes the WebSocket from its set.
-   *
-   * @param _ws - The WebSocket that closed.
-   * @param _code - WebSocket close code.
-   * @param _reason - Close reason string.
-   * @param _wasClean - Whether the close was clean.
    */
   async webSocketClose(
     _ws: WebSocket,
@@ -151,9 +235,6 @@ export class JulesWebhookBroadcaster extends DurableObject<Env> {
   /**
    * Called when a WebSocket encounters an error.
    * The Durable Object automatically removes the WebSocket from its set.
-   *
-   * @param _ws - The WebSocket that errored.
-   * @param _error - The error that occurred.
    */
   async webSocketError(_ws: WebSocket, _error: unknown): Promise<void> {
     // No-op: CF runtime cleans up errored WebSockets automatically

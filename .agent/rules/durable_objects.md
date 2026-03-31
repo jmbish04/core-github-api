@@ -1,3 +1,24 @@
+# Rule: Durable Objects with SQLite State
+
+NEVER use `new_classes` for SQLite-backed Durable Objects.
+ALWAYS use `new_sqlite_classes` in the migrations array.
+
+**Wrong:**
+```jsonc
+"migrations": [{ "tag": "v1", "new_classes": ["MyAgent"] }]
+```
+
+**Correct:**
+```jsonc
+"migrations": [{ "tag": "v1", "new_sqlite_classes": ["MyAgent"] }]
+```
+
+**Why:** `new_classes` does not initialize the SQLite storage layer.
+Any class extending `Agent` from `@cloudflare/agents` REQUIRES `new_sqlite_classes`.
+Violation causes runtime errors: "SQLite storage not available."
+
+---
+
 # Rule: Durable Object & Agent Migration Strategy
 
 ## 1. Definition
