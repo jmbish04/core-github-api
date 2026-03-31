@@ -4,25 +4,10 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { RepoFolder } from './RepoFolder';
 import { useProjectStore } from '@/stores/useProjectStore';
 import { cn } from '@/lib/utils';
-import { 
-  Github, 
-  LayoutGrid, 
-  Home, 
-  Activity, 
-  BookOpen, 
-  Settings, 
-  Wrench, 
-  FolderKanban, 
-  MessageSquare, 
-  Map, 
-  CheckSquare, 
-  ChevronRight, 
-  ChevronDown, 
-  FileText, 
-  Globe, 
-  Webhook, 
-  Bot, 
-  Telescope 
+import {
+  Github, LayoutGrid, LayoutList, Home, Activity, BookOpen, Settings,
+  Wrench, FolderKanban, MessageSquare, Map, CheckSquare, ChevronRight,
+  ChevronDown, FileText, Globe, Webhook, Bot, Telescope
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -74,6 +59,7 @@ export function AppSidebar({ className }: { className?: string }) {
              <GlobalNavItem href="/chat" icon={MessageSquare} label="Chat Assistant" />
              <GlobalNavItem href="/roadmap" icon={Map} label="Roadmap" />
              <GlobalNavItem href="/todos" icon={CheckSquare} label="ToDos" />
+             <GlobalNavItem href="/beta/tracker" icon={LayoutList} label="Tracker [Beta]" />
              <div className="h-px bg-border/50 mx-2 my-2" />
              <GlobalNavItem href="/dashboard" icon={LayoutGrid} label="Dashboard" />
           </div>

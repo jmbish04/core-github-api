@@ -1,17 +1,14 @@
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
-import { createSelectSchema, createInsertSchema } from "drizzle-zod";
-import { learningSessions } from "./sessions";
+import { text, integer, sqliteTable } from 'drizzle-orm/sqlite-core';
+import { sql } from 'drizzle-orm';
 
-export const learningThreads = sqliteTable("learning_threads", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  sessionId: integer("session_id").references(() => learningSessions.id),
-  timestamp: text("timestamp").notNull(),
-  source: text("source", {
-    enum: ["jules", "stitch", "github", "other", "github_pr", "github_comment"],
-  }).notNull(),
-  sourceIdentifier: text("source_identifier").notNull().unique(),
-  githubRepo: text("github_repo"),
+export const learningThreads = sqliteTable('learning_threads', {
+  id: text('id').primaryKey(),
+  sessionId: text('session_id').notNull(),
+  topic: text('topic'),
+  agentRunId: text('agent_run_id'),
+  messageCount: integer('message_count').default(0),
+  createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
 });
 
-export const selectLearningThreadSchema = createSelectSchema(learningThreads);
-export const insertLearningThreadSchema = createInsertSchema(learningThreads);
+export type LearningThread = typeof learningThreads.$inferSelect;
+export type InsertLearningThread = typeof learningThreads.$inferInsert;

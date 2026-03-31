@@ -1,0 +1,26 @@
+---
+import { BabysitterHUD } from "@/components/learning/BabysitterHUD";
+---
+
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>Babysitter HUD</title>
+  </head>
+  <body class="bg-zinc-950 text-zinc-50 min-h-screen">
+    <div class="p-8 max-w-7xl mx-auto">
+      <div class="mb-8">
+        <a href="/learning/dashboard" class="text-zinc-500 text-sm hover:text-zinc-300 mb-2 inline-block">
+          &larr; Dashboard
+        </a>
+        <h1 class="text-3xl font-bold tracking-tighter text-zinc-50">Babysitter HUD</h1>
+        <p class="text-zinc-400 mt-1">Live monitoring of active Jules sessions</p>
+      </div>
+
+      <BabysitterHUD client:load />
+    </div>
+  </body>
+</html>

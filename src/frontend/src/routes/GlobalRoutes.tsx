@@ -63,6 +63,9 @@ import ProjectPlanPage from "@/views/repos/Plan"; // reused; global plan has bro
 import ReverseEngineering from "@/views/control/global/ReverseEngineering";
 import ReverseEngineeringSnapshot from "@/views/control/global/ReverseEngineeringSnapshot";
 
+// Beta Tracker (global)
+import { TrackerBeta } from "@/views/control/global/TrackerBeta";
+
 // Workshop / Agent agentic module (global)
 import AgentWorkshop from "@/views/control/global/AgentWorkshop";
 import { GlobalCommandCenter } from "@/components/workshop/GlobalCommandCenter";
@@ -194,6 +197,10 @@ export function GlobalRoutes() {
         <Route path="/standardization" element={guard(<Standardization />)} />
         <Route path="/apps" element={guard(<AppStore />)} />
         <Route path="/alerts" element={guard(<Alerts />)} />
+
+        {/* ── Beta Tracker (global) ──────────────────────────────── */}
+        <Route path="/beta/tracker" element={guard(<TrackerBeta />)} />
+        <Route path="/beta/tracker/:view" element={guard(<TrackerBeta />)} />
 
         {/* ── Workshop / Agent studio (global) ─────────────────────── */}
         <Route path="/workshop" element={guard(<AgentWorkshop />)} />

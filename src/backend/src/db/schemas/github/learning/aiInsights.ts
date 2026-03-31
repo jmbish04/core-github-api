@@ -1,20 +1,21 @@
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
-import { createSelectSchema, createInsertSchema } from "drizzle-zod";
-import { learningSessions } from "./sessions";
-import { learningThreads } from "./threads";
+import { text, integer, sqliteTable } from 'drizzle-orm/sqlite-core';
+import { sql } from 'drizzle-orm';
 
-export const learningAiInsights = sqliteTable("learning_ai_insights", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  sessionId: integer("session_id").references(() => learningSessions.id),
-  threadId: integer("thread_id").references(() => learningThreads.id),
-  timestamp: text("timestamp")
-    .notNull()
-    .$defaultFn(() => new Date().toISOString()),
-  category: text("category").notNull(), // e.g., "Global Env"
-  insightAnalysis: text("insight_analysis").notNull(),
-  suggestedImprovement: text("suggested_improvement"),
-  observedAttemptsReview: text("review_of_observed_attempts"),
+export const learningAiInsights = sqliteTable('learning_ai_insights', {
+  id: text('id').primaryKey(),
+  sessionId: text('session_id').notNull(),
+  patternType: text('pattern_type', {
+    enum: ['doom_loop', 'anti_pattern', 'standard_violation', 'best_practice'],
+  }).notNull(),
+  title: text('title').notNull(),
+  description: text('description').notNull(),
+  severity: integer('severity').notNull().default(1),
+  vectorId: text('vector_id'),
+  status: text('status').notNull().default('open'),
+  repo: text('repo'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
 });
 
-export const selectLearningAiInsightSchema = createSelectSchema(learningAiInsights);
-export const insertLearningAiInsightSchema = createInsertSchema(learningAiInsights);
+export type LearningAiInsight = typeof learningAiInsights.$inferSelect;
+export type InsertLearningAiInsight = typeof learningAiInsights.$inferInsert;

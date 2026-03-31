@@ -1,20 +1,15 @@
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
-import { createSelectSchema, createInsertSchema } from "drizzle-zod";
-import { learningSessions } from "./sessions";
+import { text, integer, sqliteTable } from 'drizzle-orm/sqlite-core';
+import { sql } from 'drizzle-orm';
 
-// ai_insight_prs: PRs made to fix insights
-export const learningAiInsightPrs = sqliteTable("learning_ai_insight_prs", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  sessionId: integer("session_id").references(() => learningSessions.id),
-  timestamp: text("timestamp")
-    .notNull()
-    .$defaultFn(() => new Date().toISOString()),
-  repoOwner: text("repo_owner").notNull(),
-  repoName: text("repo_name").notNull(),
-  prNumber: integer("pr_number").notNull(),
-  prUrl: text("pr_url").notNull(),
-  prDescription: text("pr_description"),
+export const learningAiInsightPrs = sqliteTable('learning_ai_insight_prs', {
+  id: text('id').primaryKey(),
+  insightId: text('insight_id').notNull(),
+  prNumber: integer('pr_number').notNull(),
+  repo: text('repo').notNull(),
+  status: text('status').notNull().default('open'),
+  outcome: text('outcome'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
 });
 
-export const selectLearningAiInsightPrSchema = createSelectSchema(learningAiInsightPrs);
-export const insertLearningAiInsightPrSchema = createInsertSchema(learningAiInsightPrs);
+export type LearningAiInsightPr = typeof learningAiInsightPrs.$inferSelect;
+export type InsertLearningAiInsightPr = typeof learningAiInsightPrs.$inferInsert;

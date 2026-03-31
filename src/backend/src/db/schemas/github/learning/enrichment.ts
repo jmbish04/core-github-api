@@ -1,17 +1,14 @@
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
-import { createSelectSchema, createInsertSchema } from "drizzle-zod";
-import { learningMessages } from "./messages";
+import { text, integer, sqliteTable } from 'drizzle-orm/sqlite-core';
+import { sql } from 'drizzle-orm';
 
-export const learningEnrichment = sqliteTable("learning_enrichment", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  messageId: integer("message_id").references(() => learningMessages.id),
-  timestamp: text("timestamp")
-    .notNull()
-    .$defaultFn(() => new Date().toISOString()),
-  queryForMcp: text("query_for_mcp").notNull(),
-  mcpResponse: text("mcp_response"),
-  aiAnalysis: text("ai_analysis"), // workers-ai takeaways based on MCP context
+export const learningEnrichment = sqliteTable('learning_enrichment', {
+  id: text('id').primaryKey(),
+  messageId: text('message_id').notNull(),
+  matchedUrl: text('matched_url').notNull(),
+  relevanceScore: text('relevance_score'),
+  snippet: text('snippet'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
 });
 
-export const selectLearningEnrichmentSchema = createSelectSchema(learningEnrichment);
-export const insertLearningEnrichmentSchema = createInsertSchema(learningEnrichment);
+export type LearningEnrichmentRecord = typeof learningEnrichment.$inferSelect;
+export type InsertLearningEnrichment = typeof learningEnrichment.$inferInsert;

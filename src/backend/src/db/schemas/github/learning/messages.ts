@@ -1,17 +1,16 @@
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
-import { createSelectSchema, createInsertSchema } from "drizzle-zod";
-import { learningSessions } from "./sessions";
-import { learningThreads } from "./threads";
+import { text, integer, sqliteTable } from 'drizzle-orm/sqlite-core';
+import { sql } from 'drizzle-orm';
 
-export const learningMessages = sqliteTable("learning_messages", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  sessionId: integer("session_id").references(() => learningSessions.id),
-  threadId: integer("thread_id").references(() => learningThreads.id),
-  timestamp: text("timestamp").notNull(),
-  author: text("author").notNull(),
-  message: text("message").notNull(),
-  aiAnalysis: text("ai_analysis"), // Updated during processing
+export const learningMessages = sqliteTable('learning_messages', {
+  id: text('id').primaryKey(),
+  threadId: text('thread_id').notNull(),
+  sessionId: text('session_id').notNull(),
+  role: text('role', { enum: ['user', 'assistant', 'system'] }).notNull(),
+  content: text('content').notNull(),
+  vectorizeId: text('vectorize_id'),
+  processed: integer('processed', { mode: 'boolean' }).default(false),
+  createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
 });
 
-export const selectLearningMessageSchema = createSelectSchema(learningMessages);
-export const insertLearningMessageSchema = createInsertSchema(learningMessages);
+export type LearningMessage = typeof learningMessages.$inferSelect;
+export type InsertLearningMessage = typeof learningMessages.$inferInsert;

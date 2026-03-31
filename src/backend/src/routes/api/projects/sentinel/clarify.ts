@@ -1,89 +1,77 @@
 /**
- * @file routes/api/projects/sentinel/clarify.ts
- * @description POST /tasks/:id/clarify — agent asks a clarification question.
+ * @file backend/src/routes/api/projects/sentinel/clarify.ts
+ * @description POST /api/projects/sentinel/tasks/:taskId/clarify
  *
- * Broadcasts a clarification_request event via JulesWebhookBroadcaster.
- * The JulesOverseer orchestrator listens for this and broadcasts a clarification_response.
+ * Accepts a clarification question for a Sentinel task, broadcasts it via
+ * JulesWebhookBroadcaster, and notifies JulesOverseer for AI-assisted answering.
  */
 
-import { OpenAPIHono, createRoute } from '@hono/zod-openapi';
-import { z } from 'zod';
-import { getDb } from '@db';
-import { tasks, taskEvents } from '@/db/schemas/projects/backlog/tasks';
-import { eq } from 'drizzle-orm';
-import { generateUuid } from '@/utils/common';
-import {
-    ClarifyTaskBodySchema,
-    OkResponseSchema,
-    ErrorResponseSchema,
-    broadcastSentinelEvent,
-} from './types';
+import { Hono } from 'hono';
 
-const route = createRoute({
-    method: 'post',
-    path: '/tasks/:id/clarify',
-    operationId: 'sentinelClarifyTask',
-    summary: 'Request clarification on a Sentinel task',
-    description: 'Broadcasts a clarification_request event. JulesOverseer will respond via WebSocket broadcast.',
-    request: {
-        params: z.object({ id: z.string() }),
-        body: { content: { 'application/json': { schema: ClarifyTaskBodySchema } } },
-    },
-    responses: {
-        200: {
-            description: 'Clarification request broadcast',
-            content: { 'application/json': { schema: OkResponseSchema } },
-        },
-        404: {
-            description: 'Task not found',
-            content: { 'application/json': { schema: ErrorResponseSchema } },
-        },
-    },
-});
+const clarifyRouter = new Hono<{ Bindings: Env }>();
 
-const clarifyApi = new OpenAPIHono<{ Bindings: Env }>();
+clarifyRouter.post('/tasks/:taskId/clarify', async (c) => {
+  const taskId = c.req.param('taskId');
+  let body: { question?: string; projectId?: string; agentId?: string };
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: 'Invalid JSON body' }, 400);
+  }
 
-clarifyApi.openapi(route, async (c) => {
-    const { id } = c.req.valid('param');
-    const { question } = c.req.valid('json');
-    const db = getDb(c.env.DB);
+  if (!body.question || typeof body.question !== 'string') {
+    return c.json({ error: 'question field is required' }, 400);
+  }
 
-    const existing = await db.select().from(tasks).where(eq(tasks.id, id)).limit(1);
-    const task = existing[0];
-    if (!task) {
-        return c.json({ ok: false, error: `Task '${id}' not found` } as any, 404);
-    }
+  const env = c.env;
 
-    const now = new Date().toISOString();
-
-    // Log clarification request as a task event
-    await db.insert(taskEvents).values({
-        id: generateUuid(),
-        taskId: id,
-        eventType: 'clarification_request',
-        objectType: 'task',
-        fieldName: null,
-        oldValue: null,
-        newValue: question,
-        status: task.status,
-        details: JSON.stringify({ question, askedAt: now, askedBy: task.assignee }),
-        timestamp: now,
-    });
-
-    // Broadcast to orchestrators — JulesOverseer listens and will answer
-    await broadcastSentinelEvent(c.env, {
+  // 1. Broadcast to JulesWebhookBroadcaster (real-time WS fan-out)
+  try {
+    const broadcasterId = env.JULES_WEBHOOK_BROADCASTER.idFromName('jules-broadcaster');
+    const broadcaster = env.JULES_WEBHOOK_BROADCASTER.get(broadcasterId);
+    await broadcaster.fetch('http://internal/internal/broadcast', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
         type: 'clarification_request',
-        taskId: id,
-        repoId: task.repoId,
-        assignee: task.assignee,
-        question,
-        timestamp: now,
+        taskId,
+        sessionId: taskId,
+        projectId: body.projectId,
+        question: body.question,
+        timestamp: new Date().toISOString(),
+      }),
     });
+  } catch (err: any) {
+    console.error('[clarify] Failed to broadcast to JulesWebhookBroadcaster:', err.message);
+  }
 
-    return c.json({
-        ok: true,
-        message: 'Clarification request broadcast — JulesOverseer will respond via WebSocket',
-    } as any, 200);
+  // 2. Notify JulesOverseer for AI-assisted answering (non-blocking)
+  try {
+    const overseerStubId = env.JULES_OVERSEER.idFromName('jules-overseer');
+    const overseerStub = env.JULES_OVERSEER.get(overseerStubId);
+    await overseerStub.fetch('http://internal/ingest', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'clarification_request',
+        sessionId: taskId,
+        taskId,
+        question: body.question,
+        projectId: body.projectId,
+        agentId: body.agentId,
+        timestamp: new Date().toISOString(),
+      }),
+    });
+  } catch (err: any) {
+    // Non-fatal: log but don't fail the main response
+    console.error('[clarify] Failed to notify JulesOverseer:', err.message);
+  }
+
+  return c.json({
+    ok: true,
+    taskId,
+    message: 'Clarification request received. AI response will be broadcast via WebSocket.',
+  });
 });
 
-export default clarifyApi;
+export default clarifyRouter;

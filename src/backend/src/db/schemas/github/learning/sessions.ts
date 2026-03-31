@@ -1,16 +1,17 @@
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
-import { createSelectSchema, createInsertSchema } from "drizzle-zod";
+import { text, integer, sqliteTable } from 'drizzle-orm/sqlite-core';
+import { sql } from 'drizzle-orm';
 
-export const learningSessions = sqliteTable("learning_sessions", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  timestamp: text("timestamp")
-    .notNull()
-    .$defaultFn(() => new Date().toISOString()),
-  actionTaken: integer("action_taken", { mode: "boolean" })
-    .notNull()
-    .default(false),
-  actionRationale: text("action_rationale"),
+export const learningSessions = sqliteTable('learning_sessions', {
+  id: text('id').primaryKey(),
+  triggerType: text('trigger_type', { enum: ['cron', 'manual', 'webhook'] }).notNull(),
+  status: text('status').default('pending'),
+  insightCount: integer('insight_count').default(0),
+  source: text('source'),
+  repoless: integer('repoless', { mode: 'boolean' }).default(false),
+  startedAt: integer('started_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
+  completedAt: integer('completed_at', { mode: 'timestamp' }),
+  createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
 });
 
-export const selectLearningSessionSchema = createSelectSchema(learningSessions);
-export const insertLearningSessionSchema = createInsertSchema(learningSessions);
+export type LearningSession = typeof learningSessions.$inferSelect;
+export type InsertLearningSession = typeof learningSessions.$inferInsert;

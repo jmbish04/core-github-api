@@ -375,8 +375,16 @@
 				"class_name": "UxResearcher"
 			},
 			{
+				"name": "UX_DESIGN_AGENT",
+				"class_name": "UxDesignAgent"
+			},
+			{
 				"name": "SANDBOX_AGENT",
 				"class_name": "SandboxAgent"
+			},
+			{
+				"name": "LEARNING_AGENT",
+				"class_name": "LearningAgent"
 			}
 		]
 	},
@@ -452,8 +460,24 @@
 				"UxResearcher",
 				// WebSocket session handler for real-time agent communication
 				"AgentSessionDO",
+				// UX Design Agent — 5-phase pipeline (Jules + Stitch)
+				"UxDesignAgent",
+				// Jules PR Reviewer
+				"JulesPrReviewer",
+				// UX Researcher
+				"UxResearcher",
 				// Secure Sandbox Agent managing the Sandbox SDK
 				"SandboxAgent"
+			]
+		},
+		{
+			"tag": "v1_sentinel",
+			"new_sqlite_classes": [
+				"PRSupervisorDO",
+				"PRReviewDO",
+				"PRSummaryDO",
+				// Learning Agent for pattern analysis and Contemplation Gate
+				"LearningAgent"
 			]
 		}
 	],
@@ -472,6 +496,12 @@
 			"name": "research-orchestrator",
 			"binding": "RESEARCH_ORCHESTRATOR",
 			"class_name": "ResearchOrchestrator"
+		},
+		{
+			"name": "LearningWorkflow",
+			"binding": "LEARNING_WORKFLOW",
+			"class_name": "LearningWorkflow",
+			"script_name": "core-github-api"
 		},
 		{
 			"name": "topic-research-workflow",
@@ -563,6 +593,10 @@
 			"binding": "FILE_EMBEDDINGS",
 			"index_name": "core-github-api-file-embeddings",
 			"remote": true
+		},
+		{
+			"binding": "VECTORIZE_INDEX",
+			"index_name": "sentinel-patterns"
 		}
 	],
 	"d1_databases": [
@@ -612,7 +646,9 @@
 			"0 3 * * 7",
 			// Every 6 hours - App Store AI Summary Backfill
 			// Processes unsummarized apps with Worker AI and saves to D1
-			"0 */6 * * *"
+			"0 */6 * * *",
+			// Daily at 6:00 AM UTC - LearningWorkflow cron trigger
+			"0 6 * * *"
 		]
 	},
 	"services": [
