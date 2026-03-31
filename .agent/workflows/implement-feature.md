@@ -1,12 +1,17 @@
-# Implement Remote MCP Server on Cloudflare Workers
+---
+description: Implement Universal AI Gateway REST Proxy
+---
+# Implement Universal AI Gateway REST Proxy
 
-1. **Context Analysis**: The user is moving away from local `stdio` Node proxies and adopting the official `@cloudflare/agents` SDK utilizing Streamable HTTP for Remote MCP. We must handle the V8 isolate environment mismatch.
-2. **Setup Boilerplate**: Initialize an `OpenAPIHono` app. Add strict OpenAPI 3.1.0 documentation definitions and standard operational routes (`/openapi.json`, `/swagger`, `/scalar`, `/health`, `/context`, `/docs`).
-3. **McpServer Factory**: Create a `createOurMcpServer(env)` function that instantiates `new McpServer()` from `@modelcontextprotocol/sdk/server/mcp.js`.
-4. **Native Ports**:
-   - **Assistant-UI**: Port `@assistant-ui/mcp-docs-server` to a native `server.tool(...)` using Zod for parameter validation and returning content as `[{ type: 'text', text: ... }]`.
-   - **Sequential Thinking**: Port `@modelcontextprotocol/server-sequential-thinking` to a native tool returning systematic sequences.
-5. **Remote Proxies**:
-   - **Stitch MCP & Cloudflare Docs**: Register a `remote_mcp_proxy` tool to proxy to remote servers (`https://stitch.googleapis.com/mcp` and `https://docs.mcp.cloudflare.com/mcp`). Establish an `SSEClientTransport` connection. For Stitch, inject `X-Goog-Api-Key` from environment bindings. Return the result safely utilizing `isError: true` on failure.
-6. **Route Binding**: Map `app.all('/mcp/*')` to execute `createMcpHandler(server)(c.req.raw, c.env, c.executionCtx)`.
-7. **Final Output Check**: Output the full file from imports to exports without truncation.
+This workflow outlines the standard operating procedure for upgrading the AI Provider abstraction layer to support unified routing through Cloudflare's AI Gateway.
+
+## Pre-Requisites
+1. Ensure the project's `wrangler.jsonc` contains the appropriate `AI_GATEWAY_NAME` and `FILE_EMBEDDINGS` Vectorize binding.
+2. Confirm `@google/jules-sdk`, `zod`, and `zod-to-json-schema` are installed in the `backend/` workspace.
+
+## Steps
+1. Route all provider calls (Worker AI, Gemini) through the Cloudflare AI Gateway compat or standard endpoint using native `fetch`. Do not use provider-specific SDKs.
+2. Enforce Zod schemas strictly. Convert `z.ZodType<T>` to JSON schema using `zodToJsonSchema` and utilize the provider's `response_format` JSON schema mode.
+3. For large file contexts (> 6000 chars), transparently chunk and vectorize the text using `@cf/baai/bge-large-en-v1.5` and Vectorize RAG. Query the prompt embedding against the index, and append the top matches to the final prompt.
+4. Integrate the `@google/jules-sdk` and polyfill missing features like structured output by piping the text response into a smaller, strict formatting model like `worker-ai`.
+5. Run `pnpm run check` to ensure strict TypeScript compilation completes successfully.

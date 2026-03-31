@@ -1,0 +1,211 @@
+{
+  "project_name": "projects-to-repos-retrofit",
+  "generated_date": "2026-03-17T18:13:00Z",
+  "total_phases": 3,
+  "phases": [
+    {
+      "phase_number": 1,
+      "phase_title": "Database Schema Consolidation & Migration",
+      "description": "Merge operational repo files and relax userId constraints in D1.",
+      "success_criteria": [
+        "ops/repos.ts logic is merged into schemas/github/repos.ts",
+        "userId is optional in Drizzle schemas",
+        "D1 migrations are generated and applied locally"
+      ],
+      "implementation_plan": {
+        "title": "DB Retrofit",
+        "description": "Adjust Drizzle definitions for single-user assumption.",
+        "proposed_changes": [
+          {
+            "category": "Backend: Database Schema",
+            "files": [
+              {
+                "action": "MODIFY",
+                "file_path": "backend/src/db/schemas/github/repos.ts",
+                "instructions": [
+                  "Migrate any helper functions from backend/src/db/ops/repos.ts into this file.",
+                  "Remove .notNull() from the userId column definition."
+                ]
+              },
+              {
+                "action": "MODIFY",
+                "file_path": "backend/src/db/schemas/github/favorites.ts",
+                "instructions": [
+                  "Remove .notNull() from the userId column definition in projectFavorites."
+                ]
+              },
+              {
+                "action": "DELETE",
+                "file_path": "backend/src/db/ops/repos.ts",
+                "instructions": [
+                  "Delete file after confirming all logic is merged into the schema file."
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "tasks": [
+        {
+          "task_number": 1,
+          "status": "not_started",
+          "agent_assigned": "Architect Agent",
+          "task_title": "Update Drizzle Schemas & Generate Migrations",
+          "task_description": "Merge operations and strip notNull from userId.",
+          "task_dependencies": [],
+          "cloudflare_docs_queries": [
+            "How to alter SQLite columns in Drizzle ORM Cloudflare D1"
+          ],
+          "steps": [
+            {
+              "number": 1.1,
+              "title": "Modify Schema Files",
+              "status": "not_started",
+              "technical_requirements": [
+                "Move ops to schemas/github/repos.ts",
+                "Remove .notNull() from userId"
+              ],
+              "success_criteria": ["Files compile without TS errors"]
+            },
+            {
+              "number": 1.2,
+              "title": "Generate D1 Migrations",
+              "status": "not_started",
+              "technical_requirements": [
+                "Run `pnpm run db:generate`"
+              ],
+              "success_criteria": ["Migration SQL file generated in drizzle/ directory"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "phase_number": 2,
+      "phase_title": "API Routing & Validation Retrofit",
+      "description": "Transition API endpoints from /projects to /repos and strip userId.",
+      "success_criteria": [
+        "All /api/projects endpoints are moved to /api/repos",
+        "Hono routes no longer require userId in Zod schemas",
+        "GET /favorites works without userId"
+      ],
+      "implementation_plan": {
+        "title": "API Retrofit",
+        "description": "Update Hono routers and Zod validators.",
+        "proposed_changes": [
+          {
+            "category": "Backend: Routes",
+            "files": [
+              {
+                "action": "MODIFY",
+                "file_path": "backend/src/routes/api/frontend/repos/favorites.ts",
+                "instructions": [
+                  "Ensure the GET route queries active favorites joined with repo metadata.",
+                  "Remove userId filtering from the WHERE clause."
+                ]
+              },
+              {
+                "action": "MODIFY",
+                "file_path": "backend/src/routes/api/frontend/repos/index.ts",
+                "instructions": [
+                  "Ensure all imported routes reference /repos instead of /projects."
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "tasks": [
+        {
+          "task_number": 2,
+          "status": "not_started",
+          "agent_assigned": "Architect Agent",
+          "task_title": "Refactor API Endpoints",
+          "task_description": "Update all Hono endpoints handling projects to handle repos.",
+          "task_dependencies": ["Task 1"],
+          "cloudflare_docs_queries": [],
+          "steps": [
+            {
+              "number": 2.1,
+              "title": "Strip userId from Zod Validators",
+              "status": "not_started",
+              "technical_requirements": [
+                "Remove z.object({ userId: ... }) requirements from POST/PUT bodies."
+              ],
+              "success_criteria": ["OpenAPI spec generates successfully"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "phase_number": 3,
+      "phase_title": "Frontend UI & Client Routing Refactor",
+      "description": "Update Sidebar, Active Workspaces, and Astro routing.",
+      "success_criteria": [
+        "Sidebar displays '[icon: github] Repos'",
+        "Active Workspaces fetches from /api/repos/favorites",
+        "All internal links point to /repos/*"
+      ],
+      "implementation_plan": {
+        "title": "Frontend Retrofit",
+        "description": "Refactor React islands and Astro pages.",
+        "proposed_changes": [
+          {
+            "category": "Frontend: UI",
+            "files": [
+              {
+                "action": "MODIFY",
+                "file_path": "frontend/src/components/navigation/Sidebar.tsx",
+                "instructions": [
+                  "Change '+ Projects' text to 'Repos'",
+                  "Add GithubIcon component next to 'Repos'",
+                  "Update navigation hrefs to /repos"
+                ]
+              },
+              {
+                "action": "MODIFY",
+                "file_path": "frontend/src/components/layout/AppSidebar.tsx",
+                "instructions": [
+                  "Update 'Active Workspaces' to fetch from `/api/repos/favorites` on load",
+                  "Render the joined repo metadata."
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "tasks": [
+        {
+          "task_number": 3,
+          "status": "not_started",
+          "agent_assigned": "Frontend Agent",
+          "task_title": "Update Frontend Components",
+          "task_description": "Update sidebar and Active Workspaces data fetching.",
+          "task_dependencies": ["Task 2"],
+          "cloudflare_docs_queries": [],
+          "steps": [
+            {
+              "number": 3.1,
+              "title": "Refactor Sidebar",
+              "status": "not_started",
+              "technical_requirements": [
+                "Implement `<GithubIcon /> Repos` UI change."
+              ],
+              "success_criteria": ["UI renders correctly"]
+            },
+            {
+              "number": 3.2,
+              "title": "Refactor Active Workspaces",
+              "status": "not_started",
+              "technical_requirements": [
+                "Point fetch call to `/api/repos/favorites`."
+              ],
+              "success_criteria": ["Favorited repos populate on page load"]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

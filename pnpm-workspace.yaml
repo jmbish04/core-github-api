@@ -1,6 +1,6 @@
 packages:
-  - frontend
-  - container
+  - src/frontend
+  - src/backend
 
 onlyBuiltDependencies:
   - core-js-pure

@@ -1,14 +1,13 @@
 {
 	"name": "core-github-api",
-	"main": "backend/src/index.ts",
-	"compatibility_date": "2026-02-10",
+	"main": "src/backend/src/index.ts",
+	"compatibility_date": "2026-03-12",
 	"compatibility_flags": [
 		"nodejs_compat"
 	],
 	// "minify": true,
 	"workers_dev": true,
 	"preview_urls": true,
-	
 	"observability": {
 		"enabled": true,
 		"head_sampling_rate": 1,
@@ -19,7 +18,7 @@
 			"invocation_logs": true
 		},
 		"traces": {
-			"enabled": false,
+			"enabled": true,
 			"persist": true,
 			"head_sampling_rate": 1
 		}
@@ -44,6 +43,8 @@
 		"BASE_URL": "https://core-github-api.hacolby.workers.dev",
 		"MAX_AI_BUDGET": "50",
 		"USE_OPENAI_MODELS": false,
+		"GITHUB_REPO_STANDARDIZATION": "jmbish04/core-github-standardization",
+		"GITHUB_ACTION_WORKER_DISPATCHER_URI": "https://api.github.com/repos/jmbish04/core-github-standardization/dispatches",
 		"MCP_API_URL": "https://docs.mcp.cloudflare.com/mcp"
 	},
 	"containers": [
@@ -67,7 +68,10 @@
 		{
 			"type": "Text",
 			"globs": [
-				"**/*.hbs"
+				"**/*.hbs",
+				"**/*.md",
+				"**/*.yml",
+				"**/*.yaml"
 			],
 			"fallthrough": true
 		}
@@ -75,8 +79,18 @@
 	"assets": {
 		"directory": "./public",
 		"binding": "ASSETS",
-		"run_worker_first": true,
-		"not_found_handling": "none"
+		"run_worker_first": [
+			"/api/*",
+			"/openapi.json",
+			"/swagger",
+			"/scalar",
+			"/health",
+			"/context",
+			"/docs",
+			"/mcp",
+			"/mcp/*"
+		],
+		"not_found_handling": "single-page-application"
 	},
 	// "secrets": [
 	//   "GITHUB_TOKEN",
@@ -101,7 +115,7 @@
 		{
 			"binding": "GITHUB_TOKEN",
 			"store_id": "8c42fa70938644e0a8a109744467375f",
-			"secret_name": "GITHUB_TOKEN"
+			"secret_name": "GH_TOKEN"
 		},
 		{
 			"binding": "GITHUB_PERSONAL_ACCESS_TOKEN",
@@ -137,12 +151,12 @@
 			"binding": "CLOUDFLARE_AI_SEARCH_TOKEN",
 			"store_id": "8c42fa70938644e0a8a109744467375f",
 			"secret_name": "CLOUDFLARE_AI_SEARCH_TOKEN"
-		},				
+		},
 		{
 			"binding": "CLOUDFLARE_OBSERVABILITY_TOKEN",
 			"store_id": "8c42fa70938644e0a8a109744467375f",
 			"secret_name": "CLOUDFLARE_OBSERVABILITY_TOKEN"
-		},		
+		},
 		{
 			"binding": "WORKER_API_KEY",
 			"store_id": "8c42fa70938644e0a8a109744467375f",
@@ -152,7 +166,7 @@
 			"binding": "AGENTIC_WORKER_API_KEY",
 			"store_id": "8c42fa70938644e0a8a109744467375f",
 			"secret_name": "AGENTIC_WORKER_API_KEY"
-		},		
+		},
 		{
 			"binding": "AI_GATEWAY_TOKEN",
 			"store_id": "8c42fa70938644e0a8a109744467375f",
@@ -167,7 +181,7 @@
 			"binding": "STITCH_API_KEY",
 			"store_id": "8c42fa70938644e0a8a109744467375f",
 			"secret_name": "STITCH_API_KEY"
-		},		
+		},
 		{
 			"binding": "JULES_API_KEY",
 			"store_id": "8c42fa70938644e0a8a109744467375f",
@@ -186,11 +200,33 @@
 		{
 			"binding": "DISCORD_TOKEN",
 			"store_id": "8c42fa70938644e0a8a109744467375f",
-			"secret_name": "DISCORD_TOKEN"			
+			"secret_name": "DISCORD_TOKEN"
+		},
+		{
+			"binding": "GOOGLE_CREDS_SA_PRIVATE_KEY_PT_1",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "GOOGLE_CREDS_SA_PRIVATE_KEY_PT_1"
+		},
+		{
+			"binding": "GOOGLE_CREDS_SA_PRIVATE_KEY_PT_2",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "GOOGLE_CREDS_SA_PRIVATE_KEY_PT_2"
 		}
 	],
 	"durable_objects": {
 		"bindings": [
+			{
+				"name": "PR_SUPERVISOR_DO",
+				"class_name": "PRSupervisorDO"
+			},
+			{
+				"name": "PR_REVIEW_DO",
+				"class_name": "PRReviewDO"
+			},
+			{
+				"name": "PR_SUMMARY_DO",
+				"class_name": "PRSummaryDO"
+			},
 			{
 				"name": "ORCHESTRATOR",
 				"class_name": "OrchestratorAgent"
@@ -240,6 +276,10 @@
 				"class_name": "ResearchAgent"
 			},
 			{
+				"name": "DISCORD_RESEARCH_AGENT",
+				"class_name": "DiscordResearchAgent"
+			},
+			{
 				"name": "JULES_OVERSEER",
 				"class_name": "JulesOverseer"
 			},
@@ -280,8 +320,36 @@
 				"class_name": "JulesWebhookBroadcaster"
 			},
 			{
+				"name": "PLANNING_MONITOR",
+				"class_name": "PlanningMonitor"
+			},
+			{
+				"name": "REVERSE_ENGINEERING_MONITOR",
+				"class_name": "ReverseEngineeringMonitor"
+			},
+			{
+				"name": "PLANNING_SUPERVISOR",
+				"class_name": "PlanningSupervisorAgent"
+			},
+			{
+				"name": "PLANNING_ORCHESTRATOR_AGENT",
+				"class_name": "PlanningOrchestratorAgent"
+			},
+			{
+				"name": "HONI_ORCHESTRATOR",
+				"class_name": "HoniOrchestrator"
+			},
+			{
+				"name": "HONI_CONSULTANT",
+				"class_name": "HoniConsultant"
+			},
+			{
 				"name": "WORKSHOP_AGENT",
 				"class_name": "WorkshopAgent"
+			},
+			{
+				"name": "AGENT_SESSION_DO",
+				"class_name": "AgentSessionDO"
 			},
 			{
 				"name": "CF_WORKSHOP_AGENTS_SDK",
@@ -290,6 +358,10 @@
 			{
 				"name": "STANDARDIZATION_AGENT",
 				"class_name": "StandardizationAgent"
+			},
+			{
+				"name": "UX_DESIGN_AGENT",
+				"class_name": "UxDesignAgent"
 			},
 			{
 				"name": "LEARNING_AGENT",
@@ -363,12 +435,14 @@
 				"CfWorkshop_AgentsSdk",
 				// Ensures code and APIs meet standardized guidelines
 				"StandardizationAgent",
+				// Maintains state and chat history for agent sessions
+				"AgentSessionDO",
+				// UX Design Agent — 5-phase pipeline (Jules + Stitch)
+				"UxDesignAgent",
 				// Jules PR Reviewer
 				"JulesPrReviewer",
 				// UX Researcher
 				"UxResearcher",
-				// WebSocket session handler for real-time agent communication
-				"AgentSessionDO",
 				// Secure Sandbox Agent managing the Sandbox SDK
 				"SandboxAgent"
 			]
@@ -376,6 +450,9 @@
 		{
 			"tag": "v1_sentinel",
 			"new_sqlite_classes": [
+				"PRSupervisorDO",
+				"PRReviewDO",
+				"PRSummaryDO",
 				// Learning Agent for pattern analysis and Contemplation Gate
 				"LearningAgent"
 			]
@@ -407,11 +484,35 @@
 			"name": "topic-research-workflow",
 			"binding": "TOPIC_RESEARCH_WORKFLOW",
 			"class_name": "TopicResearchWorkflow"
+		},
+		{
+		{
+			// Incremental Discord channel scanner — ingests messages from the
+			// Cloudflare Developers Discord, analyses them with AI, and surfaces
+			// highlights in the daily newsletter.
+			"name": "discord-research-workflow",
+			"binding": "DISCORD_RESEARCH_WORKFLOW",
+			"class_name": "DiscordResearchWorkflow"
+		},
+		{
+			"name": "planning-orchestrator",
+			"binding": "PLANNING_ORCHESTRATOR",
+			"class_name": "PlanningOrchestrator"
 		}
 	],
 	"browser": {
 		"binding": "BROWSER"
 	},
+	"r2_buckets": [
+		{
+			"binding": "PLAN_ARTIFACTS",
+			"bucket_name": "core-github-api-plan-artifacts"
+		},
+		{
+			"binding": "ARTIFACT_STORE",
+			"bucket_name": "core-planning-artifacts"
+		}
+	],
 	"kv_namespaces": [
 		{
 			"binding": "ETAG_KV",
@@ -435,6 +536,9 @@
 	// wrangler vectorize create core-github-api-vectors --preset @cf/baai/bge-large-en-v1.5
 	// wrangler vectorize create core-github-api-research --dimensions=1024 --metric=cosine
 	// wrangler vectorize create core-github-api-logs --preset @cf/baai/bge-large-en-v1.5
+	// wrangler vectorize create core-github-api-plan-embeddings --dimensions=1024 --metric=cosine
+	// wrangler vectorize create core-github-api-plan-rag --dimensions=1024 --metric=cosine
+	// wrangler vectorize create core-github-api-file-embeddings --dimensions=1024 --metric=cosine
 	"vectorize": [
 		{
 			"binding": "VECTORIZE",
@@ -452,6 +556,16 @@
 			"remote": true
 		},
 		{
+			"binding": "PLAN_EMBEDDINGS",
+			"index_name": "core-github-api-plan-rag",
+			"remote": true
+		},
+		{
+			"binding": "FILE_EMBEDDINGS",
+			"index_name": "core-github-api-file-embeddings",
+			"remote": true
+		},
+		{
 			"binding": "VECTORIZE_INDEX",
 			"index_name": "sentinel-patterns"
 		}
@@ -460,34 +574,34 @@
 		{
 			"binding": "DB",
 			"database_name": "core-github-api",
-			"database_id": "4db39958-8554-4da4-b23d-8a4ea8404588",
-			"preview_database_id": "4db39958-8554-4da4-b23d-8a4ea8404588",
+			"database_id": "fb7e274a-0a46-469b-8ae3-5a7750dd282b",
+			"preview_database_id": "178a8586-31ee-4134-a598-cca3206123e6",
 			"migrations_dir": "migrations/core"
 		},
 		{
 			"binding": "DB_WEBHOOKS",
 			"database_name": "core-github-api-webhooks",
-			"database_id": "df714884-593d-45da-9c7f-9f67903c4fca",
+			"database_id": "905b62db-b631-4133-8633-e0b8282d4cbd",
 			"migrations_dir": "migrations/webhooks"
 		}
 	],
 	// Email sending bindings for Email Routing
 	// Targeted binding - sends only to the specified destination address
-  "send_email": [
-    {
-      "name": "SEND_EMAIL"
-    },
-    {
-      "name": "SEND_EMAIL_NEWSLETTER",
-      "destination_address": "ai@126colby.com"
-    },
-    {
-      "name": "Core Github API",
-      "allowed_destination_addresses": [
-        "ai@126colby.com"
-      ]
-    }
-  ],
+	"send_email": [
+		{
+			"name": "SEND_EMAIL"
+		},
+		{
+			"name": "SEND_EMAIL_NEWSLETTER",
+			"destination_address": "ai@126colby.com"
+		},
+		{
+			"name": "Core Github API",
+			"allowed_destination_addresses": [
+				"ai@126colby.com"
+			]
+		}
+	],
 	// Scheduled triggers for automated tasks
 	// Cron format: minute hour day month day-of-week
 	"triggers": {

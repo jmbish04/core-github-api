@@ -137,6 +137,16 @@ const finalData = await generateStructuredResponse<z.infer<typeof MySchema>>(
   - Similarly, if a provider is specified but no model is provided, the specific provider module's logic determines the default model.
   - Agents should not hardcode default models unless explicitly required by the business logic.
 
+## Full-Code Output Rule
+
+Agents must never return elided or partial code using shortcuts such as:
+
+- `// ... rest of the function remains the same ...`
+- `// leaving as is`
+- `// ... rest of code ...`
+
+If a file is in scope, return the complete file content for that file. If a function is rewritten, return the full rewritten function. Do not replace omitted code with commentary.
+
 ## Tools (MCP)
 
 When integrating tools:
@@ -215,3 +225,16 @@ We are deploying a dedicated **Agentic Research Team** consisting of a stateful 
 1.  **MCP**: Verify tools `gh_official_search` and `gh_official_read` are available in the Agent's tool list.
 2.  **Research**: Send "Analyze facebook/react" to `ResearchAgent`. Verify Workflow logs showing Sandbox clone.
 3.  **Email**: Trigger cron manually via `npx wrangler triggers fire --name "daily-scan"`.
+
+## Cross-Repository Architecture & Actions
+
+- **Rule:** the `core-github-standardization` repository is the source of truth for CI/CD templates, heavy-lifting Python scripts, and global GitHub Actions.
+- **Rule:** Any modification to an async task requires two PRs: One to `core-github-standardization` to update the python/yaml logic, and one to `core-github-api` to update the Zod schemas and D1 ingestion logic.
+
+## Global Error Handling (Mandatory)
+
+When handling exceptions across the stack, the following strict protocol MUST be followed:
+
+1. **Backend Errors (D1 Mirror)**: All backend errors (API failures, tool exceptions) must be logged persistently using `src/lib/logger.ts`. You must invoke `logger.error()` passing the original error message and call `await logger.flush()` before returning the JSON error response to ensure the D1 `system_logs` transaction commits.
+2. **Frontend UI (Shadcn)**: The frontend must catch API errors and pass them to the centralized `handleGlobalError` service (in `@/lib/error-handler`), which renders a Sonner toast containing the literal backend message and a "Copy to Clipboard" button for the user to paste back to an AI agent. Do not use generic `<Alert>` blocks for structural logic failures.
+3. **Transparent Passthrough**: Do not genericize trace messages on the backend. If an external service returns a 404, the JSON payload must contain `"error": "GitHub API responded with 404 Not Found"`, not `"Extraction failed"`.

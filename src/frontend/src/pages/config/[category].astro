@@ -1,0 +1,19 @@
+---
+import { ConfigDashboard } from "@/components/config/ConfigDashboard";
+
+export function getStaticPaths() {
+  return [
+    { params: { category: "general" } },
+    { params: { category: "ai" } },
+    { params: { category: "github" } },
+    { params: { category: "secrets" } },
+    { params: { category: "skills" } },
+    { params: { category: "agents" } },
+    { params: { category: "standardization" } },
+  ];
+}
+
+const { category } = Astro.params;
+---
+
+<ConfigDashboard client:only="react" category={category} />

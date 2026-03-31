@@ -1,9 +1,36 @@
 
- ⛅️ wrangler 4.67.0 (update available 4.68.1)
+ ⛅️ wrangler 4.73.0 (update available 4.74.0)
 ─────────────────────────────────────────────
-Successfully created tail, expires at 2026-02-25T14:49:24Z
+Successfully created tail, expires at 2026-03-17T02:33:23Z
 Connected to core-github-api, waiting for logs...
-GET https://core-github-api.hacolby.workers.dev/healthz - Ok @ 2/25/2026, 1:21:08 AM
-  (log) {"level":"info","message":"[route] GET /healthz","method":"GET","path":"/healthz","status":200,"latency":"0ms","payloadSizeBytes":0,"correlationId":"af453a04-c000-4cea-bd98-5beb7ece8317","timestamp":"2026-02-25T09:21:09.123Z","payloadSize":"0 bytes"}
-Alarm @ 2/25/2026, 1:20:51 AM - Exception Thrown
-Alarm @ 2/25/2026, 1:20:51 AM - Exception Thrown
+GET https://core-github-api.hacolby.workers.dev/api/health/latest?t=1773693207118 - Ok @ 3/16/2026, 1:33:27 PM
+GET https://core-github-api.hacolby.workers.dev/api/projects/favorites - Ok @ 3/16/2026, 1:33:27 PM
+GET https://core-github-api.hacolby.workers.dev/api/alerts - Ok @ 3/16/2026, 1:33:27 PM
+Unknown Event - Ok @ 3/16/2026, 1:33:26 PM
+GET http://internal/ws - Canceled @ 3/16/2026, 1:33:25 PM
+GET https://core-github-api.hacolby.workers.dev/api/health/latest?t=1773693208730 - Ok @ 3/16/2026, 1:33:28 PM
+GET https://core-github-api.hacolby.workers.dev/api/alerts - Ok @ 3/16/2026, 1:33:28 PM
+GET https://core-github-api.hacolby.workers.dev/api/ops/workflows/logs - Ok @ 3/16/2026, 1:33:49 PM
+GET https://core-github-api.hacolby.workers.dev/api/ops/workflows/configs - Ok @ 3/16/2026, 1:33:49 PM
+GET https://core-github-api.hacolby.workers.dev/api/webhooks?page=1&limit=20 - Ok @ 3/16/2026, 1:33:53 PM
+GET https://core-github-api.hacolby.workers.dev/api/webhooks/stats - Ok @ 3/16/2026, 1:33:53 PM
+GET https://core-github-api.hacolby.workers.dev/api/health/latest?t=1773693237118 - Ok @ 3/16/2026, 1:33:57 PM
+GET https://core-github-api.hacolby.workers.dev/api/health/latest?t=1773693267118 - Ok @ 3/16/2026, 1:34:27 PM
+GET https://core-github-api.hacolby.workers.dev/api/alerts - Ok @ 3/16/2026, 1:34:27 PM
+GET https://core-github-api.hacolby.workers.dev/api/health/latest?t=1773693268735 - Ok @ 3/16/2026, 1:34:28 PM
+GET https://core-github-api.hacolby.workers.dev/api/alerts - Ok @ 3/16/2026, 1:34:28 PM
+GET https://core-github-api.hacolby.workers.dev/api/webhooks?page=1&limit=20 - Ok @ 3/16/2026, 1:34:55 PM
+GET https://core-github-api.hacolby.workers.dev/api/webhooks/stats - Ok @ 3/16/2026, 1:34:55 PM
+GET https://core-github-api.hacolby.workers.dev/api/health/latest?t=1773693297118 - Ok @ 3/16/2026, 1:34:57 PM
+GET https://core-github-api.hacolby.workers.dev/api/health/latest?t=1773693303445 - Ok @ 3/16/2026, 1:35:03 PM
+GET https://core-github-api.hacolby.workers.dev/api/webhooks/jules/ws - Unknown @ 3/16/2026, 1:33:27 PM
+GET https://core-github-api.hacolby.workers.dev/api/webhooks/jules/ws - Unknown @ 3/16/2026, 1:33:26 PM
+GET https://core-github-api.hacolby.workers.dev/api/webhooks/stats - Ok @ 3/16/2026, 1:35:05 PM
+GET https://core-github-api.hacolby.workers.dev/api/webhooks?page=1&limit=20 - Ok @ 3/16/2026, 1:35:05 PM
+GET https://core-github-api.hacolby.workers.dev/api/health/latest?t=1773693316638 - Ok @ 3/16/2026, 1:35:16 PM
+GET https://core-github-api.hacolby.workers.dev/api/alerts - Ok @ 3/16/2026, 1:35:16 PM
+GET https://core-github-api.hacolby.workers.dev/api/agents/jules - Ok @ 3/16/2026, 1:35:32 PM
+GET https://core-github-api.hacolby.workers.dev/api/frontend/workshop/specialists - Ok @ 3/16/2026, 1:35:32 PM
+Unknown Event - Ok @ 3/16/2026, 1:35:08 PM
+GET http://internal/ws - Unknown @ 3/16/2026, 1:35:07 PM
+GET https://core-github-api.hacolby.workers.dev/api/webhooks/jules/ws - Canceled @ 3/16/2026, 1:35:06 PM

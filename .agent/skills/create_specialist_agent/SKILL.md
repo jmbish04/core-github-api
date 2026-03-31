@@ -7,6 +7,12 @@ description: "Guidelines for implementing a new persona or specialist agent usin
 
 When requested to create/incorporate a new expert agent (e.g. Data Scientist, UX Designer, Infrastructure Architect) into the Workshop, you MUST adhere to the following structure to maintain system cohesion.
 
+## Output Discipline
+
+- Return complete files for every touched file.
+- Never use elisions such as `// ... rest of the file ...`, `// leaving as is`, or any equivalent shorthand.
+- If you rewrite a module, output the entire rewritten module.
+
 ## SPECIALIST INSTRUCTIONS
 
 ### 1. Frontend Architecture
@@ -18,10 +24,12 @@ When requested to create/incorporate a new expert agent (e.g. Data Scientist, UX
 ### 2. The "Specialist" Pattern
 
 - You are **NOT** creating 5 different ChatAgent classes (e.g. `DataArchitect.ts`, `FrontendExpert.ts`).
-- Create **ONE** flexible `SpecialistAgent` class that extends `HonoBaseAgent`.
+- Create **ONE** flexible Honi-based specialist module using `createAgent(...)`.
+- Do not reintroduce `BaseAgent` or `HonoBaseAgent`. Those patterns are retired.
 - When the frontend connects via RPC or WebSocket, it sends a `systemPrompt` or `specialty` parameter.
-- The `SpecialistAgent` dynamically adopts the given persona (Data, UX, SRE) based on this parameter to construct its core context.
+- The specialist runtime dynamically adopts the given persona (Data, UX, SRE) based on this parameter to construct its core context.
 - Keep the system DRY. All standard tooling (like MCP lookup, GitHub file read, code search) is shared.
+- Prefer shared support utilities under `backend/src/ai/agents/support/**` for chat state, structured output, and memory-aware execution.
 
 ### 3. Registry & Discovery
 

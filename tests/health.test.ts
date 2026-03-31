@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { Hono } from 'hono'
 
-import { createHealthPayload, healthHandler } from '../backend/src/routes/health'
+import { createHealthPayload, healthHandler } from '../src/backend/src/routes/health'
 
 describe('health handler', () => {
   it('returns the expected health payload', async () => {

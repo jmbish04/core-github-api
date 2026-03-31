@@ -1,0 +1,20 @@
+---
+import { StandaloneCloudflareCosts } from "@/views/control/global/CloudflareCosts";
+
+// Note: The main app uses React Router SPA handling inside index.astro.
+// This route is exposed via Astro for standalone direct linking.
+---
+
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cloudflare Costs</title>
+  </head>
+  <body class="bg-background text-foreground h-screen">
+    <div class="h-full overflow-y-auto">
+      <StandaloneCloudflareCosts client:load />
+    </div>
+  </body>
+</html>
