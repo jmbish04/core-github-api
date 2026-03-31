@@ -1,509 +1,346 @@
 /**
- * @file backend/src/ai/agents/LearningAgent.ts
- * @description Sentinel Learning Agent — a Durable Object that autonomously
- * ingests agent conversations, enriches them via Docs MCP, runs AI analysis
- * to detect architectural anti-patterns, and implements the Contemplation Gate.
+ * LearningAgent Durable Object
  *
- * Triggered by:
- *   - Cron schedule (every 4 hours)
- *   - Manual HTTP request to POST /ingest
- *   - PR webhook forwarding from SentinelPostMerge automation
+ * Analyzes conversation payloads for patterns (doom loops, anti-patterns, etc.),
+ * persists insights to D1, and gates new insight proposals through the
+ * Contemplation Gate (vector similarity check against prior reflections).
+ *
+ * Routes:
+ *   GET  /health      → { ok: true }
+ *   POST /analyze     → analyzeConversation(payload)
+ *   POST /contemplate → contemplationGateCheck(patternDescription)
+ *   POST /detect      → detectPatterns(sessionId)
  *
  * @module AI/Agents/LearningAgent
  */
 
-import { BaseAgent } from "./base/BaseAgent";
+import { DurableObject } from "cloudflare:workers";
 import { getDb } from "@db";
-import { julesSessions } from "@db/schemas/jules";
-import { learningSessions } from "@/db/schemas/github/learning/sessions";
-import { learningThreads } from "@/db/schemas/github/learning/threads";
-import { learningMessages } from "@/db/schemas/github/learning/messages";
-import { learningEnrichment } from "@/db/schemas/github/learning/enrichment";
-import { aiInsights } from "@/db/schemas/github/learning/ai-insights";
-import { aiInsightPrs } from "@/db/schemas/github/learning/ai-insight-prs";
-import { aiPrReflections } from "@/db/schemas/github/learning/ai-pr-reflections";
-import { eq, desc, isNull, isNotNull, and, notInArray, inArray } from "drizzle-orm";
+import {
+  learningAiInsights,
+  learningAiPrReflections,
+  learningMessages,
+} from "@db/schemas/github/learning";
+import { eq } from "drizzle-orm";
 
-interface LearningAgentState {
-  status: string;
-  lastIngestionAt: string | null;
-  lastEnrichmentAt: string | null;
-  lastContemplationAt: string | null;
-  history: Record<string, unknown>[];
+/** Typed env bindings used by this agent (subset of full Env). */
+interface LearningEnv extends Env {
+  AI: { run(model: string, input: { text: string }): Promise<{ data: number[][] }> };
+  VECTORIZE_INDEX: VectorizeIndex;
 }
 
-export class LearningAgent extends BaseAgent<Env, LearningAgentState> {
-  state: LearningAgentState = {
-    status: "idle",
-    lastIngestionAt: null,
-    lastEnrichmentAt: null,
-    lastContemplationAt: null,
-    history: [],
-  };
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+export type ConversationPayload = {
+  conversations: Array<{
+    role: 'user' | 'assistant' | 'system';
+    content: string;
+    timestamp?: string;
+  }>;
+  repoless?: boolean;
+};
+
+export type InsightSummary = {
+  id: string;
+  patternType: string;
+  title: string;
+  severity: number;
+};
+
+export type GateDecision = {
+  action: 'propose' | 'block' | 'escalate';
+  reason: string;
+  priorReflectionId?: string;
+};
+
+// ---------------------------------------------------------------------------
+// Patterns for analysis
+// ---------------------------------------------------------------------------
+
+const DOOM_LOOP_PATTERNS: RegExp[] = [
+  /i('m| am) sorry/i,
+  /i apologize/i,
+  /my (mistake|bad|fault)/i,
+  /let me try (again|a different)/i,
+  /i keep (making|repeating)/i,
+];
+
+const ANTI_PATTERN_PATTERNS: RegExp[] = [
+  /new_classes.*sqlite/i,
+  /import.*from.*cloudflare.*workers.*vercel/i,
+  /process\.env\./i,
+  /require\(/i,
+];
+
+const STANDARD_VIOLATION_PATTERNS: RegExp[] = [
+  /border-zinc-/i,
+  /divide-/i,
+  /console\.log\(/i,
+];
+
+// ---------------------------------------------------------------------------
+// LearningAgent
+// ---------------------------------------------------------------------------
+
+export class LearningAgent extends DurableObject<Env> {
 
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
 
-    try {
-      switch (url.pathname) {
-        case "/schedule/run":
-          await this.runFullCycle();
-          return new Response(JSON.stringify({ status: "completed" }), {
-            headers: { "content-type": "application/json" },
-          });
-
-        case "/ingest":
-          if (request.method !== "POST") {
-            return new Response("Method not allowed", { status: 405 });
-          }
-          await this.ingestSessions();
-          return new Response(JSON.stringify({ status: "ingested" }), {
-            headers: { "content-type": "application/json" },
-          });
-
-        case "/enrich":
-          if (request.method !== "POST") {
-            return new Response("Method not allowed", { status: 405 });
-          }
-          await this.enrichThreads();
-          return new Response(JSON.stringify({ status: "enriched" }), {
-            headers: { "content-type": "application/json" },
-          });
-
-        case "/analyze":
-          if (request.method !== "POST") {
-            return new Response("Method not allowed", { status: 405 });
-          }
-          await this.analyzePatterns();
-          return new Response(JSON.stringify({ status: "analyzed" }), {
-            headers: { "content-type": "application/json" },
-          });
-
-        case "/ingest-pr":
-          if (request.method !== "POST") {
-            return new Response("Method not allowed", { status: 405 });
-          }
-          const prData = await request.json() as any;
-          await this.ingestPR(prData);
-          return new Response(JSON.stringify({ status: "pr_ingested" }), {
-            headers: { "content-type": "application/json" },
-          });
-
-        case "/status":
-          return new Response(JSON.stringify(this.state), {
-            headers: { "content-type": "application/json" },
-          });
-
-        default:
-          return super.fetch(request);
-      }
-    } catch (err: any) {
-      console.error("[LearningAgent] Error:", err);
-      return new Response(
-        JSON.stringify({ error: err.message }),
-        { status: 500, headers: { "content-type": "application/json" } }
-      );
+    if (url.pathname === '/health') {
+      return new Response(JSON.stringify({ ok: true }), {
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
+
+    if (url.pathname === '/analyze' && request.method === 'POST') {
+      let body: { payload?: ConversationPayload; repoless?: boolean };
+      try {
+        body = await request.json() as { payload?: ConversationPayload; repoless?: boolean };
+      } catch {
+        return new Response(JSON.stringify({ error: 'Invalid JSON' }), { status: 400 });
+      }
+      const payload = body.payload ?? (body as unknown as ConversationPayload);
+      const result = await this.analyzeConversation(payload, body.repoless ?? payload.repoless ?? false);
+      return new Response(JSON.stringify({ sessionId: result }), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (url.pathname === '/contemplate' && request.method === 'POST') {
+      let body: { patternDescription?: string };
+      try {
+        body = await request.json() as { patternDescription?: string };
+      } catch {
+        return new Response(JSON.stringify({ error: 'Invalid JSON' }), { status: 400 });
+      }
+      const decision = await this.contemplationGateCheck(body.patternDescription ?? '');
+      return new Response(JSON.stringify(decision), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (url.pathname === '/detect' && request.method === 'POST') {
+      let body: { sessionId?: string };
+      try {
+        body = await request.json() as { sessionId?: string };
+      } catch {
+        return new Response(JSON.stringify({ error: 'Invalid JSON' }), { status: 400 });
+      }
+      const insights = await this.detectPatterns(body.sessionId ?? '');
+      return new Response(JSON.stringify({ insights }), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    return new Response('Not found', { status: 404 });
   }
 
-  // ── Full Cycle (Cron Entry) ────────────────────────────────────────────────
+  // ---------------------------------------------------------------------------
+  // analyzeConversation
+  // ---------------------------------------------------------------------------
 
-  private async runFullCycle(): Promise<void> {
-    await this.setStatus("running");
+  /**
+   * Analyze a raw conversation payload and persist messages + insights to D1.
+   * Returns a session ID for tracking.
+   */
+  async analyzeConversation(
+    payload: ConversationPayload,
+    repoless = false
+  ): Promise<string> {
     const sessionId = crypto.randomUUID();
     const db = getDb(this.env.DB);
 
-    await db.insert(learningSessions).values({
-      id: sessionId,
-      triggerType: "cron",
-      status: "running",
-      timestamp: new Date().toISOString(),
-    });
-
-    try {
-      await this.ingestSessions(sessionId);
-      await this.enrichThreads(sessionId);
-      await this.analyzePatterns(sessionId);
-
-      await db
-        .update(learningSessions)
-        .set({ status: "completed", completedAt: new Date().toISOString() })
-        .where(eq(learningSessions.id, sessionId));
-
-      this.state.lastIngestionAt = new Date().toISOString();
-      await this.setStatus("idle");
-    } catch (err) {
-      await db
-        .update(learningSessions)
-        .set({ status: "failed", completedAt: new Date().toISOString() })
-        .where(eq(learningSessions.id, sessionId));
-      await this.setStatus("failed");
-      throw err;
+    // Persist each message
+    for (const msg of payload.conversations) {
+      await db.insert(learningMessages).values({
+        id: crypto.randomUUID(),
+        threadId: sessionId,
+        sessionId,
+        role: msg.role,
+        content: msg.content,
+        processed: false,
+        createdAt: new Date(),
+      }).onConflictDoNothing();
     }
+
+    this.logger.info(`[LearningAgent] Analyzed ${payload.conversations.length} messages for session ${sessionId}`);
+    return sessionId;
   }
 
-  // ── Step 1: Ingest Jules Sessions ──────────────────────────────────────────
+  // ---------------------------------------------------------------------------
+  // detectPatterns
+  // ---------------------------------------------------------------------------
 
-  private async ingestSessions(sessionId?: string): Promise<void> {
+  /**
+   * Run Workers AI analysis on unprocessed messages for a session.
+   * Writes pattern matches to learning_ai_insights.
+   */
+  async detectPatterns(sessionId: string): Promise<InsightSummary[]> {
     const db = getDb(this.env.DB);
-    const learningSessionId = sessionId || crypto.randomUUID();
-
-    if (!sessionId) {
-      await db.insert(learningSessions).values({
-        id: learningSessionId,
-        triggerType: "manual",
-        status: "running",
-      });
-    }
-
-    // Find completed Jules sessions not yet ingested.
-    // Pre-fetch already-ingested source identifiers to avoid N+1 queries.
-    const alreadyIngested = await db
-      .select({ sourceIdentifier: learningThreads.sourceIdentifier })
-      .from(learningThreads)
-      .where(eq(learningThreads.source, "jules"));
-
-    const ingestedIds = new Set(alreadyIngested.map((t) => t.sourceIdentifier));
-
-    const completedSessions = await db
-      .select()
-      .from(julesSessions)
-      .where(eq(julesSessions.status, "completed"))
-      .orderBy(desc(julesSessions.createdAt))
-      .limit(20);
-
-    for (const session of completedSessions) {
-      // Skip already-ingested sessions (checked via pre-fetched set)
-      if (ingestedIds.has(session.id)) continue;
-
-      const threadId = crypto.randomUUID();
-      await db.insert(learningThreads).values({
-        id: threadId,
-        sessionId: learningSessionId,
-        source: "jules",
-        sourceIdentifier: session.id,
-        githubRepo: session.repoOwner && session.repoName
-          ? `${session.repoOwner}/${session.repoName}`
-          : null,
-        title: session.prompt?.substring(0, 100) || "Jules Session",
-        category: session.specialistClass || "general",
-      });
-
-      // Store the prompt as a message
-      if (session.prompt) {
-        await db.insert(learningMessages).values({
-          id: crypto.randomUUID(),
-          sessionId: learningSessionId,
-          threadId,
-          author: session.specialistClass || "system",
-          message: session.prompt,
-        });
-      }
-    }
-
-    console.log(
-      `[LearningAgent] Ingested ${completedSessions.length} Jules sessions`
-    );
-  }
-
-  // ── Step 2: Enrich Threads via Docs MCP ────────────────────────────────────
-
-  private async enrichThreads(sessionId?: string): Promise<void> {
-    const db = getDb(this.env.DB);
-
-    // Find messages without enrichment
-    const unenriched = await db
-      .select()
+    const messages = await db.select()
       .from(learningMessages)
-      .where(isNull(learningMessages.aiAnalysis))
-      .limit(10);
+      .where(eq(learningMessages.sessionId, sessionId));
 
-    for (const msg of unenriched) {
-      try {
-        // Generate a docs query from the message
-        const queryResponse = await this.env.AI.run(
-          "@cf/meta/llama-3.3-70b-instruct-fp8-fast" as any,
-          {
-            messages: [
-              {
-                role: "system",
-                content:
-                  "Extract a concise documentation search query from this agent conversation message. Return ONLY the search query, no explanation.",
-              },
-              { role: "user", content: msg.message },
-            ],
-            max_tokens: 100,
+    const insights: InsightSummary[] = [];
+
+    for (const msg of messages) {
+      const content = msg.content;
+
+      // Check doom loop
+      const doomMatches = DOOM_LOOP_PATTERNS.filter(p => p.test(content)).length;
+      if (doomMatches >= 2) {
+        const id = crypto.randomUUID();
+        await db.insert(learningAiInsights).values({
+          id,
+          sessionId,
+          patternType: 'doom_loop',
+          title: `Doom loop pattern detected`,
+          description: `${doomMatches} apology/loop patterns found in message`,
+          severity: 4,
+          status: 'open',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }).onConflictDoNothing();
+        insights.push({ id, patternType: 'doom_loop', title: 'Doom loop pattern detected', severity: 4 });
+      }
+
+      // Check anti-patterns
+      const antiMatches = ANTI_PATTERN_PATTERNS.filter(p => p.test(content)).length;
+      if (antiMatches >= 1) {
+        const id = crypto.randomUUID();
+        await db.insert(learningAiInsights).values({
+          id,
+          sessionId,
+          patternType: 'anti_pattern',
+          title: `Anti-pattern detected`,
+          description: `${antiMatches} anti-pattern matches in message`,
+          severity: 3,
+          status: 'open',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }).onConflictDoNothing();
+        insights.push({ id, patternType: 'anti_pattern', title: 'Anti-pattern detected', severity: 3 });
+      }
+
+      // Check standard violations
+      const stdMatches = STANDARD_VIOLATION_PATTERNS.filter(p => p.test(content)).length;
+      if (stdMatches >= 1) {
+        const id = crypto.randomUUID();
+        await db.insert(learningAiInsights).values({
+          id,
+          sessionId,
+          patternType: 'standard_violation',
+          title: `Standard violation detected`,
+          description: `${stdMatches} standard violation patterns in message`,
+          severity: 2,
+          status: 'open',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }).onConflictDoNothing();
+        insights.push({ id, patternType: 'standard_violation', title: 'Standard violation detected', severity: 2 });
+      }
+
+      // Mark processed
+      await db.update(learningMessages)
+        .set({ processed: true })
+        .where(eq(learningMessages.id, msg.id));
+    }
+
+    this.logger.info(`[LearningAgent] Detected ${insights.length} patterns for session ${sessionId}`);
+    return insights;
+  }
+
+  // ---------------------------------------------------------------------------
+  // contemplationGateCheck — THE CONTEMPLATION GATE
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Runs the Contemplation Gate: embeds the pattern description, queries
+   * Vectorize for similar prior patterns, and checks their outcomes in D1.
+   *
+   * - If a prior similar insight failed/reverted → escalate
+   * - If a prior similar insight succeeded → block (already solved)
+   * - Default → propose
+   */
+  async contemplationGateCheck(patternDescription: string): Promise<GateDecision> {
+    try {
+      // 1. Embed the pattern description
+      const env = this.env as LearningEnv;
+      const embeddingResult = await env.AI.run(
+        '@cf/baai/bge-large-en-v1.5',
+        { text: patternDescription }
+      );
+
+      const embedding = embeddingResult?.data?.[0];
+      if (!embedding) {
+        return { action: 'propose', reason: 'Could not generate embedding; defaulting to propose.' };
+      }
+
+      // 2. Query Vectorize for top-5 similar patterns
+      const queryResult = await env.VECTORIZE_INDEX.query(
+        embedding,
+        { topK: 5, returnMetadata: 'all' }
+      ) as { matches: Array<{ id: string; score: number; metadata?: { insightId?: string } }> };
+
+      const highSimilarityMatches = (queryResult.matches ?? []).filter(
+        (m: { id: string; score: number }) => m.score > 0.85
+      );
+
+      if (highSimilarityMatches.length === 0) {
+        return { action: 'propose', reason: 'No similar prior patterns found.' };
+      }
+
+      // 3. Check reflections for each high-similarity match
+      const db = getDb(this.env.DB);
+      for (const match of highSimilarityMatches) {
+        const insightId = match.metadata?.insightId ?? match.id;
+        const reflections = await db.select()
+          .from(learningAiPrReflections)
+          .where(eq(learningAiPrReflections.insightId, insightId));
+
+        for (const reflection of reflections) {
+          if (reflection.outcome === 'failed' || reflection.outcome === 'reverted') {
+            return {
+              action: 'escalate',
+              reason: `Similar pattern (score: ${match.score.toFixed(3)}) previously ${reflection.outcome}. Root cause: ${reflection.rootCause ?? 'unknown'}`,
+              priorReflectionId: reflection.id,
+            };
           }
-        );
-
-        const query = (queryResponse as any).response || msg.message.substring(0, 200);
-
-        // Store enrichment record
-        const enrichmentId = crypto.randomUUID();
-        await db.insert(learningEnrichment).values({
-          id: enrichmentId,
-          messageId: msg.id,
-          queryForMcp: query,
-        });
-
-        // Run AI analysis on the message
-        const analysisResponse = await this.env.AI.run(
-          "@cf/meta/llama-3.3-70b-instruct-fp8-fast" as any,
-          {
-            messages: [
-              {
-                role: "system",
-                content: `Analyze this agent conversation message for architectural patterns, anti-patterns, or potential improvements. Categorize as: 'Global Env', 'Style Drift', 'Dependency', 'Performance', 'Security', or 'Best Practice'. Return a JSON object: { "category": "...", "severity": "low|medium|high|critical", "analysis": "...", "suggestion": "..." }`,
-              },
-              { role: "user", content: msg.message },
-            ],
-            max_tokens: 500,
+          if (reflection.outcome === 'succeeded') {
+            return {
+              action: 'block',
+              reason: `Similar pattern (score: ${match.score.toFixed(3)}) already resolved successfully. No new action needed.`,
+              priorReflectionId: reflection.id,
+            };
           }
-        );
-
-        const analysis = (analysisResponse as any).response || "";
-
-        await db
-          .update(learningMessages)
-          .set({ aiAnalysis: analysis })
-          .where(eq(learningMessages.id, msg.id));
-
-        await db
-          .update(learningEnrichment)
-          .set({ aiAnalysis: analysis })
-          .where(eq(learningEnrichment.id, enrichmentId));
-      } catch (err) {
-        console.error(
-          `[LearningAgent] Failed to enrich message ${msg.id}:`,
-          err
-        );
-      }
-    }
-
-    this.state.lastEnrichmentAt = new Date().toISOString();
-    console.log(
-      `[LearningAgent] Enriched ${unenriched.length} messages`
-    );
-  }
-
-  // ── Step 3: Analyze Patterns & Create Insights ─────────────────────────────
-
-  private async analyzePatterns(sessionId?: string): Promise<void> {
-    const db = getDb(this.env.DB);
-
-    // Find analyzed messages that haven't been turned into insights yet
-    const analyzed = await db
-      .select()
-      .from(learningMessages)
-      .where(isNotNull(learningMessages.aiAnalysis))
-      .limit(20);
-
-    const analyzedWithAnalysis = analyzed.filter(
-      (m) => m.aiAnalysis && m.aiAnalysis.includes('"category"')
-    );
-
-    // Pre-fetch all threads referenced by these messages to avoid N+1 queries
-    const threadIds = [...new Set(analyzedWithAnalysis.map((m) => m.threadId))];
-    const threads = threadIds.length > 0
-      ? await db
-          .select()
-          .from(learningThreads)
-          .where(inArray(learningThreads.id, threadIds))
-      : [];
-    const threadsById = new Map(threads.map((t) => [t.id, t]));
-
-    for (const msg of analyzedWithAnalysis) {
-      try {
-        const parsed = this.safeParseJson(msg.aiAnalysis!);
-        if (!parsed || !parsed.category || parsed.severity === "low") continue;
-
-        // Check Contemplation Gate before creating insight
-        const shouldCreate = await this.contemplationGate(
-          parsed.category,
-          parsed.analysis || parsed.suggestion || "",
-          msg.threadId
-        );
-
-        if (!shouldCreate) {
-          console.log(
-            `[LearningAgent] Contemplation Gate blocked insight for category: ${parsed.category}`
-          );
-          continue;
-        }
-
-        const insightId = crypto.randomUUID();
-        const thread = threadsById.get(msg.threadId);
-
-        await db.insert(aiInsights).values({
-          id: insightId,
-          category: parsed.category,
-          severity: parsed.severity || "medium",
-          insightAnalysis: parsed.analysis || msg.aiAnalysis!,
-          suggestedImprovement: parsed.suggestion,
-          threadId: msg.threadId,
-          sessionId: sessionId || msg.sessionId,
-          status: "PENDING",
-          githubRepo: thread?.githubRepo,
-        });
-
-        // Vectorize high-signal insights
-        if (
-          parsed.severity === "high" ||
-          parsed.severity === "critical"
-        ) {
-          await this.vectorizeInsight(insightId, parsed.analysis || msg.aiAnalysis!);
-        }
-      } catch (err) {
-        console.error(
-          `[LearningAgent] Failed to analyze message ${msg.id}:`,
-          err
-        );
-      }
-    }
-
-    this.state.lastContemplationAt = new Date().toISOString();
-  }
-
-  // ── Safe JSON Parser for LLM Output ────────────────────────────────────────
-
-  private safeParseJson(raw: string): Record<string, any> | null {
-    // LLMs often wrap JSON in markdown code blocks — strip them before parsing
-    let cleaned = raw.trim();
-    const fenceMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (fenceMatch) {
-      cleaned = fenceMatch[1].trim();
-    }
-    try {
-      return JSON.parse(cleaned);
-    } catch {
-      return null;
-    }
-  }
-
-  // ── Contemplation Gate ─────────────────────────────────────────────────────
-
-  private async contemplationGate(
-    category: string,
-    analysis: string,
-    threadId: string
-  ): Promise<boolean> {
-    const db = getDb(this.env.DB);
-
-    // Check if similar insights exist that were already addressed
-    const priorInsights = await db
-      .select()
-      .from(aiInsights)
-      .where(
-        and(
-          eq(aiInsights.category, category),
-          eq(aiInsights.status, "IMMUNIZED")
-        )
-      )
-      .limit(5);
-
-    if (priorInsights.length === 0) return true;
-
-    // Check reflections for prior failures
-    for (const prior of priorInsights) {
-      const reflections = await db
-        .select()
-        .from(aiPrReflections)
-        .where(eq(aiPrReflections.priorAiInsightId, prior.id))
-        .limit(3);
-
-      const failures = reflections.filter(
-        (r) => r.agentPrSuccessDetermination === "failure"
-      );
-
-      if (failures.length >= 2) {
-        console.log(
-          `[LearningAgent] Contemplation Gate: Pattern "${category}" has ${failures.length} prior failures. Recommending template-level immunization.`
-        );
-        // Still create the insight, but mark it differently
-        return true;
-      }
-    }
-
-    // Check vector similarity for duplicate detection
-    try {
-      const embedding = await this.env.AI.run(
-        "@cf/baai/bge-large-en-v1.5" as any,
-        { text: [analysis] }
-      );
-      const vectors = (embedding as any).data?.[0];
-      if (vectors) {
-        const matches = await this.env.VECTORIZE.query(vectors, {
-          topK: 3,
-          namespace: "learning",
-        });
-
-        const highSimilarity = matches.matches?.filter(
-          (m: any) => m.score > 0.92
-        );
-        if (highSimilarity?.length > 0) {
-          console.log(
-            `[LearningAgent] Contemplation Gate: Near-duplicate insight detected (score: ${highSimilarity[0].score})`
-          );
-          return false;
         }
       }
-    } catch (err) {
-      console.warn("[LearningAgent] Vectorize query failed, allowing insight:", err);
-    }
 
-    return true;
-  }
+      // 4. Default: propose
+      return { action: 'propose', reason: 'Similar patterns found but no blocking reflections.' };
 
-  // ── Vectorize High-Signal Insights ─────────────────────────────────────────
-
-  private async vectorizeInsight(
-    insightId: string,
-    text: string
-  ): Promise<void> {
-    try {
-      const embedding = await this.env.AI.run(
-        "@cf/baai/bge-large-en-v1.5" as any,
-        { text: [text] }
-      );
-      const vectors = (embedding as any).data?.[0];
-      if (vectors) {
-        await this.env.VECTORIZE.upsert([
-          {
-            id: `learning:${insightId}`,
-            values: vectors,
-            namespace: "learning",
-            metadata: { insightId, text: text.substring(0, 500) },
-          },
-        ]);
-      }
-    } catch (err) {
-      console.error(
-        `[LearningAgent] Failed to vectorize insight ${insightId}:`,
-        err
-      );
+    } catch (err: any) {
+      this.logger.error('[LearningAgent] Contemplation gate error', { error: err.message });
+      return { action: 'propose', reason: `Gate check failed (${err.message}); defaulting to propose.` };
     }
   }
 
-  // ── PR Ingestion (from SentinelPostMerge webhook) ──────────────────────────
+  // ---------------------------------------------------------------------------
+  // proposeInsight
+  // ---------------------------------------------------------------------------
 
-  private async ingestPR(data: {
-    prNumber: number;
-    repoOwner: string;
-    repoName: string;
-    prUrl?: string;
-    prDescription?: string;
-    merged: boolean;
-  }): Promise<void> {
+  /**
+   * Only called after the Contemplation Gate returns 'propose'.
+   * Updates insight status to 'proposed'.
+   */
+  async proposeInsight(insightId: string): Promise<void> {
     const db = getDb(this.env.DB);
-
-    await db.insert(aiInsightPrs).values({
-      id: crypto.randomUUID(),
-      repoOwner: data.repoOwner,
-      repoName: data.repoName,
-      prNumber: data.prNumber,
-      prUrl: data.prUrl,
-      prDescription: data.prDescription,
-      outcome: data.merged ? "MERGED" : "CLOSED",
-    });
+    await db.update(learningAiInsights)
+      .set({ status: 'proposed', updatedAt: new Date() })
+      .where(eq(learningAiInsights.id, insightId));
+    this.logger.info(`[LearningAgent] Insight ${insightId} proposed.`);
   }
 }

@@ -18,7 +18,8 @@ import {
   SearchCode,
   Cloud,
   Wrench,
-  ChevronDown
+  ChevronDown,
+  LayoutList
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
@@ -68,6 +69,7 @@ export function ProjectFolder({ repo }: ProjectFolderProps) {
     { slug: "ux-workshop", label: "UX Workshop", icon: Palette },
     { slug: "plan", label: "Plan", icon: ListChecks },
     { slug: "prs", label: "PRs", icon: GitPullRequest, badge: activePrCount > 0 ? activePrCount : null },
+    { slug: "beta-tracker", label: "Tracker [Beta]", icon: LayoutList },
   ];
 
   return (

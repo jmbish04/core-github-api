@@ -1,0 +1,84 @@
+---
+import { InsightTrendChart } from "@/components/learning/InsightTrendChart";
+import { PatternDistributionChart } from "@/components/learning/PatternDistributionChart";
+---
+
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>C2 Learning Dashboard</title>
+  </head>
+  <body class="bg-zinc-950 text-zinc-50 min-h-screen">
+    <div class="p-8 max-w-7xl mx-auto">
+      <!-- Header -->
+      <div class="flex items-center justify-between mb-8">
+        <div>
+          <h1 class="text-3xl font-bold tracking-tighter text-zinc-50">C2 Dashboard</h1>
+          <p class="text-zinc-400 mt-1">Learning pipeline status &amp; insight metrics</p>
+        </div>
+        <!-- Immunity Indicator -->
+        <div class="flex items-center gap-2">
+          <span id="immunity-dot" class="inline-block w-3 h-3 rounded-full bg-zinc-500 animate-pulse"></span>
+          <span id="immunity-label" class="text-zinc-400 text-sm">Checking...</span>
+        </div>
+      </div>
+
+      <!-- Charts row -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <div class="bg-zinc-900 p-6 rounded-sm">
+          <h2 class="text-lg font-semibold tracking-tighter mb-4 text-zinc-50">Insights per Day (30d)</h2>
+          <InsightTrendChart client:load />
+        </div>
+        <div class="bg-zinc-900 p-6 rounded-sm">
+          <h2 class="text-lg font-semibold tracking-tighter mb-4 text-zinc-50">Pattern Distribution</h2>
+          <PatternDistributionChart client:load />
+        </div>
+      </div>
+
+      <!-- Navigation -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <a href="/learning/insights" class="bg-zinc-900 hover:bg-zinc-800 transition-colors p-4 rounded-sm text-zinc-50 font-semibold tracking-tighter text-center">
+          Insight Ledger
+        </a>
+        <a href="/learning/sessions" class="bg-zinc-900 hover:bg-zinc-800 transition-colors p-4 rounded-sm text-zinc-50 font-semibold tracking-tighter text-center">
+          Audit Log
+        </a>
+        <a href="/learning/babysitter" class="bg-zinc-900 hover:bg-zinc-800 transition-colors p-4 rounded-sm text-zinc-50 font-semibold tracking-tighter text-center">
+          Babysitter HUD
+        </a>
+        <a href="/learning/showcase" class="bg-zinc-900 hover:bg-zinc-800 transition-colors p-4 rounded-sm text-zinc-50 font-semibold tracking-tighter text-center">
+          Showcase
+        </a>
+      </div>
+    </div>
+
+    <script>
+      // Immunity Indicator — checks for doom loops in last 24h
+      fetch('/api/learning/insights?patternType=doom_loop&severity=4')
+        .then(r => r.json())
+        .then((d: any) => {
+          const recent = (d.data || []).filter((i: any) => {
+            if (!i.createdAt) return false;
+            return Date.now() - new Date(i.createdAt).getTime() < 86400000;
+          });
+          const dot = document.getElementById('immunity-dot');
+          const label = document.getElementById('immunity-label');
+          if (!dot || !label) return;
+          if (recent.length > 0) {
+            dot.className = 'inline-block w-3 h-3 rounded-full bg-amber-500 animate-pulse';
+            label.textContent = 'Amber — doom loops in last 24h';
+          } else {
+            dot.className = 'inline-block w-3 h-3 rounded-full bg-green-500 animate-pulse';
+            label.textContent = 'Healthy — no doom loops';
+          }
+        })
+        .catch(() => {
+          const label = document.getElementById('immunity-label');
+          if (label) label.textContent = 'Status unknown';
+        });
+    </script>
+  </body>
+</html>
