@@ -16,8 +16,7 @@ import {
   type AutomationMetadata,
 } from "@/core/BaseAutomation";
 import { getDb } from "@db";
-import { aiInsights } from "@/db/schemas/github/learning/ai-insights";
-import { aiPrReflections } from "@/db/schemas/github/learning/ai-pr-reflections";
+import { learningAiInsights } from "@db/schemas/github/learning";
 import { eq, and } from "drizzle-orm";
 
 const PullRequestPayloadSchema = z.object({
@@ -91,11 +90,11 @@ export class SentinelInterceptor extends BaseAutomation<SentinelPayload> {
       const db = getDb(this.env.DB);
       const repoInsights = await db
         .select()
-        .from(aiInsights)
+        .from(learningAiInsights)
         .where(
           and(
-            eq(aiInsights.githubRepo, repoFullName),
-            eq(aiInsights.status, "IMMUNIZED")
+            eq(learningAiInsights.repo, repoFullName),
+            eq(learningAiInsights.status, "proposed")
           )
         )
         .limit(10);
@@ -128,7 +127,7 @@ export class SentinelInterceptor extends BaseAutomation<SentinelPayload> {
       const analysisPrompt = `Analyze this PR diff for architectural anti-patterns, style drift, or improvements based on these known patterns:
 
 **Known Immunized Insights for ${repoFullName}:**
-${repoInsights.map((i) => `- [${i.category}/${i.severity}] ${i.insightAnalysis?.substring(0, 200)}`).join("\n") || "None yet."}
+${repoInsights.map((i) => `- [${i.patternType}/${i.severity}] ${i.description?.substring(0, 200)}`).join("\n") || "None yet."}
 
 **Vector Similarity Matches:**
 ${vectorMatches.join("\n") || "No similar prior patterns found."}

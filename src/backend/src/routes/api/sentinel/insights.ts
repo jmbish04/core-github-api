@@ -10,8 +10,8 @@
 
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { getDb } from "@db";
-import { aiInsights } from "@/db/schemas/github/learning/ai-insights";
-import { eq, desc, sql, count, isNull } from "drizzle-orm";
+import { learningAiInsights } from "@db/schemas/github/learning";
+import { eq, desc, sql, count } from "drizzle-orm";
 
 const app = new OpenAPIHono<{ Bindings: Env }>();
 
@@ -26,7 +26,7 @@ const listInsightsRoute = createRoute({
     query: z.object({
       repo: z.string().optional(),
       status: z.string().optional(),
-      category: z.string().optional(),
+      patternType: z.string().optional(),
       limit: z.coerce.number().default(50),
       offset: z.coerce.number().default(0),
     }),
@@ -47,26 +47,26 @@ const listInsightsRoute = createRoute({
 });
 
 app.openapi(listInsightsRoute, async (c) => {
-  const { repo, status, category, limit, offset } = c.req.valid("query");
+  const { repo, status, patternType, limit, offset } = c.req.valid("query");
   const db = getDb(c.env.DB);
 
   const conditions: any[] = [];
-  if (repo) conditions.push(eq(aiInsights.githubRepo, repo));
-  if (status) conditions.push(eq(aiInsights.status, status));
-  if (category) conditions.push(eq(aiInsights.category, category));
+  if (repo) conditions.push(eq(learningAiInsights.repo, repo));
+  if (status) conditions.push(eq(learningAiInsights.status, status));
+  if (patternType) conditions.push(eq(learningAiInsights.patternType, patternType));
 
-  let query = db.select().from(aiInsights);
+  let query = db.select().from(learningAiInsights);
   for (const cond of conditions) {
     query = query.where(cond) as any;
   }
 
   const insights = await (query as any)
-    .orderBy(desc(aiInsights.timestamp))
+    .orderBy(desc(learningAiInsights.createdAt))
     .limit(limit)
     .offset(offset);
 
   // Count total
-  let countQuery = db.select({ value: count() }).from(aiInsights);
+  let countQuery = db.select({ value: count() }).from(learningAiInsights);
   for (const cond of conditions) {
     countQuery = countQuery.where(cond) as any;
   }
@@ -90,10 +90,10 @@ const globalStatsRoute = createRoute({
           schema: z.object({
             totalInsights: z.number(),
             byStatus: z.record(z.number()),
-            byCategory: z.record(z.number()),
+            byPatternType: z.record(z.number()),
             bySeverity: z.record(z.number()),
-            immunized: z.number(),
-            pending: z.number(),
+            proposed: z.number(),
+            open: z.number(),
           }),
         },
       },
@@ -106,48 +106,48 @@ app.openapi(globalStatsRoute, async (c) => {
 
   const [{ value: totalInsights }] = await db
     .select({ value: count() })
-    .from(aiInsights);
+    .from(learningAiInsights);
 
   const statusCounts = await db
     .select({
-      status: aiInsights.status,
+      status: learningAiInsights.status,
       count: count(),
     })
-    .from(aiInsights)
-    .groupBy(aiInsights.status);
+    .from(learningAiInsights)
+    .groupBy(learningAiInsights.status);
 
-  const categoryCounts = await db
+  const patternTypeCounts = await db
     .select({
-      category: aiInsights.category,
+      patternType: learningAiInsights.patternType,
       count: count(),
     })
-    .from(aiInsights)
-    .groupBy(aiInsights.category);
+    .from(learningAiInsights)
+    .groupBy(learningAiInsights.patternType);
 
   const severityCounts = await db
     .select({
-      severity: aiInsights.severity,
+      severity: learningAiInsights.severity,
       count: count(),
     })
-    .from(aiInsights)
-    .groupBy(aiInsights.severity);
+    .from(learningAiInsights)
+    .groupBy(learningAiInsights.severity);
 
   const byStatus: Record<string, number> = {};
   for (const row of statusCounts) byStatus[row.status] = row.count;
 
-  const byCategory: Record<string, number> = {};
-  for (const row of categoryCounts) byCategory[row.category] = row.count;
+  const byPatternType: Record<string, number> = {};
+  for (const row of patternTypeCounts) byPatternType[row.patternType] = row.count;
 
   const bySeverity: Record<string, number> = {};
-  for (const row of severityCounts) bySeverity[row.severity] = row.count;
+  for (const row of severityCounts) bySeverity[String(row.severity)] = row.count;
 
   return c.json({
     totalInsights,
     byStatus,
-    byCategory,
+    byPatternType,
     bySeverity,
-    immunized: byStatus["IMMUNIZED"] || 0,
-    pending: byStatus["PENDING"] || 0,
+    proposed: byStatus["proposed"] || 0,
+    open: byStatus["open"] || 0,
   });
 });
 

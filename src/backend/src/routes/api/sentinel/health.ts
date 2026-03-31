@@ -10,8 +10,7 @@
 
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { getDb } from "@db";
-import { learningSessions } from "@/db/schemas/github/learning/sessions";
-import { aiInsights } from "@/db/schemas/github/learning/ai-insights";
+import { learningSessions, learningAiInsights } from "@db/schemas/github/learning";
 import { count, desc } from "drizzle-orm";
 
 const app = new OpenAPIHono<{ Bindings: Env }>();
@@ -55,15 +54,15 @@ app.openapi(healthRoute, async (c) => {
     .from(learningSessions);
 
   const lastSession = await db
-    .select({ timestamp: learningSessions.timestamp })
+    .select({ timestamp: learningSessions.createdAt })
     .from(learningSessions)
-    .orderBy(desc(learningSessions.timestamp))
+    .orderBy(desc(learningSessions.createdAt))
     .limit(1);
 
   // Insight stats
   const [{ value: insightCount }] = await db
     .select({ value: count() })
-    .from(aiInsights);
+    .from(learningAiInsights);
 
   // AI Gateway ping
   let aiReachable = false;

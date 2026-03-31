@@ -14,7 +14,7 @@ import {
   type AutomationMetadata,
 } from "@/core/BaseAutomation";
 import { getDb } from "@db";
-import { aiInsightPrs } from "@/db/schemas/github/learning/ai-insight-prs";
+import { learningAiInsightPrs } from "@db/schemas/github/learning";
 
 const PullRequestClosedPayloadSchema = z.object({
   action: z.literal("closed"),
@@ -60,14 +60,14 @@ export class SentinelPostMerge extends BaseAutomation<PostMergePayload> {
       const db = getDb(this.env.DB);
 
       // Record the merged PR in the learning database
-      await db.insert(aiInsightPrs).values({
+      await db.insert(learningAiInsightPrs).values({
         id: crypto.randomUUID(),
-        repoOwner: repository.owner.login,
-        repoName: repository.name,
+        insightId: "", // Linked during analysis
         prNumber: pr.number,
-        prUrl: pr.html_url,
-        prDescription: pr.body?.substring(0, 2000),
-        outcome: "MERGED",
+        repo: `${repository.owner.login}/${repository.name}`,
+        status: "merged",
+        outcome: "merged",
+        createdAt: new Date(),
       });
 
       // Signal the LearningAgent to ingest this PR

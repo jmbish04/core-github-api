@@ -457,13 +457,6 @@
 				"LearningAgent"
 			]
 		},
-		{
-			"tag": "v7",
-			"new_sqlite_classes": [
-				// Sentinel Learning Agent — ingests agent conversations, enriches via MCP, builds architectural memory
-				"LearningAgent"
-			]
-		}
 	],
 	"workflows": [
 		{

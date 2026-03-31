@@ -136,6 +136,12 @@ function App() {
             <Route path="/beta/tracker" element={guard(<TrackerBeta />)} />
             <Route path="/beta/tracker/:view" element={guard(<TrackerBeta />)} />
 
+            {/* Sentinel Learning Engine */}
+            <Route path="/sentinel" element={guard(<SentinelDashboard />)} />
+            <Route path="/sentinel/kanban" element={guard(<SentinelKanban />)} />
+            <Route path="/repos/:owner/:repo/sentinel" element={guard(<SentinelHud />)} />
+            <Route path="/project/:owner/:repo/sentinel" element={guard(<SentinelHud />)} />
+
             {/* Workshop Agentic Module */}
             <Route path="/workshop" element={guard(<AgentWorkshop />)} />
             <Route path="/workshop/command-center" element={guard(<GlobalCommandCenter />)} />
