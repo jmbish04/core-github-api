@@ -14,7 +14,7 @@
  * @module AI/Agents/LearningAgent
  */
 
-import { BaseAgent } from "./base/BaseAgent";
+import { DurableObject } from "cloudflare:workers";
 import { getDb } from "@db";
 import {
   learningAiInsights,
@@ -84,10 +84,7 @@ const STANDARD_VIOLATION_PATTERNS: RegExp[] = [
 // LearningAgent
 // ---------------------------------------------------------------------------
 
-export class LearningAgent extends BaseAgent {
-  constructor(state: DurableObjectState, env: Env) {
-    super(state, env);
-  }
+export class LearningAgent extends DurableObject<Env> {
 
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
@@ -138,8 +135,7 @@ export class LearningAgent extends BaseAgent {
       });
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return (this as any).__proto__.__proto__.fetch?.call(this, request) ?? new Response('Not found', { status: 404 });
+    return new Response('Not found', { status: 404 });
   }
 
   // ---------------------------------------------------------------------------
