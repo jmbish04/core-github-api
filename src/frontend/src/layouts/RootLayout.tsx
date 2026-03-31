@@ -1,21 +1,29 @@
 
 import { useState, useEffect } from "react";
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { HealthWidget } from "@/components/health/HealthWidget";
 import { UserNav } from "@/components/layout/UserNav";
 import { AlertBadge } from "@/components/alerts/AlertBadge";
 import { GlobalConsultantModal } from "@/components/reverse-engineering/GlobalConsultantModal";
-import { Menu, X } from "lucide-react";
+import { Menu, X, PanelLeftClose, PanelLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function RootLayout() {
+    const location = useLocation();
     const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
         if (typeof window !== "undefined") return window.innerWidth >= 768;
         return true;
     });
 
-    // Close sidebar on mobile when route changes (optional UX improvement)
+    // Auto-close sidebar on mobile when route changes
+    useEffect(() => {
+        if (typeof window !== "undefined" && window.innerWidth < 768) {
+            setIsSidebarOpen(false);
+        }
+    }, [location.pathname]);
+
+    // Auto-open sidebar when resizing from mobile to desktop
     useEffect(() => {
         const handleResize = () => {
             if (window.innerWidth >= 768) {
@@ -77,11 +85,12 @@ export default function RootLayout() {
                             size="icon"
                             className="shrink-0"
                             onClick={() => setIsSidebarOpen((v) => !v)}
+                            aria-label={isSidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
                         >
                             {isSidebarOpen ? (
-                                <X className="h-5 w-5" />
+                                <PanelLeftClose className="h-5 w-5" />
                             ) : (
-                                <Menu className="h-5 w-5" />
+                                <PanelLeft className="h-5 w-5" />
                             )}
                             <span className="sr-only">Toggle sidebar</span>
                         </Button>

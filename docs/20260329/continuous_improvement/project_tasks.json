@@ -145,7 +145,7 @@
       "id": "task-001-02-02",
       "storyId": "story-001-02",
       "title": "Add new_sqlite_classes to wrangler.jsonc",
-      "description": "Add migrations entry with new_sqlite_classes: ['LearningAgent']. BabysitterAgent is folded into JulesOverseer (already registered). NEVER use new_classes for SQLite-backed Durable Objects — it does not initialize the SQLite storage layer required by @cloudflare/agents.",
+      "description": "Add migrations entry with new_sqlite_classes: ['LearningAgent', 'BabysitterAgent']. NEVER use new_classes for SQLite-backed Durable Objects — it does not initialize the SQLite storage layer required by @cloudflare/agents.",
       "status": "todo",
       "priority": "high",
       "order": 2

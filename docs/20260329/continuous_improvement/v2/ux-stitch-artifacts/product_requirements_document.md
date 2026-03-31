@@ -1,87 +1,287 @@
 # PRD: Agentic Sentinality — The Agent Meta-Governance & Fleet Immune System
-## Vision: Automating the "Golden Path" through Agentic Meta-Governance.
 
-**Document Type:** Full Product Requirements Document  
-**Version:** 1.2  
-**Date:** March 29, 2026  
-**Author:** AI Product Manager (Senior Architect)  
-**Stakeholders:** Senior AI Engineers, DevOps/SRE Agents, Automated Code Reviewers.
+**Document Type:** Product Requirements Document
+**Version:** 2.3 — BabysitterAgent folded into JulesOverseer; component map updated to canonical backlog tables
+**Date:** 2026-03-31
+**Project ID:** `proj-sentinel-001`
+**Status:** Approved for Implementation
 
 ---
 
-#### **1. Executive Summary**
-Project `Agentic Sentinality` is a command-and-control meta-governance platform designed to eliminate the "repetition tax" paid when AI agents make recurring architectural errors. It operates as a closed-loop system that extracts insights from raw conversation histories, validates them against Cloudflare documentation "ground truths," and automatically enforces repository-wide guardrails. By combining real-time PR interception with global template immunization, `Agentic Sentinality` ensures that once a lesson is learned by one agent, it is permanently inherited by the entire fleet.
+## 1. Executive Summary
 
-`Agentic Sentinality` is an autonomous governance layer for a fleet of Cloudflare Workers. It reduces the "repetition tax" by transforming historical conversation failures into persistent global standards. It automates infrastructure boilerplate (Drizzle migrations, OpenAPI generation, Health checks) and employs "Babysitter Agents" to monitor and course-correct active AI sessions in real-time.
+`Agentic Sentinality` is a command-and-control meta-governance platform that eliminates the **"repetition tax"** paid when AI agents make recurring architectural errors. It operates as a closed-loop immune system:
 
-#### **2. Problem Statement / Opportunity**
-AI agents frequently "reinvent the wheel" poorly, delivering "square wheels" (e.g., non-standard tsconfig, missing health checks, improper Env access) that require human remediation. Sentinel captures these patterns, creates global rules, and automates the configuration so the "Golden Path" is the path of least resistance.
+1. **Extracts** insights from raw conversation histories (Jules sessions, PR comments, Stitch prompts)
+2. **Validates** patterns against Cloudflare documentation via grounding
+3. **Prevents** re-attempts of previously-failed fixes via the Contemplation Gate
+4. **Intervenes** in real-time when Jules agents enter Doom Loops via `JulesOverseer` (Babysitter capability)
+5. **Intercepts** PRs before merge to post human-persona remediation instructions
 
-AI coding agents (Jules, Stitch, etc.) are fundamentally stateless across different sessions. This leads to "Doom Loops" where agents repeatedly hallucinate paths, miss health endpoints, or fail to handle `Env` bindings correctly. Developers are forced to issue the same corrective prompts repeatedly, wasting context window and compute tokens.
+Once a lesson is learned by one agent, it is permanently encoded in the fleet's immune memory.
 
-By treating conversation history as a structured dataset, we can identify these failure patterns. Using high-context models (Gemini 3.1 1M) and the Jules SDK, we can automate the remediation process—writing the very rules (`.agent/rules`) and templates (`core-github-standardization`) that agents use to stay on the "Golden Path."
+---
 
-#### **3. Goals & Objectives**
-* **SMART Goal 1:** Reduce manual corrective prompts for "known architectural patterns" by 90% within 30 days of deployment.
-* **SMART Goal 2:** Achieve a 100% "Immunization Success Rate" (preventing an agent from repeating an error once a `Agentic Sentinality` PR has been merged into `core-github-standardization`). For example, Standardize package.json to include auto-running Drizzle migrations and wrangler types generation.
-* **Smart Goal 3:** Zero-Hallucination Guardrails: Use Repoless Jules (Gemini 3.1 1M) to derive standards that are cross-referenced with cloudflare-docs MCP.
-* **Business Objective:** Minimize operational costs by reducing LLM token waste caused by repetitive debugging cycles. **Real-time Interception**: Deploy worker-hosted agents that listen to Jules session streams and intervene before a "Doom Loop" apology cycle begins.
-* **Product Objective:** Provide a pixel-perfect "Monolith" dashboard that allows a human engineer to oversee the learning progress of the entire agent ecosystem at a glance.
+## 2. Problem Statement
 
-#### **4. Target Audience**
-##### Meta-Architects managing a distributed ecosystem of high-performance Cloudflare Workers.
-* **Primary:** Justin Bishop (Senior Engineer) managing a fleet of agents across multiple high-stakes repositories.
-* **User Persona:** The "Meta-Architect"—an engineer who spends more time designing agent behaviors and repository standards than writing raw lines of code.
-* **Secondary:** Supervisory agents that consume `Agentic Sentinality`'s API to understand current "hot zones" of failure in the codebase.
+### 2.1 The Doom Loop / Apology Cycle
 
+AI coding agents (Jules, Stitch) are **fundamentally stateless across sessions**. This creates the **Light Switch Anti-Pattern**: a fix is proposed, merged, reverted, then proposed again — indefinitely. The root causes:
 
+- No shared memory of previously attempted fixes
+- No feedback mechanism from PR outcomes back to agent behavior
+- No escalation path when a local patch keeps failing (should become a template change)
 
-#### **5. Scope & Key Features**
-* **Pattern Analyst (Repoless Mode, *The Ingester*):** Native Worker-based extraction service. Replaces the Python script. Ingests Jules sessions and GitHub PRs directly into D1 tables. It identifies recursive friction points and summarizes them into "`Agentic Sentinality` Insights."
-* **Repoless Analyst:** Uses jules-sdk in repoless mode to analyze entire multi-megabyte conversation threads to extract Agentic Sentinality Insights.
-* **The Babysitter (Orchestrator)**: A Durable Object agent that polls active Jules sessions. If detection logic triggers (e.g., repeated apologies), it injects a "System Override" message to reset the agent's strategy.
-* **Golden Path Scaffolder:** A service that detects a new repo and automatically initializes it with the current fleet-wide core-github-standardization assets (OpenAPI, Zod schemas, Shadcn components).
-* **The Contemplation Gate:** A state-machine logic within the `LearningAgent` that checks a D1 ledger before proposing a fix. It prevents "Light Switch" loops by choosing to update a global template rather than applying a localized patch.
-* **Active PR Interceptor:** A webhook-driven service that scans open PRs by AI bots. If an anti-pattern is detected, it posts a comment directed at the bot (`@jules, please fix [X]`) using a human-persona token.
-* **Immune System "Immunization":** Automated PR generation to `core-github-standardization` to update `AGENTS.md` and `.agent/rules/` globally.
-* **The Showcase UI:** An interactive catalog of all fleet-wide standards with a "One-Click Upscale" button to force a specific repository to align with the latest standardization files.
+**Observable symptoms:**
+- Agent messages containing: "I apologize", "my oversight", "let me try again" — 3+ times in 10 messages
+- Same PR opened, closed, reopened on the same file within the same sprint
+- Standard violations (e.g., `new_classes` instead of `new_sqlite_classes`) appearing repeatedly across different repos
 
+### 2.2 The "Square Wheel" Problem
 
-#### **6. Non-Goals / Out of Scope**
-* **Self-Correction of Logic/Business Rules:** `Agentic Sentinality` focuses on **architectural and infra standards** (e.g., Cloudflare patterns), not the correctness of app-specific business logic.
-* **Automatic Merging:** `Agentic Sentinality` proposes PRs and comments, but the final merge into `main` remains a human-in-the-loop (HITL) action.
-* **Support for non-Cloudflare stacks:** `Agentic Sentinality` is strictly optimized for the 2026 Cloudflare Native stack.
+Agents frequently deliver well-intentioned but substandard implementations:
+- Non-standard `tsconfig.json` (missing `paths`, wrong `target`)
+- Missing mandatory `GET /health` endpoints
+- Improper `Env` typing (global access instead of request-scoped binding)
+- `new_classes` used instead of `new_sqlite_classes` for SQLite Durable Objects
 
-#### **7. Success Metrics / KPIs**
-* **Immunity Score:** A percentage of repositories currently synced with the latest `core-github-standardization` SHA.
-* **Doom Loop Detection Rate:** Number of times the Babysitter Agent successfully intercepted a circular apology loop.
-* **Token Efficiency Gain:** Calculated reduction in tokens used for "refactoring" and "debugging" categories vs. "feature implementation."
+These represent known patterns that should be encoded as rules — but currently exist only in human memory.
 
-#### **8. High-Level Technical Considerations**
-* **Auth Proxy:** Use the human user-persona token for agent interventions to ensure they aren't blocked by GitHub's automated bot filters.
-* **Data:** Drizzle ORM + D1. IDs must be integer().primaryKey({ autoIncrement: true }).
-* **API:** Hono OpenAPI v3.1.0 serving /openapi.json, /swagger, and /scaler.
-* **Durable Object Persistence:** The `BabysitterAgent` must use `new_sqlite_classes` to maintain a persistent state of which sessions are currently being "watched."
-* **UI Hierarchy:** Astro + React + Shadcn Dark. Rule: No Borders. Use tonal Zinc shifts for hierarchy. Adhere to "The Monolith" design—utilize tonal zinc depths (Zinc-950/900/800) to signify hierarchy; **No Borders allowed.**
-* **Ground Truth Engine:** Every insight MUST be cross-referenced with a fetch to `cloudflare-docs` MCP to ensure `Agentic Sentinality` isn't hallucinating its own standards.
+---
 
-#### **9. High-Level Milestones**
-* **Phase 1 (Infrastructure):** Scaffolding the 10-table Drizzle schema and D1 migrations. (Target: Hour 4)
-* **Phase 2 (Ingestion):** Deploying the Repoless Analysis service and ingesting the first 20MB of `conversations.db`. (Target: Day 1)
-* **Phase 3 (The Brain):** Implementing the Contemplation Gate logic and the `LearningAgent`. (Target: Day 2)
-* **Phase 4 (Frontend):** Launching the Dashboard, Kanban Board, and Showcase pages. (Target: Day 3)
-* **Phase 5 (Active Interception):** Wiring GitHub Webhooks for the PR Interceptor. (Target: Day 4)
+## 3. Goals & Objectives
 
-#### **10. Assumptions**
-* Gemini 3.1 Pro 1M context window is available and stable via the Jules SDK.
-* The `core-github-standardization` repository is the canonical source of truth for all child projects.
-* D1's SQLite storage is sufficient for the immediate pattern ledger (scaling to millions of rows).
+| Goal | Metric | Target |
+|------|--------|--------|
+| Reduce manual corrective prompts for known patterns | Corrective prompt rate | -90% within 30 days |
+| Fleet immunization success rate | Post-merge re-occurrence rate | 0% for patterns in `learning_ai_pr_reflections` with `outcome='succeeded'` |
+| Zero-hallucination guardrails | Insights cross-referenced with Cloudflare docs | 100% of severity ≥ 4 insights |
+| Minimize token waste from debugging cycles | LLM tokens spent on corrective messages | -70% within 60 days |
 
-#### **11. Risks & Dependencies**
-* **Dependency:** Jules SDK's `repoless: true` mode must support raw text ingestion of the size of `conversations.json`.
-* **Risk:** Bot loops where `Agentic Sentinality` and Jules get stuck arguing; mitigated by the "Babysitter Override" which forces a context reset.
-* **Risk:** Token costs for daily full-history scans; mitigated by "Signal-Driven Vectorization" which only re-analyzes new or high-analysis messages.
+---
 
-#### **12. Open Questions / Next Steps**
-* **Next Step:** Implement the `JulesGovernanceService` wrapper to test repoless analysis against a sample of `conversations.json`.
-* **Question:** Should `Agentic Sentinality` have the power to close a PR if the "Immunity Score" is too low? (Decision: Currently deferred to human oversight).
+## 4. User Personas
+
+### 4.1 Sentinel Analyst (Primary — Automated)
+The system itself. Reads conversation histories, extracts patterns, runs Contemplation Gate checks, and proposes or blocks Jules sessions automatically. Operates on cron + webhook triggers without human intervention.
+
+### 4.2 Repo Owner / Senior Engineer (Human Observer)
+Views the C2 Dashboard to confirm the system is healthy. Occasionally clicks "Manual Override" on the Babysitter HUD to trigger a specific Jules upscale. Does not need to interpret raw logs.
+
+### 4.3 AI Agent (Downstream Consumer)
+Jules, Stitch, or any agent that receives Sentinel's PR comments or `[SYSTEM OVERRIDE]` messages. Comments must appear authoritative and human-authored — hence the **human-persona token requirement**.
+
+---
+
+## 5. Feature Specifications
+
+### 5.1 Stateful Insight Ledger
+
+**What it is:** A D1 database (10-table Drizzle schema) that persists every detected pattern, fix attempt, and outcome.
+
+**Tables (critical):**
+- `learning_ai_insights` — detected patterns with severity 1–5
+- `learning_ai_pr_reflections` — the Contemplation Gate source of truth; `outcome` column: `'succeeded'` | `'failed'` | `'reverted'`
+- `learning_ai_insight_prs` — PR references linked to insights
+
+**Key behavior:** Every PR proposed by Sentinel writes a row to `learning_ai_insight_prs`. When the PR is merged/closed/reverted (via GitHub webhook), a `learning_ai_pr_reflections` row is written with the outcome.
+
+---
+
+### 5.2 Contemplation Gate
+
+**What it is:** A semantic pre-check that runs before any PR is proposed or any PR comment is posted.
+
+**Mechanics:**
+
+```
+Before proposing a fix:
+  1. Generate embedding of the pattern description via Workers AI (@cf/baai/bge-large-en-v1.5)
+  2. Query VECTORIZE_INDEX for semantically similar prior patterns (threshold: 0.85 cosine)
+  3. For each similar result: lookup learning_ai_pr_reflections WHERE outcome IN ('failed', 'reverted')
+
+Decision tree:
+  → Prior fix FAILED or REVERTED:  action = 'escalate' (template-level change required)
+  → Prior fix SUCCEEDED:           action = 'block' (already fixed, skip)
+  → No prior attempt:              action = 'propose' (safe to proceed)
+```
+
+**Why this prevents Doom Loops:** The gate is the only entry point to PR proposal. Agents cannot bypass it. Every `'escalate'` decision is logged and surfaced in the Babysitter HUD.
+
+---
+
+### 5.3 Active PR Interceptor
+
+**What it is:** A GitHub webhook handler that fires on `pull_request.opened` and `pull_request.synchronize`, scans the PR for known violation patterns, and posts remediation comments before merge.
+
+**Auth: Human-Persona Token — CRITICAL**
+
+```
+Token used:  GITHUB_PERSONAL_ACCESS_TOKEN  (bound to GH_TOKEN secret)
+NOT used:    GITHUB_TOKEN                   (GitHub App installation token)
+```
+
+**Why:** Downstream agents (Jules, Stitch) are trained to deprioritize or filter bot-authored comments. Using a human-persona PAT ensures the comment is treated as a trusted human instruction.
+
+**Comment anatomy:**
+
+```markdown
+**[Sentinel Review]** — Pattern detected matching known failure modes.
+
+### ⚠️ Pattern: `new_classes` used for SQLite-backed Durable Object
+**Severity:** 4/5  |  **Prior fix history:** 0 failed attempts
+
+**Required fix:**
+Replace `new_classes` with `new_sqlite_classes` in wrangler.jsonc.
+
+Reference: `learning_ai_insights#abc123` · Contemplation Gate: ✅ PROPOSE
+
+_Sentinel · Agentic Sentinality System_
+```
+
+**Filtering logic:** Only patterns with severity ≥ 3 generate comments. Gate decisions of `'block'` (already fixed) are silently skipped.
+
+---
+
+### 5.4 Babysitter Capability — Real-Time Session Intervention
+
+**What it is:** Doom-loop detection and intervention logic **folded into the existing `JulesOverseer` Durable Object** (not a separate DO). Polls active Jules sessions every 5 minutes and injects `[SYSTEM OVERRIDE]` messages when apology loops are detected.
+
+**Detection algorithm:**
+1. Fetch last 10 messages for each active Jules session
+2. Count regex matches: `i apologize`, `my oversight`, `same error`, `let me try again`, `i was wrong`, `i missed that`
+3. If match count ≥ 3 (configurable): trigger intervention
+
+**Intervention message:**
+```
+[SYSTEM OVERRIDE]: You are stuck in a circular apology loop.
+
+MANDATORY STEPS:
+1. Call contemplationGateCheck with the pattern you are trying to fix.
+2. If prior fix FAILED/REVERTED: Escalate to core-github-standardization template.
+3. Do NOT repeat the local patch without checking history.
+```
+
+**Session registration:** Active sessions tracked in `learning_ai_insights` with `patternType = 'doom_loop'`. `JulesOverseer` has OVERRIDE PRIVILEGE on any session present in `julesSessions` with `status = 'active'`.
+
+**Escalation path:**
+- Local patch failed → Contemplation Gate returns `'escalate'` → Babysitter flags for template mutation in `core-github-standardization`
+- This creates a PR against the standardization repo (future Phase 2 feature; currently logged as `recommendedAction = 'template_escalation'`)
+
+---
+
+### 5.5 Repoless Analyst Mode
+
+**What it is:** `LearningAgent.analyzeConversation()` with `repoless: true` — processes raw `conversations.json` without mounting a git repository.
+
+**Use case:** Bulk analysis of historical agent conversation exports (1M+ token context with Gemini 3.1 Pro). Fast, no Sandbox SDK overhead.
+
+**Endpoint:** `POST /api/governance/analyze`
+```json
+{
+  "conversations": [{ "role": "user", "content": "..." }],
+  "repoless": true
+}
+```
+
+**Benefits:**
+- Analyze months of historical data in a single pass
+- No git clone latency (no Sandbox container spin-up)
+- Configurable AI provider (default: Workers AI; switch to Gemini via `AI_DEFAULT_PROVIDER`)
+
+---
+
+## 6. Technical Architecture
+
+### 6.1 Component Map
+
+```
+wrangler.jsonc
+├── new_sqlite_classes: [LearningAgent]   ← MANDATORY (not new_classes); BabysitterAgent folded into JulesOverseer
+├── vectorize: [VECTORIZE_INDEX]
+├── workflows: [LearningWorkflow]
+└── triggers.crons: ["0 6 * * *"]
+
+backend/src/
+├── ai/agents/
+│   ├── LearningAgent.ts          ← Main insight engine; Contemplation Gate (NEW)
+│   └── JulesOverseer.ts          ← EXTENDED: adds doom-loop detection + [SYSTEM OVERRIDE] injection
+├── workflows/learning/
+│   └── LearningWorkflow.ts       ← Long-running bulk ingestion (NEW)
+├── routes/api/sentinel/
+│   └── index.ts                  ← /api/sentinel/* using tasks + taskEvents tables (NEW)
+├── routes/api/learning/
+│   └── index.ts                  ← /api/learning/* + /api/governance/analyze (NEW)
+└── automations/pr/
+    └── sentinel-handler.ts       ← GitHub PR webhook → persona-token comment (NEW)
+
+db/ (canonical backlog tables — already deployed)
+├── schemas/projects/backlog/tasks.ts     ← tasks + taskEvents (agent task tracking)
+├── schemas/projects/backlog/stories.ts   ← stories hierarchy
+├── schemas/projects/backlog/epics.ts     ← epics hierarchy
+└── schemas/github/learning/              ← 10 new insight tables (NEW)
+
+frontend/src/pages/learning/
+├── dashboard.astro               ← C2 Dashboard
+├── insights.astro                ← Insight Ledger
+├── sessions.astro                ← Audit Log
+├── babysitter.astro              ← Babysitter HUD
+└── showcase.astro                ← Standardization Gallery
+```
+
+### 6.2 Data Flow
+
+```
+GitHub PR Event
+    → sentinel-handler.ts
+    → Contemplation Gate check
+    → [PROPOSE] POST comment via GITHUB_PERSONAL_ACCESS_TOKEN
+    → Write to learning_ai_insight_prs
+
+Jules Session (active)
+    → JulesOverseer monitoring loop (every 5min)
+    → Regex match count ≥ 3 (doom-loop threshold)
+    → JulesService.sendMessage([SYSTEM OVERRIDE])
+    → Write to learning_ai_insights (patternType='doom_loop')
+    → Broadcast via JULES_WEBHOOK_BROADCASTER
+
+Cron / POST /api/learning/sync
+    → LearningWorkflow starts
+    → LearningAgent.analyzeConversation()
+    → LearningAgent.detectPatterns()
+    → Contemplation Gate for each insight
+    → LearningAgent.proposeInsight() for gate=propose
+    → Write to learning_ai_pr_reflections
+
+PR merged/closed (GitHub webhook)
+    → Update learning_ai_insight_prs.status
+    → Write learning_ai_pr_reflections.outcome
+    → VECTORIZE_INDEX upsert with outcome metadata
+```
+
+---
+
+## 7. Non-Functional Requirements
+
+| Requirement | Spec |
+|------------|------|
+| Auth for PR comments | Human-persona `GITHUB_PERSONAL_ACCESS_TOKEN` ONLY |
+| AI SDK | Workers AI via `env.AI.run()` — Vercel AI SDK PROHIBITED |
+| Durable Objects | `new_sqlite_classes` — `new_classes` PROHIBITED |
+| Database | D1 (SQLite) via Drizzle ORM — no raw SQL |
+| Route framework | `OpenAPIHono` with `createRoute` + Zod — no plain Hono |
+| Frontend borders | NONE — tonal depth via `bg-zinc-*` only |
+| Health endpoints | `GET /health/learning` mandatory |
+| Error handling | No empty catch blocks |
+| Viewport support | 1440x900 (desktop), 390x844 (mobile) |
+
+---
+
+## 8. Out of Scope (v1)
+
+- Cross-workspace fleet scanning
+- Automated template mutation in `core-github-standardization` (Phase 2)
+- Merge blocking via GitHub Branch Protection API
+- ML-based loop detection (regex sufficient for v1)
+- StitchLoopWorkflow for design-to-code automation
+- Real-time WebSocket streaming dashboard

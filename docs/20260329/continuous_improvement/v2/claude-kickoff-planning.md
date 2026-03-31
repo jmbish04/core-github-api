@@ -41,9 +41,13 @@ Define the communication protocol for the Stitch Build Loop.
 - Enforce the "No Borders" and "OKLCH Zinc" surface rules.
 
 ### Artifact E: project_tasks.json
-Generate a JSON file formatted for D1 seeding into the `pm_projects`, `pm_epics`, `pm_stories`, and `pm_tasks` tables. 
-- Ensure the hierarchy is correctly mapped to `proj-sentinel-001`.
-- Include specific tasks for infrastructure automation: `package.json` scripts for `db:auto`.
+JSON file for D1 seeding. **Consolidated (2026-03-31):** Seeds into canonical backlog tables (`epics`, `stories`, `tasks`) instead of the legacy `pm_*` tables. `repo_id = 'github:jmbish04/core-github-api'`.
+- `pm_projects` concept maps to the existing `repositories` row (no new table needed)
+- `pm_epics` → `epics` (repoId substituted for projectId)
+- `pm_stories` → `stories` (repoId added, epicId → parentId)
+- `pm_tasks` → `tasks` (repoId added, storyId → parentId, order → position, kanbanColumn='backlog')
+- **Seeded to D1:** 8 epics, 5 stories, 7 tasks for `jmbish04/core-github-api` ✅
+- Run: `python3 docs/20260329/continuous_improvement/seed_project_tasks.py`
 
 ## 3. TECHNICAL STANDARDS ENFORCEMENT
 - **Backend:** Hono OpenAPI v3.1.0, Drizzle ORM (D1), Workers AI (via Gateway).

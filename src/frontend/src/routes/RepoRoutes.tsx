@@ -19,6 +19,7 @@ import React from "react";
 import { RequireAuth } from "@/components/RequireAuth";
 
 // Layouts
+import RootLayout from "@/layouts/RootLayout";
 import RepoLayout from "@/layouts/RepoLayout";
 
 // Repo-scoped views (dedicated per-repo implementations)
@@ -35,6 +36,7 @@ import RepoUxWorkshop from "@/views/repos/UxWorkshop";
 import RepoComponentIdentifier from "@/views/repos/ComponentIdentifier";
 import RepoCloudfareDocs from "@/views/repos/CloudflareDocs";
 import RepoProjects from "@/views/repos/Projects";
+import RepoProjectsBeta from "@/views/repos/ProjectsBeta";
 import RepoKanban from "@/views/repos/KanbanBoard";
 
 // Global views reused in repo context (scoped by RepoLayout context provider)
@@ -68,7 +70,8 @@ function guard(element: React.ReactElement) {
  */
 export function RepoRoutes() {
   return (
-    <Route path="/repos/:owner/:repo" element={guard(<RepoLayout />)}>
+    <Route element={<RootLayout />}>
+      <Route path="/repos/:owner/:repo" element={guard(<RepoLayout />)}>
 
       {/* Default: redirect index to dashboard */}
       <Route index element={<Navigate to="dashboard" replace />} />
@@ -89,6 +92,7 @@ export function RepoRoutes() {
 
       {/* /repos/:owner/:repo/projects — repo project board (dedicated) */}
       <Route path="projects" element={<RepoProjects />} />
+      <Route path="projects/tracker" element={<RepoProjectsBeta />} />
       <Route path="projects/:projectId" element={guard(<ProjectView />)} />
 
       {/* Work items within a project */}
@@ -153,6 +157,7 @@ export function RepoRoutes() {
       {/* ── Repo scope catch-all → redirect to dashboard ─────────── */}
       <Route path="*" element={<Navigate to="dashboard" replace />} />
 
+      </Route>
     </Route>
   );
 }

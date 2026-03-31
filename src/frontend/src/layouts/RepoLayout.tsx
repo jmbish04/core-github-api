@@ -437,7 +437,7 @@ export default function RepoLayout() {
         <div className="space-y-2 w-full lg:w-auto">
           <Button variant="ghost" className="-ml-3" onClick={() => navigate("/projects")}>
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Projects
+            Back to Repositories
           </Button>
           <div className="flex items-center gap-4">
             <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">

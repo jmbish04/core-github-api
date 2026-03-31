@@ -83,14 +83,14 @@ export default function KanbanPage() {
 
   if (isLoading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-zinc-950 text-white">
+      <div className="flex min-h-[60vh] items-center justify-center">
         <Loader2 className="animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-screen bg-zinc-950 text-zinc-50 font-sans p-4 md:p-6">
+    <div className="flex flex-col h-full p-4 md:p-6">
       <h1 className="text-2xl font-bold mb-6">Task Board</h1>
       <TaskKanbanBoard
         columns={columns}

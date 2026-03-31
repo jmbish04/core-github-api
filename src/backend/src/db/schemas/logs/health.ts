@@ -23,20 +23,21 @@ export const healthResults = sqliteTable('health_results', {
 
     // Categorization
     category: text('category', { enum: [
-        'github', 
-        'ai', 
-        'api', 
-        'webhooks', 
-        'mcp', 
-        'agents', 
-        'browser', 
-        'git', 
-        'sandbox', 
-        'research', 
-        'planning', 
-        'database', 
-        'semantics', 
-        'automations'] }).notNull(),
+        'github',
+        'ai',
+        'api',
+        'webhooks',
+        'mcp',
+        'agents',
+        'browser',
+        'git',
+        'sandbox',
+        'research',
+        'planning',
+        'database',
+        'semantics',
+        'automations',
+        'sentinel'] }).notNull(),
     name: text('name').notNull(), // e.g. "Orchestrator Accessibility", "Secrets Permissions"
 
     // Status

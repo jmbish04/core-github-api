@@ -2,9 +2,17 @@
 """
 seed_project_tasks.py
 ---------------------
-Reads project_tasks.json and generates:
-  1. seed_project_tasks.sql  — INSERT OR IGNORE statements for all 4 pm_* tables
-  2. Prints wrangler D1 execute commands for local and remote environments
+Reads project_tasks.json and generates INSERT OR IGNORE SQL for the
+canonical backlog tables: epics, stories, tasks.
+
+pm_* tables are the legacy structure — this script maps them to the
+consolidated backlog hierarchy (zero new tables, zero new columns):
+
+  pm_projects → repositories (already exists: id='github:jmbish04/core-github-api')
+  pm_epics    → epics        (repo_id = REPO_ID, INTEGER timestamps)
+  pm_stories  → stories      (repo_id = REPO_ID, parent_id = epic_id, INTEGER timestamps)
+  pm_tasks    → tasks        (repo_id = REPO_ID, parent_id = story_id, position = order,
+                               kanban_column = 'backlog', status = 'todo')
 
 Usage:
   python3 seed_project_tasks.py
@@ -12,14 +20,13 @@ Usage:
 Outputs:
   docs/20260329/continuous_improvement/seed_project_tasks.sql
 
-Tables seeded (from backend/src/db/schemas/projects/hierarchy.ts):
-  pm_projects  (id, workspace_id, title, description, status, created_at, updated_at)
-  pm_epics     (id, project_id, title, description, status, priority, created_at, updated_at)
-  pm_stories   (id, epic_id, title, description, status, priority, created_at, updated_at)
-  pm_tasks     (id, story_id, title, description, status, priority, "order", created_at, updated_at)
+Tables seeded (canonical backlog tables):
+  epics         (id, repo_id, title, description, status, priority, created_at, updated_at)
+  stories       (id, repo_id, parent_id, title, description, status, priority, created_at, updated_at)
+  tasks         (id, repo_id, parent_id, title, description, status, priority, position, kanban_column)
 
-Note: `order` is a reserved SQL keyword — always quoted as "order" in generated SQL.
-      created_at / updated_at are stored as INTEGER (unix epoch seconds) per Drizzle mode:'timestamp'.
+Note: epics/stories use INTEGER (unix epoch) timestamps.
+      tasks uses TEXT (CURRENT_TIMESTAMP default) — created_at/updated_at omitted to use defaults.
 """
 
 import json
@@ -27,7 +34,7 @@ import os
 import time
 from datetime import datetime, timezone
 
-# ── Paths ────────────────────────────────────────────────────────────────────
+# ── Config ────────────────────────────────────────────────────────────────────
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 INPUT_JSON = os.path.join(SCRIPT_DIR, "project_tasks.json")
@@ -35,6 +42,9 @@ OUTPUT_SQL = os.path.join(SCRIPT_DIR, "seed_project_tasks.sql")
 
 # D1 database name (matches wrangler.jsonc binding for DB)
 D1_DATABASE_NAME = "core-github-api"
+
+# Canonical repo ID for core-github-api in the repositories table
+REPO_ID = "github:jmbish04/core-github-api"
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -44,63 +54,40 @@ def now_unix() -> int:
 
 
 def escape(value) -> str:
-    """
-    Escape a value for safe inclusion in a SQL string literal.
-    Returns NULL for None, quoted integer for int, or escaped string.
-    `order` column is handled separately via quoting in column lists.
-    """
+    """Escape a value for safe inclusion in a SQL string literal."""
     if value is None:
         return "NULL"
     if isinstance(value, bool):
         return "1" if value else "0"
     if isinstance(value, int):
         return str(value)
-    # Escape single quotes by doubling them
     return "'" + str(value).replace("'", "''") + "'"
 
 
 def insert_or_ignore(table: str, columns: list[str], values: list) -> str:
     """Generate a single INSERT OR IGNORE statement."""
-    col_list = ", ".join(f'"{c}"' if c == "order" else c for c in columns)
+    col_list = ", ".join(columns)
     val_list = ", ".join(escape(v) for v in values)
     return f"INSERT OR IGNORE INTO {table} ({col_list}) VALUES ({val_list});"
 
 
 # ── Generators ───────────────────────────────────────────────────────────────
 
-def gen_projects(rows: list, ts: int) -> list[str]:
-    stmts = []
-    for r in rows:
-        stmts.append(insert_or_ignore(
-            "pm_projects",
-            ["id", "workspace_id", "title", "description", "status", "created_at", "updated_at"],
-            [
-                r["id"],
-                r["workspaceId"],
-                r["title"],
-                r.get("description"),
-                r.get("status", "todo"),
-                ts,
-                ts,
-            ]
-        ))
-    return stmts
-
-
 def gen_epics(rows: list, ts: int) -> list[str]:
+    """pm_epics → epics: project_id mapped to repo_id."""
     stmts = []
     for r in rows:
         stmts.append(insert_or_ignore(
-            "pm_epics",
-            ["id", "project_id", "title", "description", "status", "priority", "created_at", "updated_at"],
+            "epics",
+            ["id", "repo_id", "title", "description", "status", "priority", "created_at", "updated_at"],
             [
                 r["id"],
-                r["projectId"],
+                REPO_ID,
                 r["title"],
                 r.get("description"),
                 r.get("status", "todo"),
                 r.get("priority", "medium"),
-                ts,
+                ts,   # INTEGER unix epoch
                 ts,
             ]
         ))
@@ -108,14 +95,16 @@ def gen_epics(rows: list, ts: int) -> list[str]:
 
 
 def gen_stories(rows: list, ts: int) -> list[str]:
+    """pm_stories → stories: epic_id mapped to parent_id, repo_id added."""
     stmts = []
     for r in rows:
         stmts.append(insert_or_ignore(
-            "pm_stories",
-            ["id", "epic_id", "title", "description", "status", "priority", "created_at", "updated_at"],
+            "stories",
+            ["id", "repo_id", "parent_id", "title", "description", "status", "priority", "created_at", "updated_at"],
             [
                 r["id"],
-                r["epicId"],
+                REPO_ID,
+                r["epicId"],   # pm_stories.epicId → stories.parent_id (FK → epics.id)
                 r["title"],
                 r.get("description"),
                 r.get("status", "todo"),
@@ -127,23 +116,24 @@ def gen_stories(rows: list, ts: int) -> list[str]:
     return stmts
 
 
-def gen_tasks(rows: list, ts: int) -> list[str]:
+def gen_tasks(rows: list) -> list[str]:
+    """pm_tasks → tasks: story_id mapped to parent_id, order mapped to position."""
     stmts = []
     for r in rows:
         stmts.append(insert_or_ignore(
-            "pm_tasks",
-            # "order" is a reserved SQL keyword — quoted in insert_or_ignore()
-            ["id", "story_id", "title", "description", "status", "priority", "order", "created_at", "updated_at"],
+            "tasks",
+            # tasks.created_at/updated_at default to CURRENT_TIMESTAMP — omit to use defaults
+            ["id", "repo_id", "parent_id", "title", "description", "status", "priority", "position", "kanban_column"],
             [
                 r["id"],
-                r["storyId"],
+                REPO_ID,
+                r["storyId"],  # pm_tasks.storyId → tasks.parent_id (FK → stories.id)
                 r["title"],
                 r.get("description"),
                 r.get("status", "todo"),
                 r.get("priority", "medium"),
-                r.get("order", 0),
-                ts,
-                ts,
+                r.get("order", 0),  # pm_tasks.order → tasks.position
+                "backlog",          # default kanban column for all seeded tasks
             ]
         ))
     return stmts
@@ -162,10 +152,10 @@ def main():
     ts = now_unix()
     seeded_at = datetime.fromtimestamp(ts, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
-    projects = data.get("pm_projects", [])
-    epics    = data.get("pm_epics", [])
-    stories  = data.get("pm_stories", [])
-    tasks    = data.get("pm_tasks", [])
+    # Source keys (pm_* JSON structure)
+    epics   = data.get("pm_epics", [])
+    stories = data.get("pm_stories", [])
+    tasks   = data.get("pm_tasks", [])
 
     lines: list[str] = []
 
@@ -173,8 +163,9 @@ def main():
         "-- ============================================================",
         "-- seed_project_tasks.sql",
         f"-- Generated: {seeded_at}",
-        f"-- Source:    project_tasks.json",
-        f"-- Tables:    pm_projects, pm_epics, pm_stories, pm_tasks",
+        f"-- Source:    project_tasks.json (pm_* → backlog tables)",
+        f"-- Repo:      {REPO_ID}",
+        f"-- Tables:    epics, stories, tasks",
         "-- Strategy:  INSERT OR IGNORE (idempotent — safe to re-run)",
         "-- ============================================================",
         "",
@@ -182,46 +173,38 @@ def main():
         "",
     ]
 
-    # ── pm_projects ──────────────────────────────────────────────────────────
+    # ── epics ─────────────────────────────────────────────────────────────
     lines += [
         "-- ──────────────────────────────────────────────",
-        f"-- pm_projects  ({len(projects)} rows)",
-        "-- ──────────────────────────────────────────────",
-    ]
-    lines += gen_projects(projects, ts)
-    lines += [""]
-
-    # ── pm_epics ─────────────────────────────────────────────────────────────
-    lines += [
-        "-- ──────────────────────────────────────────────",
-        f"-- pm_epics  ({len(epics)} rows)",
+        f"-- epics  ({len(epics)} rows)  [mapped from pm_epics]",
         "-- ──────────────────────────────────────────────",
     ]
     lines += gen_epics(epics, ts)
     lines += [""]
 
-    # ── pm_stories ───────────────────────────────────────────────────────────
+    # ── stories ───────────────────────────────────────────────────────────
     lines += [
         "-- ──────────────────────────────────────────────",
-        f"-- pm_stories  ({len(stories)} rows)",
+        f"-- stories  ({len(stories)} rows)  [mapped from pm_stories]",
         "-- ──────────────────────────────────────────────",
     ]
     lines += gen_stories(stories, ts)
     lines += [""]
 
-    # ── pm_tasks ─────────────────────────────────────────────────────────────
+    # ── tasks ─────────────────────────────────────────────────────────────
     lines += [
         "-- ──────────────────────────────────────────────",
-        f"-- pm_tasks  ({len(tasks)} rows)",
+        f"-- tasks  ({len(tasks)} rows)  [mapped from pm_tasks]",
         "-- ──────────────────────────────────────────────",
     ]
-    lines += gen_tasks(tasks, ts)
+    lines += gen_tasks(tasks)
     lines += [""]
 
     lines += [
         "PRAGMA foreign_keys = ON;",
         "",
-        f"-- ✅ Seed complete: {len(projects)} projects, {len(epics)} epics, {len(stories)} stories, {len(tasks)} tasks",
+        f"-- ✅ Seed complete: {len(epics)} epics, {len(stories)} stories, {len(tasks)} tasks",
+        f"-- repo_id: {REPO_ID}",
     ]
 
     sql_output = "\n".join(lines)
@@ -239,15 +222,11 @@ def main():
     print("  # Remote (production):")
     print(f"  npx wrangler d1 execute {D1_DATABASE_NAME} --remote --file={OUTPUT_SQL}")
     print()
-    print("  # Or via the Cloudflare Dashboard:")
-    print("  dash.cloudflare.com → D1 → core-github-api → Console → paste SQL")
-    print()
-    print(f"── Summary ──────────────────────────────────────────────────────────")
-    print(f"  pm_projects : {len(projects)}")
-    print(f"  pm_epics    : {len(epics)}")
-    print(f"  pm_stories  : {len(stories)}")
-    print(f"  pm_tasks    : {len(tasks)}")
-    print(f"  Total rows  : {len(projects) + len(epics) + len(stories) + len(tasks)}")
+    print(f"── Summary ───────────────────────────────────────────────────────────")
+    print(f"  epics   : {len(epics)}")
+    print(f"  stories : {len(stories)}")
+    print(f"  tasks   : {len(tasks)}")
+    print(f"  Total   : {len(epics) + len(stories) + len(tasks)} rows")
 
 
 if __name__ == "__main__":

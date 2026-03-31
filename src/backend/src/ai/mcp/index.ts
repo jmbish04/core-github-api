@@ -212,6 +212,14 @@ function createOurMcpServer(env: McpEnv) {
     // Stitch tools not resolvable at runtime — skip silently
   });
 
+  // ── Sentinel Tools (agent task management via /api/projects/sentinel/*) ──
+  import('@/routes/api/projects/sentinel/mcp').then(({ registerSentinelMcpTools }) => {
+    registerSentinelMcpTools(server, env as any);
+  }).catch(() => {
+    // Should always resolve — log if not
+    console.warn('[MCP] Failed to register Sentinel tools');
+  });
+
   return server;
 }
 

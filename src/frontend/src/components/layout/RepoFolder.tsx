@@ -19,7 +19,8 @@ import {
   Cloud,
   Wrench,
   ChevronDown,
-  Component
+  Component,
+  Layers
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
@@ -64,6 +65,7 @@ export function RepoFolder({ repo }: RepoFolderProps) {
     { slug: "component-identifier", label: "Shadcn Components", icon: Component },
     { slug: "plan", label: "AI Planner", icon: Sparkles },
     { slug: "projects", label: "Backlog", icon: ListChecks },
+    { slug: "projects/tracker", label: "Projects [Beta]", icon: Layers },
     { slug: "prs", label: "PRs", icon: GitPullRequest, badge: activePrCount > 0 ? activePrCount : null },
   ];
 

@@ -27,8 +27,8 @@ importers:
         specifier: ^1.0.6
         version: 1.0.6
       '@cloudflare/sandbox':
-        specifier: 0.8.0
-        version: 0.8.0(@openai/agents@0.3.9(@cfworker/json-schema@4.1.1)(ws@8.19.0)(zod@4.3.6))(@xterm/xterm@5.5.0)
+        specifier: 0.8.1
+        version: 0.8.1(@openai/agents@0.3.9(@cfworker/json-schema@4.1.1)(ws@8.19.0)(zod@4.3.6))(@xterm/xterm@5.5.0)
       '@google/jules-mcp':
         specifier: ^0.0.6
         version: 0.0.6(@cfworker/json-schema@4.1.1)(@google/jules-sdk@0.0.6)(@types/node@20.19.37)(zod@4.3.6)
@@ -921,8 +921,8 @@ packages:
     resolution: {integrity: sha512-e/0s9Ac2IhyBrgnyTDrYEippqrXqKtllP8qezyunOb6icOJ2FzbfQwhWRIVwV3AgZtutQTF5Kb/gFAGXCuGRqQ==}
     engines: {node: '>=18'}
 
-  '@cloudflare/sandbox@0.8.0':
-    resolution: {integrity: sha512-a0R0Cw99CC2OgXw7B8HzEKZHGRHxwN/d0LXJST9jiP+sC9WM49FLLMXVLwD6vBErqQRc75G9l+SeQmzET2161A==}
+  '@cloudflare/sandbox@0.8.1':
+    resolution: {integrity: sha512-qEp6WVFlhJV2c54RIdyZ1GwFS7g3rgsv8+qt9wrSbrVxyKc1oUZ5afXeshaWgZVXSaOLhbIx2x1/kMDNeTMVmA==}
     peerDependencies:
       '@openai/agents': ^0.3.3
       '@opencode-ai/sdk': ^1.1.40
@@ -8266,7 +8266,7 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@cloudflare/sandbox@0.8.0(@openai/agents@0.3.9(@cfworker/json-schema@4.1.1)(ws@8.19.0)(zod@4.3.6))(@xterm/xterm@5.5.0)':
+  '@cloudflare/sandbox@0.8.1(@openai/agents@0.3.9(@cfworker/json-schema@4.1.1)(ws@8.19.0)(zod@4.3.6))(@xterm/xterm@5.5.0)':
     dependencies:
       '@cloudflare/containers': 0.2.0
       aws4fetch: 1.0.20

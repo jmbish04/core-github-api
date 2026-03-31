@@ -1,6 +1,6 @@
 const fs = require('fs');
 
-const data = require('../src/frontend/eslint-summary-new.json');
+const data = require('../../src/frontend/eslint-summary-new.json');
 const targetRules = ['react-refresh/only-export-components', 'react-hooks/set-state-in-effect', 'react-hooks/incompatible-library'];
 
 for (const fileData of data) {

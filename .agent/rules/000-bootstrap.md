@@ -2,14 +2,20 @@
 trigger: always_on
 ---
 
-# 000: BOOTSTRAP & PROTOCOL CHECK
-**CRITICAL: Mandatory Pre-flight Check.**
+# 000-bootstrap.md: Agent Genesis Directive
 
-Before starting any task, you must verify the following from `AGENTS.md`:
+## Core Operating Procedure
+1. **Initialize Context:** On the first turn of every session, read only `AGENTS.md` at the repo root to understand the system architecture and active specialist agents.
+2. **Standardization Protocol:** All implementation must align with the `StandardizationAgent` logic defined in `src/ai/agents/StandardizationAgent.ts`.
+3. **Lazy Load Rules:** Do NOT read all files in `.agent/rules/` by default. Instead, identify the relevant rules based on the task (e.g., read `ai-provider-standards.md` only for AI-related tasks).
 
-1.  **Workspace Context**: Identify if you are working in `frontend` or `container`. 
-2.  **Installation Protocol**: You MUST use `pnpm add <pkg> --filter <package>` from the root. Never install at root without `-w`.
-3.  **SDK Enforcement**: Verify you are using `@google/genai` (New SDK) and NOT `@google/generative-ai` (Legacy).
-4.  **Backend/Frontend Sync**: If modifying Drizzle schemas, ensure `frontend/src/db` is the target as per the "Schema Sync" section.
+## Environment Constraints
+- **Primary IDE:** Google Antigravity.
+- **Runtime:** Cloudflare Workers (workerd).
+- **Stack:** Hono (API), Astro 6 (Frontend), Drizzle ORM (D1 Data Layer).
+- **Architecture:** Unified Worker Assets with Cloudflare AI Gateway routing.
 
-**STOP**: If you have not explicitly read `AGENTS.md` in this session, do so now.
+## Code Output Rules
+- ALWAYS respond with full end-to-end code for the modified module.
+- NEVER use shortcuts or "rest of code" comments.
+- Ensure `integer('id').generatedAlwaysAsIdentity()` is used for all Drizzle primary keys per 2026 standards.

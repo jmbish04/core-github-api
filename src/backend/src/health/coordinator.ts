@@ -26,6 +26,7 @@ import { checkHealth as checkEdgraphHealth } from '@/lib/edgraph/health';
 import { checkWebhookStaleness } from '@/health/checks/webhook-staleness';
 import { checkLogStaleness } from '@/health/checks/log-staleness';
 import { checkD1TableScan } from '@/health/checks/d1-table-scan';
+import { checkHealth as checkSentinelHealth } from '@/routes/api/projects/sentinel/health';
 
 // ─── Check Registry ──────────────────────────────────────────────────────
 // Each check returns HealthStepResult and maps to a category for D1 persistence.
@@ -56,6 +57,7 @@ const CODE_CHECKS: RegisteredCheck[] = [
     { id: 'webhook_staleness', category: 'webhooks',    fn: checkWebhookStaleness },
     { id: 'log_staleness',     category: 'database',    fn: checkLogStaleness },
     { id: 'd1_table_scan',     category: 'database',    fn: checkD1TableScan },
+    { id: 'sentinel',          category: 'sentinel',    fn: checkSentinelHealth },
 ];
 
 export class HealthCoordinator {

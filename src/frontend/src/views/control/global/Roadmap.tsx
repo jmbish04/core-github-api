@@ -294,10 +294,10 @@ const RoadmapPage = () => {
         setSelectedFrameworkProject(feature.fullProject);
     };
 
-    if (isLoading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin" /></div>;
+    if (isLoading) return <div className="flex min-h-[60vh] items-center justify-center"><Loader2 className="animate-spin" /></div>;
 
     return (
-        <div className="flex flex-col h-screen bg-background p-6">
+        <div className="flex flex-col h-full p-4 md:p-6">
             <div className="flex items-center justify-between mb-6">
                 <div className="space-y-1">
                     <h1 className="text-2xl font-bold">Strategic Roadmap</h1>

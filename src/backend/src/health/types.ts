@@ -12,21 +12,22 @@ export interface HealthRun {
     metadata?: any;
 }
 
-export type HealthCategory = 
-    'github' | 
-    'ai' | 
-    'api' | 
-    'webhooks' | 
-    'mcp' | 
-    'agents' | 
-    'browser' | 
-    'git' | 
-    'sandbox' | 
-    'research' | 
-    'planning' | 
-    'database' | 
-    'semantics' | 
-    'automations';
+export type HealthCategory =
+    'github' |
+    'ai' |
+    'api' |
+    'webhooks' |
+    'mcp' |
+    'agents' |
+    'browser' |
+    'git' |
+    'sandbox' |
+    'research' |
+    'planning' |
+    'database' |
+    'semantics' |
+    'automations' |
+    'sentinel';
 
 export interface HealthResult {
     id: string;
