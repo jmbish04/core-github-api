@@ -22,7 +22,7 @@ import { learningEnrichment } from "@/db/schemas/github/learning/enrichment";
 import { aiInsights } from "@/db/schemas/github/learning/ai-insights";
 import { aiInsightPrs } from "@/db/schemas/github/learning/ai-insight-prs";
 import { aiPrReflections } from "@/db/schemas/github/learning/ai-pr-reflections";
-import { eq, desc, isNull, and, notInArray } from "drizzle-orm";
+import { eq, desc, isNull, isNotNull, and, notInArray, inArray } from "drizzle-orm";
 
 interface LearningAgentState {
   status: string;
@@ -156,7 +156,15 @@ export class LearningAgent extends BaseAgent<Env, LearningAgentState> {
       });
     }
 
-    // Find completed Jules sessions not yet ingested
+    // Find completed Jules sessions not yet ingested.
+    // Pre-fetch already-ingested source identifiers to avoid N+1 queries.
+    const alreadyIngested = await db
+      .select({ sourceIdentifier: learningThreads.sourceIdentifier })
+      .from(learningThreads)
+      .where(eq(learningThreads.source, "jules"));
+
+    const ingestedIds = new Set(alreadyIngested.map((t) => t.sourceIdentifier));
+
     const completedSessions = await db
       .select()
       .from(julesSessions)
@@ -165,14 +173,8 @@ export class LearningAgent extends BaseAgent<Env, LearningAgentState> {
       .limit(20);
 
     for (const session of completedSessions) {
-      // Check if thread already exists for this session
-      const existing = await db
-        .select()
-        .from(learningThreads)
-        .where(eq(learningThreads.sourceIdentifier, session.id))
-        .limit(1);
-
-      if (existing.length > 0) continue;
+      // Skip already-ingested sessions (checked via pre-fetched set)
+      if (ingestedIds.has(session.id)) continue;
 
       const threadId = crypto.randomUUID();
       await db.insert(learningThreads).values({
@@ -293,22 +295,27 @@ export class LearningAgent extends BaseAgent<Env, LearningAgentState> {
     const analyzed = await db
       .select()
       .from(learningMessages)
-      .where(
-        and(
-          // Has AI analysis
-          // We check for non-null ai_analysis
-        )
-      )
+      .where(isNotNull(learningMessages.aiAnalysis))
       .limit(20);
 
     const analyzedWithAnalysis = analyzed.filter(
       (m) => m.aiAnalysis && m.aiAnalysis.includes('"category"')
     );
 
+    // Pre-fetch all threads referenced by these messages to avoid N+1 queries
+    const threadIds = [...new Set(analyzedWithAnalysis.map((m) => m.threadId))];
+    const threads = threadIds.length > 0
+      ? await db
+          .select()
+          .from(learningThreads)
+          .where(inArray(learningThreads.id, threadIds))
+      : [];
+    const threadsById = new Map(threads.map((t) => [t.id, t]));
+
     for (const msg of analyzedWithAnalysis) {
       try {
-        const parsed = JSON.parse(msg.aiAnalysis!);
-        if (!parsed.category || parsed.severity === "low") continue;
+        const parsed = this.safeParseJson(msg.aiAnalysis!);
+        if (!parsed || !parsed.category || parsed.severity === "low") continue;
 
         // Check Contemplation Gate before creating insight
         const shouldCreate = await this.contemplationGate(
@@ -325,11 +332,7 @@ export class LearningAgent extends BaseAgent<Env, LearningAgentState> {
         }
 
         const insightId = crypto.randomUUID();
-        const thread = await db
-          .select()
-          .from(learningThreads)
-          .where(eq(learningThreads.id, msg.threadId))
-          .limit(1);
+        const thread = threadsById.get(msg.threadId);
 
         await db.insert(aiInsights).values({
           id: insightId,
@@ -340,7 +343,7 @@ export class LearningAgent extends BaseAgent<Env, LearningAgentState> {
           threadId: msg.threadId,
           sessionId: sessionId || msg.sessionId,
           status: "PENDING",
-          githubRepo: thread[0]?.githubRepo,
+          githubRepo: thread?.githubRepo,
         });
 
         // Vectorize high-signal insights
@@ -359,6 +362,22 @@ export class LearningAgent extends BaseAgent<Env, LearningAgentState> {
     }
 
     this.state.lastContemplationAt = new Date().toISOString();
+  }
+
+  // ── Safe JSON Parser for LLM Output ────────────────────────────────────────
+
+  private safeParseJson(raw: string): Record<string, any> | null {
+    // LLMs often wrap JSON in markdown code blocks — strip them before parsing
+    let cleaned = raw.trim();
+    const fenceMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (fenceMatch) {
+      cleaned = fenceMatch[1].trim();
+    }
+    try {
+      return JSON.parse(cleaned);
+    } catch {
+      return null;
+    }
   }
 
   // ── Contemplation Gate ─────────────────────────────────────────────────────

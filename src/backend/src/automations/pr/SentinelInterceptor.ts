@@ -136,9 +136,9 @@ ${vectorMatches.join("\n") || "No similar prior patterns found."}
 **PR Title:** ${pr.title}
 **PR Description:** ${pr.body || "No description provided."}
 
-**Diff (truncated to 3000 chars):**
+**Diff (truncated to 50000 chars):**
 \`\`\`
-${diff.substring(0, 3000)}
+${diff.substring(0, 50000)}
 \`\`\`
 
 Respond with a concise analysis. If you detect anti-patterns or potential issues, list them as bullet points. If the PR looks clean, say so briefly. Include severity (low/medium/high) for each finding.`;

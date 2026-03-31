@@ -31,16 +31,21 @@ import type {
 // ─── StitchService ───────────────────────────────────────────────────────────
 
 export class StitchService {
-  private static instance: StitchService;
+  private static instance: StitchService | null = null;
+  private static instanceEnv: WeakRef<Env> | null = null;
 
   private constructor(private readonly env: Env) {}
 
   /**
-   * Returns the singleton `StitchService` for the current request context.
+   * Returns a `StitchService` scoped to the given `env`. If the `env` object
+   * changes (e.g. across requests in the same isolate), the old instance is
+   * discarded and a fresh one is created.
    */
   public static getInstance(env: Env): StitchService {
-    if (!StitchService.instance) {
+    // If env reference changed (new request context), discard stale instance
+    if (!StitchService.instance || StitchService.instanceEnv?.deref() !== env) {
       StitchService.instance = new StitchService(env);
+      StitchService.instanceEnv = new WeakRef(env);
     }
     return StitchService.instance;
   }
