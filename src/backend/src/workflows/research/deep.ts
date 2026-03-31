@@ -26,7 +26,7 @@ export async function runDeepResearch(env: any, topic: string = "topic:cloudflar
   const ghResponse = await fetch(`https://api.github.com/search/repositories?q=${encodeURIComponent(searchQuery)}&sort=stars&order=desc&per_page=20`, {
     headers: { 
       'User-Agent': 'Cloudflare-Agent-Swarm', 
-      'Authorization': `Bearer ${env.GITHUB_TOKEN}`,
+      'Authorization': `Bearer ${env.GITHUB_PERSONAL_ACCESS_TOKEN}`,
       'Accept': 'application/vnd.github.v3+json'
     }
   });
@@ -49,7 +49,7 @@ export async function runDeepResearch(env: any, topic: string = "topic:cloudflar
   const evaluatedRepos = await Promise.all(newRepos.map(async (repo: any) => {
     // Optionally fetch README here
     const readmeRes = await fetch(`https://api.github.com/repos/${repo.full_name}/readme`, {
-       headers: { 'User-Agent': 'Cloudflare-Agent-Swarm', 'Accept': 'application/vnd.github.v3.raw', 'Authorization': `Bearer ${env.GITHUB_TOKEN}` }
+       headers: { 'User-Agent': 'Cloudflare-Agent-Swarm', 'Accept': 'application/vnd.github.v3.raw', 'Authorization': `Bearer ${env.GITHUB_PERSONAL_ACCESS_TOKEN}` }
     });
     const readme = readmeRes.ok ? await readmeRes.text() : "";
 

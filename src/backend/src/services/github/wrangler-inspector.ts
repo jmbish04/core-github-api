@@ -1,7 +1,8 @@
 import { Octokit } from "octokit";
-import { WranglerConfigSchema, type WranglerConfig } from "@/types/cloudflare/deployment";
-import { parseWranglerConfigContent, inferFormat, type ConfigFormat, type ParseResult } from "@/automations/shared/cloudflare/wrangler-config-parser";
-import { WranglerConfigUpdater, type UpdateOperation, type UpdateResult } from "@/automations/shared/cloudflare/wrangler-config-updater";
+import { type WranglerConfig } from "@/types/cloudflare/deployment";
+import { parseWranglerConfigContent, inferFormat, type ParseResult } from "@/automations/shared/cloudflare/wrangler-config-parser";
+import { WranglerConfigUpdater, type UpdateOperation } from "@/automations/shared/cloudflare/wrangler-config-updater";
+
 
 export class WranglerInspectorService {
   constructor(private octokit: Octokit) {}
@@ -98,9 +99,26 @@ export class WranglerInspectorService {
 
     return { commit, config: newConfig };
   }
+
+
+  /**
+   * Utility to fetch the Cloudflare Worker name from a repository's `wrangler.jsonc` or `wrangler.toml`.
+   * As an instance method, it uses the inherited `octokit` credentials.
+   */
+  async getWorkerName(owner: string, repo: string): Promise<string> {
+      const config = await this.getWranglerConfig(owner, repo);
+      
+      if (!config.name) {
+          throw new Error(`Worker name not found in wrangler config for ${owner}/${repo}`);
+      }
+      
+      return config.name;
+  }
 }
 
 // Helper to extract basename for paths
 function basename(path: string): string {
   return path.split('/').pop() ?? path;
 }
+
+

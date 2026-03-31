@@ -44,10 +44,11 @@ const bindingSchema = z.object({
 type BindingFormValues = z.infer<typeof bindingSchema>;
 
 interface AddBindingDialogProps {
-  projectId: string;
+  repoOwner: string;
+  repoName: string;
 }
 
-export function AddBindingDialog({ projectId }: AddBindingDialogProps) {
+export function AddBindingDialog({ repoOwner, repoName }: AddBindingDialogProps) {
   const [open, setOpen] = useState(false);
   const queryClient = useQueryClient();
 
@@ -62,12 +63,9 @@ export function AddBindingDialog({ projectId }: AddBindingDialogProps) {
 
   const addBindingMutation = useMutation({
     mutationFn: async (values: BindingFormValues) => {
-      // We will post to the backend, which executes Octokit and saves the config
-      const res = await fetch(`/api/projects/${projectId}/bindings`, {
+      const res = await fetch(`/api/repos/${encodeURIComponent(repoOwner)}/${encodeURIComponent(repoName)}/bindings`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(values),
       });
       if (!res.ok) {
@@ -75,15 +73,16 @@ export function AddBindingDialog({ projectId }: AddBindingDialogProps) {
         try {
           const data = (await res.json()) as any;
           msg = data?.error || msg;
-        } catch (e) {}
+        } catch (e) {
+          console.error(`Failed to parse error response: ${JSON.stringify(e)}`);
+        }
         throw new Error(msg);
       }
       return await res.json();
     },
     onSuccess: () => {
       toast.success("Binding synchronized to wrangler.jsonc via GitHub.");
-      // Invalidate the project overview cache to redraw UI
-      queryClient.invalidateQueries({ queryKey: ["project-overview", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["project-overview", repoOwner, repoName] });
       setOpen(false);
       form.reset();
     },

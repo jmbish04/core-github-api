@@ -1,10 +1,7 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
 import DailyTrendsTab from '@/views/research/components/DailyTrendsTab';
 
 export default function DailyTrendsPage() {
-  const navigate = useNavigate();
-
   return (
     <div className="p-6 max-w-7xl mx-auto text-white space-y-6">
       <div>
@@ -13,7 +10,7 @@ export default function DailyTrendsPage() {
       </div>
 
       <div className="space-y-4 pt-4">
-         <DailyTrendsTab onViewReport={(id) => navigate(`/research/report/${id}`)} />
+         <DailyTrendsTab />
       </div>
     </div>
   );

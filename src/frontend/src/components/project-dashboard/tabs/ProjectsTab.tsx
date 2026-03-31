@@ -2,7 +2,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { HierarchyProvider } from "../hierarchy/HierarchyContext";
 import { HierarchyTable } from "../hierarchy/HierarchyTable";
 import { KanbanView } from "../hierarchy/KanbanView";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { LayoutList, KanbanSquare } from "lucide-react";
 
 export function ProjectsTab({ project, projectId }: { project: any, projectId: string }) {

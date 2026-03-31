@@ -210,16 +210,16 @@ export const githubTools: GitHubToolRegistry = {
 
   /**
    * Attach official GitHub MCP server
-   * Note: This requires GITHUB_MCP_PAT secret to be configured or standard GITHUB_TOKEN.
+   * Note: This requires GITHUB_MCP_PAT secret to be configured or standard GITHUB_PERSONAL_ACCESS_TOKEN.
    */
   async attachMCP(env: Env, callbackHost: string): Promise<RunnableTool[]> {
     // Check if MCP is configured
-    if (!env.GITHUB_TOKEN) {
-      console.warn("[GitHubTools] GITHUB_TOKEN not configured, skipping MCP attachment");
+    if (!env.GITHUB_PERSONAL_ACCESS_TOKEN) {
+      console.warn("[GitHubTools] GITHUB_PERSONAL_ACCESS_TOKEN not configured, skipping MCP attachment");
       return [];
     }
 
-    const mcpPat = await env.GITHUB_TOKEN.get();
+    const mcpPat = await env.GITHUB_PERSONAL_ACCESS_TOKEN.get();
     if (!mcpPat) {
       return [];
     }

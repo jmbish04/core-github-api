@@ -11,13 +11,13 @@
  *
  * const mgr = new SandboxSessionManager(env.SANDBOX);
  * const session = await mgr.ensureRepoSession("my-org/my-repo", {
- *   env: { GITHUB_TOKEN: token },
+ *   env: { GITHUB_PERSONAL_ACCESS_TOKEN: token },
  * });
  * const result = await session.exec("ls -la");
  * ```
  */
 
-import { getSandbox, type Sandbox } from "@cloudflare/sandbox";
+
 import { sanitizeRepoName } from "./utils";
 import type { SandboxExecResult } from "./types";
 import { SandboxClient } from "./client";

@@ -3,15 +3,14 @@
  * @description Executes GitHub search and performs AI analysis using Drizzle ORM for D1.
  * @owner AI-Builder
  */
-// @ts-nocheck
+
 
 import { WorkflowEntrypoint, WorkflowStep, WorkflowEvent } from 'cloudflare:workers';
 import { getOctokit } from '@/services/octokit/core';
 import { getWebhooksDb } from '@/db';
 import { searches, repoAnalysis } from '@/db/schemas/github/webhooks';
 import { eq, and, inArray } from 'drizzle-orm';
-import type { Bindings } from '@/utils/hono';
-import { getAgentByName } from '@/ai/agents/runtime/agents';
+import { HoniClient } from '@utils/honi-client';
 
 interface GithubSearchWorkflowParams {
   sessionId: string;
@@ -19,13 +18,9 @@ interface GithubSearchWorkflowParams {
   searchTerm: string;
 }
 
-interface OrchestratorStub {
-  workflowComplete(searchId: number): Promise<void>;
-}
 
-type WorkflowEnv = Bindings & Env;
 
-export class GithubSearchWorkflow extends WorkflowEntrypoint<WorkflowEnv, GithubSearchWorkflowParams> {
+export class GithubSearchWorkflow extends WorkflowEntrypoint<Env, GithubSearchWorkflowParams> {
 
   public async run(event: Readonly<WorkflowEvent<GithubSearchWorkflowParams>>, step: WorkflowStep): Promise<void> {
     const { sessionId, searchId, searchTerm } = event.payload;
@@ -106,8 +101,7 @@ export class GithubSearchWorkflow extends WorkflowEntrypoint<WorkflowEnv, Github
 
       // Notify Orchestrator
       if (this.env.ORCHESTRATOR) {
-        const getByName = getAgentByName as any;
-        const stub = await getByName(this.env.ORCHESTRATOR, 'orchestrator') as OrchestratorStub;
+        const stub = HoniClient.getStub(this.env.ORCHESTRATOR as any, 'orchestrator') as any;
         await stub.workflowComplete(searchId);
       }
     });

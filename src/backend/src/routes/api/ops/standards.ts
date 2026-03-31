@@ -50,6 +50,7 @@ function safeJsonParse(val: string, fallback: unknown[] = []): unknown {
  * Lists all active engineering standardization rules.
  */
 standardsApi.openapi(createRoute({
+    operationId: 'getRules',
     method: 'get', path: '/rules',
     responses: { 200: { content: { 'application/json': { schema: z.array(RuleSchema) } }, description: 'Rules list' } }
 }), async (c) => {
@@ -62,6 +63,7 @@ standardsApi.openapi(createRoute({
  * Registers a new standardization rule from a repository source.
  */
 standardsApi.openapi(createRoute({
+    operationId: 'postRules',
     method: 'post', path: '/rules',
     request: { body: { content: { 'application/json': { schema: CreateRuleSchema } } } },
     responses: { 201: { content: { 'application/json': { schema: RuleSchema } }, description: 'Rule created' } }
@@ -132,6 +134,7 @@ const ItemSchema = z.object({
 });
 
 standardsApi.openapi(createRoute({
+    operationId: 'getTags',
   method: 'get', path: '/tags',
   responses: { 200: { content: { 'application/json': { schema: z.any() } }, description: 'Tags list' } }
 }), async (c) => {
@@ -141,6 +144,7 @@ standardsApi.openapi(createRoute({
 });
 
 standardsApi.openapi(createRoute({
+    operationId: 'postTags',
   method: 'post', path: '/tags',
   request: { body: { content: { 'application/json': { schema: TagSchema } } } },
   responses: { 201: { content: { 'application/json': { schema: z.any() } }, description: 'Tag created' } }
@@ -154,6 +158,7 @@ standardsApi.openapi(createRoute({
 });
 
 standardsApi.openapi(createRoute({
+    operationId: 'putTagsId',
   method: 'put', path: '/tags/{id}',
   request: { params: z.object({ id: z.string() }), body: { content: { 'application/json': { schema: TagSchema } } } },
   responses: { 200: { content: { 'application/json': { schema: z.any() } }, description: 'Tag updated' } }
@@ -167,6 +172,7 @@ standardsApi.openapi(createRoute({
 });
 
 standardsApi.openapi(createRoute({
+    operationId: 'getItems',
   method: 'get', path: '/items',
   responses: { 200: { content: { 'application/json': { schema: z.any() } }, description: 'Items list' } }
 }), async (c) => {
@@ -185,6 +191,7 @@ standardsApi.openapi(createRoute({
 });
 
 standardsApi.openapi(createRoute({
+    operationId: 'postItems',
   method: 'post', path: '/items',
   request: { body: { content: { 'application/json': { schema: ItemSchema } } } },
   responses: { 201: { content: { 'application/json': { schema: z.any() } }, description: 'Item created' } }
@@ -212,6 +219,7 @@ standardsApi.openapi(createRoute({
 });
 
 standardsApi.openapi(createRoute({
+    operationId: 'putItemsId',
   method: 'put', path: '/items/{id}',
   request: { params: z.object({ id: z.string() }), body: { content: { 'application/json': { schema: ItemSchema } } } },
   responses: { 200: { content: { 'application/json': { schema: z.any() } }, description: 'Updated' } }

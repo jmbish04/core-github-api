@@ -33,6 +33,8 @@ import { julesSessions, julesWebhookEvents } from "@db/schemas/jules";
 import { eq } from "drizzle-orm";
 import { createAlert } from "@alerts";
 import type { JulesEventType, JulesLiveMessage } from "@/services/jules/types";
+import { BroadcastClient } from "@utils/do-broadcast";
+import { HoniClient } from "@utils/honi-client";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -90,13 +92,7 @@ const statusPayloadSchema = z.object({
  */
 async function broadcast(env: Env, message: JulesLiveMessage): Promise<void> {
   try {
-    const id = env.JULES_WEBHOOK_BROADCASTER.idFromName("jules-broadcaster");
-    const broadcaster = env.JULES_WEBHOOK_BROADCASTER.get(id);
-    await broadcaster.fetch("http://internal/internal/broadcast", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(message),
-    });
+    await BroadcastClient.broadcast(env.JULES_WEBHOOK_BROADCASTER, "jules-broadcaster", message);
   } catch (err) {
     console.error("[JulesWebhook] Failed to broadcast to DO:", err);
   }
@@ -185,10 +181,12 @@ app.post("/event", zValidator("json", eventPayloadSchema), async (c) => {
   ) {
     // Trigger JulesOverseer to evaluate and auto-unblock
     try {
-      const id = c.env.JULES_OVERSEER.idFromName("jules-overseer-singleton");
-      const overseer = c.env.JULES_OVERSEER.get(id);
       c.executionCtx.waitUntil(
-        overseer.fetch("http://internal/schedule/check")
+        HoniClient.fetch(
+          c.env.JULES_OVERSEER as unknown as DurableObjectNamespace,
+          "jules-overseer-singleton",
+          "/schedule/check"
+        )
       );
     } catch (err) {
       console.warn("[JulesWebhook] Failed to trigger JulesOverseer:", err);
@@ -328,14 +326,10 @@ app.get("/ws", async (c) => {
     return c.text("Expected WebSocket upgrade", 426);
   }
 
-  const id = c.env.JULES_WEBHOOK_BROADCASTER.idFromName("jules-broadcaster");
-  const broadcaster = c.env.JULES_WEBHOOK_BROADCASTER.get(id);
-
-  // Forward the WS upgrade request to the DO — it handles the pairing
-  return broadcaster.fetch(
-    new Request("http://internal/ws", {
-      headers: c.req.raw.headers,
-    })
+  return BroadcastClient.upgradeWebSocket(
+    c.env.JULES_WEBHOOK_BROADCASTER,
+    "jules-broadcaster",
+    c.req.raw
   );
 });
 

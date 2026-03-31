@@ -10,3 +10,4 @@ export * from '../webhooks/task_events';
 export * from './ux_design_runs';
 export * from './ux_pages';
 export * from './plan_tracking';
+export * from './task_logs';

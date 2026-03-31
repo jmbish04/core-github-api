@@ -4,7 +4,7 @@ import { buildMaxAgentMemory } from '@/ai/agents/memory';
 import { AgentStateStore } from '@/ai/agents/support/state-store';
 import { runAgentText } from '@/ai/agents/support/inference';
 import type { AgentTool, PersistentAgentState } from '@/ai/agents/support/types';
-import { makeQueryStandardsTool } from '@/ai/tools/standards';
+import { makeQueryStandardsTool } from '@/ai/mcp/tools/standards';
 import { buildSkillContext } from '@services/octokit/skill-fetcher';
 
 const standardizationRuntime = createAgent<Env>({

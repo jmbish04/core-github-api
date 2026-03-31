@@ -1,6 +1,6 @@
 // src/routes/api/timeline.ts
 import { Hono } from 'hono';
-import { Bindings } from '@utils/hono';
+
 import { getDb } from '@db';
 import { agentActivities } from '@db/schema';
 import { eq } from 'drizzle-orm';

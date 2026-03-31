@@ -6,7 +6,7 @@
 
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
 import { getOctokit } from '@services/octokit/core'
-import { DEFAULT_TEMPLATE_REPO, DEFAULT_GITHUB_OWNER } from "@github-utils";
+import { DEFAULT_GITHUB_OWNER } from "@github-utils";
 
 
 // --- 1. Zod Schema Definitions ---

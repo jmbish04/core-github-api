@@ -6,7 +6,7 @@
  */
 
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi';
-import { CILogService } from '@/services/ci/CILogService';
+import { CILogService } from "@/services/cloudflare/worker_cicd_build_logs";
 
 const router = new OpenAPIHono<{ Bindings: Env }>();
 
@@ -56,6 +56,7 @@ const PRCheckRunsResponse = z
  */
 router.openapi(
   createRoute({
+    operationId: 'getLogsOwnerRepoCheckRunId',
     method: 'get',
     path: '/logs/{owner}/{repo}/{check_run_id}',
     tags: ['CI / Logs'],
@@ -74,10 +75,10 @@ router.openapi(
   }),
   async (c) => {
     const { owner, repo, check_run_id } = c.req.valid('param');
-    const { GITHUB_TOKEN, CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID } = c.env;
+    const { GITHUB_PERSONAL_ACCESS_TOKEN, CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID } = c.env;
 
     const [ghToken, cfToken, cfAccountId] = await Promise.all([
-      GITHUB_TOKEN.get(),
+      GITHUB_PERSONAL_ACCESS_TOKEN.get(),
       CLOUDFLARE_API_TOKEN.get(),
       CLOUDFLARE_ACCOUNT_ID.get(),
     ]);
@@ -88,13 +89,13 @@ router.openapi(
           check_run_id,
           build_id: null,
           logs: null,
-          error: 'Missing required secrets: GITHUB_TOKEN, CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID',
+          error: 'Missing required secrets: GITHUB_PERSONAL_ACCESS_TOKEN, CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID',
         },
         500,
       );
     }
 
-    const svc = new CILogService({ GITHUB_TOKEN: ghToken, CLOUDFLARE_API_TOKEN: cfToken, CLOUDFLARE_ACCOUNT_ID: cfAccountId });
+    const svc = new CILogService({ GITHUB_PERSONAL_ACCESS_TOKEN: ghToken, CLOUDFLARE_API_TOKEN: cfToken, CLOUDFLARE_ACCOUNT_ID: cfAccountId });
     const result = await svc.getLogsForCheckRun(owner, repo, parseInt(check_run_id, 10));
 
     return c.json({
@@ -113,6 +114,7 @@ router.openapi(
  */
 router.openapi(
   createRoute({
+    operationId: 'getLogsPrOwnerRepoPr',
     method: 'get',
     path: '/logs/pr/{owner}/{repo}/{pr}',
     tags: ['CI / Logs'],
@@ -127,16 +129,56 @@ router.openapi(
   }),
   async (c) => {
     const { owner, repo, pr } = c.req.valid('param');
-    const { GITHUB_TOKEN, CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID } = c.env;
+    const { GITHUB_PERSONAL_ACCESS_TOKEN, CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID } = c.env;
     const [ghToken, cfToken, cfAccountId] = await Promise.all([
-      GITHUB_TOKEN.get(),
+      GITHUB_PERSONAL_ACCESS_TOKEN.get(),
       CLOUDFLARE_API_TOKEN.get(),
       CLOUDFLARE_ACCOUNT_ID.get(),
     ]);
-    const svc = new CILogService({ GITHUB_TOKEN: ghToken, CLOUDFLARE_API_TOKEN: cfToken, CLOUDFLARE_ACCOUNT_ID: cfAccountId });
+    const svc = new CILogService({ GITHUB_PERSONAL_ACCESS_TOKEN: ghToken, CLOUDFLARE_API_TOKEN: cfToken, CLOUDFLARE_ACCOUNT_ID: cfAccountId });
     const runs = await svc.getCheckRunsForPR(owner, repo, parseInt(pr, 10));
     return c.json(runs);
   },
 );
+
+/**
+ * GET /cloudflare/logs/tail/ws/:owner/:repo
+ * Creates a Cloudflare Tail Session and returns a direct proxied WebSocket Upgrade response.
+ */
+router.get("/logs/tail/ws/:owner/:repo", async (c) => {
+    const { owner, repo } = c.req.param();
+    
+    // Safety check that this is an upgrade request
+    if (c.req.header("Upgrade") !== "websocket") {
+        return c.text("Expected Upgrade: websocket", 426);
+    }
+
+    const { WorkerManager } = await import("@/services/cloudflare/worker-manager");
+    const { getOctokitAsUser } = await import("@/services/github/client");
+    const { WranglerInspectorService } = await import("@/services/github/wrangler-inspector");
+    const { getCloudflareApiToken, getCloudflareAccountId } = await import("@/utils/secrets");
+    
+    try {
+        const octokit = await getOctokitAsUser(c.env);
+        const inspector = new WranglerInspectorService(octokit as any);
+        const scriptName = await inspector.getWorkerName(owner, repo);
+
+        const cfToken = await getCloudflareApiToken(c.env);
+        const cfAccountId = await getCloudflareAccountId(c.env);
+        if (!cfToken || !cfAccountId) {
+            return c.text("Missing CLOUDFLARE_API_TOKEN or CLOUDFLARE_ACCOUNT_ID", 500);
+        }
+
+        const workerManager = new WorkerManager(cfToken, cfAccountId);
+        const tailSession = await workerManager.createTailSession(scriptName);
+        
+        // Proxy the exact fetch request to the Cloudflare WebSocket Server,
+        // thereby completing the 101 edge handshake locally on the Worker
+        return await fetch(tailSession.url, c.req.raw);
+    } catch (e: any) {
+        console.error("Failed to proxy Tail Session:", e.message);
+        return c.text(`WebSocket Proxy Error: ${e.message}`, 500);
+    }
+});
 
 export default router;

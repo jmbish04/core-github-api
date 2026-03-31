@@ -1,8 +1,8 @@
 import type { Context } from 'hono';
 import { Octokit } from '@octokit/rest';
 import { createAppAuth } from '@octokit/auth-app';
-import { getWebhooksDb } from '@db';
-import { automationLogs } from '@/db/schemas/webhooks/automations';
+import { getDb } from '@db';
+import { automationLogs } from '@/db/schemas/logs/automation';
 import { getGitHubAppId, getGitHubPrivateKey } from '@utils/secrets';
 import { withCompatOctokit } from '@services/octokit/compat';
 
@@ -135,7 +135,7 @@ export abstract class BaseAutomation<TPayload extends AutomationPayload = Automa
     contextNumber: number | null = this.contextNumber ?? null,
   ): Promise<void> {
     try {
-      const db = getWebhooksDb(this.env.DB_WEBHOOKS);
+      const db = getDb(this.env.DB);
       await db.insert(automationLogs).values({
         repo: this.repoFullName,
         automationClass: this.automationClass,

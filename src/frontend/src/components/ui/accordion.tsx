@@ -67,7 +67,7 @@ const SimpleAccordionItem = ({ value, children, className }: { value: string, ch
         <div className={cn("border-b", className)} data-value={value}>
             {React.Children.map(children, child => {
                 if (React.isValidElement(child)) {
-                    // @ts-ignore
+                    // @ts-expect-error — cloneElement types don't accept extra props
                     return React.cloneElement(child, { value });
                 }
                 return child;

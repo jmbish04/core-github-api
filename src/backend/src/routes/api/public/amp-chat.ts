@@ -5,6 +5,7 @@ const app = new OpenAPIHono<{ Bindings: Env }>();
 
 app.openapi(
   createRoute({
+    operationId: 'postRoot',
     method: "post",
     path: "/",
     summary: "AMP Email Chat",

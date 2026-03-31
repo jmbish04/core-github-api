@@ -37,3 +37,15 @@ export {
   truncateOutput,
   sanitizeForPath,
 } from "./utils";
+
+// Health check
+export { checkHealth as checkSandboxHealth } from "./health_old";
+
+// Git health (GitHub auth verification)
+export { checkGitHealth } from "./git";
+
+// MCP tool definitions (consolidated from cloudflare/sandbox)
+export { loadSandboxTools, type SandboxExecutionResult } from "./tools";
+
+// Git operations
+export { runGitOperation, type GitOperation } from "./sandbox";

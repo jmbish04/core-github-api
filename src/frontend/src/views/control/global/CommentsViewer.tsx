@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
-import { Sidebar } from "@/components/navigation/Sidebar";
+
 import { FiCopy, FiDownload, FiMessageSquare, FiGithub, FiArrowLeft, FiCheck } from "react-icons/fi";
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 
@@ -101,7 +101,7 @@ export default function CommentsViewerPage() {
 
     if (loading) {
         return (
-            <div className="flex h-screen w-full items-center justify-center bg-[#09090b] text-white">
+            <div className="flex min-h-[60vh] w-full items-center justify-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
             </div>
         );
@@ -109,7 +109,7 @@ export default function CommentsViewerPage() {
 
     if (error) {
         return (
-            <div className="flex h-screen w-full flex-col items-center justify-center bg-[#09090b] text-white gap-4">
+            <div className="flex min-h-[60vh] w-full flex-col items-center justify-center gap-4">
                 <h1 className="text-2xl font-bold text-red-500">Error Loading Comments</h1>
                 <p className="text-gray-400">{error}</p>
                 <Button variant="outline" onClick={() => window.history.back()}>
@@ -120,10 +120,8 @@ export default function CommentsViewerPage() {
     }
 
     return (
-        <div className="flex min-h-screen bg-[#09090b] text-white w-full">
-            <Sidebar className="hidden md:block" />
-            <main className="flex-1 overflow-auto">
-                <div className="container mx-auto p-8 max-w-5xl">
+        <div className="w-full">
+                <div className="container mx-auto p-4 md:p-8 max-w-5xl">
                     <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                         <div>
                             <div className="flex items-center gap-2 text-sm text-gray-400 mb-2">
@@ -208,7 +206,6 @@ export default function CommentsViewerPage() {
                         ))}
                     </div>
                 </div>
-            </main>
         </div>
     );
 }

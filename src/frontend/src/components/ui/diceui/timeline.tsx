@@ -1,6 +1,6 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
-import { CheckCircle2, Circle, Clock, XCircle, AlertCircle } from 'lucide-react';
+import { CheckCircle2, Circle, Clock, XCircle } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 export interface TimelineStep {

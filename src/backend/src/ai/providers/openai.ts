@@ -7,25 +7,26 @@
  * 
  * @module AI/Providers/OpenAI
  */
-import { resolveDefaultAiModel } from "./config";
-import { AIGateway } from "../utils/ai-gateway";
+import { resolveDefaultAiModel } from "./ai-gateway/config";
 import { cleanJsonOutput } from "@/ai/utils/sanitizer";
+import { Logger } from "@/lib/logger";
 import { AIOptions, TextWithToolsResponse, StructuredWithToolsResponse, UnifiedModel, ModelFilter, ToolCall } from "./index";
-import { Agent, tool } from "@/ai/agents/runtime/openai";
+import { Agent, tool, run } from "@/ai/agents/runtime/openai";
+import { setupOpenAIAgentClient } from "./clients";
 
 export async function createOpenAIClient(env: Env) {
-  return AIGateway.createUniversalClient(env, "openai");
+  const logger = new Logger(env, 'OpenAI');
+  logger.info('Initializing client via AI Gateway');
+  await logger.flush();
+  const client = await setupOpenAIAgentClient(env, "openai");
+  return client;
 }
 
+import { verifyApiKey as verify } from '@/ai/providers/ai-gateway/keys';
+import { AIGateway } from "./ai-gateway";
+
 export async function verifyApiKey(env: Env): Promise<boolean> {
-  try {
-    const client = await createOpenAIClient(env);
-    await client.models.list();
-    return true;
-  } catch (error) {
-    console.error("OpenAI Verification Error:", error);
-    return false;
-  }
+  return verify(env, 'openai');
 }
 
 async function executeWithFallback<T>(
@@ -70,16 +71,16 @@ export async function generateText(
 ): Promise<string> {
   const initialModel = options?.model || resolveDefaultAiModel(env, "openai");
   return executeWithFallback(env, initialModel, undefined, async (model) => {
-    const namespacedModel = model.includes('/') ? model : `openai/${model}`;
-    const runner = await AIGateway.createUniversalGatewayRunner(env, "openai", namespacedModel);
     
     const agent = new Agent({
       name: "OpenAI_Agent",
       instructions: systemPrompt || "You are a helpful assistant.",
-      model: namespacedModel,
+      model: AIGateway.normalizeModelForGateway("openai", model),
+      env: env,
+      provider: "openai"
     });
 
-    const result = await runner.run(agent, prompt);
+    const result = await run(agent, prompt);
     return String(result.finalOutput ?? "");
   });
 }
@@ -94,13 +95,12 @@ export async function generateStructuredResponse<T = any>(
   const initialModel = options?.model || resolveDefaultAiModel(env, "openai");
   return executeWithFallback(env, initialModel, 'structured_response', async (model) => {
     const client = await createOpenAIClient(env);
-    const namespacedModel = model.includes('/') ? model : `openai/${model}`;
     const messages: any[] = [];
     if (systemPrompt) messages.push({ role: "system", content: systemPrompt });
     messages.push({ role: "user", content: prompt });
 
     const response = await client.chat.completions.create({
-      model: namespacedModel,
+      model: AIGateway.normalizeModelForGateway("openai", model),
       messages,
       temperature: options?.temperature,
       max_tokens: options?.maxTokens,
@@ -127,9 +127,6 @@ export async function generateTextWithTools(
 ): Promise<TextWithToolsResponse> {
   const initialModel = options?.model || resolveDefaultAiModel(env, "openai");
   return executeWithFallback(env, initialModel, 'function_calling', async (model) => {
-    const namespacedModel = model.includes('/') ? model : `openai/${model}`;
-    const runner = await AIGateway.createUniversalGatewayRunner(env, "openai", namespacedModel);
-
     const capturedToolCalls: ToolCall[] = [];
     const agentTools = tools.map((t, idx) => {
        const functionDef = t.function;
@@ -153,12 +150,14 @@ export async function generateTextWithTools(
     const agent = new Agent({
       name: "OpenAI_Agent",
       instructions: systemPrompt || "You are a helpful assistant.",
-      model: namespacedModel,
+      model: AIGateway.normalizeModelForGateway("openai", model),
+      env: env,
+      provider: "openai",
       tools: agentTools,
       toolUseBehavior: 'run_llm_again'
     });
 
-    const result = await runner.run(agent, prompt);
+    const result = await run(agent, prompt);
     
     return {
       text: String(result.finalOutput || ""),
@@ -178,13 +177,12 @@ export async function generateStructuredWithTools<T = any>(
   const initialModel = options?.model || resolveDefaultAiModel(env, "openai");
   return executeWithFallback(env, initialModel, 'function_calling', async (model) => {
     const client = await createOpenAIClient(env);
-    const namespacedModel = model.includes('/') ? model : `openai/${model}`;
     const messages: any[] = [];
     if (systemPrompt) messages.push({ role: "system", content: systemPrompt });
     messages.push({ role: "user", content: prompt });
 
     const response = await client.chat.completions.create({
-      model: namespacedModel,
+      model: AIGateway.normalizeModelForGateway("openai", model),
       messages,
       tools,
       temperature: options?.temperature,

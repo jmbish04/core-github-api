@@ -1,5 +1,5 @@
 
-import { sqliteTable, text, integer, int } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 
 /**
@@ -22,7 +22,22 @@ export const healthResults = sqliteTable('health_results', {
     run_id: text('run_id').notNull().references(() => healthRuns.id, { onDelete: 'cascade' }),
 
     // Categorization
-    category: text('category', { enum: ['github', 'ai', 'api', 'webhooks', 'mcp', 'agents', 'browser', 'git', 'sandbox', 'research', 'planning'] }).notNull(),
+    category: text('category', { enum: [
+        'github',
+        'ai',
+        'api',
+        'webhooks',
+        'mcp',
+        'agents',
+        'browser',
+        'git',
+        'sandbox',
+        'research',
+        'planning',
+        'database',
+        'semantics',
+        'automations',
+        'sentinel'] }).notNull(),
     name: text('name').notNull(), // e.g. "Orchestrator Accessibility", "Secrets Permissions"
 
     // Status

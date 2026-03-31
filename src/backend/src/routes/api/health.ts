@@ -64,6 +64,50 @@ export async function checkAPIHealth(env: Env): Promise<HealthStepResult> {
             };
         }
 
+        // --- 3. GitHub API Connectivity Check ---
+        const ghStart = Date.now();
+        try {
+            const res = await fetch("https://api.github.com/zen", {
+                headers: { "User-Agent": "Core-GitHub-API-Health" }
+            });
+            if (res.ok) {
+                subChecks.githubAPI = { status: "OK", latency: Date.now() - ghStart };
+            } else {
+                throw new Error(`GitHub API responded with ${res.status}`);
+            }
+        } catch (ghErr: any) {
+            subChecks.githubAPI = { status: "FAIL", error: ghErr.message, latency: Date.now() - ghStart };
+        }
+
+        // --- 4. Dispatcher Heartbeat Check (KV) ---
+        const kvStart = Date.now();
+        try {
+            const lastHeartbeatStr = await env.AGENT_CACHE?.get('research-dispatcher-heartbeat');
+            if (!lastHeartbeatStr) {
+                subChecks.dispatcherHeartbeat = { 
+                    status: "WARNING", 
+                    message: "No heartbeat found in AGENT_CACHE", 
+                    latency: Date.now() - kvStart 
+                };
+            } else {
+                const ts = parseInt(lastHeartbeatStr, 10);
+                if (Date.now() - ts > 24 * 60 * 60 * 1000) {
+                    throw new Error("Dispatcher heartbeat is stale (older than 24h)");
+                }
+                subChecks.dispatcherHeartbeat = { 
+                    status: "OK", 
+                    latency: Date.now() - kvStart,
+                    lastBeatInfo: new Date(ts).toISOString()
+                };
+            }
+        } catch (kvErr: any) {
+             subChecks.dispatcherHeartbeat = { 
+                 status: "FAIL", 
+                 error: kvErr.message, 
+                 latency: Date.now() - kvStart 
+             };
+        }
+
         const isOverallSuccess = Object.values(subChecks).every(s => s.status !== "FAIL");
 
         return {

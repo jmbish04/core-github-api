@@ -3,10 +3,14 @@
 	"main": "src/backend/src/index.ts",
 	"compatibility_date": "2026-03-12",
 	"compatibility_flags": [
-		"nodejs_compat"
+		"nodejs_compat",
+		"no_handle_cross_request_promise_resolution"
 	],
 	// "minify": true,
 	"workers_dev": true,
+	"dev": {
+		"port": 8787
+	},
 	"preview_urls": true,
 	"observability": {
 		"enabled": true,
@@ -40,12 +44,20 @@
 		"TEMPLATES_REPO_NAME": "core-repo-templates",
 		"STANDARDIZATION_REPO_NAME": "core-github-standardization",
 		"HEALTH_TEST_REPO_NAME": "testing-oktokit-commands",
+		"RESEARCH_QUEUE_REPO_NAME": "core-github-research",
+		"RESEARCH_QUEUE_REPO_DISPATCHER_URI": "https://api.github.com/repos/jmbish04/core-github-research/dispatches",
 		"BASE_URL": "https://core-github-api.hacolby.workers.dev",
+		"WEBHOOK_URL": "https://core-github-api.hacolby.workers.dev/api/webhooks",
 		"MAX_AI_BUDGET": "50",
 		"USE_OPENAI_MODELS": false,
 		"GITHUB_REPO_STANDARDIZATION": "jmbish04/core-github-standardization",
 		"GITHUB_ACTION_WORKER_DISPATCHER_URI": "https://api.github.com/repos/jmbish04/core-github-standardization/dispatches",
-		"MCP_API_URL": "https://docs.mcp.cloudflare.com/mcp"
+		"MCP_API_URL": "https://docs.mcp.cloudflare.com/mcp",
+		"EDGRAPH_URL": "https://core-github-api-edgraph.hacolby.workers.dev",
+		"SANDBOX_SLEEP_AFTER": "30s",
+		"SANDBOX_INSTANCE_GET_TIMEOUT_MS": 180000, // 3 minutes for provisioning
+		"SANDBOX_PORT_READY_TIMEOUT_MS": 180000, // 3 minutes for startup work
+		"SANDBOX_EXPOSED_HTTP_PORT": 8080
 	},
 	"containers": [
 		{
@@ -92,10 +104,6 @@
 		],
 		"not_found_handling": "single-page-application"
 	},
-	// "secrets": [
-	//   "GITHUB_TOKEN",
-	//   "WORKER_API_KEY"
-	// ],
 	"secrets_store_secrets": [
 		{
 			"binding": "GITHUB_CLIENT_ID",
@@ -113,10 +121,20 @@
 			"secret_name": "CORE_GITHUB_API_GITHUB_APP_ID"
 		},
 		{
-			"binding": "GITHUB_TOKEN",
+			"binding": "CORE_GITHUB_API_GITHUB_APP_PRIVATE_KEY_PT1",
 			"store_id": "8c42fa70938644e0a8a109744467375f",
-			"secret_name": "GH_TOKEN"
-		},
+			"secret_name": "CORE_GITHUB_API_GITHUB_APP_PRIVATE_KEY_PT1"
+		},		
+		{
+			"binding": "CORE_GITHUB_API_GITHUB_APP_PRIVATE_KEY_PT2",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "CORE_GITHUB_API_GITHUB_APP_PRIVATE_KEY_PT2"
+		},		
+		{
+			"binding": "CORE_GITHUB_API_GITHUB_APP_PRIVATE_KEY_PT3",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "CORE_GITHUB_API_GITHUB_APP_PRIVATE_KEY_PT3"
+		},						
 		{
 			"binding": "GITHUB_PERSONAL_ACCESS_TOKEN",
 			"store_id": "8c42fa70938644e0a8a109744467375f",
@@ -178,6 +196,11 @@
 			"secret_name": "CLOUDFLARE_BROWSER_RENDER_TOKEN"
 		},
 		{
+			"binding": "CLOUDFLARE_IMAGES_STREAM_TOKEN",
+			"store_id": "8c42fa70938644e0a8a109744467375f",
+			"secret_name": "CLOUDFLARE_IMAGES_STREAM_TOKEN"
+		},
+		{
 			"binding": "STITCH_API_KEY",
 			"store_id": "8c42fa70938644e0a8a109744467375f",
 			"secret_name": "STITCH_API_KEY"
@@ -216,16 +239,8 @@
 	"durable_objects": {
 		"bindings": [
 			{
-				"name": "PR_SUPERVISOR_DO",
-				"class_name": "PRSupervisorDO"
-			},
-			{
-				"name": "PR_REVIEW_DO",
-				"class_name": "PRReviewDO"
-			},
-			{
-				"name": "PR_SUMMARY_DO",
-				"class_name": "PRSummaryDO"
+				"name": "JULES_PR_REVIEWER",
+				"class_name": "JulesPrReviewer"
 			},
 			{
 				"name": "ORCHESTRATOR",
@@ -259,10 +274,6 @@
 				"name": "DEEP_REASONING_AGENT",
 				"class_name": "DeepReasoningAgent"
 			},
-			// {
-			// 	"name": "COLBY_OPS",
-			// 	"class_name": "DataProcessor"
-			// },
 			{
 				"name": "SANDBOX",
 				"class_name": "Sandbox"
@@ -360,8 +371,16 @@
 				"class_name": "StandardizationAgent"
 			},
 			{
+				"name": "UX_RESEARCHER",
+				"class_name": "UxResearcher"
+			},
+			{
 				"name": "UX_DESIGN_AGENT",
 				"class_name": "UxDesignAgent"
+			},
+			{
+				"name": "SANDBOX_AGENT",
+				"class_name": "SandboxAgent"
 			},
 			{
 				"name": "LEARNING_AGENT",
@@ -435,7 +454,11 @@
 				"CfWorkshop_AgentsSdk",
 				// Ensures code and APIs meet standardized guidelines
 				"StandardizationAgent",
-				// Maintains state and chat history for agent sessions
+				// Jules PR Reviewer
+				"JulesPrReviewer",
+				// UX Researcher
+				"UxResearcher",
+				// WebSocket session handler for real-time agent communication
 				"AgentSessionDO",
 				// UX Design Agent — 5-phase pipeline (Jules + Stitch)
 				"UxDesignAgent",
@@ -456,7 +479,7 @@
 				// Learning Agent for pattern analysis and Contemplation Gate
 				"LearningAgent"
 			]
-		},
+		}
 	],
 	"workflows": [
 		{
@@ -497,6 +520,13 @@
 			"name": "planning-orchestrator",
 			"binding": "PLANNING_ORCHESTRATOR",
 			"class_name": "PlanningOrchestrator"
+		},
+		{
+			// Fetches Cloudflare Changelog RSS, filters for stack-relevant entries,
+			// AI-summarizes each update via AI Gateway, and persists to D1.
+			"name": "cloudflare-changelog-workflow",
+			"binding": "CLOUDFLARE_CHANGELOG_WORKFLOW",
+			"class_name": "CloudflareChangelogWorkflow"
 		},
 		{
 			"name": "stitch-loop-workflow",
@@ -578,14 +608,13 @@
 		{
 			"binding": "DB",
 			"database_name": "core-github-api",
-			"database_id": "fb7e274a-0a46-469b-8ae3-5a7750dd282b",
-			"preview_database_id": "178a8586-31ee-4134-a598-cca3206123e6",
+			"database_id": "4db39958-8554-4da4-b23d-8a4ea8404588",
 			"migrations_dir": "migrations/core"
 		},
 		{
 			"binding": "DB_WEBHOOKS",
 			"database_name": "core-github-api-webhooks",
-			"database_id": "905b62db-b631-4133-8633-e0b8282d4cbd",
+			"database_id": "df714884-593d-45da-9c7f-9f67903c4fca",
 			"migrations_dir": "migrations/webhooks"
 		}
 	],
@@ -626,5 +655,17 @@
 			// Daily at 6:00 AM UTC - LearningWorkflow cron trigger
 			"0 6 * * *"
 		]
-	}
+	},
+	"services": [
+		{
+			"name": "core-github-api-edgraph",
+			"binding": "EDGRAPH",
+			"service": "core-github-api-edgraph"
+		},
+		{
+			"binding": "CLAUDE_AGENT",
+			"service": "claude-agent-worker",
+			"entrypoint": "ClaudeAgentRPC"
+		}
+	]
 }

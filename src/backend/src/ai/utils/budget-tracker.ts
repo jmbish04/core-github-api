@@ -10,8 +10,9 @@
  * @module AI/Utils/Budget
  */
 import { drizzle } from 'drizzle-orm/d1';
-import { aiCostLogs, budgetEvents, sessions } from '@db/schema';
+import { aiCostLogs, budgetEvents } from '@db/schema';
 import { generateUuid } from '@/utils/common';
+import { getSecret } from '@/utils/secrets';
 import { sql, desc, eq, gt, and } from 'drizzle-orm';
 import { z } from 'zod';
 import Cloudflare from 'cloudflare';
@@ -73,29 +74,7 @@ export class BudgetTracker {
   private async getCloudflare(): Promise<Cloudflare | null> {
     if (this.cf) return this.cf;
 
-    let apiToken: string | null = null;
-    
-    // Handle SecretsStoreSecret or simple string
-    const rawToken = this.env.CLOUDFLARE_API_TOKEN as any;
-    if (typeof rawToken === 'string') {
-        apiToken = rawToken;
-    } else if (rawToken && typeof rawToken.get === 'function') {
-         // Assuming SecretsStoreSecret has .get() which returns Promise<string>?
-         // Or maybe it's just a value binding? 
-         // Actually, usually secrets are strings in Env if not using SecretsStore?
-         // If using SecretsStore, it might be different. 
-         // I'll try generic access.
-         try {
-            const secret = await rawToken.get();
-            if (secret && typeof secret === 'object' && secret.value) apiToken = secret.value; // unwrapping?
-            else apiToken = secret;
-         } catch (e) {
-            console.warn('[BudgetTracker] Failed to retrieve CLOUDFLARE_API_TOKEN secret:', e);
-         }
-    } else if (rawToken) {
-        // Fallback checks
-        apiToken = String(rawToken);
-    }
+    const apiToken = await getSecret(this.env, "CLOUDFLARE_API_TOKEN");
 
     if (apiToken) {
         this.cf = new Cloudflare({
@@ -127,17 +106,10 @@ export class BudgetTracker {
         // Initialize cache
         WORKERS_AI_PRICING_CACHE = WORKERS_AI_PRICING_CACHE || {};
 
-        // Unwrap Account ID if it's a secret
-        let accountId = "";
-        const rawAccountId = this.env.CLOUDFLARE_ACCOUNT_ID as any; 
-        if (typeof rawAccountId === 'string') {
-            accountId = rawAccountId;
-        } else if (rawAccountId && typeof rawAccountId.get === 'function') {
-            const secret = await rawAccountId.get();
-             if (secret && typeof secret === 'object' && secret.value) accountId = secret.value;
-             else accountId = String(secret);
-        } else {
-             accountId = String(rawAccountId);
+        const accountId = await getSecret(this.env, "CLOUDFLARE_ACCOUNT_ID");
+        if (!accountId) {
+            console.warn('[BudgetTracker] Missing CLOUDFLARE_ACCOUNT_ID, skipping dynamic pricing fetch.');
+            return;
         }
 
         // 1. Search for the model

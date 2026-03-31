@@ -5,7 +5,6 @@
  */
 
 import { MiddlewareHandler } from 'hono'
-import { Bindings } from './hono'
 
 /**
  * Creates a cache key from a request URL.

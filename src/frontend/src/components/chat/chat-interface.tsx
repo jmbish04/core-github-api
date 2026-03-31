@@ -34,10 +34,6 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ apiKey, agentId, r
     const [isThreadsLoading, setIsThreadsLoading] = useState(false);
 
     // Fetch Threads
-    useEffect(() => {
-        fetchThreads();
-    }, [apiKey]); // Add apiKey dependency
-
     const fetchThreads = async () => {
         setIsThreadsLoading(true);
         try {
@@ -46,9 +42,6 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ apiKey, agentId, r
             });
             if (res.ok) {
                 const data = (await res.json()) as any;
-                // Optional: Filter threads by agentId if one is provided?
-                // For now, let's show all, or filter if agentId is passed.
-                // If agentId is "cloudflare-docs", maybe we only show those?
                 const filtered = agentId 
                     ? data.filter((t: any) => t.agentId === agentId)
                     : data;
@@ -65,6 +58,11 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ apiKey, agentId, r
             setIsThreadsLoading(false);
         }
     };
+
+    useEffect(() => {
+        fetchThreads();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [apiKey]);
 
     // ... existing message fetching ...
 
@@ -209,7 +207,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ apiKey, agentId, r
                             {threads.find(t => t.id === activeThreadId)?.subject || "Select a discussion"}
                         </span>
                     </div>
-                    <ModelSelector defaultValue="gemini-2.0-flash-exp" />
+                    <ModelSelector defaultValue="gemini-2.5-flash" />
                 </div>
 
                 {/* Messages */}

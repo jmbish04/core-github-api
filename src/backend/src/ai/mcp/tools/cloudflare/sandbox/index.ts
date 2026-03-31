@@ -1,6 +1,6 @@
 import { z } from "zod";
-// //import { Env } from "../../../../types";
 import { getSandbox } from "@cloudflare/sandbox";
+import { getSandboxOptions } from "@/ai/utils/sandbox";
 
 export function loadSandboxTools(env: Env) {
     return [
@@ -14,7 +14,8 @@ export function loadSandboxTools(env: Env) {
             execute: async (args: { command: string, sandboxId?: string }) => {
                 if (!env.SANDBOX) throw new Error("SANDBOX binding not found");
                 const id = args.sandboxId || "default";
-                const sandbox = getSandbox(env.SANDBOX as any, id);
+                const sandboxOptions = await getSandboxOptions(env);
+                const sandbox = getSandbox(env.SANDBOX as any, id, sandboxOptions);
                 const res = await sandbox.exec(args.command);
                 return {
                     stdout: res.stdout,
@@ -33,7 +34,9 @@ export function loadSandboxTools(env: Env) {
             execute: async (args: { path: string, sandboxId?: string }) => {
                 if (!env.SANDBOX) throw new Error("SANDBOX binding not found");
                 const id = args.sandboxId || "default";
-                const sandbox = getSandbox(env.SANDBOX as any, id);
+                const sandboxOptions = await getSandboxOptions(env);
+                const sandbox = getSandbox(env.SANDBOX as any, id, sandboxOptions);
+                
                 // Use cat to read file
                 const res = await sandbox.exec(`cat "${args.path}"`);
                 if (res.exitCode !== 0) {
@@ -53,7 +56,8 @@ export function loadSandboxTools(env: Env) {
             execute: async (args: { path: string, content: string, sandboxId?: string }) => {
                 if (!env.SANDBOX) throw new Error("SANDBOX binding not found");
                 const id = args.sandboxId || "default";
-                const sandbox = getSandbox(env.SANDBOX as any, id);
+                const sandboxOptions = await getSandboxOptions(env);
+                const sandbox = getSandbox(env.SANDBOX as any, id, sandboxOptions);
                 // Naive write using echo and redirection (careful with escaping)
                 // Ideally use a specialized method if available, but exec is universal fallback 
                 // Using base64 to avoid shell escaping issues

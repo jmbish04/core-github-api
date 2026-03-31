@@ -44,7 +44,7 @@ const initOctokit = async (bindings: Env) => {
     const token = await getGithubToken(bindings);
 
     if (!token) {
-        console.warn("GITHUB_TOKEN is missing or invalid");
+        console.warn("GITHUB_PERSONAL_ACCESS_TOKEN is missing or invalid");
     }
 
     octokit = new MyOctokit({

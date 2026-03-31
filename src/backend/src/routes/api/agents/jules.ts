@@ -10,6 +10,7 @@ import { julesJobs } from "@/db/schemas/agents/jules";
 import { eq } from "drizzle-orm";
 import { generateUuid } from "@/utils/common";
 import { buildCodingAgentInstructions } from "@/services/golden-path-config";
+import { HoniClient } from '@utils/honi-client';
 
 
 const app = new Hono<{ Bindings: Env }>();
@@ -105,9 +106,7 @@ app.post("/start", zValidator("json", startSessionSchema), async (c) => {
 
     // Trigger Overseer
     if (force_overseer) {
-        const id = c.env.JULES_OVERSEER.idFromName("jules-overseer-singleton");
-        const overseer = c.env.JULES_OVERSEER.get(id);
-        c.executionCtx.waitUntil(overseer.fetch("http://internal/schedule/check"));
+        c.executionCtx.waitUntil(HoniClient.fetch(c.env.JULES_OVERSEER, "jules-overseer-singleton", "/schedule/check"));
     }
 
     let status = "connecting";

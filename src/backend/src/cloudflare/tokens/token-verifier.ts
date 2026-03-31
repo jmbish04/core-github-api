@@ -1,75 +1,86 @@
 
-import { fetchCloudflare } from "@/cloudflare/client"
+import Cloudflare from "cloudflare";
 
 export interface TokenStatus {
     valid: boolean;
     id?: string;
-    status?: "active" | "disabled" | "expired";
+    status?: "active" | "disabled" | "expired" | "unknown";
     message?: string;
     canUseWorkerAI?: boolean;
+    tokenType?: "account" | "user" | "unknown";
 }
 
 export async function verifyToken(token: string, accountId?: string): Promise<TokenStatus> {
     try {
-        // 1. Dual-Mode Verification (Account First -> User Fallback)
+        // 1. Dual-Mode Verification (User First -> Account Fallback)
         let basicInfo: any = {};
-        let verificationMethod = "none";
+        let tokenType: "account" | "user" | "unknown" = "unknown";
 
-        // A. Try Account Token Verification (Preferred for this app)
-        if (accountId) {
+        const cf = new Cloudflare({ apiToken: token });
+
+                // [REST] const accountVerifyRes = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/tokens/verify`, {
+                // [REST]     headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" }
+                // [REST] });
+                // [REST] if (accountVerifyRes.ok) {
+                // [REST]     const json = await accountVerifyRes.json() as any;
+                // [REST]     if (json.success) {
+                // [REST]         basicInfo = json.result;
+                // [REST]         verificationMethod = "account";
+                // [REST]     }
+                // [REST] }     
+                
+                
+                // [REST] const userVerifyRes = await fetch("https://api.cloudflare.com/client/v4/user/tokens/verify", {
+                // [REST]     headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" }
+                // [REST] });
+                // [REST] if (userVerifyRes.ok) {
+                // [REST]     const json = await userVerifyRes.json() as any;
+                // [REST]     if (json.success) {
+                // [REST]         basicInfo = json.result;
+                // [REST]         verificationMethod = "user";
+                // [REST]     }
+                // [REST] }                
+
+        // A. Try User Token Verification 
+        try {
+            const userVerifyRes = await cf.user.tokens.verify();
+            if (userVerifyRes && userVerifyRes.id) {
+                basicInfo = userVerifyRes;
+                tokenType = "user";
+            }
+        } catch (e) {
+            console.error("User token verification failed", JSON.stringify(e));
+        }
+
+        // B. Try Account Token Verification if User failed
+        if (!basicInfo.id && accountId) {
             try {
-                const accountVerifyRes = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/tokens/verify`, {
-                    headers: {
-                        "Authorization": `Bearer ${token}`,
-                        "Content-Type": "application/json"
-                    }
-                });
-
-                if (accountVerifyRes.ok) {
-                    const json = await accountVerifyRes.json() as any;
-                    if (json.success) {
-                        basicInfo = json.result;
-                        verificationMethod = "account";
-                    }
+                const accountVerifyRes = await cf.accounts.tokens.verify({ account_id: accountId });
+                if (accountVerifyRes && accountVerifyRes.id) {
+                    basicInfo = accountVerifyRes;
+                    tokenType = "account";
                 }
             } catch (e) {
                 // Ignore network errors, proceed to fallback
-            }
-        }
-
-        // B. Fallback to User Token Verification
-        if (!basicInfo.id) {
-            try {
-                const userVerifyRes = await fetch("https://api.cloudflare.com/client/v4/user/tokens/verify", {
-                    headers: {
-                        "Authorization": `Bearer ${token}`,
-                        "Content-Type": "application/json"
-                    }
-                });
-
-                if (userVerifyRes.ok) {
-                    const json = await userVerifyRes.json() as any;
-                    if (json.success) {
-                        basicInfo = json.result;
-                        verificationMethod = "user";
-                    }
-                }
-            } catch (e) {
-                // Ignore
+                console.error("Account token verification failed", JSON.stringify(e));
             }
         }
 
         // C. Result Handling
         if (!basicInfo.id) {
-            // console.warn("Token verification failed for both Account and User endpoints. Proceeding to capability check.");
-            basicInfo = { status: 'unknown', id: 'unknown' };
+            // "if both user token verify and account token verify fail .. 1) the token is of type UNKNOWN token type and 2) the token is invalid"
+            return {
+                valid: false,
+                tokenType: "unknown",
+                message: "Both user token verify and account token verify failed. Token type is UNKNOWN and the token is invalid."
+            };
         }
 
         const tokenId = basicInfo.id;
         const status = basicInfo.status || 'active';
 
         if (status !== "active" && status !== 'unknown') {
-            return { valid: true, id: tokenId, status, message: "Token is not active" };
+            return { valid: true, id: tokenId, status, tokenType, message: "Token is not active" };
         }
 
         // 2. Check Worker AI Capability
@@ -79,50 +90,46 @@ export async function verifyToken(token: string, accountId?: string): Promise<To
         if (accountId) {
             try {
                 // Try listing models (read-only check)
-                const modelsRes = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/models/search?per_page=1`, {
-                    headers: {
-                        "Authorization": `Bearer ${token}`,
-                        "Content-Type": "application/json"
-                    }
-                });
+                // [REST] const modelsRes = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/models/search?per_page=1`, {
+                // [REST]     headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" }
+                // [REST] });
+                // [REST] if (modelsRes.ok) {
+                // [REST]     canUseWorkerAI = true;
 
-                if (modelsRes.ok) {
+                const modelsList = await cf.ai.models.list({ account_id: accountId });
+                // If it doesn't throw, we have access
+                if (modelsList && modelsList.result) {
                     canUseWorkerAI = true;
-                } else {
-                    // If listing fails, maybe it only has run permission?
-                    // We can't easily test run without cost/side-effects.
-                    // For now, if verify endpoint failed AND models endpoint failed, we assume invalid.
-                    if (basicInfo.status === 'unknown') {
-                        return { valid: false, message: "Verification and AI capability check failed" };
-                    }
                 }
             } catch (e) {
+                console.error("AI capability check failed", JSON.stringify(e));
+                // If listing fails, maybe it only has run permission?
+                // We can't easily test run without cost/side-effects.
+                // For now, if verify endpoint failed AND models endpoint failed, we assume invalid.
                 if (basicInfo.status === 'unknown') {
-                    return { valid: false, message: "Verification failed and AI check threw error" };
+                    console.error("Verification and AI capability check failed", JSON.stringify(e));
+                    return { valid: false, tokenType, message: "Verification and AI capability check failed" };
                 }
             }
         } else {
             // Without account ID, we can't verify capabilities.
             // If basic verification failed, we have to assume invalid.
             if (basicInfo.status === 'unknown') {
-                // SPECIAL CASE: If it's an AI Gateway token, it might strictly be for Gateway.
-                // But this verifier is for General API tokens.
-                // We'll relax it: if it looks like an API token (standard format), we might just allow it with caution.
-                // But safest is to require at least one check to pass.
-                return { valid: false, message: "Cannot verify token without Account ID or `user/tokens/verify` permission" };
+                return { valid: false, tokenType, message: "Cannot verify token without Account ID or `user/tokens/verify` permission" };
             }
-            canUseWorkerAI = true; // Assume yes if active and we can't test otherwise? Or false?
+            canUseWorkerAI = true; // Assume yes if active and we can't test otherwise
         }
 
         return {
             valid: true,
             id: tokenId,
             status,
+            tokenType,
             canUseWorkerAI
         };
 
     } catch (error) {
-        return { valid: false, message: String(error) };
+        return { valid: false, tokenType: "unknown", message: String(error) };
     }
 }
 

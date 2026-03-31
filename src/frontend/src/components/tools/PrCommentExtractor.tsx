@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Loader2, Copy, Check, ExternalLink, MessageSquare, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Loader2, Copy, Check, ExternalLink, MessageSquare, AlertCircle, CheckCircle2, Wand2 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -40,6 +40,11 @@ export function PrCommentExtractor({ defaultOwner, defaultRepo, defaultPrNumber 
     const [extractionId, setExtractionId] = useState<string | null>(null);
     const [status, setStatus] = useState<{ type: 'success' | 'error' | 'info', title: string, message: string } | null>(null);
     const [copied, setCopied] = useState(false);
+    const [generatingPrompt, setGeneratingPrompt] = useState(false);
+    const [promptCopied, setPromptCopied] = useState(false);
+
+    // When we have a defaultPrNumber, we're in "embedded" mode — hide selector/URL inputs
+    const isEmbedded = !!defaultPrNumber;
 
     useEffect(() => {
         if (defaultOwner && defaultRepo) {
@@ -58,14 +63,17 @@ export function PrCommentExtractor({ defaultOwner, defaultRepo, defaultPrNumber 
                 setUrl(baseUrl);
             }
 
-            fetch(`https://api.github.com/repos/${defaultOwner}/${defaultRepo}/pulls?state=open&sort=created&direction=desc`)
-              .then(res => (res.json() as any) as Promise<any[]>)
-              .then(data => {
-                  if (Array.isArray(data)) {
-                      setPrs(data);
-                  }
-              })
-              .catch(console.error);
+            // Only fetch PR list if we're NOT embedded (no specific PR selected)
+            if (!defaultPrNumber) {
+                fetch(`https://api.github.com/repos/${defaultOwner}/${defaultRepo}/pulls?state=open&sort=created&direction=desc`)
+                  .then(res => (res.json() as any) as Promise<any[]>)
+                  .then(data => {
+                      if (Array.isArray(data)) {
+                          setPrs(data);
+                      }
+                  })
+                  .catch(console.error);
+            }
         }
     }, [defaultOwner, defaultRepo, defaultPrNumber]);
 
@@ -181,18 +189,75 @@ export function PrCommentExtractor({ defaultOwner, defaultRepo, defaultPrNumber 
         return text;
     };
 
-    const copyToClipboard = () => {
+    const copyToClipboard = async () => {
         const text = formatForAI();
-        navigator.clipboard.writeText(text);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-        setStatus({
-            type: 'success',
-            title: "Copied!",
-            message: "Comments formatted for AI context copied to clipboard."
-        });
-        // Clear success message after 3 seconds
-        setTimeout(() => setStatus(null), 3000);
+        try {
+            await navigator.clipboard.writeText(text);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+            setStatus({
+                type: 'success',
+                title: "Copied!",
+                message: "Comments formatted for AI context copied to clipboard."
+            });
+            setTimeout(() => setStatus(null), 3000);
+        } catch (err) {
+            const error_message = `Could not copy to clipboard. Please try again. \n ${JSON.stringify(err)}`;
+            setStatus({
+                type: 'error',
+                title: "Copy failed",
+                message: error_message
+            });
+            setTimeout(() => setStatus(null), 3000);
+        }
+    };
+
+    const handleCopyPromptToFix = async () => {
+        if (!defaultOwner || !defaultRepo || !defaultPrNumber || comments.length === 0) return;
+
+        setGeneratingPrompt(true);
+        setPromptCopied(false);
+        try {
+            const res = await fetch(`/api/pr/${defaultOwner}/${defaultRepo}/${defaultPrNumber}/generate-fix-prompt`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({
+                    comments: comments.map(c => ({
+                        path: c.path,
+                        line: c.line || c.original_line || null,
+                        body: c.body,
+                    })),
+                }),
+            });
+
+            if (!res.ok) {
+                const errData = (await res.json()) as any;
+                throw new Error(errData.error || "Failed to generate fix prompt");
+            }
+
+            const data = (await res.json()) as { prompt: string; agent: string; tag: string };
+
+            await navigator.clipboard.writeText(data.prompt);
+            setPromptCopied(true);
+            setTimeout(() => setPromptCopied(false), 3000);
+            setStatus({
+                type: 'success',
+                title: "Fix Prompt Copied!",
+                message: `Prompt for ${data.tag} has been copied to clipboard.`
+            });
+            setTimeout(() => setStatus(null), 4000);
+        } catch (error: any) {
+            handleGlobalError(error);
+            setStatus({
+                type: 'error',
+                title: "Prompt generation failed",
+                message: error.message || "Could not generate fix prompt."
+            });
+            setTimeout(() => setStatus(null), 4000);
+        } finally {
+            setGeneratingPrompt(false);
+        }
     };
 
     return (
@@ -203,12 +268,16 @@ export function PrCommentExtractor({ defaultOwner, defaultRepo, defaultPrNumber 
                     PR Comment Extractor
                 </CardTitle>
                 <CardDescription>
-                    Extract code review comments from a GitHub Pull Request URL to feed into your AI coding agent.
+                    {isEmbedded
+                        ? `Showing code review comments for PR #${defaultPrNumber}.`
+                        : "Extract code review comments from a GitHub Pull Request URL to feed into your AI coding agent."
+                    }
                 </CardDescription>
             </CardHeader>
             <CardContent className="px-0 flex-1 flex flex-col gap-6">
                 
-                {prs.length > 0 && (
+                {/* PR selector dropdown — only when NOT embedded */}
+                {!isEmbedded && prs.length > 0 && (
                     <div className="flex flex-col gap-2">
                         <Label>Active Pull Requests for {defaultOwner}/{defaultRepo}</Label>
                         <Select onValueChange={handlePrSelect}>
@@ -226,21 +295,32 @@ export function PrCommentExtractor({ defaultOwner, defaultRepo, defaultPrNumber 
                     </div>
                 )}
 
-                <div className="flex gap-2 items-end">
-                    <div className="flex-1 space-y-2">
-                        <Label htmlFor="pr-url" className="text-xs">PR URL</Label>
-                        <Input 
-                            id="pr-url" 
-                            placeholder="https://github.com/owner/repo/pull/123" 
-                            value={url}
-                            onChange={(e) => setUrl(e.target.value)}
-                        />
+                {/* PR URL input + extract button — only when NOT embedded */}
+                {!isEmbedded && (
+                    <div className="flex gap-2 items-end">
+                        <div className="flex-1 space-y-2">
+                            <Label htmlFor="pr-url" className="text-xs">PR URL</Label>
+                            <Input 
+                                id="pr-url" 
+                                placeholder="https://github.com/owner/repo/pull/123" 
+                                value={url}
+                                onChange={(e) => setUrl(e.target.value)}
+                            />
+                        </div>
+                        <Button onClick={handleExtract} disabled={loading || !url}>
+                            {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                            {loading ? "Extracting..." : "Extract Comments"}
+                        </Button>
                     </div>
-                    <Button onClick={handleExtract} disabled={loading || !url}>
-                        {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                        {loading ? "Extracting..." : "Extract Comments"}
-                    </Button>
-                </div>
+                )}
+
+                {/* Loading indicator for embedded mode */}
+                {isEmbedded && loading && (
+                    <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span className="text-sm">Extracting comments...</span>
+                    </div>
+                )}
 
                 {status && (
                     <Alert variant={status.type === 'error' ? 'destructive' : 'default'} className="animate-in fade-in slide-in-from-top-2">
@@ -254,15 +334,35 @@ export function PrCommentExtractor({ defaultOwner, defaultRepo, defaultPrNumber 
                     <div className="bg-muted/30 border rounded-lg flex flex-col flex-1 overflow-hidden">
                         <div className="p-3 border-b flex items-center justify-between bg-muted/50">
                             <span className="text-sm font-medium">{comments.length} Comments Found</span>
-                            <Button 
-                                variant="secondary" 
-                                size="sm" 
-                                className="h-8 gap-2" 
-                                onClick={copyToClipboard}
-                            >
-                                {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                                {copied ? "Copied" : "Copy for AI"}
-                            </Button>
+                            <div className="flex items-center gap-2">
+                                {isEmbedded && (
+                                    <Button 
+                                        variant="secondary" 
+                                        size="sm" 
+                                        className="h-8 gap-2" 
+                                        onClick={handleCopyPromptToFix}
+                                        disabled={generatingPrompt}
+                                    >
+                                        {generatingPrompt ? (
+                                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                        ) : promptCopied ? (
+                                            <Check className="w-3.5 h-3.5 text-green-500" />
+                                        ) : (
+                                            <Wand2 className="w-3.5 h-3.5" />
+                                        )}
+                                        {generatingPrompt ? "Generating..." : promptCopied ? "Prompt Copied!" : "Copy Prompt to Fix"}
+                                    </Button>
+                                )}
+                                <Button 
+                                    variant="secondary" 
+                                    size="sm" 
+                                    className="h-8 gap-2" 
+                                    onClick={copyToClipboard}
+                                >
+                                    {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
+                                    {copied ? "Copied!" : "Copy for AI"}
+                                </Button>
+                            </div>
                         </div>
                         <ScrollArea className="flex-1 p-4 h-[400px]">
                             <div className="space-y-6">

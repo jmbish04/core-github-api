@@ -7,12 +7,15 @@
  * 
  * @module AI/Providers/WorkerAI
  */
-import { resolveDefaultAiModel } from "./config";
+import { resolveDefaultAiModel } from "./ai-gateway/config";
 import { cleanJsonOutput, sanitizeAndFormatResponse } from "@/ai/utils/sanitizer";
 import { AIOptions, TextWithToolsResponse, StructuredWithToolsResponse, ModelCapability, UnifiedModel, ModelFilter, FileInput } from "./index";
-import { AIGateway } from "../utils/ai-gateway";
+import { AIGateway } from "./ai-gateway";
+import { Logger } from "@/lib/logger";
 import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
+import { getCfSdkClient } from "@/cloudflare/client";
+import { setupOpenAIAgentClient } from "./clients";
 
 /** Primary model for reasoning tasks (e.g., Llama 3 or GPT-OSS). */
 export const REASONING_MODEL = "@cf/openai/gpt-oss-120b";
@@ -29,7 +32,10 @@ export const EMBEDDING_MODEL = "@cf/baai/bge-large-en-v1.5";
  * @returns A mock OpenAI-like client object interface.
  */
 async function getAIClient(env: Env): Promise<any> {
-    return AIGateway.createUniversalClient(env, "workers-ai");
+    const logger = new Logger(env, 'WorkerAI');
+    logger.info('Initializing client via AI Gateway');
+    await logger.flush();
+    return setupOpenAIAgentClient(env, "workers-ai");
 }
 
 /**
@@ -45,7 +51,9 @@ export async function verifyApiKey(env: Env): Promise<boolean> {
     });
     return true;
   } catch (error) {
-    console.error("Workers AI Verification Error:", error);
+    const logger = new Logger(env, 'WorkerAI');
+    logger.error('Verification failed', { error: error instanceof Error ? error.message : String(error) });
+    await logger.flush();
     return false;
   }
 }
@@ -348,17 +356,21 @@ export async function getCloudflareModels(env: Env, filter?: ModelFilter): Promi
     throw new Error("Missing CLOUDFLARE_ACCOUNT_ID required for getting native models array");
   }
 
-  const { apiKey } = await AIGateway.getBaseUrl(env, { provider: "cloudflare" });
   
-  const res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/models`, {
-    headers: { "Authorization": `Bearer ${apiKey}` }
-  });
+  
+  // [REST] const res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/models`, {
+  // [REST]   headers: { "Authorization": `Bearer ${apiKey}` }
+  // [REST] });
 
-  if (!res.ok) throw new Error(`Failed to fetch Cloudflare models: ${res.statusText}`);
-  const response = await res.json() as any;
+  // [REST] if (!res.ok) throw new Error(`Failed to fetch Cloudflare models: ${res.statusText}`);
+  // [REST] const response = await res.json() as any;
+  // [REST] const models: UnifiedModel[] = response.result.map((m: any) => {
   
-  // Cloudflare returns an array in 'result'
-  const models: UnifiedModel[] = response.result.map((m: any) => {
+  const cfAny = getCfSdkClient(env as any, "workerAdmin") as any;
+  const modelsData = await cfAny.ai.models.list({ account_id: accountId });
+  const rawResult = modelsData?.result || [];
+
+  const models: UnifiedModel[] = rawResult.map((m: any) => {
     const caps: ModelCapability[] = [];
     const name = m.name.toLowerCase();
     const taskName = m.task.name.toLowerCase();

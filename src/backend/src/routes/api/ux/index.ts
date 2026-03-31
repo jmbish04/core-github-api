@@ -12,17 +12,12 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
+import { HoniClient } from '@utils/honi-client';
 import { getDb, workshopUxRuns, workshopUxPages } from '@db';
 import { eq, desc } from 'drizzle-orm';
 
+
 const app = new Hono<{ Bindings: Env }>();
-
-// ─── Helper: get or create the UxDesignAgent DO for a run ─────────────────
-
-function getUxAgentDO(env: Env, runId: string): DurableObjectStub {
-  const id = env.UX_DESIGN_AGENT.idFromName(runId);
-  return env.UX_DESIGN_AGENT.get(id);
-}
 
 // ─── POST /run — Start a new UX design pipeline run ───────────────────────
 
@@ -50,14 +45,10 @@ app.post('/run', zValidator('json', startRunSchema), async (c) => {
   });
 
   // Forward to the DO to start the pipeline
-  const doStub = getUxAgentDO(c.env, runId);
-  const doResponse = await doStub.fetch(
-    new Request('http://do/start', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ runId, repoOwner, repoName, originalPrompt: prompt }),
-    }),
-  );
+  const doResponse = await HoniClient.fetch(c.env.UX_RESEARCHER as unknown as DurableObjectNamespace, runId, '/start', {
+    method: 'POST',
+    body: JSON.stringify({ runId, repoOwner, repoName, originalPrompt: prompt }),
+  });
 
   if (!doResponse.ok) {
     const err = await doResponse.text();
@@ -87,12 +78,9 @@ app.get('/run/:runId/stream', async (c) => {
   const { runId } = c.req.param();
 
   // Proxy the SSE stream from the Durable Object
-  const doStub = getUxAgentDO(c.env, runId);
-  const doResponse = await doStub.fetch(
-    new Request('http://do/stream', {
-      headers: { 'Accept': 'text/event-stream' },
-    }),
-  );
+  const doResponse = await HoniClient.fetch(c.env.UX_RESEARCHER as unknown as DurableObjectNamespace, runId, '/stream', {
+    headers: { 'Accept': 'text/event-stream' },
+  });
 
   return new Response(doResponse.body, {
     headers: {

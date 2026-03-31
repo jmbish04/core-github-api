@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
 import CustomJobsTab from '@/views/research/components/CustomJobsTab';
 
 export default function CustomJobsPage() {
@@ -17,11 +18,12 @@ export default function CustomJobsPage() {
          <div className="flex justify-between items-center">
            <h2 className="text-xl font-semibold">One-Time Research</h2>
            <Button 
-             onClick={() => navigate('/research/custom/new')} 
-             className="bg-purple-600 hover:bg-purple-500"
-           >
+            onClick={() => navigate('/research/custom/new')} 
+            className="bg-zinc-100 text-zinc-900 hover:bg-zinc-200"
+          >
+             <Plus className="w-4 h-4 mr-2" />
              New Project
-           </Button>
+          </Button>
          </div>
          <CustomJobsTab 
            onEditDraft={(id) => navigate(`/research/custom/${id}`)} 

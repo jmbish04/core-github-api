@@ -15,7 +15,7 @@ export default function ReportViewer() {
     if (!id) return;
     
     const fetchReport = async () => {
-      const res = await api['research-projects'].projects[':id'].details.$get({ param: { id } });
+      const res = await api['research'].projects[':id'].details.$get({ param: { id } });
       setData((await res.json()) as any);
     };
 
@@ -41,10 +41,10 @@ export default function ReportViewer() {
       {(project.status === 'processing' || project.status === 'draft') && (
         <div className="bg-zinc-950 border border-zinc-800 p-8 rounded-xl space-y-6">
           <div className="flex justify-between text-sm font-medium">
-            <span className="text-purple-400 animate-pulse">Swarm is actively analyzing sources...</span>
+            <span className="text-zinc-400 animate-pulse">Swarm is actively analyzing sources...</span>
             <span>{project.progress}%</span>
           </div>
-          <Progress value={project.progress} className="h-2 bg-zinc-800 [&>div]:bg-purple-600" />
+          <Progress value={project.progress} className="h-2 bg-zinc-800 [&>div]:bg-zinc-100" />
 
           {/* Skeleton Layout matching final report structure */}
           <div className="space-y-6 pt-8">

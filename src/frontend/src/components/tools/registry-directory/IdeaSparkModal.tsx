@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Lightbulb, X } from 'lucide-react';
-import { client } from '@/lib/api-client';
+import { api } from '@/lib/api-client';
 
 interface IdeaSparkModalProps {
   isOpen: boolean;
@@ -16,13 +16,14 @@ export const IdeaSparkModal = ({ isOpen, onClose, registryTitle }: IdeaSparkModa
     if (isOpen && registryTitle) {
       generateIdea();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, registryTitle]);
 
   const generateIdea = async () => {
     setLoading(true);
 
     try {
-      const res = await client.api.tools['shadcn-registry'].spark.$post({
+      const res = await api.tools['shadcn-registry'].spark.$post({
         json: { registryTitle: registryTitle! }
       });
 
@@ -32,7 +33,7 @@ export const IdeaSparkModal = ({ isOpen, onClose, registryTitle }: IdeaSparkModa
       } else {
         throw new Error('Failed to spark an idea.');
       }
-    } catch (e) {
+    } catch {
       setIdea("Failed to spark an idea. Try again!");
     } finally {
       setLoading(false);

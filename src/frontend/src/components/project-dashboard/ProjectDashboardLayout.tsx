@@ -5,6 +5,6 @@ type ProjectDashboardLayoutProps = {
 };
 
 export function ProjectDashboardLayout({ children }: ProjectDashboardLayoutProps) {
-  return <div className="space-y-6 pb-24">{children}</div>;
+  return <div className="space-y-6 p-4 md:p-6 lg:p-8 pb-24">{children}</div>;
 }
 

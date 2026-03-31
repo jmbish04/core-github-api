@@ -9,15 +9,12 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useAgent } from "agents/react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import {
-    Bot, User, Cpu, Loader2, Send, Square, Plus, Trash2,
+    Bot, User, Cpu, Loader2, Plus, Trash2,
     MessageSquare, Check, RefreshCw, Copy, CheckCheck, Sparkles,
-    Wrench, Database, Layers, Rocket, BarChart3, Code2, Zap,
-    BookOpen, ArrowRight, ChevronDown, ChevronUp, Factory,
-    Mic as MicIcon
+    Database, Layers, Rocket, BarChart3,
+    ArrowRight, ChevronDown, ChevronUp, Factory
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { PrismLight as SyntaxHighlighter } from "react-syntax-highlighter";
@@ -399,10 +396,11 @@ export function AgentFactoryTool() {
 
     const bottomRef = useRef<HTMLDivElement>(null);
     const wsStatusRef = useRef(wsStatus);
-    wsStatusRef.current = wsStatus;
+    useEffect(() => {
+        wsStatusRef.current = wsStatus;
+    }, [wsStatus]);
 
     // Thread key for agent scope — use different prefix to isolate from CloudflareDocsTool
-    const SESSION_PREFIX = "agent-factory-";
 
     // Fetch models – prefer Gemini Pro models
     useEffect(() => {

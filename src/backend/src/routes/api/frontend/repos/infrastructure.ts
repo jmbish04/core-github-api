@@ -5,30 +5,27 @@
  */
 
 import { Hono } from "hono";
-import { getDb, repositories, projects } from "@db";
-import { eq } from "drizzle-orm";
+import { getDb } from "@db";
 import { 
-  fetchProjectContext, 
+  fetchProjectContextByOwnerRepo, 
   detectWranglerConfig, 
-  extractWranglerBindings,
-  generateUuid 
+  extractWranglerBindings
 } from "./utils";
-import { getOctokit } from "@/services/octokit/core";
-import { runTextAgent, resolveDefaultAiModel, resolveDefaultAiProvider } from "@/ai/agents/support/agent-ai";
+import { generateText } from "@/ai/providers";
 
 const app = new Hono<{ Bindings: Env }>();
 
 /**
- * GET /:id/overview
+ * GET /:owner/:repo/overview
  * Consolidates project, repository, and Cloudflare infrastructure state.
  */
-app.get("/:id/overview", async (c) => {
+app.get("/:owner/:repo/overview", async (c) => {
   const db = getDb(c.env.DB);
-  const projectId = c.req.param("id");
-  const ctx = await fetchProjectContext(db, projectId);
+  const owner = c.req.param("owner");
+  const repo = c.req.param("repo");
+  const ctx = await fetchProjectContextByOwnerRepo(db, owner, repo);
   if (!ctx) return c.json({ error: "Project not found" }, 404);
 
-  const octokit = await getOctokit(c.env);
   const wrangler = await detectWranglerConfig(c.env, ctx.repoOwner!, ctx.repoName!);
 
   return c.json({
@@ -43,37 +40,37 @@ app.get("/:id/overview", async (c) => {
 });
 
 /**
- * POST /:id/bindings
+ * POST /:owner/:repo/bindings
  * Programmatically updates the wrangler configuration with new resource bindings.
+ * Also looks up the worker_name from wrangler.jsonc / wrangler.toml in the repo.
  */
-app.post("/:id/bindings", async (c) => {
+app.post("/:owner/:repo/bindings", async (c) => {
   const db = getDb(c.env.DB);
-  const body = await c.req.json() as any;
-  const ctx = await fetchProjectContext(db, c.req.param("id"));
+  const owner = c.req.param("owner");
+  const repo = c.req.param("repo");
+  const ctx = await fetchProjectContextByOwnerRepo(db, owner, repo);
   if (!ctx) return c.json({ error: "Context missing" }, 404);
 
   const wrangler = await detectWranglerConfig(c.env, ctx.repoOwner!, ctx.repoName!);
   if (!wrangler) return c.json({ error: "No wrangler file found" }, 404);
 
-  // Binding update logic (simplified for brevity, identical to original projects.ts logic)
-  // ... (Full implementation would follow the original projects.ts logic closely)
-  return c.json({ success: true, message: "Binding update dispatched (Mock)" });
+  const workerName = wrangler.config?.name as string | undefined;
+
+  return c.json({ success: true, workerName, message: "Binding update dispatched (Mock)" });
 });
 
 /**
- * POST /:id/analyze-deployment
+ * POST /:owner/:repo/analyze-deployment
  * AI diagnostic tool for interpreting Cloudflare deployment failure logs.
  */
-app.post("/:id/analyze-deployment", async (c) => {
-  const provider = resolveDefaultAiProvider(c.env);
-  const model = resolveDefaultAiModel(c.env, provider);
+app.post("/:owner/:repo/analyze-deployment", async (c) => {
   const body = await c.req.json() as any;
 
-  const analysis = await runTextAgent({
-    env: c.env, provider, model, name: "DiagnosticsAgent",
-    instructions: "Diagnose Cloudflare deployment failures accurately.",
-    input: `Analyze logs: ${body.logs}`
-  });
+  const analysis = await generateText(
+    c.env,
+    `Analyze logs: ${body.logs}`,
+    "Diagnose Cloudflare deployment failures accurately."
+  );
 
   return c.json({ success: true, analysis });
 });

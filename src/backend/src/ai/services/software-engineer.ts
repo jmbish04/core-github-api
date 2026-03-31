@@ -10,8 +10,7 @@ import {
   resolveDefaultAiProvider,
 } from "@/ai/agents/support/agent-ai";
 import { buildCodingAgentInstructions } from "@/services/golden-path-config";
-import { AIGateway } from "@/ai/utils/ai-gateway";
-
+import { generateStructuredResponse } from "@/ai/providers";
 const CodeGeneratorResponseSchema = z.object({
   reply: z.string(),
   implementationSteps: z.array(z.string()).default([]),
@@ -78,14 +77,15 @@ export class CodeGenerationService {
       `User prompt: ${input.prompt}`,
     ].join("\n");
 
-    const result = await AIGateway.runStructuredResponseWithModelFallback(
+    const result = await generateStructuredResponse<CodeGeneratorResponse>(
         this.env,
-        provider,
-        model,
+        aiInput,
+        CodeGeneratorResponseSchema,
         instructions,
-        aiInput
+        { model },
+        provider as any
     );
     
-    return CodeGeneratorResponseSchema.parse(result || { reply: result?.reply || "" });
+    return result;
   }
 }

@@ -4,7 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { GitPullRequest, Loader2, MessageSquare, Sparkles, ExternalLink, FileCode, ArrowLeft } from 'lucide-react';
+import { GitPullRequest, Loader2, MessageSquare, Sparkles, ExternalLink, FileCode, ArrowLeft, Bot } from 'lucide-react';
 import { PrCommentExtractor } from '@/components/tools/PrCommentExtractor';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -67,6 +67,20 @@ const STATUS_LABELS: Record<string, { label: string; variant: 'default' | 'secon
     comments_fixed: { label: 'Comments Fixed', variant: 'default' },
 };
 
+const AGENT_BADGE_COLORS: Record<string, string> = {
+    copilot: 'text-green-400 border-green-900 bg-green-950/20',
+    claude: 'text-amber-400 border-amber-900 bg-amber-950/20',
+    jules: 'text-blue-400 border-blue-900 bg-blue-950/20',
+    codex: 'text-violet-400 border-violet-900 bg-violet-950/20',
+    devin: 'text-teal-400 border-teal-900 bg-teal-950/20',
+    detected: 'text-cyan-400 border-cyan-900 bg-cyan-950/20',
+    unknown: 'text-zinc-400 border-zinc-700 bg-zinc-900/20',
+};
+
+function getAgentBadgeClasses(agent: string): string {
+    return AGENT_BADGE_COLORS[agent] || AGENT_BADGE_COLORS.unknown;
+}
+
 export function PRCommandCenter({ repoOwner, repoName, initialPrs }: PRCommandCenterProps) {
     const [selectedPrNumber, setSelectedPrNumber] = useState<number | null>(() => {
         const match = window.location.pathname.match(/\/pr-command\/(\d+)/);
@@ -76,6 +90,7 @@ export function PRCommandCenter({ repoOwner, repoName, initialPrs }: PRCommandCe
     const [reviewStatuses, setReviewStatuses] = useState<Record<number, PRReviewStatus>>({});
     const [overview, setOverview] = useState<PROverview | null>(null);
     const [loadingOverview, setLoadingOverview] = useState(false);
+    const [assignedAgent, setAssignedAgent] = useState<{ agent: string; tag: string } | null>(null);
 
     // Sync URL when selected PR changes
     useEffect(() => {
@@ -103,7 +118,7 @@ export function PRCommandCenter({ repoOwner, repoName, initialPrs }: PRCommandCe
                                 reviewCount: data.reviewCount,
                             };
                         }
-                    } catch (e) {
+                    } catch {
                         statusMap[pr.number] = { status: 'pending_review', commentCount: 0, reviewCount: 0 };
                     }
                 })
@@ -113,27 +128,49 @@ export function PRCommandCenter({ repoOwner, repoName, initialPrs }: PRCommandCe
         if (initialPrs.length > 0) fetchStatuses();
     }, [initialPrs, repoOwner, repoName]);
 
-    // Fetch overview when a PR is selected
+    // Fetch overview and assigned agent when a PR is selected
     useEffect(() => {
         if (!selectedPrNumber) return;
-        setLoadingOverview(true);
-        setOverview(null);
+        let cancelled = false;
 
-        fetch(`/api/pr/${repoOwner}/${repoName}/${selectedPrNumber}/overview`, { credentials: 'include' })
-            .then(res => {
+        const fetchOverview = async () => {
+            setLoadingOverview(true);
+            setOverview(null);
+            try {
+                const res = await fetch(`/api/pr/${repoOwner}/${repoName}/${selectedPrNumber}/overview`, { credentials: 'include' });
                 if (!res.ok) throw new Error('Failed to fetch overview');
-                return res.json();
-            })
-            .then(data => setOverview(data as any))
-            .catch(e => console.error('[PRCommandCenter] Overview fetch failed:', e))
-            .finally(() => setLoadingOverview(false));
+                const data = await res.json();
+                if (!cancelled) setOverview(data as any);
+            } catch (err) {
+                console.error('[PRCommandCenter] Overview fetch failed:', err);
+            } finally {
+                if (!cancelled) setLoadingOverview(false);
+            }
+        };
+
+        const fetchAgent = async () => {
+            setAssignedAgent(null);
+            try {
+                const res = await fetch(`/api/pr/${repoOwner}/${repoName}/${selectedPrNumber}/assigned-agent`, { credentials: 'include' });
+                if (res.ok) {
+                    const data = await res.json() as { agent: string; tag: string };
+                    if (!cancelled) setAssignedAgent(data);
+                }
+            } catch (err) {
+                console.error('[PRCommandCenter] Agent detection failed:', err);
+            }
+        };
+
+        void fetchOverview();
+        void fetchAgent();
+        return () => { cancelled = true; };
     }, [selectedPrNumber, repoOwner, repoName]);
 
     // PR List View
     if (!selectedPrNumber) {
         return (
             <div className="h-[calc(100vh-100px)] flex flex-col gap-4">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <h2 className="text-2xl font-bold flex items-center gap-2">
                         <GitPullRequest className="w-6 h-6 text-purple-400" />
                         PR Command Center
@@ -149,8 +186,8 @@ export function PRCommandCenter({ repoOwner, repoName, initialPrs }: PRCommandCe
                         <p>No open pull requests found.</p>
                     </div>
                 ) : (
-                    <div className="border rounded-lg overflow-hidden">
-                        <div className="bg-muted/30 px-4 py-2.5 border-b text-xs font-medium text-muted-foreground grid grid-cols-12 items-center gap-3">
+                    <div className="border rounded-lg overflow-x-auto">
+                        <div className="bg-muted/30 px-4 py-2.5 border-b text-xs font-medium text-muted-foreground grid grid-cols-12 min-w-[800px] items-center gap-3">
                             <div className="col-span-1">#</div>
                             <div className="col-span-5">Title</div>
                             <div className="col-span-2">Author</div>
@@ -166,7 +203,7 @@ export function PRCommandCenter({ repoOwner, repoName, initialPrs }: PRCommandCe
                                     <div
                                         key={pr.number}
                                         onClick={() => setSelectedPrNumber(pr.number)}
-                                        className="px-4 py-3 border-b hover:bg-muted/20 cursor-pointer transition-colors grid grid-cols-12 items-center gap-3"
+                                        className="px-4 py-3 border-b hover:bg-muted/20 cursor-pointer transition-colors grid grid-cols-12 min-w-[800px] items-center gap-3"
                                     >
                                         <div className="col-span-1 font-mono text-sm text-muted-foreground">
                                             #{pr.number}
@@ -207,7 +244,7 @@ export function PRCommandCenter({ repoOwner, repoName, initialPrs }: PRCommandCe
 
     return (
         <div className="h-[calc(100vh-100px)] flex flex-col gap-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                     <Button variant="ghost" size="icon" onClick={() => setSelectedPrNumber(null)}>
                         <ArrowLeft className="w-4 h-4" />
@@ -222,13 +259,19 @@ export function PRCommandCenter({ repoOwner, repoName, initialPrs }: PRCommandCe
                         </p>
                     </div>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                     {selectedPr && (
                         <>
                             <Badge variant="outline" className="text-emerald-400 border-emerald-900 bg-emerald-950/20">
                                 {selectedPr.state}
                             </Badge>
                             {selectedPr.draft && <Badge variant="secondary">Draft</Badge>}
+                            {assignedAgent && assignedAgent.agent !== 'unassigned' && (
+                                <Badge variant="outline" className={getAgentBadgeClasses(assignedAgent.agent)}>
+                                    <Bot className="w-3 h-3 mr-1" />
+                                    {assignedAgent.tag}
+                                </Badge>
+                            )}
                             <Button 
                                 variant="secondary" 
                                 size="sm" 
@@ -248,7 +291,7 @@ export function PRCommandCenter({ repoOwner, repoName, initialPrs }: PRCommandCe
             </div>
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
-                <TabsList className="bg-zinc-900 border border-zinc-800 w-full justify-start">
+                <TabsList className="bg-zinc-900 border border-zinc-800 w-full justify-start overflow-x-auto h-auto flex-wrap">
                     <TabsTrigger value="overview">
                         <Sparkles className="w-3.5 h-3.5 mr-1.5" /> Overview
                     </TabsTrigger>
@@ -280,7 +323,7 @@ export function PRCommandCenter({ repoOwner, repoName, initialPrs }: PRCommandCe
                             </Card>
 
                             {/* PR Stats */}
-                            <div className="grid grid-cols-4 gap-3">
+                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                                 <Card>
                                     <CardContent className="pt-4 pb-3 px-4 text-center">
                                         <div className="text-2xl font-bold text-foreground">{overview.pr.changedFiles}</div>

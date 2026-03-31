@@ -6,6 +6,7 @@
 import { OpenAPIHono, createRoute } from "@hono/zod-openapi";
 import { z } from "zod";
 import { generateUuid } from "@/utils/common";
+import { HoniClient } from '@utils/honi-client';
 
 const workshopChatApi = new OpenAPIHono<{ Bindings: Env }>({
   defaultHook: (result, c) => {
@@ -93,8 +94,7 @@ workshopChatApi.openapi(route, async (c) => {
       c.req.valid("json");
 
     const sessionId = providedSessionId || generateUuid();
-    const id = c.env.WORKSHOP_AGENT.idFromName(sessionId);
-    const stub = c.env.WORKSHOP_AGENT.get(id);
+    const stub = HoniClient.getStub(c.env.WORKSHOP_AGENT as unknown as DurableObjectNamespace, sessionId);
 
     interface ChatResult {
       blocks?: Array<{ type: string; text: string; language?: string }>;
@@ -104,7 +104,7 @@ workshopChatApi.openapi(route, async (c) => {
       sessionId: string;
     }
 
-    // @ts-ignore — Suppress deep type instantiation
+
     const result = (await (stub as any).chat(
       message,
       history,

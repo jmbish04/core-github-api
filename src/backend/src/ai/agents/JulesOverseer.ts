@@ -40,7 +40,7 @@ import { getDb } from '@db';
 import { julesSessions, julesJobs } from '@db/schemas/jules';
 import { alerts } from '@/db/schemas/app/alerts';
 import { JulesService } from '@/services/jules/service';
-import { CILogService } from '@/services/ci/CILogService';
+import { CILogService } from '@/services/cloudflare/worker_cicd_build_logs';
 import { dispatchUIFrameworkPlan as _dispatchUIFrameworkPlan } from '@/ai/agents/LandingPageAgent';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -372,13 +372,13 @@ export class JulesOverseer extends JulesOverseerDurableObject {
       try {
         // Resolve Cloudflare Secrets Store bindings (async)
         const [ghToken, cfToken, cfAccountId] = await Promise.all([
-          this.env.GITHUB_TOKEN.get(),
+          this.env.GITHUB_PERSONAL_ACCESS_TOKEN.get(),
           this.env.CLOUDFLARE_API_TOKEN.get(),
           this.env.CLOUDFLARE_ACCOUNT_ID.get(),
         ]);
 
         const ciService = new CILogService({
-          GITHUB_TOKEN: ghToken,
+          GITHUB_PERSONAL_ACCESS_TOKEN: ghToken,
           CLOUDFLARE_API_TOKEN: cfToken,
           CLOUDFLARE_ACCOUNT_ID: cfAccountId,
         });

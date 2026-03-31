@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { BookOpen, Code, Search, MessageSquare } from "lucide-react";
+import { Code, Search } from "lucide-react";
 
 export default function CloudflareDocsInfo() {
     return (

@@ -6,7 +6,7 @@
 
 import { OpenAPIHono, createRoute } from '@hono/zod-openapi'
 import { z } from 'zod'
-import { getAgentByName } from '@/ai/agents/runtime/agents'
+import { HoniClient } from '@utils/honi-client';
 import { generateUuid } from "@/utils/common";
 
 const chatApi = new OpenAPIHono<{ Bindings: Env }>()
@@ -52,8 +52,7 @@ chatApi.openapi(route, async (c) => {
     const { message, sessionId: providedSessionId, history } = c.req.valid('json')
 
     const sessionId = providedSessionId || generateUuid()
-    const getByName = getAgentByName as any
-    const stub = await getByName(c.env.GEMINI_AGENT, sessionId)
+    const stub = HoniClient.getStub(c.env.GEMINI_AGENT as any, sessionId);
 
     // Define the expected return type from the Durable Object
     interface ChatResult {
@@ -64,7 +63,7 @@ chatApi.openapi(route, async (c) => {
     // Call the chat method.
     // Note: We need to cast stub to any or define the interface because it's a DO.
     // We assume 'chat' is a method on the DO.
-    // @ts-ignore - Suppress deep type instantiation due to circular Env -> index -> Env dependency
+
     const result = await (stub as any).chat(message, history) as ChatResult
 
     const responsePayload: z.infer<typeof ChatResponseSchema> = {

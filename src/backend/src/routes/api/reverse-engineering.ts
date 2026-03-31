@@ -21,6 +21,8 @@ import {
   listReverseEngineeringSnapshots,
 } from '@/services/reverse-engineering/store';
 import { getOrCreateProjectForRepository } from '@/services/reverse-engineering/projects';
+import { HoniClient } from '@utils/honi-client';
+import { BroadcastClient } from '@utils/do-broadcast';
 
 const app = new OpenAPIHono<{ Bindings: Env }>();
 
@@ -198,29 +200,10 @@ app.openapi(analyzeRoute, async (c) => {
     githubRepo: repo.repo,
     repoUrl: repo.repoUrl,
   });
-
-  const stubId = c.env.HONI_ORCHESTRATOR.idFromName(snapshotId);
-  const stub = c.env.HONI_ORCHESTRATOR.get(stubId);
-  const runPayload = {
-    snapshotId,
-    projectId: projectLookup.projectId,
-    owner: repo.owner,
-    repo: repo.repo,
-    repoUrl: repo.repoUrl,
-    branch: payload.branch,
-    frontendUrl: payload.frontendUrl,
-    auth: payload.auth,
-    useSandboxPreview: payload.useSandboxPreview,
-    title: payload.title,
-  };
-
-  await stub.fetch(
-    new Request('https://internal/run', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(runPayload),
-    }),
-  );
+  await HoniClient.fetch(c.env.HONI_ORCHESTRATOR, snapshotId, '/run', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
 
   return c.json({
     success: true,
@@ -340,14 +323,7 @@ app.openapi(getEventsRoute, async (c) => {
 
 app.get('/snapshots/:id/ws', async (c) => {
   const snapshotId = c.req.param('id') as string;
-  const stubId = c.env.REVERSE_ENGINEERING_MONITOR.idFromName(snapshotId);
-  const stub = c.env.REVERSE_ENGINEERING_MONITOR.get(stubId);
-  return stub.fetch(
-    new Request(`https://internal/ws?snapshotId=${encodeURIComponent(snapshotId)}`, {
-      method: 'GET',
-      headers: c.req.raw.headers,
-    }),
-  );
+  return BroadcastClient.upgradeWebSocket(c.env.REVERSE_ENGINEERING_MONITOR, snapshotId, c.req.raw, `/ws?snapshotId=${encodeURIComponent(snapshotId)}`);
 });
 
 const resumeRoute = createRoute({
@@ -394,19 +370,14 @@ app.openapi(resumeRoute, async (c) => {
   }
 
   const payload = c.req.valid('json');
-  const stubId = c.env.HONI_ORCHESTRATOR.idFromName(loaded.snapshotId);
-  const stub = c.env.HONI_ORCHESTRATOR.get(stubId);
-  await stub.fetch(
-    new Request('https://internal/resume', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        snapshotId: loaded.snapshotId,
-        auth: payload.auth,
-        frontendUrl: payload.frontendUrl,
-      }),
+  await HoniClient.fetch(c.env.HONI_ORCHESTRATOR, loaded.snapshotId, '/resume', {
+    method: 'POST',
+    body: JSON.stringify({
+      snapshotId: loaded.snapshotId,
+      auth: payload.auth,
+      frontendUrl: payload.frontendUrl,
     }),
-  );
+  });
 
   return c.json({ success: true, snapshotId: loaded.snapshotId, resumed: true as const }) as any;
 });
@@ -455,22 +426,17 @@ app.openapi(consultRoute, async (c) => {
   }
 
   const payload = c.req.valid('json');
-  const stubId = c.env.HONI_CONSULTANT.idFromName(loaded.snapshotId);
-  const stub = c.env.HONI_CONSULTANT.get(stubId);
-  const response = await stub.fetch(
-    new Request('https://internal/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        snapshotId: loaded.snapshotId,
-        role: payload.role,
-        message: payload.message,
-        history: payload.history,
-        sessionId: payload.sessionId,
-        model: payload.model,
-      }),
+  const response = await HoniClient.fetch(c.env.HONI_CONSULTANT, loaded.snapshotId, '/chat', {
+    method: 'POST',
+    body: JSON.stringify({
+      snapshotId: loaded.snapshotId,
+      role: payload.role,
+      message: payload.message,
+      history: payload.history,
+      sessionId: payload.sessionId,
+      model: payload.model,
     }),
-  );
+  });
 
   const result = await response.json();
   return c.json(result, response.status as 200) as any;

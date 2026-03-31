@@ -1,13 +1,13 @@
 
 import { eq, inArray, or, sql } from "drizzle-orm";
 import { getDb } from "@db";
-import { projects } from "@db/schemas/projects/roadmap";
+
 import { repositories } from "@db/schemas/github/repos";
-import { Octokit } from "octokit";
+// import { Octokit } from "octokit";
 import { getGithubConfigs } from "@github-utils";
 import { getOctokit } from "@services/octokit/core";
-import type { Bindings } from "@utils/hono";
-import { generateUuid } from "@/utils/common";
+// import type { Bindings } from "@utils/hono";
+// import { generateUuid } from "@/utils/common";
 // Removed legacy agent-runtime import
 
 type RepoVisibility = "public" | "private" | "internal";
@@ -510,35 +510,9 @@ export async function upsertRepositoryFromGitHub(
 export async function ensureProjectForRepository(
   env: Env,
   repoId: string,
-  options: EnsureProjectOptions,
+  _options: EnsureProjectOptions,
 ): Promise<{ projectId: string; created: boolean }> {
-  const db = getDb(env.DB);
-  const existing = await db
-    .select()
-    .from(projects)
-    .where(eq(projects.repoId, repoId))
-    .limit(1)
-    .then((rows) => rows[0]);
-
-  if (existing) {
-    return { projectId: existing.id, created: false };
-  }
-
-  const now = new Date().toISOString();
-  const projectId = crypto.randomUUID();
-
-  await db.insert(projects).values({
-    id: projectId,
-    repoId,
-    name: options.name,
-    description: options.description || null,
-    owner: options.owner || null,
-    status: options.status || "active",
-    createdAt: now,
-    updatedAt: now,
-  });
-
-  return { projectId, created: true };
+  return { projectId: repoId, created: false };
 }
 
 async function listOwnerRepositoriesFromGitHub(
@@ -576,7 +550,7 @@ async function listOwnerRepositoriesFromGitHub(
 export async function syncOwnerRepositories(
   env: Env,
   ownerInput?: string,
-  options: SyncOptions = {},
+  _options: SyncOptions = {},
 ): Promise<{
   owner: string;
   reposSeen: number;
@@ -598,46 +572,9 @@ export async function syncOwnerRepositories(
     .map((repo) => mapGitHubRepoToSyncRow(repo, owner))
     .filter((row): row is SyncRepositoryRow => Boolean(row));
 
-  const { repoIds, reposCreated } = await batchUpsertRepositoriesForSync(env, syncRows);
+  const { reposCreated } = await batchUpsertRepositoriesForSync(env, syncRows);
 
-  let projectsCreated = 0;
-
-  if (options.ensureProjects && repoIds.length > 0) {
-    const db = getDb(env.DB);
-    const existingProjects: Array<{ repoId: string }> = [];
-    for (const repoIdBatch of chunkArray(repoIds, SYNC_BATCH_SIZE)) {
-      const rowsForBatch = await db
-        .select({ repoId: projects.repoId })
-        .from(projects)
-        .where(inArray(projects.repoId, repoIdBatch));
-      existingProjects.push(...rowsForBatch);
-    }
-    const existingRepoIds = new Set(existingProjects.map((row) => row.repoId));
-
-    const now = new Date().toISOString();
-    const projectsToCreate = syncRows
-      .filter((row) => !existingRepoIds.has(row.id))
-      .map((row) => ({
-        id: generateUuid(),
-        repoId: row.id,
-        name: row.name,
-        description: row.description || null,
-        owner,
-        status: "active",
-        createdAt: now,
-        updatedAt: now,
-      }));
-
-    if (projectsToCreate.length > 0) {
-      // D1 has a parameter limit (~100). Each project row has ~8 columns,
-      // so batches of 10 keep us safely under the limit (10 × 8 = 80 params).
-      const PROJECT_CHUNK_SIZE = 10;
-      for (const chunk of chunkArray(projectsToCreate, PROJECT_CHUNK_SIZE)) {
-        await db.insert(projects).values(chunk).onConflictDoNothing();
-      }
-      projectsCreated = projectsToCreate.length;
-    }
-  }
+  const projectsCreated = 0;
 
   return {
     owner,

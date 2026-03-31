@@ -9,6 +9,7 @@ import cloudflareDocsAiEditApi from '@/routes/api/cloudflare/docs/ai-edit';
 import cloudflareDocsPromptApi from '@/routes/api/cloudflare/docs/prompt';
 import cloudflareDocsRevisionsApi from '@/routes/api/cloudflare/docs/revisions';
 import cloudflareLogsApi from '@/routes/api/cloudflare/logs';
+import cloudflareBindingsApi from '@/routes/api/cloudflare/bindings';
 
 const cloudflareApi = new OpenAPIHono<{ Bindings: Env }>();
 
@@ -17,5 +18,6 @@ cloudflareApi.route('/docs/ai-edit', cloudflareDocsAiEditApi);
 cloudflareApi.route('/docs/prompt', cloudflareDocsPromptApi);
 cloudflareApi.route('/docs/prompt-revisions', cloudflareDocsRevisionsApi);
 cloudflareApi.route('/', cloudflareLogsApi);
+cloudflareApi.route('/bindings', cloudflareBindingsApi);
 
 export default cloudflareApi;

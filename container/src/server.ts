@@ -31,7 +31,7 @@ const exposedPorts = new Map<number, { sessionId: string; name?: string }>();
 const DEFAULT_WORKSPACE = "/workspace";
 
 function shellEscape(value: string): string {
-  return `'${value.replace(/'/g, `'\"'\"'`)}'`;
+  return `'${value.replace(/'/g, `'"'"'`)}'`;
 }
 
 function ensureSession(sessionId?: string): SessionState {

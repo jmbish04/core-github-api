@@ -18,7 +18,7 @@ const gradients = {
     yellow: "conic-gradient(from -160deg at 50% 50%, #eab308 0deg, #f97316 120deg, #e92a67 240deg, #eab308 360deg)",
 };
 
-export default memo(({ data }: NodeProps<Node<TurboNodeData>>) => {
+export default memo(function TurboNode({ data }: NodeProps<Node<TurboNodeData>>) {
     // Determine gradient based on color prop, default to blue/mixed
     const gradient = gradients[data.color as keyof typeof gradients] || gradients.blue;
 

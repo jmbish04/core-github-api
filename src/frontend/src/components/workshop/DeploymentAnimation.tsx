@@ -1,14 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/api-client';
 import { Progress } from '@/components/ui/progress';
 
 export const DeploymentAnimation = ({ projectId }: { projectId: string }) => {
     const [events, setEvents] = useState<any[]>([]);
     const [progress, setProgress] = useState(0);
+    const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     useEffect(() => {
-        let interval: any;
-        
         const pollEvents = async () => {
             try {
                 const res = await api.frontend.workshop['project'][':id']['events'].$get({ param: { id: projectId } });
@@ -20,7 +19,7 @@ export const DeploymentAnimation = ({ projectId }: { projectId: string }) => {
                     setProgress(newProgress);
 
                     if (newProgress >= 100) {
-                        clearInterval(interval);
+                        if (intervalRef.current) clearInterval(intervalRef.current);
                         setTimeout(() => {
                             window.location.href = `/projects/default/default/workshop`;
                         }, 1500);
@@ -32,9 +31,9 @@ export const DeploymentAnimation = ({ projectId }: { projectId: string }) => {
         };
 
         pollEvents();
-        interval = setInterval(pollEvents, 2500);
+        intervalRef.current = setInterval(pollEvents, 2500);
         
-        return () => clearInterval(interval);
+        return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
     }, [projectId]);
 
     return (

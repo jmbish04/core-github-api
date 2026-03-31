@@ -5,7 +5,7 @@
  */
 
 import { getDb } from '@db' // Assuming main db helper is at src/db/index.ts
-import { projects } from '@db/schemas/projects/roadmap'
+
 import {
     repositories,
     repoTechStack,
@@ -154,7 +154,7 @@ export async function upsertRepoAnalysis(d1: D1Database, analysis: RepoAnalysis,
     await db.transaction(async (tx) => {
         // Evaluate references to ensure schemas are linked safely behind the scenes
         // Ensure imported tables are "touched" in JS to avoid cold-boot issues in Drizzle
-        void projects.id;
+        void repositories.id;
         void repoMetrics.repoId;
 
         newRepoPayload = {

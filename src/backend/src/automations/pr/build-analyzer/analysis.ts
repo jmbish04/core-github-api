@@ -187,39 +187,28 @@ Generate:
 export function formatBuildFailureComment(
   agentTag: string,
   prNumber: number,
-  analysis: BuildAnalysis
+  analysis: {
+    julesPrompt: string;
+    instructions: string[];
+    docsContent: string;
+    rawLogs: string;
+    buildUuid?: string;
+  }
 ): string {
-  if (agentTag === "@jmbish04") {
-    return `${agentTag} Unable to detect the correct agent -- copy and paste this task to the coding agent that can fix the build failure below:
+  let finalComment = `${agentTag !== "@jmbish04" ? agentTag + " " : ""}🚨 **Build Failed!** Here are your automated remediation instructions:\n\n`;
 
-**Analysis:** ${analysis.analysis}
-
-**Fix Instructions:**
-${analysis.fixPrompt}
-
-<details>
-<summary>Relevant Build Logs</summary>
-
-\`\`\`
-${analysis.relevantLogs}
-\`\`\`
-
-</details>`;
+  if (analysis.instructions.length > 0) {
+    finalComment += `### ⚠️ Critical Deployment Flagged Instructions:\n${analysis.instructions.join("\n")}\n\n`;
   }
 
-  return `${agentTag} the worker failed to build on PR #${prNumber}.
+  finalComment += `### 🧠 AI Log Analysis:\n${analysis.julesPrompt}\n\n`;
 
-**Analysis:** ${analysis.analysis}
+  if (analysis.docsContent) {
+    finalComment += `${analysis.docsContent}\n\n`;
+  }
 
-**Fix Instructions:**
-${analysis.fixPrompt}
+  finalComment += `### 📝 Full Build Logs:\n\`\`\`markdown\n${analysis.rawLogs.trim()}\n\`\`\`\n\n`;
+  finalComment += `<!-- build-uuid: ${analysis.buildUuid || 'latest'} -->`;
 
-<details>
-<summary>Relevant Build Logs</summary>
-
-\`\`\`
-${analysis.relevantLogs}
-\`\`\`
-
-</details>`;
+  return finalComment;
 }

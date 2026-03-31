@@ -1,5 +1,6 @@
 import type { ReverseEngineeringStatus } from '@/lib/schemas/reverse-engineering';
 import { createReverseEngineeringEvent } from './store';
+import { BroadcastClient } from '@utils/do-broadcast';
 
 export type ReverseEngineeringMonitorEventType =
   | 'STATUS'
@@ -34,10 +35,7 @@ export interface ReverseEngineeringMonitorSnapshot {
   recentEvents: ReverseEngineeringMonitorEvent[];
 }
 
-function getReverseEngineeringMonitorStub(env: Env, snapshotId: string) {
-  const id = env.REVERSE_ENGINEERING_MONITOR.idFromName(snapshotId);
-  return env.REVERSE_ENGINEERING_MONITOR.get(id);
-}
+
 
 export async function broadcastReverseEngineeringEvent(
   env: Env,
@@ -62,10 +60,5 @@ export async function broadcastReverseEngineeringEvent(
     },
   });
 
-  const stub = getReverseEngineeringMonitorStub(env, snapshotId);
-  await stub.fetch('http://internal/internal/broadcast', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(normalized),
-  });
+  await BroadcastClient.broadcast(env.REVERSE_ENGINEERING_MONITOR, snapshotId, normalized);
 }

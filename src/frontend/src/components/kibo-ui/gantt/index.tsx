@@ -7,7 +7,7 @@ import {
   useSensor,
 } from "@dnd-kit/core";
 import { restrictToHorizontalAxis } from "@dnd-kit/modifiers";
-import { useMouse, useThrottle, useWindowScroll } from "@uidotdev/usehooks";
+import { useMouse, useThrottle } from "@uidotdev/usehooks";
 import {
   addDays,
   addMonths,
@@ -59,7 +59,9 @@ import { cn } from "@/lib/utils";
 const draggingAtom = atom(false);
 const scrollXAtom = atom(0);
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useGanttDragging = () => useAtom(draggingAtom);
+// eslint-disable-next-line react-refresh/only-export-components
 export const useGanttScrollX = () => useAtom(scrollXAtom);
 
 export type GanttStatus = {
@@ -110,7 +112,7 @@ export type GanttContextProps = {
 
 const getsDaysIn = (range: Range) => {
   // For when range is daily
-  let fn = (_date: Date) => 1;
+  let fn: (date: Date) => number = () => 1;
 
   if (range === "monthly" || range === "quarterly") {
     fn = getDaysInMonth;
@@ -639,17 +641,12 @@ export const GanttColumn: FC<GanttColumnProps> = ({
   const [dragging] = useGanttDragging();
   const [mousePosition, mouseRef] = useMouse<HTMLDivElement>();
   const [hovering, setHovering] = useState(false);
-  const [windowScroll] = useWindowScroll();
+
 
   const handleMouseEnter = () => setHovering(true);
   const handleMouseLeave = () => setHovering(false);
 
-  const top = useThrottle(
-    mousePosition.y -
-      (mouseRef.current?.getBoundingClientRect().y ?? 0) -
-      (windowScroll.y ?? 0),
-    10
-  );
+  const top = useThrottle(mousePosition.elementY ?? 0, 10);
 
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: "This is a clickable column"
@@ -710,13 +707,8 @@ export const GanttCreateMarkerTrigger: FC<GanttCreateMarkerTriggerProps> = ({
 }) => {
   const gantt = useContext(GanttContext);
   const [mousePosition, mouseRef] = useMouse<HTMLDivElement>();
-  const [windowScroll] = useWindowScroll();
-  const x = useThrottle(
-    mousePosition.x -
-      (mouseRef.current?.getBoundingClientRect().x ?? 0) -
-      (windowScroll.x ?? 0),
-    10
-  );
+
+  const x = useThrottle(mousePosition.elementX ?? 0, 10);
 
   const date = getDateByMousePosition(gantt, x);
 
@@ -1180,6 +1172,10 @@ export const GanttProvider: FC<GanttProviderProps> = ({
   const [timelineData, setTimelineData] = useState<TimelineData>(
     createInitialTimelineData(new Date())
   );
+  const timelineDataRef = useRef(timelineData);
+  useEffect(() => {
+    timelineDataRef.current = timelineData;
+  }, [timelineData]);
   const [, setScrollX] = useGanttScrollX();
   const [sidebarWidth, setSidebarWidth] = useState(0);
 
@@ -1241,9 +1237,9 @@ export const GanttProvider: FC<GanttProviderProps> = ({
     };
   }, []);
 
-  // Fix the useCallback to include all dependencies
-  const handleScroll = useCallback(
-    throttle(() => {
+  // useMemo to memoize the throttled scroll handler
+  const handleScroll = useMemo(
+    () => throttle(() => {
       const scrollElement = scrollRef.current;
       if (!scrollElement) {
         return;
@@ -1254,13 +1250,14 @@ export const GanttProvider: FC<GanttProviderProps> = ({
 
       if (scrollLeft === 0) {
         // Extend timelineData to the past
-        const firstYear = timelineData[0]?.year;
+        const currentData = timelineDataRef.current;
+        const firstYear = currentData[0]?.year;
 
         if (!firstYear) {
           return;
         }
 
-        const newTimelineData: TimelineData = [...timelineData];
+        const newTimelineData: TimelineData = [...currentData];
         newTimelineData.unshift({
           year: firstYear - 1,
           quarters: new Array(4).fill(null).map((_, quarterIndex) => ({
@@ -1280,13 +1277,14 @@ export const GanttProvider: FC<GanttProviderProps> = ({
         setScrollX(scrollElement.scrollLeft);
       } else if (scrollLeft + clientWidth >= scrollWidth) {
         // Extend timelineData to the future
-        const lastYear = timelineData.at(-1)?.year;
+        const currentData = timelineDataRef.current;
+        const lastYear = currentData.at(-1)?.year;
 
         if (!lastYear) {
           return;
         }
 
-        const newTimelineData: TimelineData = [...timelineData];
+        const newTimelineData: TimelineData = [...currentData];
         newTimelineData.push({
           year: lastYear + 1,
           quarters: new Array(4).fill(null).map((_, quarterIndex) => ({
@@ -1307,7 +1305,7 @@ export const GanttProvider: FC<GanttProviderProps> = ({
         setScrollX(scrollElement.scrollLeft);
       }
     }, 100),
-    []
+    [setScrollX]
   );
 
   useEffect(() => {

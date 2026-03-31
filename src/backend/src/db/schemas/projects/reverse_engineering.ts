@@ -1,12 +1,12 @@
 import { sql } from 'drizzle-orm';
 import { check, index, sqliteTable, text } from 'drizzle-orm/sqlite-core';
-import { projects } from './roadmap';
+import { repositories } from '../github/repos';
 
 export const reverseEngineeringSnapshots = sqliteTable(
   'reverse_eng_snapshots',
   {
     id: text('id').primaryKey(),
-    projectId: text('project_id').references(() => projects.id, { onDelete: 'set null' }),
+    projectId: text('project_id').references(() => repositories.id, { onDelete: 'set null' }),
     githubOwner: text('github_owner').notNull(),
     githubRepo: text('github_repo').notNull(),
     repoUrl: text('repo_url').notNull(),

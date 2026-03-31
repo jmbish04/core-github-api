@@ -12,6 +12,7 @@ import { prOverviews } from "@/db/schemas/github/pr_overviews";
 import { getDb } from "@db";
 import { eq, and, inArray } from "drizzle-orm";
 import { createFallbackHandler } from "@/ai/fallbackLogger";
+import { detectPRAuthorAgent } from "@/utils/github/detectAgent";
 
 const prOverviewApi = new Hono<{ Bindings: Env; Variables: { fallbackAlert?: FallbackAlert } }>();
 
@@ -221,6 +222,136 @@ prOverviewApi.get("/pr/:owner/:repo/:number/review-status", async (c) => {
     });
   } catch (error: any) {
     console.error("[pr-overview] Failed to fetch review status:", error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// ==========================================
+// GET /pr/:owner/:repo/:number/assigned-agent
+// ==========================================
+prOverviewApi.get("/pr/:owner/:repo/:number/assigned-agent", async (c) => {
+  const { owner, repo, number } = c.req.param();
+  const prNumber = parseInt(number, 10);
+
+  if (isNaN(prNumber)) {
+    return c.json({ error: "Invalid PR number" }, 400);
+  }
+
+  try {
+    const octokit = await getOctokit(c.env);
+
+    const prRes = await octokit.pulls.get({ owner, repo, pull_number: prNumber });
+    const pr = prRes.data;
+
+    // Fetch issue comments for agent mention detection
+    const commentsRes = await octokit.issues.listComments({
+      owner,
+      repo,
+      issue_number: prNumber,
+      per_page: 100,
+    });
+
+    const detection = detectPRAuthorAgent({
+      headRef: pr.head.ref,
+      body: pr.body,
+      authorLogin: pr.user?.login || undefined,
+      authorHtmlUrl: pr.user?.html_url || undefined,
+      authorType: pr.user?.type || undefined,
+      issueComments: commentsRes.data.map((c: any) => ({ body: c.body || "" })),
+    });
+
+    return c.json({
+      agent: detection?.agent || "unassigned",
+      tag: detection?.tag || "",
+    });
+  } catch (error: any) {
+    console.error("[pr-overview] Failed to detect assigned agent:", error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// ==========================================
+// POST /pr/:owner/:repo/:number/generate-fix-prompt
+// ==========================================
+prOverviewApi.post("/pr/:owner/:repo/:number/generate-fix-prompt", async (c) => {
+  const { owner, repo, number } = c.req.param();
+  const prNumber = parseInt(number, 10);
+
+  if (isNaN(prNumber)) {
+    return c.json({ error: "Invalid PR number" }, 400);
+  }
+
+  try {
+    const body = await c.req.json<{
+      comments: Array<{ path: string; line: number | null; body: string }>;
+    }>();
+
+    if (!body.comments || body.comments.length === 0) {
+      return c.json({ error: "No comments provided" }, 400);
+    }
+
+    // 1. Detect the assigned agent
+    const octokit = await getOctokit(c.env);
+    const prRes = await octokit.pulls.get({ owner, repo, pull_number: prNumber });
+    const pr = prRes.data;
+
+    const issueComments = await octokit.issues.listComments({
+      owner,
+      repo,
+      issue_number: prNumber,
+      per_page: 100,
+    });
+
+    const detection = detectPRAuthorAgent({
+      headRef: pr.head.ref,
+      body: pr.body,
+      authorLogin: pr.user?.login || undefined,
+      authorHtmlUrl: pr.user?.html_url || undefined,
+      authorType: pr.user?.type || undefined,
+      issueComments: issueComments.data.map((c: any) => ({ body: c.body || "" })),
+    });
+
+    const agentTag = detection?.tag || "@copilot";
+    const agentName = detection?.agent || "copilot";
+
+    // 2. Format raw comments as "line_number: comment_body" (no source snippets)
+    const rawComments = body.comments
+      .map((c) => `${c.path}:${c.line || "N/A"}: ${c.body}`)
+      .join("\n");
+
+    // 3. Use Worker AI to generate a concise fix prompt
+    const aiPrompt = `You are generating an instruction prompt for an AI coding agent (${agentName}) to fix code review issues on a GitHub Pull Request.
+
+The PR is: ${owner}/${repo}#${prNumber} "${pr.title}"
+Branch: ${pr.head.ref} → ${pr.base.ref}
+
+Here are the code review comments that need to be fixed:
+${rawComments}
+
+Generate a concise, actionable prompt that:
+1. Addresses each issue from the code review comments
+2. Groups related fixes by file when possible
+3. Is direct and clear — no fluff
+4. Does NOT include the source code snippets, only the file paths and line numbers with instructions
+
+Return ONLY the prompt text, nothing else.`;
+
+    const generatedPrompt = await generateText(c.env, aiPrompt, undefined, {
+      maxTokens: 2000,
+      onFallback: createFallbackHandler(c),
+    });
+
+    // 4. Assemble the final prompt
+    const finalPrompt = `${agentTag} Please fix the following issues on this PR and patch the PR:\n\n${generatedPrompt}\n\nHere are the raw code_comments:\n${rawComments}`;
+
+    return c.json({
+      prompt: finalPrompt,
+      agent: agentName,
+      tag: agentTag,
+      fallbackAlert: c.get("fallbackAlert"),
+    });
+  } catch (error: any) {
+    console.error("[pr-overview] Failed to generate fix prompt:", error);
     return c.json({ error: error.message }, 500);
   }
 });

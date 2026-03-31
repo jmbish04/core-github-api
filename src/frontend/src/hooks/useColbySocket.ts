@@ -28,6 +28,7 @@ export function useColbySocket({
     const socketRef = useRef<WebSocket | null>(null);
     const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
     const isMounted = useRef(false);
+    const connectRef = useRef<() => void>(() => {});
 
     const connect = useCallback(() => {
         if (socketRef.current?.readyState === WebSocket.OPEN) return;
@@ -48,7 +49,7 @@ export function useColbySocket({
                 socketRef.current = null;
 
                 if (isMounted.current && reconnectInterval > 0) {
-                    reconnectTimerRef.current = setTimeout(connect, reconnectInterval);
+                    reconnectTimerRef.current = setTimeout(() => connectRef.current(), reconnectInterval);
                 }
             };
 
@@ -61,7 +62,7 @@ export function useColbySocket({
                     const data = JSON.parse(event.data);
                     setState(prev => ({ ...prev, lastMessage: data }));
                     onMessage?.(data);
-                } catch (e) {
+                } catch {
                     // Start of non-JSON message or raw text
                     setState(prev => ({ ...prev, lastMessage: event.data }));
                     onMessage?.(event.data);
@@ -71,10 +72,13 @@ export function useColbySocket({
         } catch (err) {
             console.error('[useColbySocket] Connection failed:', err);
             if (isMounted.current && reconnectInterval > 0) {
-                reconnectTimerRef.current = setTimeout(connect, reconnectInterval);
+                reconnectTimerRef.current = setTimeout(() => connectRef.current(), reconnectInterval);
             }
         }
     }, [url, reconnectInterval, onMessage]);
+
+    // Keep connectRef in sync
+    connectRef.current = connect;
 
     const sendMessage = useCallback((data: any) => {
         if (socketRef.current?.readyState === WebSocket.OPEN) {

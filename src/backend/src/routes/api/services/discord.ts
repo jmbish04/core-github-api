@@ -72,6 +72,7 @@ const app = new OpenAPIHono<{ Bindings: Bindings }>();
 
 // 0. List of Guilds the bot is in
 app.openapi(createRoute({
+    operationId: 'getGuilds',
   method: 'get',
   path: '/guilds',
   responses: {
@@ -90,6 +91,7 @@ app.openapi(createRoute({
 
 // 0.1 List of Channels for a specific guild
 app.openapi(createRoute({
+    operationId: 'getGuildsGuildIdChannels',
   method: 'get',
   path: '/guilds/{guildId}/channels',
   request: { params: z.object({ guildId: z.string() }) },
@@ -115,6 +117,7 @@ import { discordResearchConfigs } from '@/db/schemas/github/research';
 import { eq } from 'drizzle-orm';
 
 app.openapi(createRoute({
+    operationId: 'getConfigs',
   method: 'get',
   path: '/configs',
   responses: {
@@ -132,6 +135,7 @@ app.openapi(createRoute({
 });
 
 app.openapi(createRoute({
+    operationId: 'postConfigs',
   method: 'post',
   path: '/configs',
   request: { body: { content: { 'application/json': { schema: CreateConfigSchema } } } },
@@ -151,6 +155,7 @@ app.openapi(createRoute({
 });
 
 app.openapi(createRoute({
+    operationId: 'putConfigsId',
   method: 'put',
   path: '/configs/{id}',
   request: { 
@@ -180,6 +185,7 @@ app.openapi(createRoute({
 });
 
 app.openapi(createRoute({
+    operationId: 'deleteConfigsId',
   method: 'delete',
   path: '/configs/{id}',
   request: { params: z.object({ id: z.string() }) },
@@ -204,6 +210,7 @@ app.openapi(createRoute({
 
 // 1. List of Discord channels the registered user (bot) is following/accessing
 app.openapi(createRoute({
+    operationId: 'getChannels',
   method: 'get',
   path: '/channels',
   responses: {
@@ -230,6 +237,7 @@ app.openapi(createRoute({
 
 // 2. List all new posts across all channels
 app.openapi(createRoute({
+    operationId: 'getChannelsMessagesAll',
   method: 'get',
   path: '/channels/messages/all',
   responses: {
@@ -265,6 +273,7 @@ app.openapi(createRoute({
 
 // 3. List all new posts within a given channel
 app.openapi(createRoute({
+    operationId: 'getChannelsChannelIdMessages',
   method: 'get',
   path: '/channels/{channelId}/messages',
   request: { params: z.object({ channelId: z.string() }) },
@@ -285,6 +294,7 @@ app.openapi(createRoute({
 
 // 4. Pull all sub-channel (threads) new posts
 app.openapi(createRoute({
+    operationId: 'getThreadsMessagesAll',
   method: 'get',
   path: '/threads/messages/all',
   responses: {
@@ -316,6 +326,7 @@ app.openapi(createRoute({
 
 // 5. Search across all sub channels
 app.openapi(createRoute({
+    operationId: 'getThreadsMessagesSearch',
   method: 'get',
   path: '/threads/messages/search',
   request: { query: z.object({ query: z.string() }) },
@@ -352,6 +363,7 @@ app.openapi(createRoute({
 
 // 6. Pull all new posts from specified sub channel
 app.openapi(createRoute({
+    operationId: 'getThreadsThreadIdMessages',
   method: 'get',
   path: '/threads/{threadId}/messages',
   request: { params: z.object({ threadId: z.string() }) },
@@ -373,6 +385,7 @@ app.openapi(createRoute({
 
 // 7. Search across specified sub channel
 app.openapi(createRoute({
+    operationId: 'getThreadsThreadIdSearch',
   method: 'get',
   path: '/threads/{threadId}/search',
   request: { 

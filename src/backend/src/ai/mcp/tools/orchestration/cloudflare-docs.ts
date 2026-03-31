@@ -1,6 +1,5 @@
 import { z } from "zod";
-import { MCPTool } from "@/ai/mcp/index";
-import { rewriteQuestionForMCP } from "@/ai/providers";
+import { MCPTool } from "@/ai/mcp/tools";
 
 export const AskCloudflareTool: MCPTool = {
   name: "ask_cloudflare",

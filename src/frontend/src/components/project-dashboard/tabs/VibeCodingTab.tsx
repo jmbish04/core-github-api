@@ -8,7 +8,6 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 type VibeCodingTabProps = {
-  projectId: string;
   projectName: string;
   repoOwner: string;
   repoName: string;
@@ -46,7 +45,6 @@ const DEFAULT_PROMPTS = [
 ];
 
 export function VibeCodingTab({
-  projectId,
   projectName,
   repoOwner,
   repoName,
@@ -86,7 +84,7 @@ export function VibeCodingTab({
     setIsRunning(true);
 
     try {
-      const response = await fetch(`/api/projects/${projectId}/vibe-coding/chat`, {
+      const response = await fetch(`/api/repos/${encodeURIComponent(repoOwner)}/${encodeURIComponent(repoName)}/vibe-coding/chat`, {
         method: "POST",
         headers: {
           "content-type": "application/json",

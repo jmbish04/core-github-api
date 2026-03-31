@@ -6,11 +6,11 @@
 
 import { OpenAPIHono, createRoute } from '@hono/zod-openapi'
 import { z } from 'zod'
-import { getDb, schema } from "@db";
+import { getDb } from "@db";
 import { eq, desc } from 'drizzle-orm'
 import { chatThreads, chatMessages } from "@/db/schemas/agents/chat";
 import { v4 as uuidv4 } from 'uuid'
-import { getAgentByName } from '@/ai/agents/runtime/agents'
+import { HoniClient } from '@utils/honi-client';
 
 const chatApi = new OpenAPIHono<{ Bindings: Env }>()
 
@@ -161,7 +161,6 @@ chatApi.openapi(createRoute({
     const targetAgentId = thread?.agentId || 'default'; // default to GeminiAgent
 
     // 4. Call Agent (Durable Object)
-    const getByName = getAgentByName as any
     let stub;
     let result: { response: string, history?: any[] } | undefined;
 
@@ -175,7 +174,7 @@ chatApi.openapi(createRoute({
         }
 
         if (targetAgentId === 'cloudflare-docs') {
-             stub = await getByName(c.env.CLOUDFLARE_DOCS_AGENT, threadId);
+             stub = HoniClient.getStub(c.env.CLOUDFLARE_DOCS_AGENT as any, threadId) as any;
              let context = repoContext;
              if (!context && thread?.repoId) {
                  if (thread.repoId.includes('/')) {
@@ -185,14 +184,14 @@ chatApi.openapi(createRoute({
              }
              result = await stub.chat(content, history, context);
         } else if (targetAgentId === 'automation-architect') {
-             stub = await getByName(c.env.GEMINI_AGENT, threadId);
+             stub = HoniClient.getStub(c.env.GEMINI_AGENT as any, threadId) as any;
              const architectPrompt = `You are the Automation Architect for the core-github-api. 
              You help engineers scaffold new webhook automations by creating classes that extend BaseAutomation. 
              All new automations must implement a .shouldExecute() hook. Output patch-ready code in Markdown blocks.`;
              result = await stub.chat(content, history, architectPrompt);
         } else {
              // Default: GeminiAgent
-             stub = await getByName(c.env.GEMINI_AGENT, threadId);
+             stub = HoniClient.getStub(c.env.GEMINI_AGENT as any, threadId) as any;
              result = await stub.chat(content, history);
         }
     } catch (error: any) {

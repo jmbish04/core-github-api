@@ -573,10 +573,10 @@ async function createStalePricingIssue(env: Env, lastUpdate: Date | null, priceC
 
   try {
     const { Octokit } = await import('@octokit/rest');
-    const githubToken = await env.GITHUB_TOKEN.get();
+    const githubToken = await env.GITHUB_PERSONAL_ACCESS_TOKEN.get();
 
     if (!githubToken) {
-      logger.error('GITHUB_TOKEN not found - cannot create issue');
+      logger.error('GITHUB_PERSONAL_ACCESS_TOKEN not found - cannot create issue');
       return;
     }
 

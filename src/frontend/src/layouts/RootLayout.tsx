@@ -1,15 +1,39 @@
 
-import { NavLink, Outlet } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { HealthWidget } from "@/components/health/HealthWidget";
 import { UserNav } from "@/components/layout/UserNav";
 import { AlertBadge } from "@/components/alerts/AlertBadge";
 import { GlobalConsultantModal } from "@/components/reverse-engineering/GlobalConsultantModal";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Menu } from "lucide-react";
+import { Menu, X, PanelLeftClose, PanelLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function RootLayout() {
+    const location = useLocation();
+    const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
+        if (typeof window !== "undefined") return window.innerWidth >= 768;
+        return true;
+    });
+
+    // Auto-close sidebar on mobile when route changes
+    useEffect(() => {
+        if (typeof window !== "undefined" && window.innerWidth < 768) {
+            setIsSidebarOpen(false);
+        }
+    }, [location.pathname]);
+
+    // Auto-open sidebar when resizing from mobile to desktop
+    useEffect(() => {
+        const handleResize = () => {
+            if (window.innerWidth >= 768) {
+                setIsSidebarOpen(true);
+            }
+        };
+        window.addEventListener("resize", handleResize);
+        return () => window.removeEventListener("resize", handleResize);
+    }, []);
+
     const topNavLinks = [
         { label: "Home", href: "/" },
         { label: "Dashboard", href: "/dashboard" },
@@ -28,21 +52,48 @@ export default function RootLayout() {
 
     return (
         <div className="flex h-screen bg-background text-foreground font-sans antialiased overflow-hidden">
-            <AppSidebar className="hidden md:flex shrink-0" />
+            {/* Backdrop overlay — visible on mobile when sidebar is open */}
+            {isSidebarOpen && (
+                <div
+                    className="fixed inset-0 bg-black/40 z-20 md:hidden"
+                    onClick={() => setIsSidebarOpen(false)}
+                />
+            )}
+
+            {/* Static collapsible sidebar — single implementation for all breakpoints */}
+            <div
+                className={[
+                    "shrink-0 z-30 transition-all duration-300 ease-in-out",
+                    "fixed md:relative h-full",
+                    isSidebarOpen ? "w-[264px]" : "w-0",
+                ].join(" ")}
+            >
+                <div className={[
+                    "h-full transition-opacity duration-200",
+                    isSidebarOpen ? "opacity-100" : "opacity-0 pointer-events-none overflow-hidden",
+                ].join(" ")}>
+                    <AppSidebar className="w-[264px] h-full" />
+                </div>
+            </div>
+
             <main className="flex-1 flex flex-col h-full overflow-hidden relative w-full">
                 <header className="h-14 border-b px-4 md:px-6 flex items-center justify-between bg-card/50 backdrop-blur-md sticky top-0 z-10 gap-2 md:gap-4 overflow-hidden">
                     <div className="flex items-center gap-2 md:gap-4 min-w-0">
-                        <Sheet>
-                            <SheetTrigger asChild>
-                                <Button variant="ghost" size="icon" className="md:hidden shrink-0">
-                                    <Menu className="h-5 w-5" />
-                                    <span className="sr-only">Toggle navigation menu</span>
-                                </Button>
-                            </SheetTrigger>
-                            <SheetContent side="left" className="p-0 w-64 border-r-0">
-                                <AppSidebar className="w-full h-full border-r-0" />
-                            </SheetContent>
-                        </Sheet>
+                        {/* Hamburger toggle — always visible */}
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="shrink-0"
+                            onClick={() => setIsSidebarOpen((v) => !v)}
+                            aria-label={isSidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
+                        >
+                            {isSidebarOpen ? (
+                                <PanelLeftClose className="h-5 w-5" />
+                            ) : (
+                                <PanelLeft className="h-5 w-5" />
+                            )}
+                            <span className="sr-only">Toggle sidebar</span>
+                        </Button>
                         <div className="flex items-center gap-2 text-muted-foreground shrink-0 hidden sm:flex">
                             <svg
                                 aria-hidden="true"
