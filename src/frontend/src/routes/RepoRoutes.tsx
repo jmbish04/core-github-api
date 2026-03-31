@@ -54,6 +54,7 @@ import TaskDetails from "@/views/control/global/TaskDetails";
 import ReverseEngineering from "@/views/control/global/ReverseEngineering";
 import ReverseEngineeringSnapshot from "@/views/control/global/ReverseEngineeringSnapshot";
 import AgentWorkshop from "@/views/control/global/AgentWorkshop";
+import SentinelHud from "@/views/repos/SentinelHud";
 import { GlobalCommandCenter } from "@/components/workshop/GlobalCommandCenter";
 import { WorkshopTakeover } from "@/components/workshop/WorkshopTakeover";
 import Chat from "@/views/control/global/Chat";
@@ -99,6 +100,9 @@ export function RepoRoutes() {
       {/* /repos/:owner/:repo/projects — repo project board (dedicated) */}
       <Route path="projects" element={<RepoProjects />} />
       <Route path="projects/tracker" element={<RepoProjectsBeta />} />
+
+      {/* Sentinel HUD — repo-scoped insights */}
+      <Route path="sentinel" element={<SentinelHud />} />
 
       {/* Beta Tracker — layout route with nested list/board/reports views */}
       <Route path="projects/tracker-beta" element={<TrackerLayoutBeta />}>

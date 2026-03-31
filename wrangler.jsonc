@@ -527,6 +527,11 @@
 			"name": "cloudflare-changelog-workflow",
 			"binding": "CLOUDFLARE_CHANGELOG_WORKFLOW",
 			"class_name": "CloudflareChangelogWorkflow"
+		},
+		{
+			"name": "stitch-loop-workflow",
+			"binding": "STITCH_LOOP_WORKFLOW",
+			"class_name": "StitchLoopWorkflow"
 		}
 	],
 	"browser": {

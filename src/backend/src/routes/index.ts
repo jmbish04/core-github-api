@@ -39,6 +39,7 @@ import {
   sandboxApi,
   researchProjectsApi,
   sentinelApi,
+  sentinelInsightsApi,
 } from './api';
 
 /**
@@ -81,5 +82,6 @@ export function mountRoutes(app: OpenAPIHono<{ Bindings: Env }>) {
     .route('/api/pr-reviewer', prReviewerApi)
     .route('/api/sandbox', sandboxApi)
     .route('/api/research', researchProjectsApi)
-    .route('/api/projects/sentinel', sentinelApi);
+    .route('/api/projects/sentinel', sentinelApi)
+    .route('/api/sentinel', sentinelInsightsApi);
 }

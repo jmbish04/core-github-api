@@ -6,3 +6,4 @@ export * from './search';
 export * from './planning/health';
 export * from './planning/orchestrator';
 export * from './discord';
+export * from './planning/stitch-loop';
