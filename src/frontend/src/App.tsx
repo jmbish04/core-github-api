@@ -23,6 +23,9 @@ import Standardization from "@/views/control/global/Standardization";
 import AppStore from "@/views/control/global/AppStore";
 import AgentWorkshop from "@/views/control/global/AgentWorkshop";
 import { CloudflareCosts } from "@/views/control/global/CloudflareCosts";
+import SentinelDashboard from "@/views/control/global/SentinelDashboard";
+import SentinelKanban from "@/views/control/global/SentinelKanban";
+import SentinelHud from "@/views/repos/SentinelHud";
 
 // New Phase 3 components
 import { GlobalCommandCenter } from "@/components/workshop/GlobalCommandCenter";
@@ -127,6 +130,12 @@ function App() {
             <Route path="/standardization" element={guard(<Standardization />)} />
             <Route path="/apps" element={guard(<AppStore />)} />
             <Route path="/alerts" element={guard(<AlertsPage />)} />
+
+            {/* Sentinel Learning Engine */}
+            <Route path="/sentinel" element={guard(<SentinelDashboard />)} />
+            <Route path="/sentinel/kanban" element={guard(<SentinelKanban />)} />
+            <Route path="/repos/:owner/:repo/sentinel" element={guard(<SentinelHud />)} />
+            <Route path="/project/:owner/:repo/sentinel" element={guard(<SentinelHud />)} />
 
             {/* Workshop Agentic Module */}
             <Route path="/workshop" element={guard(<AgentWorkshop />)} />

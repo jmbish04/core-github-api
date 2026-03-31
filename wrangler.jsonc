@@ -362,6 +362,10 @@
 			{
 				"name": "UX_DESIGN_AGENT",
 				"class_name": "UxDesignAgent"
+			},
+			{
+				"name": "LEARNING_AGENT",
+				"class_name": "LearningAgent"
 			}
 		]
 	},
@@ -444,6 +448,13 @@
 				"PRReviewDO",
 				"PRSummaryDO"
 			]
+		},
+		{
+			"tag": "v7",
+			"new_sqlite_classes": [
+				// Sentinel Learning Agent — ingests agent conversations, enriches via MCP, builds architectural memory
+				"LearningAgent"
+			]
 		}
 	],
 	"workflows": [
@@ -468,7 +479,6 @@
 			"class_name": "TopicResearchWorkflow"
 		},
 		{
-		{
 			// Incremental Discord channel scanner — ingests messages from the
 			// Cloudflare Developers Discord, analyses them with AI, and surfaces
 			// highlights in the daily newsletter.
@@ -480,6 +490,11 @@
 			"name": "planning-orchestrator",
 			"binding": "PLANNING_ORCHESTRATOR",
 			"class_name": "PlanningOrchestrator"
+		},
+		{
+			"name": "stitch-loop-workflow",
+			"binding": "STITCH_LOOP_WORKFLOW",
+			"class_name": "StitchLoopWorkflow"
 		}
 	],
 	"browser": {
@@ -596,7 +611,9 @@
 			"0 3 * * 7",
 			// Every 6 hours - App Store AI Summary Backfill
 			// Processes unsummarized apps with Worker AI and saves to D1
-			"0 */6 * * *"
+			"0 */6 * * *",
+			// Every 4 hours - Sentinel Learning Agent ingestion cycle
+			"0 */4 * * *"
 		]
 	}
 }

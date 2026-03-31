@@ -35,6 +35,7 @@ import { standardizationRouter } from '@/routes/api/standardization';
 import cloudflareApi from '@/routes/api/cloudflare/index';
 import uxApi from '@/routes/api/ux/index';
 import { docsAgentsRouter } from '@/routes/api/docs/agents';
+import sentinelApi from '@/routes/api/sentinel';
 
 type McpEnv = Pick<Env, 'STITCH_API_KEY' | 'JULES_API_KEY'>;
 
@@ -301,7 +302,8 @@ export const routes = app
   .route('/api/standardization', standardizationRouter)
   .route('/api/cloudflare', cloudflareApi)
   .route('/api/ux', uxApi)
-  .route('/api/docs/agents', docsAgentsRouter);
+  .route('/api/docs/agents', docsAgentsRouter)
+  .route('/api/sentinel', sentinelApi);
 
 
 export type AppType = typeof routes;
@@ -423,3 +425,5 @@ export { ResearchOrchestrator } from '@/workflows/research/orchestrator';
 export { TopicResearchWorkflow } from '@/workflows/research/topic';
 export { PlanningOrchestrator } from '@/workflows/planning/orchestrator';
 export { AgentSessionDO } from '@/do/AgentSessionDO';
+export { LearningAgent } from '@/ai/agents/LearningAgent';
+export { StitchLoopWorkflow } from '@/workflows/planning/stitch-loop';

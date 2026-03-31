@@ -18,3 +18,5 @@ export { PlanningSupervisorAgent } from './ai/agents/planning/Supervisor';
 export { PlanningOrchestratorAgent } from './ai/agents/planning/Orchestrator';
 export { HoniOrchestrator } from './ai/agents/reverse-engineering/Orchestrator';
 export { HoniConsultant } from './ai/agents/reverse-engineering/Consultant';
+export { LearningAgent } from './ai/agents/LearningAgent';
+export { StitchLoopWorkflow } from './workflows/planning/stitch-loop';
