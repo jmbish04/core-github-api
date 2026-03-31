@@ -18,4 +18,4 @@ trigger: always_on
 ## Code Output Rules
 - ALWAYS respond with full end-to-end code for the modified module.
 - NEVER use shortcuts or "rest of code" comments.
-- Ensure `integer('id').generatedAlwaysAsIdentity()` is used for all Drizzle primary keys per 2026 standards.
+- Ensure `integer('id').primaryKey({ autoIncrement: true })` is used for all Drizzle primary keys (D1/SQLite standard).
