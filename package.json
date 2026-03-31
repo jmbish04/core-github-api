@@ -47,12 +47,13 @@
     "migrate:remote:core": "yes | wrangler d1 migrations apply DB --remote",
     "migrate:local:webhooks": "yes | wrangler d1 migrations apply DB_WEBHOOKS --local",
     "migrate:remote:webhooks": "yes | wrangler d1 migrations apply DB_WEBHOOKS --remote",
-    "secrets:audit": "node scripts/audit-secrets.mjs"
+    "secrets:audit": "node scripts/audit-secrets.mjs",
+    "db:auto": "pnpm run db:generate:all && pnpm run migrate:local:all && wrangler types"
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "^8.4.1",
     "@cloudflare/puppeteer": "^1.0.6",
-    "@cloudflare/sandbox": "0.7.13",
+    "@cloudflare/sandbox": "0.8.1",
     "@google/jules-mcp": "^0.0.6",
     "@google/jules-sdk": "^0.0.6",
     "@hono/swagger-ui": "latest",
@@ -68,6 +69,7 @@
     "@octokit/rest": "^20.1.2",
     "@octokit/webhooks-methods": "^4.1.0",
     "@paralleldrive/cuid2": "^3.3.0",
+    "@scalar/hono-api-reference": "^0.10.5",
     "@sinclair/typebox": "^0.34.48",
     "@tsndr/cloudflare-worker-jwt": "^3.2.1",
     "@types/libsodium-wrappers": "^0.8.2",

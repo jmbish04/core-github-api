@@ -13,7 +13,10 @@ export interface WorkshopAgentState extends HonoBaseAgentState {
  * creation of the GitHub repository. It functions as the backend 
  * brain for the Workshop Wizard UI.
  */
-export class WorkshopAgent extends HonoBaseAgent<Env, WorkshopAgentState> {
+export class WorkshopAgent extends HonoBaseAgent {
+  declare env: Env;
+  declare ctx: DurableObjectState;
+  declare logger: any;
   protected get agentName(): string {
     return "WorkshopAgent";
   }

@@ -7,7 +7,7 @@
 import { OpenAPIHono, createRoute } from '@hono/zod-openapi'
 import { z } from 'zod'
 import { Bindings } from "@utils/hono";
-import { getAgentByName } from 'agents'
+import { getAgentByName } from '@/ai/agents/utils'
 
 const sessionStatusApi = new OpenAPIHono<{ Bindings: Env }>()
 type OrchestratorStub = DurableObjectStub<undefined> & {

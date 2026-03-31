@@ -445,4 +445,60 @@ export class JulesService {
       );
     }
   }
+
+  /**
+   * Streams interaction events from a Jules session and forwards each as an
+   * `AgentEvent` to the JulesOverseer `/ingest` endpoint.
+   *
+   * Falls back to fetching the latest snapshot activity if the session does
+   * not support streaming.
+   *
+   * @param sessionId - The Jules session ID to monitor.
+   * @param overseerUrl - Base URL of the JulesOverseer DO (e.g. `http://internal`).
+   */
+  async streamInteraction(sessionId: string, overseerUrl: string): Promise<void> {
+    const session = await this.getSession(sessionId);
+
+    const postEvent = async (content: string) => {
+      try {
+        await fetch(`${overseerUrl}/ingest`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'agent_message',
+            sessionId,
+            content,
+            timestamp: new Date().toISOString(),
+          }),
+        });
+      } catch (err) {
+        console.error(`[JulesService] Failed to post agent_message to overseer for ${sessionId}`, err);
+      }
+    };
+
+    try {
+      if (typeof (session as any).stream === 'function') {
+        const stream = (session as any).stream() as AsyncIterable<any>;
+        for await (const activity of stream) {
+          const content =
+            typeof activity === 'string'
+              ? activity
+              : activity?.text || activity?.message || activity?.content || JSON.stringify(activity);
+          await postEvent(content);
+        }
+      } else {
+        // Fallback: fetch latest snapshot activity
+        const snapshot = await this.getSessionSnapshot(sessionId, { includeActivities: true });
+        const activities: any[] = (snapshot as any)?.activities ?? [];
+        const latest = activities[activities.length - 1];
+        if (latest) {
+          const content =
+            latest.text || latest.message || latest.content || JSON.stringify(latest);
+          await postEvent(content);
+        }
+      }
+    } catch (err) {
+      console.error(`[JulesService] streamInteraction error for ${sessionId}`, err);
+    }
+  }
 }

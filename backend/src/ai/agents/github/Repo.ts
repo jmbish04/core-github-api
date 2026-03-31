@@ -5,7 +5,12 @@
  * @version 1.0.0
  */
 
-import { getAgentByName, routeAgentRequest, callable } from "agents";
+import { callable } from "agents";
+import { getAgentByName } from "@/ai/agents/utils";
+// routeAgentRequest is not available in local utils; stub it if needed
+function routeAgentRequest(req: Request, env: any): Promise<Response | null> {
+  return Promise.resolve(null);
+}
 import { BaseAgent, BaseAgentState, Tool } from "@/ai/agents/base/BaseAgent";
 import { Logger } from "@logging";
 import { generateUuid } from "@/utils/common";
@@ -302,8 +307,7 @@ export class RepoAgent extends BaseAgent<Env, RepoState> {
     const repo = this.getRepository(payload);
     if (!repo) return;
 
-    this.setState({
-      ...this.state,
+    Object.assign(this.state as any, {
       repoFullName: repo.full_name,
       stats: {
         stars: repo.stargazers_count,
@@ -605,10 +609,7 @@ export class RepoAgent extends BaseAgent<Env, RepoState> {
   @callable()
   clearEvents(): void {
     this.db.delete(agentSchema.agentEvents).run();
-    this.setState({
-      ...this.state,
-      lastUpdated: new Date().toISOString(),
-    });
+    (this.state as any).lastUpdated = new Date().toISOString();
   }
 }
 

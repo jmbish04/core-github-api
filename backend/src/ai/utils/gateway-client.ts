@@ -102,6 +102,31 @@ export async function runStructuredResponseWithModelFallback(
     }
 }
 
+/**
+ * Creates a runner that wraps the Agents SDK with a Universal Gateway client.
+ * Returns an object with a `run(agent, prompt)` method compatible with @openai/agents.
+ */
+export async function createUniversalGatewayRunner(
+    env: any,
+    apiKey: string,
+    model: string
+): Promise<{ run: (agent: any, prompt: string) => Promise<{ finalOutput: string }> }> {
+    const client = await createUniversalGatewayClient(env, apiKey);
+    return {
+        run: async (_agent: any, prompt: string) => {
+            const response = await client.chat.completions.create({
+                model,
+                messages: [
+                    { role: 'system', content: _agent?.instructions || 'You are a helpful assistant.' },
+                    { role: 'user', content: prompt }
+                ]
+            });
+            const finalOutput = response.choices?.[0]?.message?.content || '';
+            return { finalOutput };
+        }
+    };
+}
+
 async function getApiKeyForProvider(env: any, provider: string): Promise<string> {
     try {
         if (provider.includes('anthropic')) return await env.ANTHROPIC_API_KEY?.get();

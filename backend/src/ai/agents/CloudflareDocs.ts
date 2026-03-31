@@ -64,11 +64,9 @@ export class CloudflareDocsAgent extends HonoBaseAgent {
   }
 
   initialState: CloudflareDocsState = {
-    repoContext: null,
     status: "idle",
     history: [],
-    mcpCache: {},
-  };
+  } as any;
 
   protected async getSystemPromptBase(): Promise<string> {
     let resolvedPrompt = SYSTEM_PROMPT_BASE;

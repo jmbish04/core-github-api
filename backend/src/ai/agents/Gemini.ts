@@ -9,9 +9,9 @@ export const agentExports = createAgent({
   binding: "GEMINI_AGENT",
   tools: [],
   memory: {
-     episodic: { enabled: true, dbBinding: 'DB' }
-  },
-  observability: { enabled: true, aiGatewaySlug: 'core-github-api', collectEvents: true }
+     episodic: { binding: 'DB' }
+  } as any,
+  observability: { enabled: true, aiGatewaySlug: 'core-github-api', collectEvents: true } as any
 });
 
 const app = new Hono<{ Bindings: Env }>();
@@ -21,7 +21,7 @@ app.get('/docs', (c) => c.text('Gemini Agent API Documentation'));
 app.get('/context', (c) => c.json({ environment: 'Cloudflare Workers', agent: 'GeminiAgent' }));
 app.get('/openapi.json', (c) => c.json({ openapi: '3.1.0', info: { title: 'GeminiAgent', version: '1.0.0' }, paths: {} }));
 
-app.all('/*', (c) => agentExports.fetch(c.req.raw, c.env, c.executionCtx));
+app.all('/*', (c) => agentExports.fetch(c.req.raw as any, c.env, c.executionCtx as any));
 
 export default app;
 

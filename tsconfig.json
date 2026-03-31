@@ -49,6 +49,7 @@
   },
   "include": [
     "backend/src/**/*.ts",
+    "backend/src/**/*.d.ts",
     "worker-configuration.d.ts",
     "tests",
     "scripts/github/extract_pr_code_comments.ts",

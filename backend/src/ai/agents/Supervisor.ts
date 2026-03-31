@@ -4,7 +4,7 @@ import { Hono } from 'hono';
 import { generateUuid } from "@/utils/common";
 import { checkGitHubAPIHealth, checkWebhooksHealth } from '@/workflows/health';
 
-export const { Agent, handler } = createAgent<Env>({
+const _agentExports = createAgent({
   name: "supervisor",
   model: "claude-3-5-sonnet-latest",
   system: "You are a Supervisor Agent ensuring the health of a containerized task. Analyze logs and respond with concise, actionable guidance.",
@@ -12,19 +12,23 @@ export const { Agent, handler } = createAgent<Env>({
   tools: [],
   memory: {
      working: true
-  },
-  observability: { enabled: true, aiGatewaySlug: 'core-github-api', collectEvents: true }
+  } as any,
+  observability: { enabled: true, aiGatewaySlug: 'core-github-api', collectEvents: true } as any
 });
+const handler = _agentExports;
+const Agent = _agentExports.DurableObject as any;
 
 const app = new Hono<{ Bindings: Env }>();
 app.get('/health', (c) => c.json({ status: 'ok', agent: 'Supervisor' }));
 app.get('/docs', (c) => c.text('Supervisor Agent API Documentation'));
 app.get('/context', (c) => c.json({ environment: 'Cloudflare Workers', agent: 'Supervisor' }));
 app.get('/openapi.json', (c) => c.json({ openapi: '3.1.0', info: { title: 'Supervisor', version: '1.0.0' }, paths: {} }));
-app.all('/*', (c) => handler.fetch(c.req.raw, c.env, c.executionCtx));
+app.all('/*', (c) => handler.fetch(c.req.raw as any, c.env, c.executionCtx as any));
 export default app;
 
 export class Supervisor extends Agent {
+    declare env: Env;
+    declare ctx: DurableObjectState;
     private sessions: { ws: WebSocket; type: 'terminal' | 'control' }[] = [];
     private containerWs: WebSocket | null = null;
     private logs: string[] = [];
@@ -32,7 +36,7 @@ export class Supervisor extends Agent {
     private startTime: number = 0;
     private healthStatus: any = null;
 
-    override async fetch(request: Request): Promise<Response> {
+    async fetch(request: Request): Promise<Response> {
         const url = new URL(request.url);
 
         if (url.pathname === "/websocket") {

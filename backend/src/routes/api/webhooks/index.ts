@@ -25,6 +25,7 @@ import type { GitHubWebhookPayload } from '@/types/github/webhooks';
 import { App } from 'octokit';
 import { sanitizeRepoName } from '@/ai/mcp/tools/sandbox-sdk';
 import { AutomationRegistry } from '@/core/AutomationRegistry';
+import { sentinelPrHandler } from '@/automations/pr/sentinel-handler';
 
 const webhooksApi = new Hono<{ Bindings: Env }>();
 
@@ -172,6 +173,15 @@ export async function webhookHandler(c: Context<{ Bindings: Env }>): Promise<Res
       installation_type: installationTargetType || null,
       created_at: new Date().toISOString()
     });
+
+    // Sentinel PR handler — runs for pull_request.opened and pull_request.synchronize
+    if (eventName === 'pull_request' && (action === 'opened' || action === 'synchronize')) {
+      c.executionCtx.waitUntil(
+        sentinelPrHandler(payload, c.env).catch((err: Error) => {
+          console.error('[Webhook] sentinelPrHandler failed:', err.message);
+        })
+      );
+    }
 
     c.executionCtx.waitUntil(
       AutomationRegistry.dispatch({

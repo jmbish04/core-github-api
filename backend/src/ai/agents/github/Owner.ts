@@ -177,15 +177,12 @@ export class OwnerAgent extends BaseAgent<Env, OwnerState> {
                       (payload as any).sender?.login;
 
     if (ownerName && this.state.ownerName !== ownerName) {
-        this.setState({ ...this.state, ownerName });
+        (this.state as any).ownerName = ownerName;
     }
 
     // Track activity & webhook health state
-    this.setState({
-      ...this.state,
-      lastUpdated: new Date().toISOString(),
-      webhookConfigured: true
-    });
+    (this.state as any).lastUpdated = new Date().toISOString();
+    (this.state as any).webhookConfigured = true;
 
     const event = this.createEvent(eventType, payload);
     if (event) {
@@ -445,7 +442,7 @@ export class OwnerAgent extends BaseAgent<Env, OwnerState> {
   clearEvents(): void {
       this.db.delete(agentSchema.automationRuns).run();
       this.db.delete(agentSchema.agentEvents).run();
-      this.setState({ ...this.state, lastUpdated: new Date().toISOString() });
+      (this.state as any).lastUpdated = new Date().toISOString();
   }
 
   /**

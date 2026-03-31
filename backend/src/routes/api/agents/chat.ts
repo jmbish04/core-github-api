@@ -6,7 +6,7 @@
 
 import { OpenAPIHono, createRoute } from '@hono/zod-openapi'
 import { z } from 'zod'
-import { getAgentByName } from 'agents'
+import { getAgentByName } from '@/ai/agents/utils'
 import { generateUuid } from "@/utils/common";
 
 const chatApi = new OpenAPIHono<{ Bindings: Env }>()

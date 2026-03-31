@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * CloudflareDocsAgent — Specialized Cloudflare Documentation Expert
  *

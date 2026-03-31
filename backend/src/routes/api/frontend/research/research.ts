@@ -26,7 +26,7 @@ app.post("/create", async (c) => {
   const stub = c.env.TOPIC_ORCHESTRATOR.get(id); // Use newUniqueId for a fresh agent
   
   // Create brief via RPC
-  const brief = await stub.submitBrief(userId || "anon", title, requirements);
+  const brief = await (stub as any).submitBrief(userId || "anon", title, requirements);
   
   return c.json({ brief, agentId: id.toString() });
 });

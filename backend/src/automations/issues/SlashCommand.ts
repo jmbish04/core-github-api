@@ -75,10 +75,7 @@ export class SlashCommand extends BaseAutomation<SlashCommandPayload> {
         body,
         {
           env: this.env,
-          executionCtx: {
-            ...requestContext.executionCtx,
-            exports: {} as Record<string, unknown>,
-          } as ExecutionContext,
+          executionCtx: requestContext.executionCtx as any,
           repo: {
             owner: payload.repository.owner.login,
             name: payload.repository.name,

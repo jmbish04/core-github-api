@@ -23,7 +23,6 @@ export interface Tool {
 }
 
 export class BaseAgent<TEnv extends Env = Env, State = any> extends DurableObject<TEnv> {
-  // @ts-expect-error - DurableObject provides these but TS doesn't see them automatically in some envs
   public env: TEnv;
   // @ts-expect-error
   public ctx: DurableObjectState;
@@ -82,15 +81,19 @@ export class BaseAgent<TEnv extends Env = Env, State = any> extends DurableObjec
 
   protected async getProviderApiKey(provider: SupportedProvider): Promise<string> {
     try {
+      const envAny = this.env as unknown as Record<string, unknown>;
+      async function resolveSecret(binding: unknown): Promise<string> {
+        return typeof binding === 'string' ? binding : await (binding as any)?.get?.() ?? '';
+      }
       switch (provider) {
         case 'anthropic':
-          return await (this.env as Record<string, { get?: () => Promise<string> }>).ANTHROPIC_API_KEY?.get() || "cf-aig-dummy-key";
+          return await resolveSecret(envAny.ANTHROPIC_API_KEY) || "cf-aig-dummy-key";
         case 'gemini':
         case 'google-ai-studio':
-          return await (this.env as Record<string, { get?: () => Promise<string> }>).GEMINI_API_KEY?.get() || "cf-aig-dummy-key";
+          return await resolveSecret(envAny.GEMINI_API_KEY) || "cf-aig-dummy-key";
         case 'openai':
         default:
-          return await (this.env as Record<string, { get?: () => Promise<string> }>).OPENAI_API_KEY?.get() || "cf-aig-dummy-key";
+          return await resolveSecret(envAny.OPENAI_API_KEY) || "cf-aig-dummy-key";
       }
     } catch {
       return "cf-aig-dummy-key";
@@ -110,11 +113,11 @@ export class BaseAgent<TEnv extends Env = Env, State = any> extends DurableObjec
     
     // Raw fallback via Workers API or Gateway
     this.logger.info(`Running text model ${input.model} on ${provider}`);
-    const res = await super.fetch(new Request("http://agent/chat", {
+    const res = await (super.fetch as Function)(new Request("http://agent/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: input.prompt })
-    }));
+    })) as Response;
     const data = await res.json() as Record<string, string>;
     return data.reply || data.response || "";
   }
@@ -132,7 +135,7 @@ export class BaseAgent<TEnv extends Env = Env, State = any> extends DurableObjec
     const apiKey = await this.getProviderApiKey(provider);
     
     this.logger.info(`Running structured model ${input.model} on ${provider}`);
-    const res = await super.fetch(new Request("http://agent/chat", {
+    const res = await (super.fetch as Function)(new Request("http://agent/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 

@@ -3,11 +3,11 @@ import { z } from 'zod';
 import { Hono } from 'hono';
 import { getOctokit } from "@services/octokit/core";
 
-export const { Agent, handler } = createAgent<Env>({
+const _agentExports = createAgent({
   name: "research",
   model: "claude-3-5-sonnet-latest",
   system: `You are a senior research analyst specializing in GitHub repository analysis.
-        
+
 Your capabilities:
 - Search and analyze GitHub repositories
 - Clone repositories for deep code analysis
@@ -23,17 +23,17 @@ When a user asks you to research a repository:
 Always be thorough but concise. Focus on practical insights that developers can use.`,
   binding: "RESEARCH_AGENT",
   tools: [
-    tool(
-      'search_github_code', 
-      "Search for code in GitHub repositories using GitHub's specialized search syntax.", 
-      {
+    tool({
+      name: 'search_github_code',
+      description: "Search for code in GitHub repositories using GitHub's specialized search syntax.",
+      input: z.object({
          query: z.string().describe("The search query. Supports qualifiers like `org:cloudflare`, `repo:owner/name`. Regex is NOT supported directly."),
          regex_filter: z.string().optional().describe("Optional JS-compatible regex string to filter the search results locally."),
          max_results: z.number().optional().describe("Maximum number of results to return (default: 10).")
-      }, 
-      async (params, ctx) => {
+      }) as any,
+      handler: async (params, ctx) => {
         try {
-          const octokit = await getOctokit(ctx.env);
+          const octokit = await getOctokit((ctx as any)?.env);
           
           try {
             const { data } = await octokit.search.code({
@@ -70,13 +70,15 @@ Always be thorough but concise. Focus on practical insights that developers can 
           return JSON.stringify({ error: `Failed to execute tool: ${parseError.message}` });
         }
       }
-    )
+    })
   ],
   memory: {
      working: true
-  },
-  observability: { enabled: true, aiGatewaySlug: 'core-github-api', collectEvents: true }
+  } as any,
+  observability: { enabled: true, aiGatewaySlug: 'core-github-api', collectEvents: true } as any
 });
+const handler = _agentExports;
+const Agent = _agentExports.DurableObject as any;
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -85,7 +87,7 @@ app.get('/docs', (c) => c.text('Research Agent API Documentation'));
 app.get('/context', (c) => c.json({ environment: 'Cloudflare Workers', agent: 'ResearchAgent' }));
 app.get('/openapi.json', (c) => c.json({ openapi: '3.1.0', info: { title: 'ResearchAgent', version: '1.0.0' }, paths: {} }));
 
-app.all('/*', (c) => handler.fetch(c.req.raw, c.env, c.executionCtx));
+app.all('/*', (c) => handler.fetch(c.req.raw as any, c.env, c.executionCtx as any));
 
 export default app;
 

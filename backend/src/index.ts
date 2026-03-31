@@ -5,6 +5,9 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { createMcpHandler } from 'agents/mcp';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
+import { learningRouter } from '@/routes/api/learning';
+import { governanceRouter } from '@/routes/api/governance';
+import { ingestorRouter } from '@/services/sentinel/ingestor';
 
 export type Env = {
   STITCH_API_KEY: string;
@@ -12,19 +15,21 @@ export type Env = {
 
 // --- 1. MCP Server Definition ---
 function createOurMcpServer(env: Env) {
-  const server = new McpServer({ 
-    name: 'Codex-Orchestrator-MCP', 
-    version: '1.0.0' 
+  const server = new McpServer({
+    name: 'Codex-Orchestrator-MCP',
+    version: '1.0.0'
   });
+  // Cast to any to avoid version mismatch type errors between @modelcontextprotocol/sdk versions
+  const s = server as any;
 
   // Native Port: Assistant-UI Documentation
-  server.tool(
+  s.tool(
     'assistant_ui_docs',
     'Search and retrieve documentation for the assistant-ui library',
     {
       query: z.string().describe('Search query for UI documentation'),
     },
-    async ({ query }) => {
+    async ({ query }: { query: string }) => {
       // In a real implementation, you would fetch from a Vectorize index or remote doc source
       const simulatedDocs = `Simulated search results for assistant-ui query: ${query}\n\nTo implement a thread: use <Thread /> component.`;
       
@@ -35,7 +40,7 @@ function createOurMcpServer(env: Env) {
   );
 
   // Native Port: Sequential Thinking
-  server.tool(
+  s.tool(
     'sequential_thinking',
     'Process a logical thought sequence systematically',
     {
@@ -43,7 +48,7 @@ function createOurMcpServer(env: Env) {
       stepNumber: z.number().describe('The current sequence number'),
       totalSteps: z.number().optional().describe('Estimated total steps in the sequence'),
     },
-    async ({ thought, stepNumber }) => {
+    async ({ thought, stepNumber }: { thought: string; stepNumber: number; totalSteps?: number }) => {
       // Ported logic replacing @modelcontextprotocol/server-sequential-thinking
       return {
         content: [
@@ -57,15 +62,15 @@ function createOurMcpServer(env: Env) {
   );
 
   // Remote Proxy: Google Stitch & Cloudflare Docs
-  server.tool(
+  s.tool(
     'remote_mcp_proxy',
     'Execute a tool on a remote MCP server (cloudflare-docs or StitchMCP)',
     {
       targetServer: z.enum(['cloudflare-docs', 'StitchMCP']).describe('The remote server to connect to'),
       toolName: z.string().describe('The specific tool to execute on the remote server'),
-      parameters: z.record(z.any()).describe('JSON arguments required by the remote tool'),
+      parameters: z.record(z.string(), z.any()).describe('JSON arguments required by the remote tool'),
     },
-    async ({ targetServer, toolName, parameters }) => {
+    async ({ targetServer, toolName, parameters }: { targetServer: string; toolName: string; parameters: Record<string, unknown> }) => {
       let url = '';
       const headers: Record<string, string> = {};
 
@@ -82,7 +87,7 @@ function createOurMcpServer(env: Env) {
         headers['X-Goog-Api-Key'] = env.STITCH_API_KEY;
       }
 
-      const transport = new SSEClientTransport(new URL(url), { headers });
+      const transport = new SSEClientTransport(new URL(url), { eventSourceInit: { headers } } as any);
       const client = new Client({ name: `cf-worker-${targetServer}-proxy`, version: '1.0.0' }, { capabilities: {} });
       
       try {
@@ -120,22 +125,30 @@ app.doc('/openapi.json', {
 });
 
 app.get('/swagger', swaggerUI({ url: '/openapi.json' }));
-app.get('/scalar', apiReference({ spec: { url: '/openapi.json' } }));
+app.get('/scalar', apiReference({ url: '/openapi.json' } as any));
 
 // --- Operational Endpoints ---
 app.get('/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString() }));
 app.get('/context', (c) => c.json({ environment: 'production', transport: 'streamable-http' }));
 app.get('/docs', (c) => c.redirect('/scalar'));
 
+// --- Learning & Governance API Routes ---
+app.route('/api/learning', learningRouter as any);
+app.route('/api/governance', governanceRouter as any);
+app.route('/api/sentinel', ingestorRouter as any);
+
 // --- MCP Endpoint ---
-// We use app.all to capture both GET (SSE/Discovery) and POST (RPC execution) traffic 
+// We use app.all to capture both GET (SSE/Discovery) and POST (RPC execution) traffic
 // routed through the official createMcpHandler.
 app.all('/mcp/*', async (c) => {
   const server = createOurMcpServer(c.env);
-  const mcpHandler = createMcpHandler(server);
-  
+  const mcpHandler = createMcpHandler(server as any);
+
   // Pass the raw Request, environment, and ExecutionContext down to the Agents SDK handler
-  return mcpHandler(c.req.raw, c.env, c.executionCtx);
+  return mcpHandler(c.req.raw, c.env, c.executionCtx as any);
 });
 
 export default app;
+
+// Re-export all Durable Objects and Workflows so wrangler can bind them
+export * from './exports';

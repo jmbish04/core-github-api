@@ -10,7 +10,7 @@ import { getDb, schema } from "@db";
 import { eq, desc } from 'drizzle-orm'
 import { chatThreads, chatMessages } from "@/db/schemas/agents/chat";
 import { v4 as uuidv4 } from 'uuid'
-import { getAgentByName } from 'agents'
+import { getAgentByName } from '@/ai/agents/utils'
 
 const chatApi = new OpenAPIHono<{ Bindings: Env }>()
 

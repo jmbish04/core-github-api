@@ -70,7 +70,7 @@ export abstract class EvaluatorOptimizerAgent extends BaseAgent<Env, EvaluatorSt
       let attempts = 0;
       const MAX_ATTEMPTS = 3;
 
-      this.setState({ ...this.state, status: "running", history: [] });
+      this.setStatus("running");
 
       while (attempts < MAX_ATTEMPTS) {
         // --- Generate ---
@@ -85,24 +85,25 @@ export abstract class EvaluatorOptimizerAgent extends BaseAgent<Env, EvaluatorSt
         const evalResult = await run(evaluator, [
           { role: "user", content: `Original Request: ${input}\nGenerated Content: ${content}` }
         ]);
-        
+
         const judgment = evalResult.finalOutput; // Typed as EvaluationSchema
-        
+
         // Update State
         const newHistory = [
-          ...this.state.history, 
-          { 
-            iteration: attempts, 
-            content, 
-            feedback: judgment?.feedback || "", 
-            score: judgment?.score || "fail" 
+          ...this.state.history,
+          {
+            iteration: attempts,
+            content,
+            feedback: judgment?.feedback || "",
+            score: judgment?.score || "fail"
           }
         ];
-        this.setState({ ...this.state, history: newHistory });
+        (this.state as any).history = newHistory;
 
         // Check Exit Condition
         if (judgment?.score === "pass") {
-          this.setState({ ...this.state, status: "complete", finalResult: content });
+          this.setStatus("complete");
+          (this.state as any).finalResult = content;
           return content;
         }
 
@@ -115,7 +116,7 @@ export abstract class EvaluatorOptimizerAgent extends BaseAgent<Env, EvaluatorSt
         attempts++;
       }
 
-      this.setState({ ...this.state, status: "failed" });
+      this.setStatus("failed");
       return "Max iterations reached without passing score.";
     });
   }

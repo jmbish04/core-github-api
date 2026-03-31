@@ -18,7 +18,7 @@ export interface ParallelInput {
   concurrencyLimit?: number;
 }
 
-export class ParallelAgent extends CFAgent<Env> {
+export class ParallelAgent extends CFAgent {
   
   @callable()
   async debate(topic: string) {

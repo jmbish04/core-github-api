@@ -57,6 +57,13 @@
       "when": 1772967000000,
       "tag": "0007_handy_northstar",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1774975773443,
+      "tag": "0008_clean_boomer",
+      "breakpoints": true
     }
   ]
 }

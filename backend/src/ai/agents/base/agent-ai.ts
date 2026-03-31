@@ -159,3 +159,51 @@ export async function runTextAgent(options: {
   const { runTextWithModelFallback } = await import("@/ai/utils/gateway-client");
   return await runTextWithModelFallback(options.env, provider, model, options.instructions, options.input);
 }
+
+/**
+ * Streaming text agent interaction.
+ * Returns an object with a `toTextStream()` async iterable for streaming responses.
+ */
+export async function streamTextAgent(options: {
+  env: Env;
+  provider?: SupportedProvider;
+  model?: string;
+  name: string;
+  instructions: string;
+  input: string;
+}): Promise<{ toTextStream(): AsyncIterable<string> }> {
+  const provider = options.provider || resolveDefaultAiProvider(options.env);
+  const model = options.model || resolveDefaultAiModel(options.env, provider);
+  const { runTextWithModelFallback } = await import("@/ai/utils/gateway-client");
+
+  // Eagerly run and return a streaming wrapper around the full response
+  const fullText = await runTextWithModelFallback(options.env, provider, model, options.instructions, options.input);
+
+  return {
+    toTextStream(): AsyncIterable<string> {
+      return (async function* () {
+        yield fullText;
+      })();
+    }
+  };
+}
+
+/**
+ * Create an agent runner that can execute OpenAI-style agents.
+ * Returns an object with a `run(agent, prompt)` method compatible with @openai/agents.
+ */
+export async function createRunner(env: Env, provider?: SupportedProvider, model?: string): Promise<{
+  run(agent: any, prompt: string): Promise<{ finalOutput: string | null }>;
+}> {
+  const resolvedProvider = provider || resolveDefaultAiProvider(env);
+  const resolvedModel = model || resolveDefaultAiModel(env, resolvedProvider);
+  const { runTextWithModelFallback } = await import("@/ai/utils/gateway-client");
+
+  return {
+    async run(agent: any, prompt: string): Promise<{ finalOutput: string | null }> {
+      const instructions: string = agent?.instructions ?? '';
+      const text = await runTextWithModelFallback(env, resolvedProvider, resolvedModel, instructions, prompt);
+      return { finalOutput: text || null };
+    }
+  };
+}

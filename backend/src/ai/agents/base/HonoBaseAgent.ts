@@ -8,16 +8,16 @@ export const BASE_RESPONSE_SCHEMA = z.unknown();
 export type ContentBlock = unknown;
 export type HonoChatResult = unknown;
 
-export const agentExports = createAgent<Env>({
+export const agentExports = createAgent({
   name: "hono-base",
-  model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast", 
+  model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
   system: "You are an extensible Hono-based agent.",
   binding: "HONO_BASE_AGENT",
   tools: [],
   memory: {
      working: true
-  },
-  observability: { enabled: true, aiGatewaySlug: 'core-github-api', collectEvents: true }
+  } as any,
+  observability: { enabled: true, aiGatewaySlug: 'core-github-api', collectEvents: true } as any
 });
 
 const app = new Hono<{ Bindings: Env }>();
@@ -27,7 +27,7 @@ app.get('/docs', (c) => c.text('HonoBase Agent API Documentation'));
 app.get('/context', (c) => c.json({ environment: 'Cloudflare Workers', agent: 'HonoBaseAgent' }));
 app.get('/openapi.json', (c) => c.json({ openapi: '3.1.0', info: { title: 'HonoBaseAgent', version: '1.0.0' }, paths: {} }));
 
-app.all('/*', (c) => agentExports.fetch(c.req.raw, c.env, c.executionCtx));
+app.all('/*', (c) => agentExports.fetch(c.req.raw as any, c.env, c.executionCtx as any));
 
 export default app;
 

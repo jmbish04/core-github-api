@@ -14,7 +14,7 @@ const PlanSchema = z.object({
   ),
 });
 
-export const { Agent, handler } = createAgent<Env>({
+const _agentExports = createAgent({
   name: "planner",
   model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
   system: "Create an implementation plan for the user goal. Return a concise, execution-ready plan.",
@@ -22,9 +22,11 @@ export const { Agent, handler } = createAgent<Env>({
   tools: [],
   memory: {
      working: true
-  },
-  observability: { enabled: true, aiGatewaySlug: 'core-github-api', collectEvents: true }
+  } as any,
+  observability: { enabled: true, aiGatewaySlug: 'core-github-api', collectEvents: true } as any
 });
+const handler = _agentExports;
+const Agent = _agentExports.DurableObject as any;
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -33,7 +35,7 @@ app.get('/docs', (c) => c.text('Planner Agent API Documentation'));
 app.get('/context', (c) => c.json({ environment: 'Cloudflare Workers', agent: 'PlannerAgent' }));
 app.get('/openapi.json', (c) => c.json({ openapi: '3.1.0', info: { title: 'PlannerAgent', version: '1.0.0' }, paths: {} }));
 
-app.all('/*', (c) => handler.fetch(c.req.raw, c.env, c.executionCtx));
+app.all('/*', (c) => handler.fetch(c.req.raw as any, c.env, c.executionCtx as any));
 
 export default app;
 export class PlannerAgent extends Agent {}

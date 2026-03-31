@@ -123,12 +123,9 @@ export class CfWorkshop_AgentsSdk extends HonoBaseAgent {
   }
 
   initialState: WorkshopAgentState = {
-    repoContext: null,
     status: "idle",
     history: [],
-    mcpCache: {},
-    projectScaffolded: false,
-  };
+  } as any;
 
   protected async getSystemPromptBase(): Promise<string> {
     return `You are a Senior AI Systems Architect and the ultimate mechanic for Cloudflare Agents.

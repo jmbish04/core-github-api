@@ -1,5 +1,5 @@
 import { HealthStepResult } from '@/health/types';
-import { getAgentByName } from 'agents';
+import { getAgentByName } from '@/ai/agents/utils';
 
 export async function checkHealth(env: Env): Promise<HealthStepResult> {
     const start = Date.now();

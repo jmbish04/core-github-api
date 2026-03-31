@@ -53,7 +53,8 @@ export class TopicOrchestratorAgent extends BaseAgent<Env, AgentState> {
       updatedAt: new Date()
     }).returning();
 
-    this.setState({ briefId: brief.id, status: "planning" });
+    (this.state as any).briefId = brief.id;
+    await this.setStatus("planning");
     
     // Initialize logger
     this.researchLogger = new ResearchLogger(db, brief.id, null, "TopicOrchestrator", this.doState); // Use explicit DO state

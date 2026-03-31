@@ -8,4 +8,5 @@ export * from './research';
 export * from './reviews';
 export * from './stars';
 export * from './webhooks';
+export * from './learning';
 // github/tasks.ts is intentionally empty — do not export

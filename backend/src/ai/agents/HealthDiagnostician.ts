@@ -56,7 +56,7 @@ export class HealthDiagnostician extends BaseAgent {
         }
 
         // Fallback to BaseAgent/PartyServer's native fetch for websockets or standard room requests
-        return super.fetch(request);
+        return (super.fetch as Function)(request) as Promise<Response>;
     }
 
 /**

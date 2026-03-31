@@ -290,6 +290,10 @@
 			{
 				"name": "STANDARDIZATION_AGENT",
 				"class_name": "StandardizationAgent"
+			},
+			{
+				"name": "LEARNING_AGENT",
+				"class_name": "LearningAgent"
 			}
 		]
 	},
@@ -307,20 +311,20 @@
 				"GeminiAgent",
 				// Planning Agent for task decomposition
 				"PlannerAgent",
-				// Data Processing Container (Currently Disabled)
-				// "DataProcessor",
+				// Repository Management Agent
+				"RepoAgent",
 				// Supervisor Agent for managing container tasks
 				"Supervisor",
 				// Deep Reasoning Agent for complex logic
 				"DeepReasoningAgent",
-				// Repository Management Agent
-				"RepoAgent",
 				// Secure Sandbox Environment
 				"Sandbox",
 				// Owner/Admin Agent
 				"OwnerAgent",
 				// Research Agent for gathering information
 				"ResearchAgent",
+				// Incremental Discord channel scanner ingesting messages for analysis
+				"DiscordResearchAgent",
 				// Jules Overseer for session management
 				"JulesOverseer",
 				// Topic Research Orchestrator
@@ -330,42 +334,50 @@
 				// Judge Agent for evaluating outputs
 				"JudgeAgent",
 				// Reporting Agent for generating summaries
-				"ReportingAgent"
-			]
-		},
-		{
-			"tag": "v2",
-			"new_sqlite_classes": [
-				"LandingPageAgent"
-			]
-		},
-		{
-			"tag": "v3",
-			"new_sqlite_classes": [
+				"ReportingAgent",
+				// Agent for generating or editing landing pages
+				"LandingPageAgent",
 				// Agent for querying Cloudflare Documentation with GitHub context
-				"CloudflareDocsAgent"
-			]
-		},
-		{
-			"tag": "v4",
-			"new_sqlite_classes": [
+				"CloudflareDocsAgent",
+				// Deep Research Chat Agent built directly on Honi
+				"DeepResearchChatAgent",
 				// Autonomous agent for analyzing and remediating health check failures
 				"HealthDiagnostician",
-				"DeepResearchChatAgent"
-			]
-		},
-		{
-			"tag": "v5",
-			"new_sqlite_classes": [
+				// WebSocket fan-out hub for Jules events
+				"JulesWebhookBroadcaster",
+				// Monitors planning sessions
+				"PlanningMonitor",
+				// Monitors reverse engineering tasks
+				"ReverseEngineeringMonitor",
+				// Supervises planning orchestrators
+				"PlanningSupervisorAgent",
+				// Orchestrates planning workflows
+				"PlanningOrchestratorAgent",
+				// Orchestrator for Honi-compatible agents
+				"HoniOrchestrator",
+				// Consultant agent running on Honi
+				"HoniConsultant",
+				// Agent for managing workshops
 				"WorkshopAgent",
+				// Workshop agent covering CF Agents SDK
 				"CfWorkshop_AgentsSdk",
-				"JulesWebhookBroadcaster"
+				// Ensures code and APIs meet standardized guidelines
+				"StandardizationAgent",
+				// Jules PR Reviewer
+				"JulesPrReviewer",
+				// UX Researcher
+				"UxResearcher",
+				// WebSocket session handler for real-time agent communication
+				"AgentSessionDO",
+				// Secure Sandbox Agent managing the Sandbox SDK
+				"SandboxAgent"
 			]
 		},
 		{
-			"tag": "v6",
+			"tag": "v1_sentinel",
 			"new_sqlite_classes": [
-				"StandardizationAgent"
+				// Learning Agent for pattern analysis and Contemplation Gate
+				"LearningAgent"
 			]
 		}
 	],
@@ -384,6 +396,12 @@
 			"name": "research-orchestrator",
 			"binding": "RESEARCH_ORCHESTRATOR",
 			"class_name": "ResearchOrchestrator"
+		},
+		{
+			"name": "LearningWorkflow",
+			"binding": "LEARNING_WORKFLOW",
+			"class_name": "LearningWorkflow",
+			"script_name": "core-github-api"
 		},
 		{
 			"name": "topic-research-workflow",
@@ -432,20 +450,24 @@
 			"binding": "VECTORIZE_LOGS",
 			"index_name": "core-github-api-logs",
 			"remote": true
+		},
+		{
+			"binding": "VECTORIZE_INDEX",
+			"index_name": "sentinel-patterns"
 		}
 	],
 	"d1_databases": [
 		{
 			"binding": "DB",
 			"database_name": "core-github-api",
-			"database_id": "31a57255-f8c2-451c-82ae-57905686887a",
-			"preview_database_id": "d27edbcf-a478-44f0-ba60-e9830084916a",
+			"database_id": "4db39958-8554-4da4-b23d-8a4ea8404588",
+			"preview_database_id": "4db39958-8554-4da4-b23d-8a4ea8404588",
 			"migrations_dir": "migrations/core"
 		},
 		{
 			"binding": "DB_WEBHOOKS",
 			"database_name": "core-github-api-webhooks",
-			"database_id": "a03ad237-66aa-4af7-b19b-c39720e9b6a6",
+			"database_id": "df714884-593d-45da-9c7f-9f67903c4fca",
 			"migrations_dir": "migrations/webhooks"
 		}
 	],
@@ -482,7 +504,9 @@
 			"0 3 * * 7",
 			// Every 6 hours - App Store AI Summary Backfill
 			// Processes unsummarized apps with Worker AI and saves to D1
-			"0 */6 * * *"
+			"0 */6 * * *",
+			// Daily at 6:00 AM UTC - LearningWorkflow cron trigger
+			"0 6 * * *"
 		]
 	}
 }

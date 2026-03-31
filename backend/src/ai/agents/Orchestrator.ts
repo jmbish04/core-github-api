@@ -9,7 +9,8 @@
  * @module AI/Agents/Orchestrator
  */
 import { BaseOrchestrator } from "./base/orchestrator";
-import { callable, getAgentByName } from "agents";
+import { callable } from "agents";
+import { getAgentByName } from "@/ai/agents/utils";
 import { generateUuid } from "@/utils/common";
 
 /**

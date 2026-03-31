@@ -80,7 +80,7 @@ export async function checkSandboxHealth(env: Env): Promise<HealthStepResult> {
         try {
             // Initialize Sandbox via the Cloudflare SDK
             const options = await getSandboxOptions(env);
-            const sandbox = getSandbox(env.SANDBOX, "sandbox-health-probe", {
+            const sandbox = getSandbox(env.SANDBOX as any, "sandbox-health-probe", {
                 ...options,
             });
 

@@ -23,7 +23,7 @@ const LandingPageRefinementSchema = z.object({
 
 export type LandingPageRefinementResponse = z.infer<typeof LandingPageRefinementSchema>;
 
-export const { Agent, handler } = createAgent<Env>({
+const _agentExports = createAgent({
   name: "landing-page",
   model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
   system: [
@@ -37,9 +37,11 @@ export const { Agent, handler } = createAgent<Env>({
   tools: [],
   memory: {
      working: true
-  },
-  observability: { enabled: true, aiGatewaySlug: 'core-github-api', collectEvents: true }
+  } as any,
+  observability: { enabled: true, aiGatewaySlug: 'core-github-api', collectEvents: true } as any
 });
+const handler = _agentExports;
+const Agent = _agentExports.DurableObject as any;
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -48,7 +50,7 @@ app.get('/docs', (c) => c.text('LandingPage Agent API Documentation'));
 app.get('/context', (c) => c.json({ environment: 'Cloudflare Workers', agent: 'LandingPageAgent' }));
 app.get('/openapi.json', (c) => c.json({ openapi: '3.1.0', info: { title: 'LandingPageAgent', version: '1.0.0' }, paths: {} }));
 
-app.all('/*', (c) => handler.fetch(c.req.raw, c.env, c.executionCtx));
+app.all('/*', (c) => handler.fetch(c.req.raw as any, c.env, c.executionCtx as any));
 
 export default app;
 export class LandingPageAgent extends Agent {}

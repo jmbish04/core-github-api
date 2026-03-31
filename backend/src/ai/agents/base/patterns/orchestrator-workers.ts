@@ -74,7 +74,7 @@ export abstract class OrchestratorWorkersAgent extends BaseAgent<Env, Orchestrat
       this.ctx.storage.put("plan", plan);
       if (!plan) return "Failed to generate plan"; // Re-added the conditional check
 
-      this.setState({ ...this.state, plan });
+      (this.state as any).plan = plan;
 
       // Step 2: Execute Workers
       const results: Record<string, string> = {};
@@ -98,7 +98,7 @@ export abstract class OrchestratorWorkersAgent extends BaseAgent<Env, Orchestrat
         results[task.id] = result.finalOutput || "Error"; // Keep local results for the return value
       }
 
-      this.setState({ ...this.state, results });
+      (this.state as any).results = results;
       return results;
     });
   }
