@@ -6,7 +6,7 @@ import time
 
 # --- CONFIGURATION ---
 BASE_URL = "http://127.0.0.1:8766/tools" # See openapi.json ./jules-mcp-openapi.json
-PROJECT_ID = "learning-engine-ux-2026" # Stitch project ID
+PROJECT_ID = "13012573773347159111" # Stitch project ID
 DESIGN_DOC = "DESIGN.md"
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s]: %(message)s')
@@ -42,6 +42,7 @@ class StitchOrchestrator:
             # Using your FastAPI 'scaffold_frontend' tool pattern
             resp = requests.post(f"{BASE_URL}/orchestration/scaffold_frontend", json=payload)
             resp.raise_for_status()
+            print(resp.text)
             logger.info(f"✅ Page {page_name} successfully queued for generation.")
         except Exception as e:
             logger.error(f"❌ Failed to generate {page_name}: {e}")

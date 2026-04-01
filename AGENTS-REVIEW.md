@@ -75,6 +75,8 @@ Execute the following checks sequentially. **Remember to update \`frontend-test-
   - Click the \`+\` button to create a new thread.
   - Open the Agent Selector dropdown (navbar) and ensure specific personas (e.g., \`Orchestrator\`, \`CF Agents SDK\`) are listed.
   - Send a simple "Hello" message and verify it hits the WebSocket backend and a response returns.
+  - **AI Response Check**: Does the AI/agent actually respond with meaningful content (not just an error or empty message)? Time how long the response takes.
+  - **Agent Selector Check**: Open the Agent Selector dropdown and confirm specialized personas are listed (e.g., `Orchestrator`, `CF Agents SDK`, `Cloudflare Docs`). Select a different agent and verify the chat context switches.
 - 💾 *Save result to JSON.*
 
 ### 5. Research & Drafts (\`/research\`)
@@ -111,7 +113,82 @@ Execute the following checks sequentially. **Remember to update \`frontend-test-
 - [ ] **Verify Interaction**: Expand at least one API endpoint block to verify the parameter/schema documentation loaded.
 - 💾 *Save result to JSON.*
 
+### 10. Learning Dashboard (`/learning/dashboard`)
+- [ ] **Action**: Navigate to `/learning/dashboard`.
+- [ ] **Verify Rendering**: Ensure the page loads with a `bg-zinc-950` background. Verify the `InsightTrendChart` (Recharts AreaChart) and `PatternDistributionChart` (Recharts BarChart) render with data or empty-state placeholders. Look for the **Immunity Indicator** pulse dot (top-right corner) — it should be a small animated circle (green, amber, or zinc).
+- [ ] **Verify Interaction**:
+  - Confirm **NO visible borders** — cards should use `bg-zinc-900` tonal depth only.
+  - Click each of the 4 navigation cards (Insight Ledger, Audit Log, Babysitter HUD, Showcase) and verify they route to `/learning/insights`, `/learning/sessions`, `/learning/babysitter`, and `/learning/showcase` respectively.
+  - Verify chart axis/tooltip labels use high-contrast text (`fill="#fafafa"` or equivalent light color).
+- 💾 *Save result to JSON.*
+
+### 11. Insight Ledger (`/learning/insights`)
+- [ ] **Action**: Navigate to `/learning/insights`.
+- [ ] **Verify Rendering**: Look for a grid of `InsightCard` components. Each card should show: title, severity badge (1–5), pattern type, and a status indicator. If no data exists, verify empty-state is handled gracefully (no crash, no infinite spinner).
+- [ ] **Verify Interaction**:
+  - Locate the filter bar — it should have controls for `patternType` (doom_loop, anti_pattern, standard_violation, best_practice), `severity` (1–5), and `status` (open, acknowledged, resolved).
+  - Toggle filters and verify the grid updates.
+  - If pagination exists, click through pages.
+- 💾 *Save result to JSON.*
+
+### 12. Audit Log (`/learning/sessions`)
+- [ ] **Action**: Navigate to `/learning/sessions`.
+- [ ] **Verify Rendering**: Expect a `SessionsTable` with columns: Session ID, Trigger Type, Insights Found, Duration, Status badge. If empty, verify the empty state renders cleanly.
+- [ ] **Verify Interaction**:
+  - If rows are present, click on a row to expand/collapse it (should show message samples, repoless flag).
+  - Verify no unhandled errors in the console.
+- 💾 *Save result to JSON.*
+
+### 13. Babysitter HUD (`/learning/babysitter`)
+- [ ] **Action**: Navigate to `/learning/babysitter`.
+- [ ] **Verify Rendering**: Expect `BabysitterSessionCard` components showing active Jules sessions. Each card should display: session ID, loop detection score (0–10 with color coding), last message preview, intervention count.
+- [ ] **Verify Interaction**:
+  - Locate the **"Manual Override"** button on a session card (or a global override button).
+  - Click it and verify the state transition: button text should change from "Manual Override" → "Sending..." → "Override sent." (this calls `POST /api/learning/upscale`).
+  - Verify the page refreshes or polls every ~30 seconds (check for `setInterval` behavior).
+- 💾 *Save result to JSON.*
+
+### 14. Standardization Showcase (`/learning/showcase`)
+- [ ] **Action**: Navigate to `/learning/showcase`.
+- [ ] **Verify Rendering**: Look for cards listing `.agent/rules/*.md` files — each card should show a rule name, summary, and adherence score.
+- [ ] **Verify Interaction**:
+  - Locate the **"Trigger Standardization Upscale"** CTA button.
+  - Click it and verify it triggers an action (API call to `/api/learning/upscale` or similar).
+  - If no rules are loaded, verify empty state handling.
+- 💾 *Save result to JSON.*
+
+### 15. Workshop (`/workshop`)
+- [ ] **Action**: Navigate to `/workshop`.
+- [ ] **Verify Rendering**: **CRITICAL** — This page has historically rendered as a black screen. Verify that the `WorkshopWizard` component actually mounts and displays content. Look for wizard steps, form fields, or a workshop interface.
+- [ ] **Verify Interaction**:
+  - If the wizard loads, attempt to interact with the first step (select a project, choose an action, etc.).
+  - If the page is black/blank, document exactly what the console shows (errors, failed imports, etc.).
+- 💾 *Save result to JSON.*
+
+### 16. Health Service Verification (API/curl)
+- [ ] **Action**: Test health and learning API endpoints via direct HTTP requests against `https://core-github-api.hacolby.workers.dev`. For each endpoint below, document the HTTP status code and a summary of the response body.
+- [ ] **Endpoints to test**:
+  - `GET /api/health` — Main system health. Expect `200` with status indicators.
+  - `GET /api/projects/sentinel/health` — Sentinel subsystem health. Expect `200`.
+  - `GET /api/learning/health` — Learning pipeline health. Expect `200` with `{ status, lastRun, insightCount }`.
+  - `GET /api/projects/sentinel/status` — Sentinel live status + task counts. Expect `200`.
+  - `GET /api/learning/insights` — List all learning insights. Expect `200` with array.
+  - `GET /api/learning/sessions` — List learning sessions. Expect `200` with array.
+  - `GET /api/learning/insights/global` — Aggregate pattern counts. Expect `200` with grouped data.
+- [ ] **Verify**: Parse the JSON responses. Are all subsystems reporting healthy? Document any failures or unexpected responses.
+- 💾 *Save result to JSON.*
+
+### 17. Sentinel API Endpoints (Authenticated)
+- [ ] **Action**: Test authenticated Sentinel endpoints. These require `Authorization: Bearer $AGENTIC_WORKER_API_KEY` header.
+- [ ] **Endpoints to test**:
+  - `GET /api/projects/sentinel/tasks/available` — List unclaimed tasks. Expect `200` with array.
+  - `GET /api/projects/sentinel/status` — System status with task counts. Expect `200`.
+  - `POST /api/projects/sentinel/ingest` with body `{"conversations":[{"role":"user","content":"test"}]}` — Expect `200` or `202`.
+- [ ] **Auth rejection test**: Send a request with `Authorization: Bearer bad-key-12345` to any sentinel endpoint. Expect `401 Unauthorized`.
+- [ ] **Verify**: Confirm that valid API key returns data and invalid key returns 401.
+- 💾 *Save result to JSON.*
+
 ---
 
 ## 🏁 Finalization
-Once all tests are completed, confirm that \`frontend-test-results.json\` contains exactly 9 test records. Output a brief final markdown summary in your conversational response detailing which pages failed and the likely cause (e.g., "500 Internal Server Error", "Infinite React Spinner", "WebSocket Timeout").
+Once all tests are completed, confirm that \`frontend-test-results.json\` contains exactly 17 test records. Output a brief final markdown summary in your conversational response detailing which pages failed and the likely cause (e.g., "500 Internal Server Error", "Infinite React Spinner", "WebSocket Timeout").
