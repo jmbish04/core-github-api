@@ -7,7 +7,7 @@ This retrospective compares the planned feature set across 6 continuous improvem
 **Overall Delivery Status:**
 - **~85% Fully Delivered**: Core infrastructure, DB schemas, Learning Agent, Sentinel endpoints (at `/api/projects/sentinel`), PR interceptor, and Frontend Monolith are all successfully implemented.
 - **~5% Partially Delivered (mostly minor frontend layout gaps and missing real-time doom-loop intervention in JulesOverseer)**: `JulesOverseer` doom-loop detection lacks the real-time apology-pattern intervention; minor frontend layout gaps.
-- **~10% Not Delivered**: `StitchLoopWorkflow`, specific `db:auto` scripts, Jules/Stitch babysitter callbacks, Jules Suite modules (Plan Engine, Fleet Fan-Out), and exact health endpoint paths.
+- **~10% Not Delivered**: `StitchLoopWorkflow`, Jules/Stitch babysitter callbacks, Jules Suite modules (Plan Engine, Fleet Fan-Out), and exact health endpoint paths.
 
 ---
 
