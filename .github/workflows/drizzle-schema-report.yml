@@ -22,10 +22,10 @@ jobs:
           python-version: '3.12'
           
       - name: Ensure Script is Executable
-        run: chmod +x scripts/audit_drizzle_schema.py
+        run: chmod +x scripts/db/audit_drizzle_schema.py
           
       - name: Run Schema Analysis
-        run: python scripts/audit_drizzle_schema.py --output drizzle-schema-report.md
+        run: python scripts/db/audit_drizzle_schema.py --output drizzle-schema-report.md
         
       - name: Upload Report Artifact
         uses: actions/upload-artifact@v4
