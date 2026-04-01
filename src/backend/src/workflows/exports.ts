@@ -11,4 +11,5 @@ export { CloudflareChangelogWorkflow } from './research/cloudflare-changelog';
 export { ResearchOrchestrator } from './research/orchestrator';
 export { TopicResearchWorkflow } from './research/topic';
 export { PlanningOrchestrator } from './planning/orchestrator';
+export { StitchLoopWorkflow } from './planning/stitch-loop';
 

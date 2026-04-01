@@ -65,6 +65,8 @@ import ReverseEngineeringSnapshot from "@/views/control/global/ReverseEngineerin
 
 // Beta Tracker (global)
 import { TrackerBeta } from "@/views/control/global/TrackerBeta";
+import SentinelDashboard from "@/views/control/global/SentinelDashboard";
+import SentinelKanban from "@/views/control/global/SentinelKanban";
 
 // Workshop / Agent agentic module (global)
 import AgentWorkshop from "@/views/control/global/AgentWorkshop";
@@ -201,6 +203,10 @@ export function GlobalRoutes() {
         {/* ── Beta Tracker (global) ──────────────────────────────── */}
         <Route path="/beta/tracker" element={guard(<TrackerBeta />)} />
         <Route path="/beta/tracker/:view" element={guard(<TrackerBeta />)} />
+
+        {/* ── Sentinel Learning Engine (global) ──────────────────────── */}
+        <Route path="/sentinel" element={guard(<SentinelDashboard />)} />
+        <Route path="/sentinel/kanban" element={guard(<SentinelKanban />)} />
 
         {/* ── Workshop / Agent studio (global) ─────────────────────── */}
         <Route path="/workshop" element={guard(<AgentWorkshop />)} />

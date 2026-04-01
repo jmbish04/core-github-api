@@ -22,6 +22,8 @@ import { RepoStandardization } from '@/automations/repository/standardization';
 import { RepoSync } from '@/automations/repository/sync';
 import { StatsUpdate } from '@/automations/repository/stats-update';
 import { LeakPlumber } from '@/automations/security/leak-plumber';
+import { SentinelInterceptor } from '@/automations/pr/SentinelInterceptor';
+import { SentinelPostMerge } from '@/automations/pr/SentinelPostMerge';
 import { SlashCommand } from '@/automations/shared/colby';
 import { TelemetryIngestion } from '@/automations/telemetry/ingest';
 
@@ -51,6 +53,8 @@ export const REGISTERED_AUTOMATIONS: RegisteredAutomation[] = [
   StandardsCheckPush,
   RepoStandardization,
   LeakPlumber,
+  SentinelInterceptor,
+  SentinelPostMerge,
 ];
 
 const AUTOMATIONS_BY_CLASS = new Map<string, RegisteredAutomation>(

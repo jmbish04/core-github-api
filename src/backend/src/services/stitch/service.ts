@@ -1,174 +1,207 @@
 /**
- * StitchService — singleton wrapper for @google/stitch-sdk
+ * @file backend/src/services/stitch/service.ts
+ * @description Canonical Stitch UX design service.
  *
- * Uses StitchToolClient.callTool() as the single generic method that maps
- * directly to every operation in the Stitch MCP tool manifest. This avoids
- * the need to use the higher-level Stitch/Project/Screen domain classes,
- * which mirror the callTool calls (to the exact same MCP endpoints) but add
- * constructor coupling that makes the singleton pattern fragile in Workers.
+ * `StitchService` is the single point of integration with the Google Stitch
+ * MCP server (`https://stitch.googleapis.com/mcp`). It wraps MCP Client
+ * calls into typed methods for screen generation, editing, and project management.
  *
- * Canonical tool names from the manifest (verbatim):
- *   list_projects, create_project, generate_screen_from_text, list_screens,
- *   get_screen, edit_screens, generate_variants
+ * ## Singleton Pattern
+ * `StitchService.getInstance(env)` returns a request-scoped singleton so that
+ * multiple callers within the same Worker request share one service instance.
+ *
+ * ## Connection Lifecycle
+ * Each method creates and destroys its own MCP Client connection. This is
+ * required because Cloudflare Workers have CPU time limits that prevent
+ * long-lived SSE connections from being pooled.
+ *
+ * @module Services/Stitch
  */
 
-import type { Env } from '@/types';
-import { StitchToolClient } from '@google/stitch-sdk';
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
+import type {
+  GenerateScreenParams,
+  GenerateScreenResult,
+  EditScreensParams,
+  GetScreenParams,
+  CreateProjectParams,
+} from "./types";
 
-/** Resolve the STITCH_API_KEY from either a plain string or Secrets Store binding */
-async function resolveApiKey(env: Env): Promise<string> {
-  const rawKey = (env as any).STITCH_API_KEY;
-  if (!rawKey) return '';
-  if (typeof rawKey === 'string') return rawKey;
-  return (await rawKey.get()) as string;
-}
+// ─── StitchService ───────────────────────────────────────────────────────────
 
 export class StitchService {
   private static instance: StitchService | null = null;
+  private static instanceEnv: WeakRef<Env> | null = null;
 
-  private client: StitchToolClient;
-
-  private constructor(apiKey: string) {
-    this.client = new StitchToolClient({ apiKey });
-  }
+  private constructor(private readonly env: Env) {}
 
   /**
-   * Returns the singleton, lazily connecting with the resolved API key.
-   * Must be called with `await` since key resolution may be async.
+   * Returns a `StitchService` scoped to the given `env`. If the `env` object
+   * changes (e.g. across requests in the same isolate), the old instance is
+   * discarded and a fresh one is created.
    */
-  static async getInstance(env: Env): Promise<StitchService> {
-    if (!StitchService.instance) {
-      const apiKey = await resolveApiKey(env);
-      StitchService.instance = new StitchService(apiKey);
+  public static getInstance(env: Env): StitchService {
+    // If env reference changed (new request context), discard stale instance
+    if (!StitchService.instance || StitchService.instanceEnv?.deref() !== env) {
+      StitchService.instance = new StitchService(env);
+      StitchService.instanceEnv = new WeakRef(env);
     }
     return StitchService.instance;
   }
 
-  // ── Core delegation ──────────────────────────────────────────────────────────
+  // ── Private helpers ──────────────────────────────────────────────────────
 
   /**
-   * Generic method that forwards all calls to `StitchToolClient.callTool()`.
-   * Every public method below is a thin wrapper around this.
+   * Creates a temporary MCP client connected to the Stitch endpoint.
+   * Caller is responsible for closing the client after use.
    */
-  private async call<T>(toolName: string, args: Record<string, any> = {}): Promise<T> {
-    return this.client.callTool<T>(toolName, args);
-  }
+  private async createClient(): Promise<Client> {
+    const apiKey =
+      typeof (this.env as any).STITCH_API_KEY?.get === "function"
+        ? await (this.env as any).STITCH_API_KEY.get()
+        : (this.env as any).STITCH_API_KEY;
 
-  // ── Projects ─────────────────────────────────────────────────────────────────
-
-  async listProjects(): Promise<any> {
-    return this.call('list_projects', {});
-  }
-
-  async createProject(title?: string): Promise<any> {
-    return this.call('create_project', title ? { title } : {});
-  }
-
-  async getProject(projectId: string): Promise<any> {
-    return this.call('get_project', { projectId });
-  }
-
-  // ── Screens ──────────────────────────────────────────────────────────────────
-
-  async listScreens(projectId: string): Promise<any> {
-    return this.call('list_screens', { projectId });
-  }
-
-  async getScreen(projectId: string, screenId: string): Promise<any> {
-    return this.call('get_screen', { projectId, screenId });
-  }
-
-  async generateScreen(
-    projectId: string,
-    prompt: string,
-    deviceType?: string,
-    modelId?: string,
-  ): Promise<any> {
-    return this.call('generate_screen_from_text', {
-      projectId,
-      prompt,
-      ...(deviceType ? { deviceType } : {}),
-      ...(modelId ? { modelId } : {}),
-    });
-  }
-
-  async editScreen(
-    projectId: string,
-    selectedScreenIds: string[],
-    prompt: string,
-    deviceType?: string,
-    modelId?: string,
-  ): Promise<any> {
-    return this.call('edit_screens', {
-      projectId,
-      selectedScreenIds,
-      prompt,
-      ...(deviceType ? { deviceType } : {}),
-      ...(modelId ? { modelId } : {}),
-    });
-  }
-
-  async generateVariants(
-    projectId: string,
-    selectedScreenIds: string[],
-    prompt: string,
-    variantOptions: Record<string, any>,
-    deviceType?: string,
-    modelId?: string,
-  ): Promise<any> {
-    return this.call('generate_variants', {
-      projectId,
-      selectedScreenIds,
-      prompt,
-      variantOptions,
-      ...(deviceType ? { deviceType } : {}),
-      ...(modelId ? { modelId } : {}),
-    });
-  }
-
-  // ── Tool introspection ────────────────────────────────────────────────────────
-
-  async listTools(): Promise<any> {
-    return this.client.listTools();
-  }
-
-  // ── MCP Tool Dispatcher (mirrors stitch.ts MCP tool names) ───────────────────
-
-  async executeMCPTool(toolName: string, args: Record<string, any>): Promise<any> {
-    switch (toolName) {
-      case 'stitch_list_projects':
-        return this.listProjects();
-      case 'stitch_create_project':
-        return this.createProject(args.title);
-      case 'stitch_get_project':
-        return this.getProject(args.projectId);
-      case 'stitch_list_screens':
-        return this.listScreens(args.projectId);
-      case 'stitch_get_screen':
-        return this.getScreen(args.projectId, args.screenId);
-      case 'stitch_generate_screen':
-        return this.generateScreen(args.projectId, args.prompt, args.deviceType, args.modelId);
-      case 'stitch_edit_screen':
-        return this.editScreen(
-          args.projectId,
-          args.selectedScreenIds ?? [],
-          args.prompt,
-          args.deviceType,
-          args.modelId,
-        );
-      case 'stitch_generate_variants':
-        return this.generateVariants(
-          args.projectId,
-          args.selectedScreenIds ?? [],
-          args.prompt,
-          args.variantOptions ?? {},
-          args.deviceType,
-          args.modelId,
-        );
-      case 'stitch_list_tools':
-        return this.listTools();
-      default:
-        throw new Error(`[StitchService.executeMCPTool] Unknown tool: ${toolName}`);
+    if (!apiKey) {
+      throw new Error("[StitchService] STITCH_API_KEY is not configured.");
     }
+
+    const transport = new SSEClientTransport(
+      new URL("https://stitch.googleapis.com/mcp"),
+      {
+        requestInit: {
+          headers: { "X-Goog-Api-Key": apiKey },
+        },
+      }
+    );
+
+    const client = new Client(
+      { name: "core-github-api-stitch", version: "1.0.0" },
+      { capabilities: {} }
+    );
+
+    await client.connect(transport);
+    return client;
+  }
+
+  /**
+   * Executes a tool on the Stitch MCP server with automatic connection management.
+   */
+  private async callTool(
+    toolName: string,
+    args: Record<string, unknown>
+  ): Promise<unknown> {
+    const client = await this.createClient();
+    try {
+      const result = await client.callTool({
+        name: toolName,
+        arguments: args,
+      });
+      return result.content;
+    } finally {
+      await client.close();
+    }
+  }
+
+  /**
+   * Extracts text content from an MCP tool result content array.
+   */
+  private extractText(content: unknown): string {
+    if (Array.isArray(content)) {
+      const textItem = content.find(
+        (c: any) => c.type === "text" && c.text
+      ) as any;
+      return textItem?.text || JSON.stringify(content);
+    }
+    return typeof content === "string" ? content : JSON.stringify(content);
+  }
+
+  // ── Public API ─────────────────────────────────────────────────────────────
+
+  /**
+   * Generates a new screen in a Stitch project from a UX prompt.
+   */
+  async generateScreen(
+    params: GenerateScreenParams
+  ): Promise<GenerateScreenResult> {
+    console.log(
+      `[StitchService] Generating screen: ${params.prompt.substring(0, 60)}...`
+    );
+
+    const content = await this.callTool("generate_screen_from_text", {
+      projectId: params.projectId,
+      text: params.prompt,
+      deviceType: params.deviceType,
+    });
+
+    const text = this.extractText(content);
+
+    try {
+      const parsed = JSON.parse(text);
+      return {
+        screenId: parsed.screenId || parsed.id,
+        html: parsed.html || parsed.htmlCode,
+        htmlCode: parsed.htmlCode || parsed.html,
+      };
+    } catch {
+      return { html: text, htmlCode: text };
+    }
+  }
+
+  /**
+   * Edits existing screens with a modification prompt.
+   */
+  async editScreens(params: EditScreensParams): Promise<unknown> {
+    console.log(
+      `[StitchService] Editing ${params.screenIds.length} screens in ${params.projectId}`
+    );
+
+    return this.callTool("edit_screens", {
+      projectId: params.projectId,
+      screenIds: params.screenIds,
+      editInstructions: params.editPrompt,
+    });
+  }
+
+  /**
+   * Retrieves a specific screen's data from a Stitch project.
+   */
+  async getScreen(params: GetScreenParams): Promise<unknown> {
+    return this.callTool("get_screen", {
+      projectId: params.projectId,
+      screenId: params.screenId,
+    });
+  }
+
+  /**
+   * Lists all screens in a Stitch project.
+   */
+  async listScreens(projectId: string): Promise<unknown> {
+    return this.callTool("list_screens", { projectId });
+  }
+
+  /**
+   * Retrieves a Stitch project by ID.
+   */
+  async getProject(projectId: string): Promise<unknown> {
+    return this.callTool("get_project", { projectId });
+  }
+
+  /**
+   * Lists all Stitch projects.
+   */
+  async listProjects(): Promise<unknown> {
+    return this.callTool("list_projects", {});
+  }
+
+  /**
+   * Creates a new Stitch project.
+   */
+  async createProject(params: CreateProjectParams): Promise<unknown> {
+    console.log(`[StitchService] Creating project: ${params.name}`);
+    return this.callTool("create_project", {
+      name: params.name,
+      description: params.description,
+    });
   }
 }
