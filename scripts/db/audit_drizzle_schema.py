@@ -33,7 +33,8 @@ def main():
     args = parser.parse_args()
 
     # Ensure the target directory exists before executing the file scan
-    os.makedirs(os.path.dirname(args.output), exist_ok=True)
+    if os.path.dirname(args.output):
+        os.makedirs(os.path.dirname(args.output), exist_ok=True)
 
     root_dir = os.getcwd()
     files = get_ts_files(root_dir)
