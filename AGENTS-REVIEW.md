@@ -74,7 +74,7 @@ Execute the following checks sequentially. **Remember to update \`frontend-test-
 - [ ] **Verify Interaction**: 
   - Click the \`+\` button to create a new thread.
   - Open the Agent Selector dropdown (navbar) and ensure specific personas (e.g., \`Orchestrator\`, \`CF Agents SDK\`) are listed.
-  - Send a simple "Hello" message and verify it hits the WebSocket backend and a response returns.
+  - Send a simple "Hello" message and verify it hits the WebSocket backend and a response returns. Verify: Is the AI/agent responding to messages via WebSocket?
 - 💾 *Save result to JSON.*
 
 ### 5. Research & Drafts (\`/research\`)
@@ -111,7 +111,68 @@ Execute the following checks sequentially. **Remember to update \`frontend-test-
 - [ ] **Verify Interaction**: Expand at least one API endpoint block to verify the parameter/schema documentation loaded.
 - 💾 *Save result to JSON.*
 
+
+
+### 10. Learning Dashboard (`/learning/dashboard`)
+- [ ] **Action**: Navigate to `/learning/dashboard`.
+- [ ] **Verify Rendering**: Charts render (InsightTrendChart, PatternDistributionChart), immunity indicator pulse dot visible, navigation cards to insights/sessions/babysitter/showcase, bg-zinc-950 background, NO visible borders.
+- [ ] **Verify Interaction**: Click each navigation card and verify it routes correctly.
+- 💾 *Save result to JSON.*
+
+### 11. Insight Ledger (`/learning/insights`)
+- [ ] **Action**: Navigate to `/learning/insights`.
+- [ ] **Verify Rendering**: Filter bar (patternType, severity, status), InsightCard grid rendering, pagination, severity badges on cards.
+- [ ] **Verify Interaction**: Interact with filters.
+- 💾 *Save result to JSON.*
+
+### 12. Audit Log (`/learning/sessions`)
+- [ ] **Action**: Navigate to `/learning/sessions`.
+- [ ] **Verify Rendering**: SessionsTable renders, collapsible rows, empty state handling.
+- [ ] **Verify Interaction**: Expand a collapsible row to verify message samples or metadata.
+- 💾 *Save result to JSON.*
+
+### 13. Babysitter HUD (`/learning/babysitter`)
+- [ ] **Action**: Navigate to `/learning/babysitter`.
+- [ ] **Verify Rendering**: Active session cards, loop detection score color coding, Manual Override button present.
+- [ ] **Verify Interaction**: Click Manual Override button — verify it calls `POST /api/learning/upscale` and shows state transitions (Sending... → Override sent.).
+- 💾 *Save result to JSON.*
+
+### 14. Standardization Showcase (`/learning/showcase`)
+- [ ] **Action**: Navigate to `/learning/showcase`.
+- [ ] **Verify Rendering**: Rule cards render, "Trigger Standardization Upscale" CTA button present.
+- [ ] **Verify Interaction**: Click "Trigger Standardization Upscale" CTA button.
+- 💾 *Save result to JSON.*
+
+### 15. Workshop (`/workshop`)
+- [ ] **Action**: Navigate to `/workshop`.
+- [ ] **Verify Rendering**: WorkshopWizard renders (verify NOT a black screen), wizard steps visible.
+- [ ] **Verify Interaction**: Document what renders (this page has historically been broken).
+- 💾 *Save result to JSON.*
+
+### 16. Health Service Verification (bash/curl)
+- [ ] **Action**: Run curl commands against the live worker at `https://core-github-api.hacolby.workers.dev`:
+  - `GET /api/health`
+  - `GET /api/projects/sentinel/health`
+  - `GET /api/learning/health`
+  - `GET /api/projects/sentinel/status`
+  - `GET /api/learning/insights`
+  - `GET /api/learning/sessions`
+  - `GET /api/learning/insights/global`
+- [ ] **Verify Rendering**: Document HTTP status codes and response bodies.
+- [ ] **Verify Interaction**: N/A
+- 💾 *Save result to JSON.*
+
+### 17. Sentinel API Endpoints (Authenticated)
+- [ ] **Action**: curl with `Authorization: Bearer $AGENTIC_WORKER_API_KEY`:
+  - `GET /api/projects/sentinel/tasks/available`
+  - `GET /api/projects/sentinel/status`
+  - `POST /api/projects/sentinel/ingest` with test payload
+  - Auth rejection test: curl with bad key, expect 401
+- [ ] **Verify Rendering**: Document HTTP status codes and response bodies.
+- [ ] **Verify Interaction**: N/A
+- 💾 *Save result to JSON.*
+
 ---
 
 ## 🏁 Finalization
-Once all tests are completed, confirm that \`frontend-test-results.json\` contains exactly 9 test records. Output a brief final markdown summary in your conversational response detailing which pages failed and the likely cause (e.g., "500 Internal Server Error", "Infinite React Spinner", "WebSocket Timeout").
+Once all tests are completed, confirm that `frontend-test-results.json` contains exactly 17 test records. Output a brief final markdown summary in your conversational response detailing which pages failed and the likely cause (e.g., "500 Internal Server Error", "Infinite React Spinner", "WebSocket Timeout").
