@@ -375,10 +375,6 @@
 				"class_name": "UxResearcher"
 			},
 			{
-				"name": "UX_DESIGN_AGENT",
-				"class_name": "UxDesignAgent"
-			},
-			{
 				"name": "SANDBOX_AGENT",
 				"class_name": "SandboxAgent"
 			},
@@ -460,12 +456,6 @@
 				"UxResearcher",
 				// WebSocket session handler for real-time agent communication
 				"AgentSessionDO",
-				// UX Design Agent — 5-phase pipeline (Jules + Stitch)
-				"UxDesignAgent",
-				// Jules PR Reviewer
-				"JulesPrReviewer",
-				// UX Researcher
-				"UxResearcher",
 				// Secure Sandbox Agent managing the Sandbox SDK
 				"SandboxAgent"
 			]

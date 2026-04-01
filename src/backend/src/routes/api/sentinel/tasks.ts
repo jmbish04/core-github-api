@@ -12,7 +12,7 @@
 
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { getDb } from "@db";
-import { tasks, taskEvents } from "@/db/schemas/projects/tasks";
+import { tasks, taskEvents } from "@/db/schemas/projects/backlog/tasks";
 import { eq, isNull, desc } from "drizzle-orm";
 
 const app = new OpenAPIHono<{ Bindings: Env }>();

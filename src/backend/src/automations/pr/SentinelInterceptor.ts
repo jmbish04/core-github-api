@@ -14,7 +14,7 @@ import { z } from "zod";
 import {
   BaseAutomation,
   type AutomationMetadata,
-} from "@/core/BaseAutomation";
+} from "@/automations/core/BaseAutomation";
 import { getDb } from "@db";
 import { learningAiInsights } from "@db/schemas/github/learning";
 import { eq, and } from "drizzle-orm";
