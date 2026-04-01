@@ -103,6 +103,44 @@ export class StitchService {
     }
   }
 
+  async callWithMonitoring(toolName: string, args: any): Promise<any> {
+    try {
+      const doId = this.env.JULES_OVERSEER.idFromName('singleton');
+      const doStub = this.env.JULES_OVERSEER.get(doId);
+
+      await doStub.fetch('http://do/ingest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'agent_event',
+          event: { type: 'tool_start', tool: toolName, args }
+        }),
+      });
+    } catch (e) {
+      console.warn('[StitchService] Failed to emit start event', e);
+    }
+
+    const result = await this.callTool(toolName, args);
+
+    try {
+      const doId = this.env.JULES_OVERSEER.idFromName('singleton');
+      const doStub = this.env.JULES_OVERSEER.get(doId);
+
+      await doStub.fetch('http://do/ingest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'agent_event',
+          event: { type: 'tool_complete', tool: toolName }
+        }),
+      });
+    } catch (e) {
+      console.warn('[StitchService] Failed to emit complete event', e);
+    }
+
+    return result;
+  }
+
   /**
    * Extracts text content from an MCP tool result content array.
    */

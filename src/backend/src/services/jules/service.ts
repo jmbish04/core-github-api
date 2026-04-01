@@ -418,6 +418,35 @@ export class JulesService {
     return session.stream();
   }
 
+  async streamInteraction(sessionId: string, monitoringAgentId?: string): Promise<void> {
+    try {
+      const session = await this.getSession(sessionId);
+      if (typeof (session as any).stream === 'function') {
+        const stream = (session as any).stream();
+        for await (const activity of stream) {
+          try {
+            const doId = this.env.JULES_OVERSEER.idFromName('singleton');
+            const doStub = this.env.JULES_OVERSEER.get(doId);
+            await doStub.fetch('http://do/ingest', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                type: 'agent_event',
+                sessionId,
+                event: activity,
+                monitoringAgentId,
+              }),
+            });
+          } catch (e) {
+            console.warn('[JulesService] Failed to push stream event to Overseer', e);
+          }
+        }
+      }
+    } catch (e) {
+      console.error('[JulesService] Failed to stream interaction', e);
+    }
+  }
+
   /**
    * Executes a repoless automated Jules session (fire-and-wait).
    * Unlike `startSession`, this waits for completion and returns the result directly.

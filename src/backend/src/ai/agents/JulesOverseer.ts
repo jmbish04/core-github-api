@@ -39,9 +39,35 @@ import type { AgentTool, PersistentAgentState } from '@/ai/agents/support/types'
 import { getDb } from '@db';
 import { julesSessions, julesJobs } from '@db/schemas/jules';
 import { alerts } from '@/db/schemas/app/alerts';
+import { learningAiInsights } from '@db/schemas/github/learning';
 import { JulesService } from '@/services/jules/service';
 import { CILogService } from '@/services/cloudflare/worker_cicd_build_logs';
 import { dispatchUIFrameworkPlan as _dispatchUIFrameworkPlan } from '@/ai/agents/LandingPageAgent';
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const APOLOGY_PATTERNS = [
+  /i('m| am) sorry/i,
+  /i apologize/i,
+  /my (mistake|bad|fault)/i,
+  /let me try (again|a different)/i,
+  /i keep (making|repeating)/i,
+  /my oversight/i,
+  /same error/i,
+  /i was wrong/i,
+  /i missed that/i,
+];
+const LOOP_THRESHOLD = 3;
+
+const OVERRIDE_MESSAGE = `[SYSTEM OVERRIDE]: You are stuck in a circular apology loop.
+
+MANDATORY STEPS BEFORE YOUR NEXT PROPOSAL:
+1. Call contemplationGateCheck with the pattern you are trying to fix.
+2. Query learning_ai_pr_reflections for prior attempts on this insight.
+3. If a prior fix was FAILED or REVERTED: Do NOT repeat the local patch. Flag for template-level immunization.
+4. If this is a NEW pattern: Proceed with the local patch.
+
+Continuing the same approach without checking history is prohibited.`;
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -150,10 +176,81 @@ export class JulesOverseer extends JulesOverseerDurableObject {
     if (url.pathname === '/schedule/check') {
       return Response.json(await this.checkJulesStatus());
     }
+
+    if (url.pathname === '/ingest' && request.method === 'POST') {
+      try {
+        const payload = await request.json<any>();
+        if (payload.type === 'insight') {
+          const db = getDb(this.env.DB);
+          await db.insert(learningAiInsights).values({
+            id: crypto.randomUUID(),
+            sessionId: payload.sessionId ?? null,
+            patternType: payload.patternType ?? 'unknown',
+            severity: payload.severity ?? 1,
+            description: payload.description ?? '',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          });
+        } else if (payload.type === 'agent_event') {
+          this.store.logger.info('Agent event ingested:', payload);
+        }
+        return Response.json({ ok: true });
+      } catch (e: any) {
+        return Response.json({ error: e.message }, { status: 400 });
+      }
+    }
+
     return super.fetch(request);
   }
 
   // ─── Main Monitoring Loop ──────────────────────────────────────────────────
+
+  async detectAndIntervene(sessionId: string, snapshot: SnapshotActivity[], julesService: JulesService, db: any): Promise<boolean> {
+    const messages = snapshot
+      .filter((a) => a.type === 'agentMessaged' && a.message)
+      .sort((a, b) => (a.timestamp ?? '') < (b.timestamp ?? '') ? 1 : -1)
+      .slice(0, 10);
+
+    let matchCount = 0;
+    for (const msg of messages) {
+      if (msg.message && APOLOGY_PATTERNS.some(re => re.test(msg.message!))) {
+        matchCount++;
+      }
+    }
+
+    if (matchCount >= LOOP_THRESHOLD) {
+      this.store.logger.warn(`Doom loop detected for session ${sessionId}. Intervening.`);
+
+      await julesService.sendMessage(sessionId, OVERRIDE_MESSAGE);
+
+      await db.insert(learningAiInsights).values({
+        id: crypto.randomUUID(),
+        sessionId,
+        patternType: 'doom_loop',
+        severity: 4,
+        description: 'Circular apology loop detected',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+
+      // Broadcast via JULES_WEBHOOK_BROADCASTER
+      if ((this.env as any).JULES_WEBHOOK_BROADCASTER) {
+        try {
+          await (this.env as any).JULES_WEBHOOK_BROADCASTER.fetch('http://broadcaster/broadcast', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'system_override', sessionId, reason: 'doom_loop_detected' }),
+          });
+        } catch (e) {
+          this.store.logger.warn(`Failed to broadcast doom loop detection: ${(e as Error).message}`);
+        }
+      }
+
+      return true; // Intervened
+    }
+
+    return false; // Did not intervene
+  }
 
   async checkJulesStatus(): Promise<SessionCheckResult[]> {
     const db = getDb(this.env.DB);
@@ -192,6 +289,12 @@ export class JulesOverseer extends JulesOverseerDurableObject {
           snapshot = (raw as any)?.activities ?? [];
         } catch {
           // Non-fatal; snapshot may not always be available
+        }
+
+        const intervened = await this.detectAndIntervene(job.sessionId, snapshot, julesService, db);
+        if (intervened) {
+          results.push({ sessionId: job.sessionId, status: 'intervened', actionTaken: 'doom_loop_intervention' });
+          continue; // Skip normal routing if we intervened
         }
 
         const result = await this.routeSessionState(job, status, info, snapshot, julesService);

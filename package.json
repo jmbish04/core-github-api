@@ -52,7 +52,7 @@
     "db:seed:prep": "python3 scripts/db/seed_prep.py",
     "db:seed:run": "python3 scripts/db/seed_run.py",
     "secrets:audit": "node scripts/secrets/audit-secrets.mjs",
-    "db:auto": "pnpm run db:generate:all && pnpm run migrate:remote:all && pnpm dlx wrangler@latest types"
+    "db:auto": "pnpm run db:generate:all && pnpm run migrate:local:all && pnpm dlx wrangler@latest types"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.58",

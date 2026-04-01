@@ -280,4 +280,11 @@ healthApi.delete('/tests/:id', async (c) => {
     return c.json({ deleted: id });
 });
 
+export const learningHealthApi = new Hono<{ Bindings: Env }>();
+learningHealthApi.get('/', async (c) => {
+    // Simply fetch the same response as GET /api/learning/health which serves the actual health data
+    // But since `/api/learning/health` might just be an external API or we can just redirect.
+    return c.redirect('/api/learning/health');
+});
+
 export default healthApi;

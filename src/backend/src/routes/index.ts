@@ -29,6 +29,7 @@ import {
   tasksApi,
   timelineApi,
   healthApi,
+  learningHealthApi,
   standardizationRouter,
   cloudflareApi,
   cloudflareServicesApi,
@@ -73,6 +74,7 @@ export function mountRoutes(app: OpenAPIHono<{ Bindings: Env }>) {
     .route('/api/timeline', timelineApi)
     .route('/api/agents', agentsApi)
     .route('/api/health', healthApi)
+    .route('/health/learning', learningHealthApi)
     .route('/api/ops/workflows', workflowsApi)
     .route('/api/standardization', standardizationRouter)
     .route('/api/cloudflare', cloudflareApi)
