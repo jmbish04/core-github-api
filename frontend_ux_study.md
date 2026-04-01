@@ -58,7 +58,7 @@ The frontend is built with React/Vite (as seen in `src/frontend`). The following
 The UI *must* implement the strict global error handling protocol defined in the backend architecture:
 *   Do not use generic `<Alert>` blocks for structural logic failures.
 *   Error toasts must explicitly display the transparent passthrough message from the backend (e.g., "GitHub API responded with 404 Not Found", not generic "Operation Failed").
-*   Include a "Copy Error Payload" button on all error notifications to facilitate debugging.
+*   Include a "Copy for AI" button on all error notifications to facilitate debugging.
 
 ## 7. Metrics for Success
 *   **Task Completion Rate:** For repository flows (e.g., retrofitting).
