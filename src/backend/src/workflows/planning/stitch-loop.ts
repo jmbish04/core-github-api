@@ -15,7 +15,7 @@ import {
   WorkflowStep,
 } from "cloudflare:workers";
 import { StitchService } from "@services/stitch";
-import { JulesService } from "@services/jules";
+import { JulesService } from "@services/jules/service";
 import type { StitchLoopParams } from "@services/stitch";
 
 const DESIGN_SYSTEM_RULES = `
