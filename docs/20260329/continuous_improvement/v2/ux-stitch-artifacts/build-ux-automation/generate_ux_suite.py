@@ -42,7 +42,7 @@ class StitchOrchestrator:
             # Using your FastAPI 'scaffold_frontend' tool pattern
             resp = requests.post(f"{BASE_URL}/orchestration/scaffold_frontend", json=payload)
             resp.raise_for_status()
-            print(resp.text)
+            logger.info(resp.text)
             logger.info(f"✅ Page {page_name} successfully queued for generation.")
         except Exception as e:
             logger.error(f"❌ Failed to generate {page_name}: {e}")

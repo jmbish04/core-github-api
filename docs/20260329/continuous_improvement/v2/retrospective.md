@@ -2,7 +2,7 @@
 
 > **Date:** 2026-03-31
 > **Project:** proj-sentinel-001 — Fleet Immune System
-> **Reviewer:** Claude Opus 4.6 (automated code analysis)
+> **Reviewer:** Claude (automated code analysis)
 > **Branch:** main (post-merge)
 
 ---

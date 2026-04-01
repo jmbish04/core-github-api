@@ -72,9 +72,9 @@ def close_pr(pr_number: int, comment: str):
         print(f"  ERROR commenting on #{pr_number}: {result.stderr.strip()}")
         return False
 
-    # Close PR
+    # Close PR and delete branch
     result = subprocess.run(
-        ["gh", "pr", "close", str(pr_number), "--repo", REPO],
+        ["gh", "pr", "close", str(pr_number), "--repo", REPO, "--delete-branch"],
         capture_output=True, text=True
     )
     if result.returncode != 0:
@@ -83,31 +83,6 @@ def close_pr(pr_number: int, comment: str):
 
     print(f"  Closed PR #{pr_number}")
     return True
-
-
-def delete_branch(pr_number: int):
-    """Delete the remote branch for a closed PR."""
-    if DRY_RUN:
-        return
-
-    # Get branch name
-    result = subprocess.run(
-        ["gh", "pr", "view", str(pr_number), "--repo", REPO, "--json", "headRefName", "-q", ".headRefName"],
-        capture_output=True, text=True
-    )
-    if result.returncode != 0:
-        return
-
-    branch = result.stdout.strip()
-    if not branch or branch in ("main", "master"):
-        return
-
-    result = subprocess.run(
-        ["gh", "api", f"repos/{REPO}/git/refs/heads/{branch}", "-X", "DELETE"],
-        capture_output=True, text=True
-    )
-    if result.returncode == 0:
-        print(f"    Deleted branch: {branch}")
 
 
 def main():
@@ -120,19 +95,16 @@ def main():
     print(f"--- Tier 1: Closing {len(TIER1_CLOSE)} stale/superseded PRs ---")
     for pr, comment in sorted(TIER1_CLOSE.items()):
         close_pr(pr, comment)
-        delete_branch(pr)
 
     # Tier 2
     print(f"\n--- Tier 2: Closing {len(TIER2_CLOSE)} PRs (review recommended) ---")
     for pr, comment in sorted(TIER2_CLOSE.items()):
         close_pr(pr, comment)
-        delete_branch(pr)
 
     # Tier 3
     print(f"\n--- Tier 3: Closing {len(TIER3_CLOSE)} remaining PRs ---")
     for pr, comment in sorted(TIER3_CLOSE.items()):
         close_pr(pr, comment)
-        delete_branch(pr)
 
     total_closed = len(TIER1_CLOSE) + len(TIER2_CLOSE) + len(TIER3_CLOSE)
     print(f"\n{'='*60}")
