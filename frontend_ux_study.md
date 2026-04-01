@@ -52,7 +52,7 @@ The frontend is built with React/Vite (as seen in `src/frontend`). The following
 *   **Status/Progress Indicators:** Crucial for long-running workflows. Must handle states: `PLANNING`, `RESEARCHING`, `REVIEW_REQUIRED`, `COMPLETED`, `ERROR`.
 *   **Data Grids/Tables:** For listing repositories, workflow runs, and aggregated agent research results.
 *   **Code/Diff Viewer:** Essential for previewing file upserts or workflow retrofits before execution.
-*   **Toast Notifications/Error Handling:** Must follow the mandated Global Error Handling protocol. Errors caught by the frontend must be passed to `handleGlobalError` service, rendering a Sonner toast with the literal backend message and a "Copy to Clipboard" button.
+*   **Toast Notifications/Error Handling:** Must follow the mandated Global Error Handling protocol. Errors caught by the frontend must be passed to handleGlobalError service, rendering a Sonner toast with the literal backend message and a "Copy for AI" button.
 
 ## 6. Error Handling Protocol (Critical Design Constraint)
 The UI *must* implement the strict global error handling protocol defined in the backend architecture:
