@@ -31,9 +31,10 @@ import { cn } from '@/lib/utils';
 
 interface RepoFolderProps {
   repo: Repository;
+  isCollapsed?: boolean;
 }
 
-export function RepoFolder({ repo }: RepoFolderProps) {
+export function RepoFolder({ repo, isCollapsed }: RepoFolderProps) {
   const [isOpen, setIsOpen] = useState(true);
   const [isToolsOpen, setIsToolsOpen] = useState(false);
   const { addFavorite, removeFavorite, isFavorite } = useProjectStore();
@@ -73,6 +74,20 @@ export function RepoFolder({ repo }: RepoFolderProps) {
     { slug: "projects/tracker-beta/reports", label: "Tracker Reports [Beta]", icon: BarChart3 },
     { slug: "prs", label: "PRs", icon: GitPullRequest, badge: activePrCount > 0 ? activePrCount : null },
   ];
+
+  if (isCollapsed) {
+    return (
+      <div className="flex justify-center py-2">
+        <Button variant="ghost" size="icon" className="h-9 w-9 p-0" title={repo.name} asChild>
+          <NavLink to={basePath}>
+            <span className="font-semibold text-xs bg-muted text-muted-foreground rounded-md h-full w-full flex items-center justify-center uppercase">
+              {repo.name.substring(0, 2)}
+            </span>
+          </NavLink>
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen} className="space-y-1">
