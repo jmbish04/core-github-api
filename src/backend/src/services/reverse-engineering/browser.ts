@@ -1,11 +1,11 @@
 import { zodToJsonSchema } from 'zod-to-json-schema';
-import { generateStructuredResponse } from '@/ai/providers';
+import { AIProvider } from '@/ai/providers';
 import { BrowserService } from '@/cloudflare/browser';
 import { resolveCfEnv } from '@/cloudflare/env-resolver';
 import { SandboxClient } from '@/ai/mcp/tools/sandbox-sdk/client';
 import { detectWranglerConfig } from '@/routes/api/frontend/repos/utils';
 import type { ReverseEngineeringAuthInput } from '@/lib/schemas/reverse-engineering';
-import { fetchRepositoryTree, readRepositoryFile, readRepositoryFiles } from './repository';
+import { fetchRepositoryTree, readRepositoryFiles } from './repository';
 import { z } from 'zod';
 
 export interface FrontendAuthFinding {
@@ -365,13 +365,12 @@ async function describeScreenshotWithVision(
       ? (response as any).description
       : JSON.stringify(response);
 
-  return generateStructuredResponse<z.infer<typeof VisionSchema>>(
-    env,
+  const ai = new AIProvider(env);
+  return ai.generateStructuredResponse<z.infer<typeof VisionSchema>>(
     description,
     VisionSchema,
     'You normalize screenshot descriptions into structured JSON. Preserve only visible, evidence-based claims.',
-    { model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast' },
-    'worker-ai',
+    { provider: 'worker-ai', model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast' }
   );
 }
 

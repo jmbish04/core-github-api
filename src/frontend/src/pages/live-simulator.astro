@@ -1,0 +1,20 @@
+---
+import { OrchestratorStatusView } from "@/views/repos/OrchestratorStatusView";
+import "@/index.css";
+---
+
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="shortcut icon" href="/favicon.svg" />
+    <title>Colby | Live Simulator</title>
+  </head>
+  <body class="bg-[#0b1020] m-0 overflow-hidden font-sans">
+    <div class="h-screen w-full flex items-center justify-center">
+      <OrchestratorStatusView client:only="react" />
+    </div>
+  </body>
+</html>

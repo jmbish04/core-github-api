@@ -4,7 +4,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
-import { toast } from 'sonner';
+import { handleGlobalError } from '@/lib/error-handler';
 
 export const MemoryExplorer = ({ projectId }: { projectId: string }) => {
     const [memory, setMemory] = useState<any[]>([]);
@@ -19,8 +19,9 @@ export const MemoryExplorer = ({ projectId }: { projectId: string }) => {
                     const data = await res.json();
                     setMemory(data.memory);
                 }
-            } catch (e) {
-                toast.error("Failed to load memory.");
+            } catch (e: unknown) {
+                const msg = e instanceof Error ? e.message : String(e);
+                handleGlobalError(`Failed to load memory. ${msg}`);
             } finally {
                 setLoading(false);
             }

@@ -1,0 +1,616 @@
+{
+  "project": "Agent Consolidation Checkin #1",
+  "date": "2026-04-14",
+  "description": "Remaining cleanup from Phase 1 agent consolidation + unified chat schema + route modularization + anti-pattern fixes + wrangler migration reset",
+  "phases": [
+    {
+      "id": "phase_2a",
+      "name": "Immediate Cleanup (No Dependencies)",
+      "tasks": [
+        {
+          "id": "A1",
+          "title": "Delete legacy flat files",
+          "status": "pending",
+          "priority": "high",
+          "description": "Remove duplicate flat files that now have proper directory-structured replacements",
+          "requirements": [
+            "Verify no import paths reference these files (grep for each filename)",
+            "Delete ai/agents/ChatRoom.ts (replaced by ChatRoom/index.ts)",
+            "Delete ai/agents/WorkshopAgent/CfAgentsSdk.ts (replaced by CloudflareAgent/methods/agents-sdk-expert.ts)",
+            "Delete ai/agents/WorkshopAgent/UxResearcher.ts (replaced by DesignAgent/methods/ux-research.ts)",
+            "Delete ai/agents/WorkshopAgent/WorkshopAgent.ts (replaced by WorkshopAgent/index.ts)"
+          ],
+          "success_criteria": [
+            "No flat .ts agent files exist directly in ai/agents/ except exports.ts",
+            "No flat .ts files exist in WorkshopAgent/ except inside methods/",
+            "tsc --noEmit passes after deletions",
+            "All imports in exports.ts resolve correctly"
+          ],
+          "files_affected": [
+            "src/backend/src/ai/agents/ChatRoom.ts",
+            "src/backend/src/ai/agents/WorkshopAgent/CfAgentsSdk.ts",
+            "src/backend/src/ai/agents/WorkshopAgent/UxResearcher.ts",
+            "src/backend/src/ai/agents/WorkshopAgent/WorkshopAgent.ts"
+          ]
+        },
+        {
+          "id": "A2",
+          "title": "Create GithubAgent/methods/repo.ts",
+          "status": "pending",
+          "priority": "high",
+          "description": "The GithubAgent is missing its repo.ts method file. Extract core callable methods from todo_integration/Repo.ts and adapt to Omni-Agent pattern.",
+          "requirements": [
+            "Read GithubAgent/todo_integration/Repo.ts to understand existing RepoAgent capabilities",
+            "Create GithubAgent/methods/repo.ts with key methods extracted from Repo.ts",
+            "Methods should receive agent context as first parameter (Omni-Agent pattern)",
+            "Add @callable() decorated methods to GithubAgent/index.ts that delegate to methods/repo.ts",
+            "Update GithubAgent/methods/index.ts to re-export repo methods",
+            "Preserve DO SQLite state management, webhook processing, and file operations from Repo.ts"
+          ],
+          "success_criteria": [
+            "GithubAgent/methods/repo.ts exists with extracted methods",
+            "GithubAgent/index.ts has @callable() methods for repo operations",
+            "GithubAgent/methods/index.ts re-exports repo methods",
+            "tsc --noEmit passes"
+          ],
+          "files_affected": [
+            "src/backend/src/ai/agents/GithubAgent/methods/repo.ts",
+            "src/backend/src/ai/agents/GithubAgent/index.ts",
+            "src/backend/src/ai/agents/GithubAgent/methods/index.ts"
+          ]
+        },
+        {
+          "id": "A3",
+          "title": "Dissolve OverseerAgent from active bindings",
+          "status": "pending",
+          "priority": "medium",
+          "description": "OverseerAgent responsibilities have been absorbed into EngineerAgent, GuardrailAgent. Remove from active runtime.",
+          "requirements": [
+            "Verify EngineerAgent/methods/oversee-jules.ts has checkSchedule() and ingestEvent() methods",
+            "Verify GuardrailAgent/methods/evaluate.ts covers enforceGuardrails and validatePayload",
+            "Verify GuardrailAgent/methods/judge.ts covers Judge functionality",
+            "Remove OVERSEEER_AGENT binding from wrangler.jsonc active durable_objects.bindings (note: typo in current binding name)",
+            "Remove OverseerAgent from shared/health.ts agent monitoring list"
+          ],
+          "success_criteria": [
+            "OverseerAgent NOT in wrangler.jsonc active bindings",
+            "EngineerAgent has all former OverseerAgent Jules oversight methods",
+            "GuardrailAgent has all former OverseerAgent validation methods",
+            "shared/health.ts does not reference OverseerAgent",
+            "No runtime code references OVERSEEER_AGENT or JULES_OVERSEER binding"
+          ],
+          "files_affected": [
+            "wrangler.jsonc",
+            "src/backend/src/ai/agents/shared/health.ts",
+            "src/backend/src/ai/agents/EngineerAgent/methods/oversee-jules.ts",
+            "src/backend/src/ai/agents/GuardrailAgent/methods/evaluate.ts"
+          ]
+        },
+        {
+          "id": "E1",
+          "title": "Reset wrangler.jsonc migrations to fresh v1",
+          "status": "pending",
+          "priority": "critical",
+          "description": "Replace all 6 migration tags (v1-v6) with a single clean v1 containing new_sqlite_classes for all 16 current DO classes. This treats the worker as a brand-new deployment.",
+          "requirements": [
+            "Delete all existing migration tags (v1 through v6) from wrangler.jsonc",
+            "Create single v1 migration with new_sqlite_classes listing all 16 active DO classes: OrchestratorAgent, SoftwareEngineerAgent, GuardrailAgent, ResearchAgent, GithubAgent, CloudflareAgent, DesignAgent, ContinuousLearningAgent, WorkshopAgent, ChatRoom, Sandbox, JulesWebhookBroadcaster, PlanningMonitor, ReverseEngineeringMonitor, AgentSessionDO, RoomDO",
+            "No deleted_classes or renamed_classes in v1 — fresh start",
+            "Verify every class_name in v1 matches an export from src/backend/src/exports.ts"
+          ],
+          "success_criteria": [
+            "wrangler.jsonc has exactly 1 migration tag: v1",
+            "v1 has new_sqlite_classes with all 16 DO classes",
+            "No deleted_classes or renamed_classes exist anywhere in migrations",
+            "npx wrangler types succeeds",
+            "npx wrangler deploy --dry-run succeeds"
+          ],
+          "files_affected": [
+            "wrangler.jsonc"
+          ]
+        },
+        {
+          "id": "E2",
+          "title": "Fix export alignment (wrangler ↔ exports.ts)",
+          "status": "pending",
+          "priority": "critical",
+          "description": "Ensure every class_name in wrangler.jsonc (DO bindings + workflows) has a matching named export. Fix missing exports and mismatches.",
+          "requirements": [
+            "Add LearningWorkflow export to src/backend/src/workflows/exports.ts (bound in wrangler but not exported — will fail deployment)",
+            "Decide on HitlWorkflow: exported but not in wrangler — add wrangler binding or remove export",
+            "Verify SoftwareEngineerAgent alias: exports.ts has 'EngineerAgent as SoftwareEngineerAgent', wrangler class_name is 'SoftwareEngineerAgent' — must match",
+            "Verify DesignAgent alias: exports.ts has 'StitchDesignAgent as DesignAgent', wrangler class_name is 'DesignAgent' — must match",
+            "For every workflow class_name in wrangler.jsonc, verify a matching export exists in workflows/exports.ts or ai/agents/exports.ts",
+            "Run grep to confirm: extract all class_name values from wrangler.jsonc, verify each has matching export"
+          ],
+          "success_criteria": [
+            "Every class_name in wrangler.jsonc durable_objects.bindings has a matching export from src/backend/src/exports.ts",
+            "Every class_name in wrangler.jsonc workflows has a matching export",
+            "LearningWorkflow is exported from workflows/exports.ts",
+            "No orphaned exports exist (exported but not bound)",
+            "npx wrangler deploy --dry-run succeeds with zero class resolution errors"
+          ],
+          "files_affected": [
+            "src/backend/src/workflows/exports.ts",
+            "src/backend/src/ai/agents/exports.ts",
+            "src/backend/src/exports.ts",
+            "wrangler.jsonc"
+          ]
+        },
+        {
+          "id": "E3",
+          "title": "Delete legacy exports and todo_integration/ directories",
+          "status": "pending",
+          "priority": "high",
+          "description": "With fresh v1 migration, no deleted/renamed classes exist, so legacy exports and todo_integration/ directories are no longer needed.",
+          "requirements": [
+            "Remove the 'Legacy class exports (MIGRATION ONLY)' section from ai/agents/exports.ts (lines 22-43)",
+            "Delete all todo_integration/ directories across all 9 agents (28 files total)",
+            "Delete the OverseerAgent/ directory entirely (dissolved agent, no longer in migration tags)",
+            "Verify no import paths reference any deleted file (grep for each deleted path)",
+            "tsc --noEmit passes after deletions"
+          ],
+          "success_criteria": [
+            "Zero todo_integration/ directories remain anywhere under ai/agents/",
+            "OverseerAgent/ directory does not exist",
+            "ai/agents/exports.ts has only 10 canonical Omni-Agent exports + 2 workflow exports (12 total)",
+            "No broken imports anywhere in src/",
+            "tsc --noEmit passes"
+          ],
+          "files_affected": [
+            "src/backend/src/ai/agents/exports.ts",
+            "All todo_integration/ directories under ai/agents/",
+            "src/backend/src/ai/agents/OverseerAgent/"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "phase_2b",
+      "name": "Route Migration & Type Cleanup",
+      "depends_on": ["phase_2a"],
+      "tasks": [
+        {
+          "id": "A4",
+          "title": "Fix 16 stale route references",
+          "status": "pending",
+          "priority": "critical",
+          "description": "Update all route files and workflows that reference old agent binding names to use new consolidated agent bindings. Must verify method signatures match.",
+          "requirements": [
+            "Update routes/api/agents/chat.ts:55 — GEMINI_AGENT → ORCHESTRATOR, verify OrchestratorAgent has chat() @callable",
+            "Update routes/api/agents/deep-research-chat.ts:81 — DEEP_RESEARCH_CHAT_AGENT → RESEARCH_AGENT, verify ResearchAgent has matching method",
+            "Update routes/api/frontend/ai/chat.ts:177 — CLOUDFLARE_DOCS_AGENT → CLOUDFLARE_AGENT",
+            "Update routes/api/frontend/ai/chat.ts:187,194 — GEMINI_AGENT → ORCHESTRATOR",
+            "Update routes/api/ops/ops.ts:93,100,107 — SUPERVISOR → ORCHESTRATOR, verify OrchestratorAgent has healthProbe()",
+            "Update workflows/research/topic.ts:23 — WEB_SEARCH_AGENT → RESEARCH_AGENT, adapt search() call to puppeteerSearch() or add shim",
+            "Update workflows/research/topic.ts:39 — JUDGE_AGENT → GUARDRAIL_AGENT, adapt evaluateCandidate() to judgeCodeQuality() or add shim",
+            "Update routes/api/projects/sentinel/mcp.ts:207 — JUDGE_AGENT → GUARDRAIL_AGENT",
+            "Update routes/api/projects/sentinel/submit.ts:81-96 — JUDGE_AGENT → GUARDRAIL_AGENT",
+            "Update routes/api/frontend/research/research.ts:25-26 — TOPIC_ORCHESTRATOR → RESEARCH_AGENT or ORCHESTRATOR",
+            "Update routes/api/projects/sentinel/clarify.ts:50 — JULES_OVERSEER → ENGINEER_AGENT",
+            "Update all stale comments referencing old agent names in these files",
+            "For each binding change, verify the new agent has a @callable() method with compatible signature",
+            "If method signature doesn't match, add a compatibility @callable() method to the new agent"
+          ],
+          "success_criteria": [
+            "grep -r for all old binding names returns zero matches in routes/ and workflows/",
+            "Each updated route correctly calls a @callable() method on the new agent",
+            "tsc --noEmit passes",
+            "No runtime errors when routes are invoked"
+          ],
+          "files_affected": [
+            "src/backend/src/routes/api/agents/chat.ts",
+            "src/backend/src/routes/api/agents/deep-research-chat.ts",
+            "src/backend/src/routes/api/frontend/ai/chat.ts",
+            "src/backend/src/routes/api/ops/ops.ts",
+            "src/backend/src/workflows/research/topic.ts",
+            "src/backend/src/routes/api/projects/sentinel/mcp.ts",
+            "src/backend/src/routes/api/projects/sentinel/submit.ts",
+            "src/backend/src/routes/api/frontend/research/research.ts",
+            "src/backend/src/routes/api/projects/sentinel/clarify.ts"
+          ]
+        },
+        {
+          "id": "D1",
+          "title": "Fix 7 anti-pattern .fetch(new Request(...)) calls",
+          "status": "pending",
+          "priority": "critical",
+          "description": "Replace all instances of agent.fetch(new Request('http://...')) with proper @callable() RPC calls. Per Cloudflare Agents SDK: never construct HTTP requests to talk to a Durable Object.",
+          "requirements": [
+            "Fix routes/api/ux/index.ts:79 — agent.fetch(new Request('http://agent/stream')) against DESIGN_AGENT → use @callable() or WebSocket for streaming",
+            "Fix routes/api/webhooks/jules.ts:96 — agent.fetch(new Request('http://internal/internal/broadcast')) against JULES_WEBHOOK_BROADCASTER → agent.broadcast(payload)",
+            "Fix routes/api/webhooks/jules.ts:191 — agent.fetch(new Request('http://jules-overseer/schedule/check')) against JULES_OVERSEER → ENGINEER_AGENT agent.checkSchedule()",
+            "Fix routes/api/ops/health.ts:69 — agent.fetch(new Request('http://agent/diagnose')) against LEARNING_AGENT → agent.diagnose(errorInfo)",
+            "Fix routes/api/projects/sentinel/broadcast.ts:24 — agent.fetch(new Request('http://internal/internal/broadcast')) → agent.broadcast(payload)",
+            "Fix routes/api/projects/sentinel/clarify.ts:32 — agent.fetch(new Request('http://internal/internal/broadcast')) → agent.broadcast(payload)",
+            "Fix routes/api/projects/sentinel/submit.ts:84-85 — c.env.JUDGE_AGENT.fetch(new Request('http://judge/task')) → GUARDRAIL_AGENT agent.judgeCodeQuality(...)",
+            "For DesignAgent streaming: if @callable() cannot return a streaming response, keep onRequest for /stream but route via routeAgentRequest() — document the exception with a comment"
+          ],
+          "success_criteria": [
+            "grep -r 'new Request.*http://agent\\|new Request.*http://internal\\|new Request.*http://judge\\|new Request.*http://jules-overseer' src/backend/src/routes returns zero matches",
+            "All agent method calls use @callable() RPC (except documented streaming exception)",
+            "tsc --noEmit passes"
+          ],
+          "files_affected": [
+            "src/backend/src/routes/api/ux/index.ts",
+            "src/backend/src/routes/api/webhooks/jules.ts",
+            "src/backend/src/routes/api/ops/health.ts",
+            "src/backend/src/routes/api/projects/sentinel/broadcast.ts",
+            "src/backend/src/routes/api/projects/sentinel/clarify.ts",
+            "src/backend/src/routes/api/projects/sentinel/submit.ts"
+          ]
+        },
+        {
+          "id": "D2",
+          "title": "Add missing @callable() methods to agents",
+          "status": "pending",
+          "priority": "critical",
+          "description": "Create the @callable() RPC methods that D1's route fixes depend on. These methods don't exist yet on the target agents.",
+          "requirements": [
+            "Add @callable() broadcast(payload) to JulesWebhookBroadcaster (src/backend/src/do/JulesWebhookBroadcaster.ts) — WebSocket fan-out to connected clients",
+            "Add @callable() stream(runId) to DesignAgent or document onRequest exception for SSE streaming",
+            "Add @callable() diagnose(errorInfo) to LearningAgent — AI-powered health failure analysis using @/ai/providers",
+            "All new methods must route AI calls through @/ai/providers (no direct vendor imports)",
+            "Each method must have proper TypeScript types for parameters and return values"
+          ],
+          "success_criteria": [
+            "JulesWebhookBroadcaster has @callable() broadcast() method",
+            "DesignAgent has @callable() stream() or documented onRequest exception",
+            "LearningAgent has @callable() diagnose() method",
+            "All new methods compile with tsc --noEmit",
+            "Routes from D1 successfully call these new methods"
+          ],
+          "files_affected": [
+            "src/backend/src/do/JulesWebhookBroadcaster.ts",
+            "src/backend/src/ai/agents/DesignAgent/index.ts",
+            "src/backend/src/ai/agents/LearningAgent/index.ts"
+          ]
+        },
+        {
+          "id": "C1",
+          "title": "Move 12 loose route files into category subdirectories",
+          "status": "pending",
+          "priority": "medium",
+          "description": "Organize loose route modules under routes/api/ into category-based subdirectories for better code organization.",
+          "requirements": [
+            "Move routes/api/actions.ts → routes/api/github/actions.ts",
+            "Move routes/api/agent-planning.ts → routes/api/agents/planning.ts",
+            "Move routes/api/backlog.ts → routes/api/projects/backlog.ts",
+            "Move routes/api/continuous-learning.ts → routes/api/learning/continuous-learning.ts",
+            "Move routes/api/health.ts → routes/api/ops/health-root.ts",
+            "Move routes/api/planning.ts → routes/api/projects/planning.ts",
+            "Move routes/api/research-orchestration.ts → routes/api/research/orchestration.ts",
+            "Move routes/api/reverse-engineering.ts → routes/api/tools/reverse-engineering.ts",
+            "Move routes/api/sandbox.ts → routes/api/tools/sandbox.ts",
+            "Move routes/api/skills.ts → routes/api/ai/skills.ts",
+            "Move routes/api/standardization.ts → routes/api/ops/standardization.ts",
+            "Move routes/api/stitch.ts → routes/api/design/stitch.ts",
+            "Create any new subdirectories as needed (learning/, tools/, design/)",
+            "Keep routes/api/auth.ts and routes/api/index.ts in place (standard convention)",
+            "Verify no import paths break after moves"
+          ],
+          "success_criteria": [
+            "Zero loose .ts files in routes/api/ except auth.ts and index.ts",
+            "All moved files exist at new locations",
+            "Category subdirectories have an index.ts barrel export if the directory has 2+ files",
+            "tsc --noEmit passes"
+          ],
+          "files_affected": [
+            "src/backend/src/routes/api/actions.ts",
+            "src/backend/src/routes/api/agent-planning.ts",
+            "src/backend/src/routes/api/backlog.ts",
+            "src/backend/src/routes/api/continuous-learning.ts",
+            "src/backend/src/routes/api/health.ts",
+            "src/backend/src/routes/api/planning.ts",
+            "src/backend/src/routes/api/research-orchestration.ts",
+            "src/backend/src/routes/api/reverse-engineering.ts",
+            "src/backend/src/routes/api/sandbox.ts",
+            "src/backend/src/routes/api/skills.ts",
+            "src/backend/src/routes/api/standardization.ts",
+            "src/backend/src/routes/api/stitch.ts"
+          ]
+        },
+        {
+          "id": "C2",
+          "title": "Update root router imports after file moves",
+          "status": "pending",
+          "priority": "medium",
+          "description": "After moving route files (C1), update routes/api/index.ts to import from new locations and verify all route registrations.",
+          "requirements": [
+            "Update all imports in routes/api/index.ts to reference new file paths",
+            "Update app.route() registrations if any path prefixes changed",
+            "Verify no other files import the moved modules by old path (grep for old paths)",
+            "Ensure API routes remain accessible at the same URL paths (only internal file organization changed)"
+          ],
+          "success_criteria": [
+            "routes/api/index.ts compiles with all updated imports",
+            "No broken imports reference old file paths",
+            "All API endpoints remain functional at same URLs",
+            "tsc --noEmit passes"
+          ],
+          "files_affected": [
+            "src/backend/src/routes/api/index.ts"
+          ]
+        },
+        {
+          "id": "A5",
+          "title": "Regenerate types and verify clean compile",
+          "status": "pending",
+          "priority": "critical",
+          "description": "Regenerate worker-configuration.d.ts from wrangler.jsonc and ensure TypeScript compiles cleanly. Run AFTER all route, binding, and migration changes.",
+          "requirements": [
+            "Run npx wrangler types to regenerate worker-configuration.d.ts",
+            "Run tsc --noEmit to verify zero type errors",
+            "Fix any remaining stale references caught by TypeScript",
+            "Verify env-augments.d.ts does not declare old binding types",
+            "Update env-augments.d.ts if needed to match current wrangler bindings",
+            "Run npx wrangler deploy --dry-run to validate full deployment config"
+          ],
+          "success_criteria": [
+            "worker-configuration.d.ts matches current wrangler.jsonc bindings exactly",
+            "tsc --noEmit exits with zero errors",
+            "No stale binding names in env-augments.d.ts",
+            "npx wrangler deploy --dry-run succeeds"
+          ],
+          "files_affected": [
+            "worker-configuration.d.ts",
+            "src/backend/src/types/env-augments.d.ts"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "phase_2c",
+      "name": "Unified Chat Schema (Parallel with 2b)",
+      "depends_on": [],
+      "tasks": [
+        {
+          "id": "B1",
+          "title": "Extend threads table with agent and source context",
+          "status": "pending",
+          "priority": "high",
+          "description": "Add columns to db/schemas/chats/threads.ts to support multi-agent threads, ChatRoom linking, and source tracking",
+          "requirements": [
+            "Add hostAgentId column (text, nullable) — which agent hosts this thread",
+            "Add roomId column (text, nullable) — optional ChatRoom DO instance ID link",
+            "Add source column (text enum: user_chat|agent_orchestration|chatroom) — how thread was created",
+            "Add userId column (text, nullable) — human user who initiated",
+            "Add indexes: threads_host_agent_idx, threads_source_idx, threads_user_idx",
+            "Update insertThreadSchema and selectThreadSchema (drizzle-zod) to include new fields",
+            "Update Thread and NewThread types"
+          ],
+          "success_criteria": [
+            "threads table has all 4 new columns with correct types and nullability",
+            "All 3 new indexes are defined",
+            "Zod schemas validate correctly with new fields",
+            "TypeScript types export correctly"
+          ],
+          "files_affected": [
+            "src/backend/src/db/schemas/chats/threads.ts"
+          ]
+        },
+        {
+          "id": "B2",
+          "title": "Extend messages table with metadata",
+          "status": "pending",
+          "priority": "high",
+          "description": "Add metadata JSON column to messages for tool results, ChatRoom context, evaluation scores",
+          "requirements": [
+            "Add metadata column (text, mode: 'json', nullable) to messages table",
+            "Update insertMessageSchema and selectMessageSchema",
+            "Update Message and NewMessage types"
+          ],
+          "success_criteria": [
+            "messages table has metadata column",
+            "Zod schemas validate correctly",
+            "TypeScript types export correctly"
+          ],
+          "files_affected": [
+            "src/backend/src/db/schemas/chats/messages.ts"
+          ]
+        },
+        {
+          "id": "B3",
+          "title": "Create thread_participants junction table",
+          "status": "pending",
+          "priority": "high",
+          "description": "New table to track which agents participate in a thread and their role (host, participant, observer)",
+          "requirements": [
+            "Create src/backend/src/db/schemas/chats/participants.ts",
+            "Define threadParticipants table with: threadId (int FK cascade), agentName (text), role (enum host|participant|observer), joinedAt (timestamp)",
+            "Composite PK on (threadId, agentName)",
+            "Index on agentName for agent-scoped queries",
+            "Create Zod schemas (insert + select) and TypeScript types",
+            "Update src/backend/src/db/schemas/chats/index.ts to export participants"
+          ],
+          "success_criteria": [
+            "participants.ts exists with correct schema",
+            "Exported from chats/index.ts",
+            "Zod schemas and types export correctly",
+            "tsc --noEmit passes"
+          ],
+          "files_affected": [
+            "src/backend/src/db/schemas/chats/participants.ts",
+            "src/backend/src/db/schemas/chats/index.ts"
+          ]
+        },
+        {
+          "id": "B4",
+          "title": "Export chats schema and generate D1 migration",
+          "status": "pending",
+          "priority": "high",
+          "description": "Add chats schema to schema.core.ts so Drizzle generates migration SQL for D1",
+          "requirements": [
+            "Add export * from './schemas/chats' to src/backend/src/db/schema.core.ts",
+            "Verify chats/ is also exported from src/backend/src/db/schemas/index.ts (barrel)",
+            "Run npx drizzle-kit generate to produce migration SQL",
+            "Review generated migration — should CREATE threads, messages, thread_participants tables (since they weren't previously in schema.core.ts)",
+            "Run pnpm run migrate:local to test locally"
+          ],
+          "success_criteria": [
+            "chats schema exported from schema.core.ts",
+            "Drizzle migration file generated successfully",
+            "Local migration applies without errors",
+            "D1 tables created with correct columns and indexes"
+          ],
+          "files_affected": [
+            "src/backend/src/db/schema.core.ts",
+            "src/backend/src/db/schemas/index.ts",
+            "migrations/"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "phase_2d",
+      "name": "Route & Agent Chat Migration",
+      "depends_on": ["phase_2b", "phase_2c"],
+      "tasks": [
+        {
+          "id": "B5",
+          "title": "Migrate chat API routes to unified schema",
+          "status": "pending",
+          "priority": "critical",
+          "description": "Switch routes/api/frontend/ai/chat.ts from old agents/chat.ts schema to new chats/ schema",
+          "requirements": [
+            "Change imports from @/db/schemas/agents/chat (chatThreads, chatMessages) to @db/schemas/chats (threads, messages, threadParticipants)",
+            "Adapt thread creation: text id → auto-increment int (use uuid column for API), subject → title, agentId → hostAgentId, timestampStarted → createdAt",
+            "Adapt message insertion: plain text message → JSON content (assistant-ui parts format)",
+            "On thread create, insert hosting agent into threadParticipants with role 'host'",
+            "When routing to a specific agent, record that agent as participant",
+            "Update all SELECT queries to use new column names",
+            "Update response shapes to match new schema",
+            "Handle backwards compatibility: keep old chatThreads/chatMessages tables populated for any legacy consumers during transition"
+          ],
+          "success_criteria": [
+            "Chat API creates threads in new threads table",
+            "Chat API inserts messages in new messages table with JSON content format",
+            "Thread participants are tracked per conversation",
+            "Frontend assistant-ui chat continues to work end-to-end",
+            "No references to chatThreads or chatMessages remain in this file"
+          ],
+          "files_affected": [
+            "src/backend/src/routes/api/frontend/ai/chat.ts"
+          ]
+        },
+        {
+          "id": "B6",
+          "title": "Update ChatRoom D1 mirroring to unified schema",
+          "status": "pending",
+          "priority": "high",
+          "description": "Change ChatRoom's mirrorToD1() to write to unified messages table instead of chatRoomLogs",
+          "requirements": [
+            "Import threads, messages, threadParticipants from @db/schemas/chats",
+            "On first message in a room, create a thread with source='chatroom' and roomId set",
+            "Map ChatRoom messages to unified messages format: role='agent', author=userName, content=JSON parts",
+            "Track room→thread mapping in ChatRoom DO SQLite (add chat_room_threads table in onStart DDL)",
+            "Insert agents as participants when they join the room",
+            "Dual-write to chatRoomLogs during transition (use ctx.waitUntil for legacy write)",
+            "Handle message types: 'message' → role 'agent', 'join'/'leave' → role 'system'"
+          ],
+          "success_criteria": [
+            "ChatRoom messages appear in unified messages table",
+            "Thread created for each ChatRoom with source='chatroom'",
+            "Participants tracked as agents join rooms",
+            "chatRoomLogs still populated during transition",
+            "No data loss during dual-write period"
+          ],
+          "files_affected": [
+            "src/backend/src/ai/agents/ChatRoom/methods/messaging.ts",
+            "src/backend/src/ai/agents/ChatRoom/index.ts"
+          ]
+        },
+        {
+          "id": "B7",
+          "title": "Agent onChatMessage integration with unified schema",
+          "status": "pending",
+          "priority": "medium",
+          "description": "Ensure every Omni-Agent's onChatMessage handler writes to the unified chat schema",
+          "requirements": [
+            "Create a shared utility in shared/ for creating threads and inserting messages (avoid code duplication)",
+            "Each agent's onChatMessage should: create/find thread with hostAgentId, insert user message, insert agent response",
+            "When agent calls another agent via RPC, insert role='agent' author=calledAgentName message",
+            "Add called agents to threadParticipants as 'participant'",
+            "Apply to all 10 Omni-Agents: CloudflareAgent, DesignAgent, EngineerAgent, GithubAgent, GuardrailAgent, LearningAgent, OrchestratorAgent, ResearchAgent, WorkshopAgent, ChatRoom"
+          ],
+          "success_criteria": [
+            "Shared chat utility exists in shared/",
+            "All agent conversations are persisted to D1 unified schema",
+            "Inter-agent RPC calls are captured as messages",
+            "Thread participants reflect all agents involved in conversation",
+            "No agent stores chat in its own DO SQLite without also writing to D1"
+          ],
+          "files_affected": [
+            "src/backend/src/ai/agents/shared/chat-persistence.ts",
+            "src/backend/src/ai/agents/CloudflareAgent/index.ts",
+            "src/backend/src/ai/agents/DesignAgent/index.ts",
+            "src/backend/src/ai/agents/EngineerAgent/index.ts",
+            "src/backend/src/ai/agents/GithubAgent/index.ts",
+            "src/backend/src/ai/agents/GuardrailAgent/index.ts",
+            "src/backend/src/ai/agents/LearningAgent/index.ts",
+            "src/backend/src/ai/agents/OrchestratorAgent/index.ts",
+            "src/backend/src/ai/agents/ResearchAgent/index.ts",
+            "src/backend/src/ai/agents/WorkshopAgent/index.ts",
+            "src/backend/src/ai/agents/ChatRoom/index.ts"
+          ]
+        },
+        {
+          "id": "B8",
+          "title": "Deprecate old chat schemas",
+          "status": "pending",
+          "priority": "low",
+          "description": "After B5-B7 are tested, deprecate the old chat schemas (do NOT delete D1 tables — they contain historical data)",
+          "requirements": [
+            "Remove export * from './chat' from db/schemas/agents/index.ts",
+            "Add @deprecated JSDoc comment to db/schemas/agents/chat.ts",
+            "Mark chatRoomLogs in mirror.ts as @deprecated",
+            "Stop dual-writing to chatRoomLogs in ChatRoom/methods/messaging.ts",
+            "Verify no remaining imports of chatThreads, chatMessages, chatTags, chatRoomLogs from active code",
+            "Keep D1 tables in place — historical data only"
+          ],
+          "success_criteria": [
+            "No active code imports from agents/chat.ts",
+            "No active code writes to chatRoomLogs",
+            "Old tables still exist in D1 for historical queries",
+            "tsc --noEmit passes"
+          ],
+          "files_affected": [
+            "src/backend/src/db/schemas/agents/index.ts",
+            "src/backend/src/db/schemas/agents/chat.ts",
+            "src/backend/src/db/schemas/agents/mirror.ts",
+            "src/backend/src/ai/agents/ChatRoom/methods/messaging.ts"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "phase_2e",
+      "name": "Post-Deploy Verification",
+      "depends_on": ["phase_2d"],
+      "tasks": [
+        {
+          "id": "A6",
+          "title": "Post-deploy verification and final cleanup",
+          "status": "pending",
+          "priority": "low",
+          "description": "After successful production deploy, verify all DO classes initialized correctly and chat schema migration applied. The heavy lifting (migration reset, legacy deletions) was done in E1-E3.",
+          "requirements": [
+            "Verify production deployment succeeded with fresh v1 migration",
+            "Verify all 16 DO classes created their SQLite storage successfully",
+            "Verify D1 migration applied (threads, messages, thread_participants tables exist)",
+            "Verify chat dual-writing works during transition period",
+            "Run end-to-end health check across all 10 Omni-Agents"
+          ],
+          "success_criteria": [
+            "Production deployment is stable",
+            "All DO bindings resolve to correct classes",
+            "Chat API creates threads and messages in unified schema",
+            "ChatRoom D1 mirroring works with new schema",
+            "Health endpoint returns green for all agents"
+          ],
+          "files_affected": []
+        }
+      ]
+    }
+  ]
+}

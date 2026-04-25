@@ -366,6 +366,46 @@ app.delete("/api/exposed-ports/:port", async (c) => {
   return c.json({ success: true, port });
 });
 
+// ─── Colby Worker Binding Proxies ────────────────────────────────────────────
+// The container cannot access Cloudflare bindings directly.
+// At session creation, the Worker writes /workspace/.colby/bindings.json with
+// the Worker-side proxy URL and API key. Container code calls these routes
+// to perform D1 queries, KV reads/writes, and R2 object operations.
+
+const WORKER_URL = process.env.COLBY_WORKER_URL;
+const WORKER_API_KEY = process.env.COLBY_WORKER_API_KEY;
+
+async function proxyToWorker(subPath: string, body: unknown): Promise<{ status: number; data: unknown }> {
+  if (!WORKER_URL || !WORKER_API_KEY) {
+    return { status: 503, data: { error: "Worker proxy not configured (missing COLBY_WORKER_URL or COLBY_WORKER_API_KEY)" } };
+  }
+  const res = await fetch(`${WORKER_URL}/api/sandbox/proxy/${subPath}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Worker-Api-Key": WORKER_API_KEY },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  return { status: res.status, data };
+}
+
+app.post("/api/proxy/d1", async (c) => {
+  const body = await c.req.json();
+  const { status, data } = await proxyToWorker("d1", body);
+  return c.json(data, status as any);
+});
+
+app.post("/api/proxy/kv", async (c) => {
+  const body = await c.req.json();
+  const { status, data } = await proxyToWorker("kv", body);
+  return c.json(data, status as any);
+});
+
+app.post("/api/proxy/r2", async (c) => {
+  const body = await c.req.json();
+  const { status, data } = await proxyToWorker("r2", body);
+  return c.json(data, status as any);
+});
+
 // --- 3. WebSocket Server ---
 
 const server = serve({ fetch: app.fetch, port: CONTROL_PORT });

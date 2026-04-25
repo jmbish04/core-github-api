@@ -1,0 +1,47 @@
+
+> cloudflare-worker-github-proxy@1.0.0 check /Volumes/Projects/workers/core-github-api
+> tsc --noEmit
+
+src/backend/src/ai/agents/OrchestratorAgent/methods/research.ts(15,26): error TS2445: Property 'env' is protected and only accessible within class 'DurableObject<Env, Props>' and its subclasses.
+src/backend/src/ai/agents/OrchestratorAgent/methods/research.ts(26,92): error TS2445: Property 'ctx' is protected and only accessible within class 'DurableObject<Env, Props>' and its subclasses.
+src/backend/src/ai/agents/OrchestratorAgent/methods/research.ts(29,9): error TS2445: Property 'ctx' is protected and only accessible within class 'DurableObject<Env, Props>' and its subclasses.
+src/backend/src/ai/agents/OrchestratorAgent/methods/research.ts(37,26): error TS2445: Property 'env' is protected and only accessible within class 'DurableObject<Env, Props>' and its subclasses.
+src/backend/src/ai/agents/OrchestratorAgent/methods/research.ts(38,54): error TS2445: Property 'env' is protected and only accessible within class 'DurableObject<Env, Props>' and its subclasses.
+src/backend/src/ai/mcp/index.ts(209,10): error TS2307: Cannot find module './tools/cloudflare/stitch' or its corresponding type declarations.
+src/backend/src/routes/api/agents/session.ts(49,11): error TS2339: Property 'ORCHESTRATOR' does not exist on type 'Env'.
+src/backend/src/routes/api/agents/sessionStatus.ts(41,11): error TS2339: Property 'ORCHESTRATOR' does not exist on type 'Env'.
+src/backend/src/routes/api/frontend/repos/actions.ts(248,44): error TS2339: Property 'ORCHESTRATOR' does not exist on type 'Env'.
+src/backend/src/routes/api/jules/_shared.ts(10,12): error TS2339: Property 'ORCHESTRATOR' does not exist on type 'Env'.
+src/backend/src/routes/api/jules/google-docs.ts(19,61): error TS2554: Expected 2 arguments, but got 3.
+src/backend/src/routes/api/reverse-engineering.ts(203,44): error TS2339: Property 'ORCHESTRATOR' does not exist on type 'Env'.
+src/backend/src/routes/api/reverse-engineering.ts(371,44): error TS2339: Property 'ORCHESTRATOR' does not exist on type 'Env'.
+src/backend/src/routes/api/reverse-engineering.ts(425,44): error TS2339: Property 'ORCHESTRATOR' does not exist on type 'Env'.
+src/backend/src/routes/rpc/service.ts(313,16): error TS2339: Property 'ORCHESTRATOR' does not exist on type 'Env'.
+src/backend/src/routes/rpc/service.ts(328,16): error TS2339: Property 'ORCHESTRATOR' does not exist on type 'Env'.
+src/backend/src/workflows/research/orchestrator.ts(14,80): error TS2307: Cannot find module '@/ai/agents/runtime/workflows' or its corresponding type declarations.
+src/backend/src/workflows/research/orchestrator.ts(38,41): error TS2307: Cannot find module '@/ai/agents/runtime/openai' or its corresponding type declarations.
+src/backend/src/workflows/research/orchestrator.ts(45,17): error TS2339: Property 'env' does not exist on type 'ResearchOrchestrator'.
+src/backend/src/workflows/research/orchestrator.ts(60,29): error TS2339: Property 'env' does not exist on type 'ResearchOrchestrator'.
+src/backend/src/workflows/research/orchestrator.ts(77,16): error TS2339: Property 'reportProgress' does not exist on type 'ResearchOrchestrator'.
+src/backend/src/workflows/research/orchestrator.ts(135,29): error TS2339: Property 'env' does not exist on type 'ResearchOrchestrator'.
+src/backend/src/workflows/research/orchestrator.ts(162,31): error TS2339: Property 'env' does not exist on type 'ResearchOrchestrator'.
+src/backend/src/workflows/research/orchestrator.ts(169,18): error TS2339: Property 'reportProgress' does not exist on type 'ResearchOrchestrator'.
+src/backend/src/workflows/research/orchestrator.ts(178,35): error TS2339: Property 'waitForApproval' does not exist on type 'ResearchOrchestrator'.
+src/backend/src/workflows/research/orchestrator.ts(187,29): error TS2339: Property 'env' does not exist on type 'ResearchOrchestrator'.
+src/backend/src/workflows/research/orchestrator.ts(194,16): error TS2339: Property 'reportProgress' does not exist on type 'ResearchOrchestrator'.
+src/backend/src/workflows/research/orchestrator.ts(199,54): error TS7006: Parameter 'candidate' implicitly has an 'any' type.
+src/backend/src/workflows/research/orchestrator.ts(207,16): error TS2339: Property 'reportProgress' does not exist on type 'ResearchOrchestrator'.
+src/backend/src/workflows/research/orchestrator.ts(212,49): error TS7006: Parameter 'analysis' implicitly has an 'any' type.
+src/backend/src/workflows/research/orchestrator.ts(224,39): error TS2339: Property 'env' does not exist on type 'ResearchOrchestrator'.
+src/backend/src/workflows/research/orchestrator.ts(229,20): error TS2339: Property 'env' does not exist on type 'ResearchOrchestrator'.
+src/backend/src/workflows/research/orchestrator.ts(247,29): error TS2339: Property 'env' does not exist on type 'ResearchOrchestrator'.
+src/backend/src/workflows/research/orchestrator.ts(274,45): error TS2339: Property 'env' does not exist on type 'ResearchOrchestrator'.
+src/backend/src/workflows/research/orchestrator.ts(301,33): error TS2339: Property 'env' does not exist on type 'ResearchOrchestrator'.
+src/backend/src/workflows/research/orchestrator.ts(326,27): error TS2339: Property 'env' does not exist on type 'ResearchOrchestrator'.
+src/backend/src/workflows/research/orchestrator.ts(350,33): error TS2339: Property 'env' does not exist on type 'ResearchOrchestrator'.
+src/backend/src/workflows/research/orchestrator.ts(371,27): error TS2339: Property 'env' does not exist on type 'ResearchOrchestrator'.
+src/backend/src/workflows/research/topic.ts(23,57): error TS2551: Property 'WEB_SEARCH_AGENT' does not exist on type 'Env'. Did you mean 'RESEARCH_AGENT'?
+src/backend/src/workflows/research/topic.ts(39,57): error TS2339: Property 'JUDGE_AGENT' does not exist on type 'Env'.
+src/backend/src/workflows/search.ts(103,20): error TS2339: Property 'ORCHESTRATOR' does not exist on type 'Env'.
+src/backend/src/workflows/search.ts(104,52): error TS2339: Property 'ORCHESTRATOR' does not exist on type 'Env'.
+ ELIFECYCLE  Command failed with exit code 2.

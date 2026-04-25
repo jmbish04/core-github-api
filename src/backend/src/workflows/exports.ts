@@ -12,4 +12,5 @@ export { ResearchOrchestrator } from './research/orchestrator';
 export { TopicResearchWorkflow } from './research/topic';
 export { PlanningOrchestrator } from './planning/orchestrator';
 export { StitchLoopWorkflow } from './planning/stitch-loop';
-
+export { LearningWorkflow } from './learning/LearningWorkflow';
+export { HitlWorkflow } from './HitlWorkflow';

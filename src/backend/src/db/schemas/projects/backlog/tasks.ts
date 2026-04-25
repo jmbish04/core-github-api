@@ -12,6 +12,7 @@ import {
     KanbanColumn 
 } from "@/types/project-management/enums";
 import { stories } from "./stories";
+import { planRevisions } from "../plans/revisions";
 
 // 3. Tasks (Actionable leaf nodes, displayed on Kanban)
 export const tasks = sqliteTable("tasks", {
@@ -21,6 +22,8 @@ export const tasks = sqliteTable("tasks", {
         .references(() => repositories.id, { onDelete: "cascade" }),
     parentId: text("parent_id")
         .references(() => stories.id, { onDelete: "cascade" }), // Belongs to a Story
+    planRevisionId: text("plan_revision_id")
+        .references(() => planRevisions.id, { onDelete: "set null" }),         
     title: text("title").notNull(),
     description: text("description"),
     status: text("status").notNull().default(TaskStatus.BACKLOG),
@@ -39,6 +42,7 @@ export const tasks = sqliteTable("tasks", {
 }, (table) => ({
     repoIdx: index("idx_tasks_repo").on(table.repoId),
     parentIdx: index("idx_tasks_parent").on(table.parentId),
+    planRevisionIdx: index("idx_tasks_revision").on(table.planRevisionId),
     statusCheck: check("status_check", sql`${table.status} IN ('todo','in_progress','done','backlog','cancelled')`),
     kanbanCheck: check("kanban_check", sql`${table.kanbanColumn} IN ('backlog','todo','in_progress','in_review','done')`),
     priorityCheck: check("priority_check", sql`${table.priority} IN ('low','medium','high','critical','urgent')`)

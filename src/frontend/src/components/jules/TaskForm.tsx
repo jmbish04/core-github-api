@@ -3,7 +3,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useNavigate, useParams } from "react-router-dom";
-import { toast } from "sonner";
+import { handleGlobalError } from '@/lib/error-handler';
+import { handleGlobalSuccess } from '@/lib/success-handler';
 import { Loader2 } from "lucide-react";
 
 import { useProjectStore } from "@/stores/useProjectStore";
@@ -39,9 +40,9 @@ const formSchema = z.object({
     message: "Prompt must be at least 10 characters.",
   }),
   repoUrl: z.string().min(1, { message: "Please select a repository." }),
-  autoPr: z.boolean().default(false),
-  mode: z.enum(["Interactive", "Fire & Forget"]).default("Interactive"),
-  requireApproval: z.boolean().default(true),
+  autoPr: z.boolean(),
+  mode: z.enum(["Interactive", "Fire & Forget"]),
+  requireApproval: z.boolean(),
   branch: z.string().optional(),
 });
 
@@ -95,18 +96,19 @@ export const TaskForm = () => {
       }
 
       const result = await response.json();
+      const baseUrl = isRepoRoute ? `/repos/${owner}/${repo}/jules` : "/jules";
       
       // Assume the API returns { sessionId: string } on success
       if (result.sessionId) {
-        navigate(`/jules/tasks/${result.sessionId}`);
+        navigate(`${baseUrl}/tasks/${result.sessionId}`);
       } else {
-        toast.success("Task started successfully");
+        handleGlobalSuccess('Task Started', 'Task started successfully');
         // Fallback navigation if sessionId is missing
-        navigate("/jules/tasks");
+        navigate(`${baseUrl}/tasks`);
       }
     } catch (error) {
       console.error(error);
-      toast.error("Failed to start task. Please try again.");
+      handleGlobalError('Failed to start task. Please try again.');
     }
   };
 
@@ -170,7 +172,7 @@ export const TaskForm = () => {
           )}
         />
 
-        <Accordion type="single" collapsible className="w-full border rounded-md px-4">
+        <Accordion type="single" className="w-full border rounded-md px-4">
           <AccordionItem value="options" className="border-b-0">
             <AccordionTrigger className="hover:no-underline py-4">
               Advanced Options

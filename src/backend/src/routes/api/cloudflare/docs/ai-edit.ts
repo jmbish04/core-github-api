@@ -17,7 +17,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
-import { generateText, FallbackAlert } from "@/ai/providers";
+import { AIProvider, type FallbackAlert } from "@/ai/providers";
 import { createFallbackHandler } from "@/ai/fallbackLogger";
 
 const app = new Hono<{ Bindings: Env; Variables: { fallbackAlert?: FallbackAlert } }>();
@@ -78,12 +78,11 @@ app.post("/", zValidator("json", BodySchema), async (c) => {
   // ── Call AI provider with automatic fallback ───────────────────────────────
   let revisedPrompt = "";
   try {
-    revisedPrompt = await generateText(
-      c.env,
+    const ai = new AIProvider(c.env);
+    revisedPrompt = await ai.generateText(
       userPrompt,
       SYSTEM_INSTRUCTION,
-      { temperature: 0.3, maxTokens: 8192, onFallback: createFallbackHandler(c) },
-      "gemini"
+      { provider: 'gemini', temperature: 0.3, maxTokens: 8192, onFallback: createFallbackHandler(c) }
     );
   } catch (err: any) {
     console.error("[ai-edit] AI provider failed completely:", err?.message);

@@ -7,7 +7,7 @@
  * 
  * @module AI/Utils/Diagnostician
  */
-import { generateStructuredResponse } from "@/ai/providers";
+import { AIProvider } from "@/ai/providers";
 import { Logger } from "@/lib/logger";
 import { z } from "zod";
 
@@ -99,8 +99,8 @@ export async function analyzeFailure(
 
 
     try {
-        const analysis = await generateStructuredResponse<HealthFailureAnalysis>(
-            env,
+        const ai = new AIProvider(env);
+        const analysis = await ai.generateStructuredResponse<HealthFailureAnalysis>(
             prompt,
             schema,
             undefined,
@@ -108,13 +108,17 @@ export async function analyzeFailure(
         );
         
         if (!analysis) {
-            throw new Error("Provider returned empty response or encountered a parsing error.");
+            const logger = new Logger(env, 'Diagnostician');
+            const errorMessage = `[Diagnostician] Analysis failed for "${stepName}". Provider returned empty response or encountered a parsing error.`;
+            logger.error(errorMessage, { error: "Provider returned empty response or encountered a parsing error." });
+            throw new Error(errorMessage);
         }
         
         return analysis;
     } catch (error: any) {
         const logger = new Logger(env, 'Diagnostician');
-        logger.error(`Analysis failed for step="${stepName}"`, { error: error.message, stack: error.stack });
+        const errorMessage = `[Diagnostician] Analysis failed for step="${stepName}". ${JSON.stringify(error)}`;
+        logger.error(errorMessage, { error: error.message, stack: error.stack });
         await logger.flush();
         
         return {

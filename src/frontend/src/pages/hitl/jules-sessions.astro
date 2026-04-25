@@ -1,0 +1,23 @@
+---
+import '@/index.css';
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { JulesSessionsCategory } from '@/components/hitl/categories/JulesSessionsCategory';
+---
+
+<BaseLayout title="Jules Sessions Queue" description="HITL Jules Session Dispatch Queue">
+  <div class="h-full w-full flex flex-col p-6 space-y-6">
+    <div class="flex items-center justify-between">
+      <div>
+        <h1 class="text-3xl font-bold tracking-tight text-white mb-2">Jules Sessions Queue</h1>
+        <p class="text-muted-foreground">Review, tweak, and dispatch AI coding sessions</p>
+      </div>
+      <div>
+         <a href="/hitl" class="text-sm font-medium text-blue-500 hover:text-blue-400">&larr; Back to Dashboard</a>
+      </div>
+    </div>
+    
+    <div class="flex-1 w-full max-w-4xl pt-4">
+        <JulesSessionsCategory client:load />
+    </div>
+  </div>
+</BaseLayout>

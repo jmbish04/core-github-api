@@ -4,7 +4,7 @@ import { checkHealth as checkAI } from "@/ai/health";
 import { checkHealth as checkMCP } from "@/ai/mcp/health";
 import { checkGitHubAPIHealth, checkWebhooksHealth } from "@/workflows/health";
 import { checkHealth as checkPlanning } from "@/workflows/planning/health";
-import { checkHealth as checkAgents } from "@/ai/agents/health";
+import { checkAgentsHealth as checkAgents } from '@/health/checks/agents-health';
 import { checkHealth as checkSlashCommands } from "@/automations/shared/colby/health";
 import { analyzeFailure } from "@/ai/utils/diagnostician";
 import { v4 as uuidv4 } from 'uuid';

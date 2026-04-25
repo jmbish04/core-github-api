@@ -13,7 +13,7 @@ import { OpenAPIHono } from '@hono/zod-openapi';
 import { getDb } from '@db';
 import { learningAiInsights, learningSessions } from '@db/schemas/github/learning';
 import { gte, desc, eq } from 'drizzle-orm';
-import { z } from 'zod';
+import { getAgentByName } from 'agents';
 
 export const ingestorRouter = new OpenAPIHono<{ Bindings: Env }>();
 
@@ -46,20 +46,16 @@ ingestorRouter.post('/ingest', async (c) => {
     });
 
     // Also call LearningAgent to analyze the provided conversations immediately
-    const agentId = (c.env as any).LEARNING_AGENT.idFromName('learning-agent');
-    const agent = (c.env as any).LEARNING_AGENT.get(agentId);
-    const analyzeRes = await agent.fetch('http://internal/analyze', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ conversations, repoless: body.repoless ?? false }),
-    });
-
-    const analyzeData = analyzeRes.ok ? await analyzeRes.json() as any : null;
+    const agent = await getAgentByName(c.env.LEARNING_AGENT as any, 'learning-agent');
+    const sessionId = await (agent as any).analyzeConversation(
+      { conversations, repoless: body.repoless ?? false },
+      body.repoless ?? false,
+    );
 
     return c.json({
       ok: true,
       workflowInstanceId: instance.id,
-      sessionId: analyzeData?.sessionId,
+      sessionId: sessionId ?? null,
       status: 'started',
     });
   } catch (err: any) {

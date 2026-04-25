@@ -3,7 +3,7 @@
  * @description Centralized client for WebSocket broadcaster Durable Objects.
  *
  * ## Architecture Contract
- * WebSocket broadcaster DOs are NOT Honi agents and NOT Sandbox containers.
+ * WebSocket broadcaster DOs are NOT Agents SDK agents and NOT Sandbox containers.
  * They are singleton stateful hubs that:
  *   1. Accept `POST /internal/broadcast` to fan out a JSON payload to all connected WS clients
  *   2. Accept `GET /ws` (Upgrade: websocket) to onboard a new client
@@ -66,7 +66,7 @@ export const BroadcastClient = {
     try {
       const stub = BroadcastClient.getStub(binding, name);
       await stub.fetch(
-        new Request('http://do/broadcast', {
+        new Request('http://internal/internal/broadcast', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),

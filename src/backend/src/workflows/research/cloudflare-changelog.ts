@@ -12,7 +12,7 @@
 import { WorkflowEntrypoint, type WorkflowStep, type WorkflowEvent } from 'cloudflare:workers';
 import { getDb, schema } from '@db';
 import { inArray } from 'drizzle-orm';
-import { generateText } from '@/ai/providers';
+import { AIProvider } from '@/ai/providers';
 
 // ---------------------------------------------------------------------------
 // Stack-relevant keyword filter
@@ -191,12 +191,11 @@ export class CloudflareChangelogWorkflow extends WorkflowEntrypoint<Env, Cloudfl
             `Title: ${item.title}\n\n` +
             `Description: ${item.description.slice(0, 1500)}`; // Guard against huge descriptions
 
-          aiSummary = await generateText(
-            this.env,
+          const ai = new AIProvider(this.env);
+          aiSummary = await ai.generateText(
             userPrompt,
             systemPrompt,
-            { model: 'gpt-4o-mini' },
-            'openai',
+            { provider: 'workers-ai', model: '@cf/openai/gpt-oss-120b' }
           );
 
           // Trim to a single sentence as a safety measure

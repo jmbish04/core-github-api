@@ -11,6 +11,7 @@
  */
 
 import { WorkflowEntrypoint, WorkflowEvent, WorkflowStep } from 'cloudflare:workers';
+import { getAgentByName } from 'agents';
 import { getDb } from '@db';
 import { learningSessions, learningMessages } from '@db/schemas/github/learning';
 import { eq } from 'drizzle-orm';
@@ -50,17 +51,9 @@ export class LearningWorkflow extends WorkflowEntrypoint<Env, WorkflowParams> {
     const insightCount = await step.do('detect-patterns', async () => {
       if (messages.length === 0) return 0;
 
-      const agentId = (this.env as any).LEARNING_AGENT.idFromName('learning-agent');
-      const agent = (this.env as any).LEARNING_AGENT.get(agentId);
-      const res = await agent.fetch('http://internal/detect', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId }),
-      });
-
-      if (!res.ok) return 0;
-      const data = await res.json() as any;
-      return data.insights?.length ?? 0;
+      const agent = await getAgentByName(this.env.LEARNING_AGENT as any, 'learning-agent');
+      const insights = await (agent as any).detectPatterns(sessionId);
+      return Array.isArray(insights) ? insights.length : 0;
     });
 
     // Step 4: Finalize the session

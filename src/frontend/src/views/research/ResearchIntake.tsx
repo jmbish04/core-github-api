@@ -5,7 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
-import { toast } from "sonner";
+import { handleGlobalError } from '@/lib/error-handler';
 
 export default function ResearchIntake() {
   const navigate = useNavigate();
@@ -38,7 +38,7 @@ export default function ResearchIntake() {
       navigate(`/research/${data.brief.id}`);
     } catch (err) {
       console.error(err);
-      toast.error("Failed to create research brief");
+      handleGlobalError("Failed to create research brief");
     } finally {
       setLoading(false);
     }

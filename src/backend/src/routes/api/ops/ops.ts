@@ -3,7 +3,7 @@ import { z } from "zod";
 import { OpsVerificationService } from "@services/verification/ops";
 import { buildRepositorySyncSecretPlan } from "@/services/repository-secret-defaults";
 import { syncRepoSecrets } from "@services/github/secrets-manager";
-import { HoniClient } from '@utils/honi-client';
+import { getAgentByName } from 'agents';
 
 const opsApi = new OpenAPIHono<{ Bindings: Env }>();
 
@@ -87,41 +87,27 @@ opsApi.openapi(createRoute({
     }
 });
 
-// --- 4. Supervisor DO Forwarding ---
-opsApi.all('/:id/*', async (c) => {
+// --- 4. Supervisor DO Forwarding via RPC ---
+opsApi.get('/:id/health', async (c) => {
     const id = c.req.param('id');
-    const url = new URL(c.req.url);
-    
-    let path = url.pathname;
-    if (path.includes(`/api/ops/${id}`)) {
-         path = path.replace(`/api/ops/${id}`, '');
-    }
-    
-    const newUrl = new URL(path, url.origin);
-    newUrl.search = url.search;
-
-    const headers: Record<string, string> = {};
-    headers['x-operation-id'] = id;
-    headers['x-forwarded-origin'] = url.origin;
-    c.req.raw.headers.forEach((value, key) => headers[key] = value);
-
-    return HoniClient.fetch(c.env.SUPERVISOR, id, newUrl.pathname + newUrl.search, {
-      method: c.req.method,
-      headers
-    });
+    const agent = await getAgentByName(c.env.CLOUDFLARE_AGENT as any, id);
+    const result = await (agent as any).healthProbe();
+    return c.json(result);
 });
 
-opsApi.all('/:id', async (c) => {
+opsApi.post('/:id/health/github', async (c) => {
     const id = c.req.param('id');
-    const newUrl = new URL('/status', c.req.url);
-    newUrl.search = new URL(c.req.url).search;
-    const headers: Record<string, string> = {};
-    c.req.raw.headers.forEach((value, key) => headers[key] = value);
+    const agent = await getAgentByName(c.env.CLOUDFLARE_AGENT as any, id);
+    const result = await (agent as any).runGithubHealthCheck();
+    return c.json(result);
+});
 
-    return HoniClient.fetch(c.env.SUPERVISOR, id, newUrl.pathname + newUrl.search, {
-      method: c.req.method,
-      headers
-    });
+opsApi.get('/:id', async (c) => {
+    const id = c.req.param('id');
+    const agent = await getAgentByName(c.env.CLOUDFLARE_AGENT as any, id);
+    // Explicitly call the RPC method
+    const result = await (agent as any).getStatus();
+    return c.json(result);
 });
 
 export default opsApi;

@@ -22,7 +22,7 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
-import { StitchService } from '@/services/stitch/service';
+import { StitchService } from '@/services/stitch';
 import { JulesSessionBuilder } from '@/services/jules/builder';
 
 const app = new Hono<{ Bindings: Env }>();
@@ -38,7 +38,7 @@ function err(c: any, e: any, status: 500 | 404 | 400 = 500) {
 /** GET /projects */
 app.get('/projects', async (c) => {
   try {
-    const svc = await StitchService.getInstance(c.env);
+    const svc = StitchService.getInstance(c.env);
     const projects = await svc.listProjects();
     return c.json({ success: true, projects });
   } catch (e) {
@@ -53,8 +53,8 @@ app.post(
   async (c) => {
     const { title } = c.req.valid('json');
     try {
-      const svc = await StitchService.getInstance(c.env);
-      const project = await svc.createProject(title);
+      const svc = StitchService.getInstance(c.env);
+      const project = await svc.createProject({ title: title ?? 'New Project' });
       return c.json({ success: true, project });
     } catch (e) {
       return err(c, e);
@@ -66,8 +66,8 @@ app.post(
 app.get('/projects/:projectId', async (c) => {
   const { projectId } = c.req.param();
   try {
-    const svc = await StitchService.getInstance(c.env);
-    const project = await svc.getProject(projectId);
+    const svc = StitchService.getInstance(c.env);
+    const project = await svc.getProject({ projectId });
     return c.json({ success: true, project });
   } catch (e) {
     return err(c, e);
@@ -80,7 +80,7 @@ app.get('/projects/:projectId', async (c) => {
 app.get('/projects/:projectId/screens', async (c) => {
   const { projectId } = c.req.param();
   try {
-    const svc = await StitchService.getInstance(c.env);
+    const svc = StitchService.getInstance(c.env);
     const screens = await svc.listScreens(projectId);
     return c.json({ success: true, screens });
   } catch (e) {
@@ -103,8 +103,8 @@ app.post(
     const { projectId } = c.req.param();
     const { prompt, deviceType, modelId } = c.req.valid('json');
     try {
-      const svc = await StitchService.getInstance(c.env);
-      const screen = await svc.generateScreen(projectId, prompt, deviceType, modelId);
+      const svc = StitchService.getInstance(c.env);
+      const screen = await svc.generateScreen({ projectId, prompt, deviceType: (deviceType as 'DESKTOP' | 'MOBILE' | 'TABLET') ?? 'DESKTOP' });
       return c.json({ success: true, screen });
     } catch (e) {
       return err(c, e);
@@ -116,8 +116,8 @@ app.post(
 app.get('/projects/:projectId/screens/:screenId', async (c) => {
   const { projectId, screenId } = c.req.param();
   try {
-    const svc = await StitchService.getInstance(c.env);
-    const screen = await svc.getScreen(projectId, screenId);
+    const svc = StitchService.getInstance(c.env);
+    const screen = await svc.getScreen({ projectId, screenId });
     return c.json({ success: true, screen });
   } catch (e) {
     return err(c, e);
@@ -140,65 +140,18 @@ app.patch(
     const { projectId, screenId } = c.req.param();
     const { prompt, selectedScreenIds, deviceType, modelId } = c.req.valid('json');
     try {
-      const svc = await StitchService.getInstance(c.env);
-      const result = await svc.editScreen(
+      const svc = StitchService.getInstance(c.env);
+      const result = await svc.editScreens({
         projectId,
-        selectedScreenIds ?? [screenId],
+        selectedScreenIds: selectedScreenIds ?? [screenId],
         prompt,
-        deviceType,
-        modelId,
-      );
+      });
       return c.json({ success: true, result });
     } catch (e) {
       return err(c, e);
     }
   },
 );
-
-/** POST /projects/:projectId/screens/:screenId/variants */
-app.post(
-  '/projects/:projectId/screens/:screenId/variants',
-  zValidator(
-    'json',
-    z.object({
-      prompt: z.string().min(1),
-      variantOptions: z.record(z.string(), z.unknown()).optional(),
-      deviceType: z.enum(['DEVICE_TYPE_UNSPECIFIED', 'MOBILE', 'DESKTOP', 'TABLET', 'AGNOSTIC']).optional(),
-      modelId: z.enum(['MODEL_ID_UNSPECIFIED', 'GEMINI_3_PRO', 'GEMINI_3_FLASH']).optional(),
-    }),
-  ),
-  async (c) => {
-    const { projectId, screenId } = c.req.param();
-    const { prompt, variantOptions, deviceType, modelId } = c.req.valid('json');
-    try {
-      const svc = await StitchService.getInstance(c.env);
-      const variants = await svc.generateVariants(
-        projectId,
-        [screenId],
-        prompt,
-        (variantOptions ?? {}) as Record<string, any>,
-        deviceType,
-        modelId,
-      );
-      return c.json({ success: true, variants });
-    } catch (e) {
-      return err(c, e);
-    }
-  },
-);
-
-// ─── Tools ────────────────────────────────────────────────────────────────────
-
-/** GET /tools */
-app.get('/tools', async (c) => {
-  try {
-    const svc = await StitchService.getInstance(c.env);
-    const tools = await svc.listTools();
-    return c.json({ success: true, tools });
-  } catch (e) {
-    return err(c, e);
-  }
-});
 
 // ─── Jules + Stitch Integration ───────────────────────────────────────────────
 
@@ -223,10 +176,10 @@ app.post(
 
     try {
       // Build Stitch context by listing the relevant screens
-      const svc = await StitchService.getInstance(c.env);
+      const svc = StitchService.getInstance(c.env);
       const screens = screenIds?.length
-        ? await Promise.all(screenIds.map((id) => svc.getScreen(projectId, id)))
-        : await svc.listScreens(projectId);
+        ? await Promise.all(screenIds.map((id) => svc.getScreen({ projectId, screenId: id })))
+        : await svc.listScreens({ projectId });
 
       const stitchContext = `\n\n## Stitch Design Context\n\nProject: ${projectId}\nScreens:\n${JSON.stringify(screens, null, 2)}`;
       const enrichedPrompt = `${prompt}${stitchContext}`;

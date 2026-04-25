@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { Loader2, PlusIcon, BotIcon } from "lucide-react";
 import groupBy from "lodash.groupby";
+import { handleGlobalError } from "@/lib/error-handler";
 
 import {
     GanttFeatureItem,
@@ -222,7 +223,8 @@ const RoadmapPage = () => {
                     try {
                         const details = await fetch(`/api/projects/${p.id}`).then(r => r.json() as any);
                         return { ...p, phases: details.phases ?? [] };
-                    } catch {
+                    } catch (e) {
+                        handleGlobalError(e instanceof Error ? e : new Error(`[Roadmap] Failed to fetch phases for project ${p.id}: ${e}`));
                         return { ...p, phases: [] };
                     }
                 })

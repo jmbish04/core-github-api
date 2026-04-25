@@ -7,7 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { toast } from "sonner";
+import { handleGlobalPromise } from '@/lib/notification-handler';
+import { handleGlobalError } from '@/lib/error-handler';
+import { handleGlobalSuccess } from '@/lib/success-handler';
 import { RefreshCw, ExternalLink, ShieldCheck, Plus, Trash2, Loader2 } from "lucide-react";
 
 export default function Standardization() {
@@ -46,9 +48,7 @@ function McpDefaults() {
   const MASTER_URL = "https://github.com/jmbish04/core-github-standardization/blob/main/mcp.json";
   
   const handleRefresh = async () => {
-      toast.promise(
-          // In a real app, this might trigger a backend fetch to get the *latest* content to display, 
-          // or trigger a sync job. For now, we just simulate a refresh or re-fetch config.
+      handleGlobalPromise(
           new Promise(r => setTimeout(r, 1000)),
           {
               loading: "Fetching latest master config...",
@@ -132,7 +132,7 @@ function SecretDefaults() {
                 }
             } catch (err) {
                 console.error("Failed to load secrets config:", err);
-                toast.error("Failed to load secrets configuration");
+                handleGlobalError("Failed to load secrets configuration");
             } finally {
                 setLoading(false);
             }
@@ -151,9 +151,9 @@ function SecretDefaults() {
                 if (!res.ok) throw new Error("Failed to save defaults");
                 setActiveSecrets(prev => [...prev, selectedSecret].sort());
                 setSelectedSecret("");
-                toast.success(`Added ${selectedSecret} to default sync list`);
+                handleGlobalSuccess('Secret Added', `Added ${selectedSecret} to default sync list`);
             } catch (e: any) {
-                toast.error(e.message);
+                handleGlobalError(e.message);
             }
         }
     };
@@ -165,14 +165,14 @@ function SecretDefaults() {
             });
             if (!res.ok) throw new Error("Failed to remove default");
             setActiveSecrets(prev => prev.filter(s => s !== secretToRemove));
-            toast.success(`Removed ${secretToRemove} from defaults`);
+            handleGlobalSuccess('Secret Removed', `Removed ${secretToRemove} from defaults`);
         } catch (e: any) {
-            toast.error(e.message);
+            handleGlobalError(e.message);
         }
     };
 
     const handleForceSync = () => {
-        toast.promise(
+        handleGlobalPromise(
             // In real impl, this calls POST /api/standards/secrets/sync-all
             new Promise(r => setTimeout(r, 2000)),
             {

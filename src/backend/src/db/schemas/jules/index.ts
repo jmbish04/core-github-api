@@ -13,3 +13,5 @@
 export * from "./sessions";
 export * from "./jobs";
 export * from "./webhook-events";
+export * from "./analysis";
+export * from "./approvals";

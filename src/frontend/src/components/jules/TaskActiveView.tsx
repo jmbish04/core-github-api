@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { JulesSession } from '@/hooks/jules/useJulesSession';
+import type { JulesSession } from '@/hooks/jules/useJulesSession';
 
 export function TaskActiveView({ sessionId, session }: { sessionId: string; session: JulesSession }) {
   const [logs, setLogs] = useState<string[]>([]);

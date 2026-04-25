@@ -722,3 +722,25 @@ https://googleapis.github.io/js-genai/.
 -   Models: ai.google.dev/models
 -   API Pricing: ai.google.dev/pricing
 -   Rate Limits: ai.google.dev/rate-limits
+
+## 6. Observability and Secrets Management (Backend Only)
+
+**Use the Logger Class:**
+-   ALL backend code MUST use the `Logger` class from `@/lib/logger` for logging instead of `console.log`, `console.error`, etc.
+-   Instantiate it with the current environment and a meaningful namespace:
+    ```typescript
+    import { Logger } from "@/lib/logger";
+
+    const logger = new Logger(env, "AgentName");
+    logger.info("Executing task...");
+    logger.error("Task failed", error);
+    ```
+
+**Use the getSecret utility:**
+-   ALL backend code MUST retrieve secrets using the `getSecret` utility from `@/utils/secrets`.
+-   Do NOT directly access `env.SECRET_NAME` or call `env.SECRET_NAME.get()`.
+    ```typescript
+    import { getSecret } from "@/utils/secrets";
+
+    const apiKey = getSecret(env, "API_KEY");
+    ```

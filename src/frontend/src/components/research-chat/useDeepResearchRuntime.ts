@@ -11,7 +11,7 @@ import type { AppendMessage, ThreadMessageLike } from "@assistant-ui/react";
 import { useCallback, useState, useEffect, useRef } from "react";
 import { generateUuid } from "@/utils/common";
 import { api } from "@/lib/api-client";
-import { toast } from "sonner";
+import { handleGlobalError } from '@/lib/error-handler';
 import { getControlCenterUserId } from "@/lib/control-user";
 
 interface DeepResearchMessage {
@@ -112,7 +112,7 @@ export function useDeepResearchRuntime() {
                             ];
                         });
                         setIsRunning(false);
-                        toast.error(`Agent Error: ${data.text}`);
+                        handleGlobalError(`Agent Error: ${data.text}`);
                     }
                 } catch (e) {
                     console.error('Failed to parse WS message', e);

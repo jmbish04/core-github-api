@@ -135,18 +135,18 @@ async function runApiChecks(env: Env) {
     try {
         // A. Create Issue
         const title = `Health Check ${new Date().toISOString()}`;
-        const issue = await createGitHubIssue(env, owner, repo, title, 'Automated health check running.');
+        const issue = await createGitHubIssue(env, { owner, repo, title, body: 'Automated health check running.' });
         if (!issue) throw new Error("Failed to create issue");
         steps.push({ step: 'create_issue', status: 'success', id: issue.number });
         issueNumber = issue.number;
 
         // B. Comment on Issue
-        const comment = await createGitHubComment(env, owner, repo, issueNumber, 'Health check comment test.');
+        const comment = await createGitHubComment(env, { owner, repo, issue_number: issueNumber, body: 'Health check comment test.' });
         if (!comment) throw new Error("Failed to comment");
         steps.push({ step: 'create_comment', status: 'success', id: comment.id });
 
         // C. Close Issue
-        const closed = await updateGitHubIssue(env, owner, repo, issueNumber, { state: 'closed' });
+        const closed = await updateGitHubIssue(env, { owner, repo, issue_number: issueNumber, state: 'closed' });
         if (!closed) throw new Error("Failed to close issue");
         steps.push({ step: 'close_issue', status: 'success' });
 

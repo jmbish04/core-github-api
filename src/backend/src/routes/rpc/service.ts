@@ -20,8 +20,8 @@
  */
 
 import { getOctokit } from '@services/octokit/core'
-import { encode } from '@utils/base64'
-import { HoniClient } from '@utils/honi-client';
+import { encodeBase64 as encode } from '@/utils/base64'
+import { getAgentByName } from 'agents';
 import type {
   UpsertFileRequest,
   UpsertFileResponse,
@@ -309,10 +309,10 @@ export class GitHubWorkerRPC {
    */
   async createSession(request: CreateSessionRequest): Promise<CreateSessionResponse> {
     const { prompt } = request
-    const orchestrator = HoniClient.getStub(
-      this.env.ORCHESTRATOR as any,
+    const orchestrator = (await getAgentByName(
+      this.env.ORCHESTRATOR_AGENT as any,
       'orchestrator'
-    ) as DurableObjectStub<undefined> & {
+    )) as unknown as DurableObjectStub & {
       start(prompt: string): Promise<{ sessionId: string }>;
     }
     const { sessionId } = await orchestrator.start(prompt)
@@ -324,10 +324,10 @@ export class GitHubWorkerRPC {
    */
   async getSessionStatus(request: GetSessionStatusRequest): Promise<GetSessionStatusResponse> {
     const { sessionId } = request
-    const orchestrator = HoniClient.getStub(
-      this.env.ORCHESTRATOR as any,
+    const orchestrator = (await getAgentByName(
+      this.env.ORCHESTRATOR_AGENT as any,
       'orchestrator'
-    ) as DurableObjectStub<undefined> & {
+    )) as unknown as DurableObjectStub & {
       getStatus(sessionId: string): Promise<GetSessionStatusResponse>;
     }
     const status = await orchestrator.getStatus(sessionId)
@@ -406,9 +406,7 @@ Please do the following:
 7. Run \`git push origin ${headBranch}\`
 After pushing, please summarize the files you resolved.`;
 
-      // Use HoniClient to talk to the orchestrator (or directly to JulesSessionBuilder if imported)
-      // Actually, since JulesSessionBuilder isn't imported here, we might want to just make a direct subrequest 
-      // or import it. Let's import it dynamically if not imported.
+      // Start a Jules session via the JulesSessionBuilder service
       const { JulesSessionBuilder } = await import('@/services/jules/builder');
       
       const builder = new JulesSessionBuilder(this.env)

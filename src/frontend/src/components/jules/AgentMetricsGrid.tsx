@@ -14,12 +14,11 @@ interface AgentMetricsGridProps {
 }
 
 export function AgentMetricsGrid({ metrics }: AgentMetricsGridProps) {
-  // Use mock data if no metrics are provided
   const data = metrics || {
-    sessionsToday: 142,
-    successRate: 94.5,
-    avgDurationMinutes: 12.4,
-    activeNow: 8,
+    sessionsToday: 0,
+    successRate: 0,
+    avgDurationMinutes: 0,
+    activeNow: 0,
   }
 
   return (

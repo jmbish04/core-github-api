@@ -3,7 +3,7 @@ import { upgradeWebSocket } from 'hono/cloudflare-workers';
 import { drizzle } from 'drizzle-orm/d1';
 import { unifiedActionLogsTable } from '@/db/schemas/app';
 import { eq } from 'drizzle-orm';
-import { generateText } from '@/ai/providers';
+import { AIProvider } from '@/ai/providers';
 
 const actionWorkerWs = new Hono<{ Bindings: Env }>();
 
@@ -39,7 +39,8 @@ actionWorkerWs.get(
           switch (action) {
             case 'run_ai': {
               // {"action": "run_ai", "model": "...", "prompt": "..."}
-              const response = await generateText(c.env, data.prompt, data.model);
+              const ai = new AIProvider(c.env);
+              const response = await ai.generateText(data.prompt, data.model);
               ws.send(JSON.stringify({ result: response, action: 'run_ai_result' }));
               break;
             }

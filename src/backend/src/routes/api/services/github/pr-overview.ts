@@ -5,7 +5,7 @@
 
 import { Hono } from "hono";
 import { getOctokit } from "@/services/octokit/core";
-import { generateText, FallbackAlert } from "@/ai/providers/index";
+import { AIProvider, FallbackAlert } from "@/ai/providers";
 import { getWebhooksDb } from "@db";
 import * as eventTables from "@/db/schemas/github/webhooks";
 import { prOverviews } from "@/db/schemas/github/pr_overviews";
@@ -91,7 +91,8 @@ ${highLevelComments
 
 Provide a concise 3-5 sentence summary covering: what the PR does, key discussion points, and current status.`;
 
-      aiSummary = await generateText(c.env, summaryPrompt, undefined, {
+      const ai = new AIProvider(c.env);
+      aiSummary = await ai.generateText(summaryPrompt, undefined, {
         maxTokens: 500,
         onFallback: createFallbackHandler(c),
       });
@@ -336,7 +337,8 @@ Generate a concise, actionable prompt that:
 
 Return ONLY the prompt text, nothing else.`;
 
-    const generatedPrompt = await generateText(c.env, aiPrompt, undefined, {
+    const ai2 = new AIProvider(c.env);
+    const generatedPrompt = await ai2.generateText(aiPrompt, undefined, {
       maxTokens: 2000,
       onFallback: createFallbackHandler(c),
     });

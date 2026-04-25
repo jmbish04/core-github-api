@@ -8,6 +8,76 @@
       "when": 1774615233256,
       "tag": "0000_last_leopardon",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1775403321317,
+      "tag": "0001_handy_nightmare",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1775665408827,
+      "tag": "0002_dry_punisher",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1775714705097,
+      "tag": "0003_loving_vance_astro",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1775844475374,
+      "tag": "0004_flashy_talkback",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1776048387045,
+      "tag": "0005_red_ultron",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1776215331170,
+      "tag": "0006_worried_zodiak",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1776218664181,
+      "tag": "0007_loose_rocket_raccoon",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1776734800448,
+      "tag": "0008_bizarre_hobgoblin",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1776973949944,
+      "tag": "0009_organic_master_mold",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1777000601878,
+      "tag": "0010_foamy_marvex",
+      "breakpoints": true
     }
   ]
 }

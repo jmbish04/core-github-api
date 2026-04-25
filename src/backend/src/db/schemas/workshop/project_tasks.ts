@@ -59,7 +59,7 @@ export interface ImplementationPlan {
   };
 }
 
-export interface Phase {
+export interface WorkshopPhase {
   phase_number: number;
   phase_title: string;
   description: string;
@@ -76,7 +76,7 @@ export const workshopProjectTasks = sqliteTable("workshop_project_tasks", {
     projectName: text('project_name').notNull(),
     generatedDate: text('generated_date').notNull(),
     totalPhases: integer('total_phases').notNull(),
-    phases: text('phases', { mode: 'json' }).$type<Phase[]>().notNull(),
+    phases: text('phases', { mode: 'json' }).$type<WorkshopPhase[]>().notNull(),
     createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
     updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`).notNull()
 });

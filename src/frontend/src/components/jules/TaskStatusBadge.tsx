@@ -1,7 +1,7 @@
 import React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { JulesSession } from '@/hooks/jules/useJulesSessions';
+import type { JulesSession } from '@/hooks/jules/useJulesSessions';
 
 interface TaskStatusBadgeProps {
   status: JulesSession['status'];
@@ -11,7 +11,7 @@ interface TaskStatusBadgeProps {
 export function TaskStatusBadge({ status, className }: TaskStatusBadgeProps) {
   let variant: 'default' | 'success' | 'destructive' | 'secondary' = 'default';
   let customClass = '';
-  let label = status;
+  let label: string = status;
 
   switch (status) {
     case 'active':

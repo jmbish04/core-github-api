@@ -46,13 +46,13 @@ export interface ModelConfig {
 export const AGENT_MODEL_CONFIG: Record<AgentName, ModelConfig> = {
   // FREE TIER - Cloudflare Workers AI (Best for high-volume, simple tasks)
   'Sandbox': {
-    model: '@cf/meta/llama-3.1-8b-instruct-fast',
+    model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast-fast',
     provider: 'cloudflare',
     costTier: 'free',
     description: 'Fast code execution analysis - high volume, simple tasks'
   },
   'DataProcessor': {
-    model: '@cf/meta/llama-3.1-8b-instruct-fast',
+    model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast-fast',
     provider: 'cloudflare',
     costTier: 'free',
     description: 'Data transformation and processing - high volume'

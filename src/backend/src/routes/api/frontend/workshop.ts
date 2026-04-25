@@ -1,7 +1,7 @@
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi';
 import { getDb, workshopProjects, workshopTaskEvents, workshopProjectTasks, workshopAgentMemory } from "@db";
 import { eq, sql } from 'drizzle-orm';
-import { HoniClient } from '@utils/honi-client';
+import { getAgentByName } from 'agents';
 
 // Helper for generating UUIDs
 const generateUuid = () => crypto.randomUUID();
@@ -98,7 +98,7 @@ app.openapi(initRoute, async (c) => {
     // Create GitHub Repo via WorkshopAgent
     let repoUrl = "";
     try {
-        const agent = HoniClient.getStub(c.env.WORKSHOP_AGENT as any, body.projectId) as any;
+        const agent = await getAgentByName(c.env.WORKSHOP_AGENT as any, body.projectId) as any;
         const result = await agent.initializeRepository(body.projectId, { 
             owner: body.owner, 
             description: body.description, 

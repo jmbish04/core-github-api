@@ -1,7 +1,7 @@
 {
 	"name": "core-github-api",
 	"main": "src/backend/src/index.ts",
-	"compatibility_date": "2026-03-12",
+	"compatibility_date": "2026-04-12",
 	"compatibility_flags": [
 		"nodejs_compat",
 		"no_handle_cross_request_promise_resolution"
@@ -57,19 +57,11 @@
 		"SANDBOX_SLEEP_AFTER": "30s",
 		"SANDBOX_INSTANCE_GET_TIMEOUT_MS": 180000, // 3 minutes for provisioning
 		"SANDBOX_PORT_READY_TIMEOUT_MS": 180000, // 3 minutes for startup work
-		"SANDBOX_EXPOSED_HTTP_PORT": 8080
+		"SANDBOX_EXPOSED_HTTP_PORT": 8080,
+		"SANDBOX_CONTROL_PORT": 8788
 	},
 	"containers": [
-		{
-			"class_name": "Sandbox",
-			"image": "./container/Dockerfile",
-			"max_instances": 5,
-			"instance_type": {
-				"vcpu": 1,
-				"memory_mib": 4096,
-				"disk_mb": 6144
-			}
-		}
+		{ "class_name": "Sandbox", "image": "./container/Dockerfile", "max_instances": 5, "instance_type": { "vcpu": 1, "memory_mib": 4096, "disk_mb": 6144 } }
 	],
 	"ai": {
 		"binding": "AI"
@@ -77,485 +69,135 @@
 	// Configures 'wrangler' to treat .hbs files as Text modules (ES importable strings)
 	// This allows `import template from "./file.hbs"` to work natively in Workers.
 	"rules": [
-		{
-			"type": "Text",
-			"globs": [
-				"**/*.hbs",
-				"**/*.md",
-				"**/*.yml",
-				"**/*.yaml"
-			],
-			"fallthrough": true
-		}
+		{ "type": "Text", "globs": [ "**/*.hbs", "**/*.md", "**/*.yml", "**/*.yaml" ], "fallthrough": true }
 	],
 	"assets": {
-		"directory": "./public",
+		"directory": "./public/client",
 		"binding": "ASSETS",
-		"run_worker_first": [
-			"/api/*",
-			"/openapi.json",
-			"/swagger",
-			"/scalar",
-			"/health",
-			"/context",
-			"/docs",
-			"/mcp",
-			"/mcp/*"
-		],
-		"not_found_handling": "single-page-application"
+		// All requests go through the Worker first because:
+		// 1. Astro SSR pages need server-side rendering (no static index.html)
+		// 2. Hono handles /api/* routes directly
+		// 3. The notFound handler falls back to c.env.ASSETS.fetch() for static files
+		"run_worker_first": true,
+		"not_found_handling": "none"
 	},
 	"secrets_store_secrets": [
-		{
-			"binding": "GITHUB_CLIENT_ID",
-			"store_id": "8c42fa70938644e0a8a109744467375f",
-			"secret_name": "CORE_GITHUB_API_GITHUB_CLIENT_ID"
-		},
-		{
-			"binding": "GITHUB_CLIENT_SECRET",
-			"store_id": "8c42fa70938644e0a8a109744467375f",
-			"secret_name": "CORE_GITHUB_API_GITHUB_SECRET"
-		},
-		{
-			"binding": "GITHUB_APP_ID",
-			"store_id": "8c42fa70938644e0a8a109744467375f",
-			"secret_name": "CORE_GITHUB_API_GITHUB_APP_ID"
-		},
-		{
-			"binding": "CORE_GITHUB_API_GITHUB_APP_PRIVATE_KEY_PT1",
-			"store_id": "8c42fa70938644e0a8a109744467375f",
-			"secret_name": "CORE_GITHUB_API_GITHUB_APP_PRIVATE_KEY_PT1"
-		},		
-		{
-			"binding": "CORE_GITHUB_API_GITHUB_APP_PRIVATE_KEY_PT2",
-			"store_id": "8c42fa70938644e0a8a109744467375f",
-			"secret_name": "CORE_GITHUB_API_GITHUB_APP_PRIVATE_KEY_PT2"
-		},		
-		{
-			"binding": "CORE_GITHUB_API_GITHUB_APP_PRIVATE_KEY_PT3",
-			"store_id": "8c42fa70938644e0a8a109744467375f",
-			"secret_name": "CORE_GITHUB_API_GITHUB_APP_PRIVATE_KEY_PT3"
-		},						
-		{
-			"binding": "GITHUB_PERSONAL_ACCESS_TOKEN",
-			"store_id": "8c42fa70938644e0a8a109744467375f",
-			"secret_name": "GH_TOKEN"
-		},
-		{
-			"binding": "CLOUDFLARE_API_TOKEN",
-			"store_id": "8c42fa70938644e0a8a109744467375f",
-			"secret_name": "CLOUDFLARE_API_TOKEN"
-		},
-		{
-			"binding": "OPENAI_API_KEY",
-			"store_id": "8c42fa70938644e0a8a109744467375f",
-			"secret_name": "OPENAI_API_KEY"
-		},
-		{
-			"binding": "CLOUDFLARE_ACCOUNT_ID",
-			"store_id": "8c42fa70938644e0a8a109744467375f",
-			"secret_name": "CLOUDFLARE_ACCOUNT_ID"
-		},
-		{
-			"binding": "CLOUDFLARE_SECRETS_STORE_TOKEN",
-			"store_id": "8c42fa70938644e0a8a109744467375f",
-			"secret_name": "CLOUDFLARE_SECRETS_STORE_TOKEN"
-		},
-		{
-			"binding": "CLOUDFLARE_WORKER_ADMIN_TOKEN",
-			"store_id": "8c42fa70938644e0a8a109744467375f",
-			"secret_name": "CLOUDFLARE_WORKER_ADMIN_TOKEN"
-		},
-		{
-			"binding": "CLOUDFLARE_AI_SEARCH_TOKEN",
-			"store_id": "8c42fa70938644e0a8a109744467375f",
-			"secret_name": "CLOUDFLARE_AI_SEARCH_TOKEN"
-		},
-		{
-			"binding": "CLOUDFLARE_OBSERVABILITY_TOKEN",
-			"store_id": "8c42fa70938644e0a8a109744467375f",
-			"secret_name": "CLOUDFLARE_OBSERVABILITY_TOKEN"
-		},
-		{
-			"binding": "WORKER_API_KEY",
-			"store_id": "8c42fa70938644e0a8a109744467375f",
-			"secret_name": "WORKER_API_KEY"
-		},
-		{
-			"binding": "AGENTIC_WORKER_API_KEY",
-			"store_id": "8c42fa70938644e0a8a109744467375f",
-			"secret_name": "AGENTIC_WORKER_API_KEY"
-		},
-		{
-			"binding": "AI_GATEWAY_TOKEN",
-			"store_id": "8c42fa70938644e0a8a109744467375f",
-			"secret_name": "CLOUDFLARE_AI_GATEWAY_TOKEN"
-		},
-		{
-			"binding": "CF_BROWSER_RENDER_TOKEN",
-			"store_id": "8c42fa70938644e0a8a109744467375f",
-			"secret_name": "CLOUDFLARE_BROWSER_RENDER_TOKEN"
-		},
-		{
-			"binding": "CLOUDFLARE_IMAGES_STREAM_TOKEN",
-			"store_id": "8c42fa70938644e0a8a109744467375f",
-			"secret_name": "CLOUDFLARE_IMAGES_STREAM_TOKEN"
-		},
-		{
-			"binding": "STITCH_API_KEY",
-			"store_id": "8c42fa70938644e0a8a109744467375f",
-			"secret_name": "STITCH_API_KEY"
-		},
-		{
-			"binding": "JULES_API_KEY",
-			"store_id": "8c42fa70938644e0a8a109744467375f",
-			"secret_name": "JULES_API_KEY"
-		},
-		{
-			"binding": "GEMINI_API_KEY",
-			"store_id": "8c42fa70938644e0a8a109744467375f",
-			"secret_name": "GOOGLE_API_KEY"
-		},
-		{
-			"binding": "ANTHROPIC_API_KEY",
-			"store_id": "8c42fa70938644e0a8a109744467375f",
-			"secret_name": "ANTHROPIC_API_KEY"
-		},
-		{
-			"binding": "DISCORD_TOKEN",
-			"store_id": "8c42fa70938644e0a8a109744467375f",
-			"secret_name": "DISCORD_TOKEN"
-		},
-		{
-			"binding": "GOOGLE_CREDS_SA_PRIVATE_KEY_PT_1",
-			"store_id": "8c42fa70938644e0a8a109744467375f",
-			"secret_name": "GOOGLE_CREDS_SA_PRIVATE_KEY_PT_1"
-		},
-		{
-			"binding": "GOOGLE_CREDS_SA_PRIVATE_KEY_PT_2",
-			"store_id": "8c42fa70938644e0a8a109744467375f",
-			"secret_name": "GOOGLE_CREDS_SA_PRIVATE_KEY_PT_2"
-		}
+		{ "binding": "GITHUB_CLIENT_ID", "store_id": "8c42fa70938644e0a8a109744467375f", "secret_name": "CORE_GITHUB_API_GITHUB_CLIENT_ID" },
+		{ "binding": "GITHUB_CLIENT_SECRET", "store_id": "8c42fa70938644e0a8a109744467375f", "secret_name": "CORE_GITHUB_API_GITHUB_SECRET" },
+		{ "binding": "GITHUB_APP_ID", "store_id": "8c42fa70938644e0a8a109744467375f", "secret_name": "CORE_GITHUB_API_GITHUB_APP_ID" },
+		{ "binding": "CORE_GITHUB_API_GITHUB_APP_PRIVATE_KEY_PT1", "store_id": "8c42fa70938644e0a8a109744467375f", "secret_name": "CORE_GITHUB_API_GITHUB_APP_PRIVATE_KEY_PT1" },
+		{ "binding": "CORE_GITHUB_API_GITHUB_APP_PRIVATE_KEY_PT2", "store_id": "8c42fa70938644e0a8a109744467375f", "secret_name": "CORE_GITHUB_API_GITHUB_APP_PRIVATE_KEY_PT2" },
+		{ "binding": "CORE_GITHUB_API_GITHUB_APP_PRIVATE_KEY_PT3", "store_id": "8c42fa70938644e0a8a109744467375f", "secret_name": "CORE_GITHUB_API_GITHUB_APP_PRIVATE_KEY_PT3" },
+		{ "binding": "GITHUB_PERSONAL_ACCESS_TOKEN", "store_id": "8c42fa70938644e0a8a109744467375f", "secret_name": "GH_TOKEN" },
+		{ "binding": "CLOUDFLARE_API_TOKEN", "store_id": "8c42fa70938644e0a8a109744467375f", "secret_name": "CLOUDFLARE_API_TOKEN" },
+		{ "binding": "OPENAI_API_KEY", "store_id": "8c42fa70938644e0a8a109744467375f", "secret_name": "OPENAI_API_KEY" },
+		{ "binding": "CLOUDFLARE_ACCOUNT_ID", "store_id": "8c42fa70938644e0a8a109744467375f", "secret_name": "CLOUDFLARE_ACCOUNT_ID" },
+		{ "binding": "CLOUDFLARE_SECRETS_STORE_TOKEN", "store_id": "8c42fa70938644e0a8a109744467375f", "secret_name": "CLOUDFLARE_SECRETS_STORE_TOKEN" },
+		{ "binding": "CLOUDFLARE_WORKER_ADMIN_TOKEN", "store_id": "8c42fa70938644e0a8a109744467375f", "secret_name": "CLOUDFLARE_WORKER_ADMIN_TOKEN" },
+		{ "binding": "CLOUDFLARE_AI_SEARCH_TOKEN", "store_id": "8c42fa70938644e0a8a109744467375f", "secret_name": "CLOUDFLARE_AI_SEARCH_TOKEN" },
+		{ "binding": "CLOUDFLARE_OBSERVABILITY_TOKEN", "store_id": "8c42fa70938644e0a8a109744467375f", "secret_name": "CLOUDFLARE_OBSERVABILITY_TOKEN" },
+		{ "binding": "WORKER_API_KEY", "store_id": "8c42fa70938644e0a8a109744467375f", "secret_name": "WORKER_API_KEY" },
+		{ "binding": "AGENTIC_WORKER_API_KEY", "store_id": "8c42fa70938644e0a8a109744467375f", "secret_name": "AGENTIC_WORKER_API_KEY" },
+		{ "binding": "AI_GATEWAY_TOKEN", "store_id": "8c42fa70938644e0a8a109744467375f", "secret_name": "CLOUDFLARE_AI_GATEWAY_TOKEN" },
+		{ "binding": "CF_BROWSER_RENDER_TOKEN", "store_id": "8c42fa70938644e0a8a109744467375f", "secret_name": "CLOUDFLARE_BROWSER_RENDER_TOKEN" },
+		{ "binding": "CLOUDFLARE_IMAGES_STREAM_TOKEN", "store_id": "8c42fa70938644e0a8a109744467375f", "secret_name": "CLOUDFLARE_IMAGES_STREAM_TOKEN" },
+		{ "binding": "STITCH_API_KEY", "store_id": "8c42fa70938644e0a8a109744467375f", "secret_name": "STITCH_API_KEY" },
+		{ "binding": "JULES_API_KEY", "store_id": "8c42fa70938644e0a8a109744467375f", "secret_name": "JULES_API_KEY" },
+		{ "binding": "GEMINI_API_KEY", "store_id": "8c42fa70938644e0a8a109744467375f", "secret_name": "GOOGLE_API_KEY" },
+		{ "binding": "ANTHROPIC_API_KEY", "store_id": "8c42fa70938644e0a8a109744467375f", "secret_name": "ANTHROPIC_API_KEY" },
+		{ "binding": "DISCORD_TOKEN", "store_id": "8c42fa70938644e0a8a109744467375f", "secret_name": "DISCORD_TOKEN" },
+		{ "binding": "GOOGLE_CREDS_SA_PRIVATE_KEY_PT_1", "store_id": "8c42fa70938644e0a8a109744467375f", "secret_name": "GOOGLE_CREDS_SA_PRIVATE_KEY_PT_1" },
+		{ "binding": "GOOGLE_CREDS_SA_PRIVATE_KEY_PT_2", "store_id": "8c42fa70938644e0a8a109744467375f", "secret_name": "GOOGLE_CREDS_SA_PRIVATE_KEY_PT_2" }
 	],
 	"durable_objects": {
 		"bindings": [
-			{
-				"name": "JULES_PR_REVIEWER",
-				"class_name": "JulesPrReviewer"
-			},
-			{
-				"name": "ORCHESTRATOR",
-				"class_name": "OrchestratorAgent"
-			},
-			{
-				"name": "RetrofitAgent",
-				"class_name": "RetrofitAgent"
-			},
-			{
-				"name": "ROOM_DO",
-				"class_name": "RoomDO"
-			},
-			{
-				"name": "GEMINI_AGENT",
-				"class_name": "GeminiAgent"
-			},
-			{
-				"name": "PLANNER",
-				"class_name": "PlannerAgent"
-			},
-			{
-				"name": "REPO_AGENT",
-				"class_name": "RepoAgent"
-			},
-			{
-				"name": "SUPERVISOR",
-				"class_name": "Supervisor"
-			},
-			{
-				"name": "DEEP_REASONING_AGENT",
-				"class_name": "DeepReasoningAgent"
-			},
-			{
-				"name": "SANDBOX",
-				"class_name": "Sandbox"
-			},
-			{
-				"name": "OWNER_AGENT",
-				"class_name": "OwnerAgent"
-			},
-			{
-				"name": "RESEARCH_AGENT",
-				"class_name": "ResearchAgent"
-			},
-			{
-				"name": "DISCORD_RESEARCH_AGENT",
-				"class_name": "DiscordResearchAgent"
-			},
-			{
-				"name": "JULES_OVERSEER",
-				"class_name": "JulesOverseer"
-			},
-			{
-				"name": "TOPIC_ORCHESTRATOR",
-				"class_name": "TopicOrchestratorAgent"
-			},
-			{
-				"name": "WEB_SEARCH_AGENT",
-				"class_name": "WebSearchAgent"
-			},
-			{
-				"name": "JUDGE_AGENT",
-				"class_name": "JudgeAgent"
-			},
-			{
-				"name": "REPORTING_AGENT",
-				"class_name": "ReportingAgent"
-			},
-			{
-				"name": "LANDING_PAGE_AGENT",
-				"class_name": "LandingPageAgent"
-			},
-			{
-				"name": "CLOUDFLARE_DOCS_AGENT",
-				"class_name": "CloudflareDocsAgent"
-			},
-			{
-				"name": "DEEP_RESEARCH_CHAT_AGENT",
-				"class_name": "DeepResearchChatAgent"
-			},
-			{
-				"name": "HEALTH_DIAGNOSTICIAN",
-				"class_name": "HealthDiagnostician"
-			},
-			{
-				"name": "JULES_WEBHOOK_BROADCASTER",
-				"class_name": "JulesWebhookBroadcaster"
-			},
-			{
-				"name": "PLANNING_MONITOR",
-				"class_name": "PlanningMonitor"
-			},
-			{
-				"name": "REVERSE_ENGINEERING_MONITOR",
-				"class_name": "ReverseEngineeringMonitor"
-			},
-			{
-				"name": "PLANNING_SUPERVISOR",
-				"class_name": "PlanningSupervisorAgent"
-			},
-			{
-				"name": "PLANNING_ORCHESTRATOR_AGENT",
-				"class_name": "PlanningOrchestratorAgent"
-			},
-			{
-				"name": "HONI_ORCHESTRATOR",
-				"class_name": "HoniOrchestrator"
-			},
-			{
-				"name": "HONI_CONSULTANT",
-				"class_name": "HoniConsultant"
-			},
-			{
-				"name": "WORKSHOP_AGENT",
-				"class_name": "WorkshopAgent"
-			},
-			{
-				"name": "AGENT_SESSION_DO",
-				"class_name": "AgentSessionDO"
-			},
-			{
-				"name": "CF_WORKSHOP_AGENTS_SDK",
-				"class_name": "CfWorkshop_AgentsSdk"
-			},
-			{
-				"name": "STANDARDIZATION_AGENT",
-				"class_name": "StandardizationAgent"
-			},
-			{
-				"name": "UX_RESEARCHER",
-				"class_name": "UxResearcher"
-			},
-			{
-				"name": "SANDBOX_AGENT",
-				"class_name": "SandboxAgent"
-			},
-			{
-				"name": "LEARNING_AGENT",
-				"class_name": "LearningAgent"
-			}
+			// ── Core Agents (10) ────────────────────────────────────────
+			{ "name": "ORCHESTRATOR_AGENT", "class_name": "OrchestratorAgent" },
+			{ "name": "ENGINEER_AGENT", "class_name": "EngineerAgent" },
+			{ "name": "GUARDRAIL_AGENT", "class_name": "GuardrailAgent" },
+			{ "name": "RESEARCH_AGENT", "class_name": "ResearchAgent" },
+			{ "name": "GITHUB_AGENT", "class_name": "GithubAgent" },
+			{ "name": "CLOUDFLARE_AGENT", "class_name": "CloudflareAgent" },
+			{ "name": "DESIGN_AGENT", "class_name": "DesignAgent" },
+			{ "name": "LEARNING_AGENT", "class_name": "LearningAgent" },
+			{ "name": "WORKSHOP_AGENT", "class_name": "WorkshopAgent" },
+			{ "name": "COLLABORATION_AGENT", "class_name": "CollaborationAgent" },
+			// ── Infrastructure DOs ────────────────────────────────────
+			{ "name": "SANDBOX", "class_name": "Sandbox" },
+			{ "name": "JULES_WEBHOOK_BROADCASTER", "class_name": "JulesWebhookBroadcaster" },
+			{ "name": "PLANNING_MONITOR", "class_name": "PlanningMonitor" },
+			{ "name": "REVERSE_ENGINEERING_MONITOR", "class_name": "ReverseEngineeringMonitor" },
+			{ "name": "AGENT_SESSION_DO", "class_name": "AgentSessionDO" },
+			{ "name": "ROOM_DO", "class_name": "RoomDO" }
 		]
 	},
 	"migrations": [
 		{
 			"tag": "v1",
 			"new_sqlite_classes": [
-				// Core Orchestrator for managing agent lifecycles
+				// Core Orchestrator for coordinating sub-agents and decomposing complex tasks
 				"OrchestratorAgent",
-				// Agent for retrofitting and refactoring code
-				"RetrofitAgent",
-				// WebSocket Room for real-time collaboration
-				"RoomDO",
-				// Gemini-powered AI Agent
-				"GeminiAgent",
-				// Planning Agent for task decomposition
-				"PlannerAgent",
-				// Repository Management Agent
-				"RepoAgent",
-				// Supervisor Agent for managing container tasks
-				"Supervisor",
-				// Deep Reasoning Agent for complex logic
-				"DeepReasoningAgent",
-				// Secure Sandbox Environment
-				"Sandbox",
-				// Owner/Admin Agent
-				"OwnerAgent",
-				// Research Agent for gathering information
+				// Full-stack engineering agent that writes code and executes plans
+				"EngineerAgent",
+				// System safeguard agent that ensures alignment with architectural rules
+				"GuardrailAgent",
+				// Deep research agent for crawling docs, web data, and repo analysis
 				"ResearchAgent",
-				// Incremental Discord channel scanner ingesting messages for analysis
-				"DiscordResearchAgent",
-				// Jules Overseer for session management
-				"JulesOverseer",
-				// Topic Research Orchestrator
-				"TopicOrchestratorAgent",
-				// Web Search Agent
-				"WebSearchAgent",
-				// Judge Agent for evaluating outputs
-				"JudgeAgent",
-				// Reporting Agent for generating summaries
-				"ReportingAgent",
-				// Agent for generating or editing landing pages
-				"LandingPageAgent",
-				// Agent for querying Cloudflare Documentation with GitHub context
-				"CloudflareDocsAgent",
-				// Deep Research Chat Agent built directly on Honi
-				"DeepResearchChatAgent",
-				// Autonomous agent for analyzing and remediating health check failures
-				"HealthDiagnostician",
-				// WebSocket fan-out hub for Jules events
-				"JulesWebhookBroadcaster",
-				// Monitors planning sessions
-				"PlanningMonitor",
-				// Monitors reverse engineering tasks
-				"ReverseEngineeringMonitor",
-				// Supervises planning orchestrators
-				"PlanningSupervisorAgent",
-				// Orchestrates planning workflows
-				"PlanningOrchestratorAgent",
-				// Orchestrator for Honi-compatible agents
-				"HoniOrchestrator",
-				// Consultant agent running on Honi
-				"HoniConsultant",
-				// Agent for managing workshops
+				// Agent specialized in Github API operations (PRs, issues, commits)
+				"GithubAgent",
+				// Agent specialized in Cloudflare infrastructure and deployment
+				"CloudflareAgent",
+				// UX/UI designer agent integrating with Stitch to produce frontend code
+				"DesignAgent",
+				// Hit-in-the-loop observer agent that captures knowledge and trains heuristics
+				"LearningAgent",
+				// Specialized workflow agent for hosting interactive user workshops
 				"WorkshopAgent",
-				// Workshop agent covering CF Agents SDK
-				"CfWorkshop_AgentsSdk",
-				// Ensures code and APIs meet standardized guidelines
-				"StandardizationAgent",
-				// Jules PR Reviewer
-				"JulesPrReviewer",
-				// UX Researcher
-				"UxResearcher",
-				// WebSocket session handler for real-time agent communication
+				// Central collaboration room serving as the main bus for agent-user messaging
+				"CollaborationAgent",
+				// Secure compute environment binding for executing untrusted workloads
+				"Sandbox",
+				// Fan-out hub for broadcasting fast Jules orchestration state events
+				"JulesWebhookBroadcaster",
+				// Background tracker for long-running planning and implementation tasks
+				"PlanningMonitor",
+				// Background tracker for reverse engineering workloads
+				"ReverseEngineeringMonitor",
+				// WebSocket session handler for real-time agent-to-client connections
 				"AgentSessionDO",
-				// Secure Sandbox Agent managing the Sandbox SDK
-				"SandboxAgent"
-			]
-		},
-		{
-			"tag": "v1_sentinel",
-			"new_sqlite_classes": [
-				"PRSupervisorDO",
-				"PRReviewDO",
-				"PRSummaryDO",
-				// Learning Agent for pattern analysis and Contemplation Gate
-				"LearningAgent"
+				// Low-level generic room entity for robust multiplayer WebSocket bridging
+				"RoomDO"
 			]
 		}
 	],
+
 	"workflows": [
-		{
-			"name": "GithubSearchWorkflow",
-			"binding": "GITHUB_SEARCH_WORKFLOW",
-			"class_name": "GithubSearchWorkflow"
-		},
-		{
-			"name": "deep-research-workflow",
-			"binding": "DEEP_RESEARCH_WORKFLOW",
-			"class_name": "DeepResearchWorkflow"
-		},
-		{
-			"name": "research-orchestrator",
-			"binding": "RESEARCH_ORCHESTRATOR",
-			"class_name": "ResearchOrchestrator"
-		},
-		{
-			"name": "LearningWorkflow",
-			"binding": "LEARNING_WORKFLOW",
-			"class_name": "LearningWorkflow",
-			"script_name": "core-github-api"
-		},
-		{
-			"name": "topic-research-workflow",
-			"binding": "TOPIC_RESEARCH_WORKFLOW",
-			"class_name": "TopicResearchWorkflow"
-		},
-		{
-			// Incremental Discord channel scanner — ingests messages from the
-			// Cloudflare Developers Discord, analyses them with AI, and surfaces
-			// highlights in the daily newsletter.
-			"name": "discord-research-workflow",
-			"binding": "DISCORD_RESEARCH_WORKFLOW",
-			"class_name": "DiscordResearchWorkflow"
-		},
-		{
-			"name": "planning-orchestrator",
-			"binding": "PLANNING_ORCHESTRATOR",
-			"class_name": "PlanningOrchestrator"
-		},
-		{
-			// Fetches Cloudflare Changelog RSS, filters for stack-relevant entries,
-			// AI-summarizes each update via AI Gateway, and persists to D1.
-			"name": "cloudflare-changelog-workflow",
-			"binding": "CLOUDFLARE_CHANGELOG_WORKFLOW",
-			"class_name": "CloudflareChangelogWorkflow"
-		},
-		{
-			"name": "stitch-loop-workflow",
-			"binding": "STITCH_LOOP_WORKFLOW",
-			"class_name": "StitchLoopWorkflow"
-		}
+		{ "name": "GithubSearch",			"binding": "GITHUB_SEARCH_WORKFLOW",		"class_name": "GithubSearchWorkflow" },
+		{ "name": "DeepResearch",			"binding": "DEEP_RESEARCH_WORKFLOW",		"class_name": "DeepResearchWorkflow" },
+		{ "name": "ResearchOrchestrator",	"binding": "RESEARCH_ORCHESTRATOR",			"class_name": "ResearchOrchestrator" },
+		{ "name": "LearningWorkflow", 		"binding": "LEARNING_WORKFLOW",				"class_name": "LearningWorkflow" },
+		{ "name": "TopicResearch", 			"binding": "TOPIC_RESEARCH_WORKFLOW",		"class_name": "TopicResearchWorkflow" },
+		{ "name": "DiscordResearch", 		"binding": "DISCORD_RESEARCH_WORKFLOW",		"class_name": "DiscordResearchWorkflow" },
+		{ "name": "PlanningOrchestrator", 	"binding": "PLANNING_ORCHESTRATOR",			"class_name": "PlanningOrchestrator" },
+		{ "name": "CloudflareChangelog", 	"binding": "CLOUDFLARE_CHANGELOG_WORKFLOW",	"class_name": "CloudflareChangelogWorkflow" },
+		{ "name": "StitchLoop", 			"binding": "STITCH_LOOP_WORKFLOW", 			"class_name": "StitchLoopWorkflow" },
+		{ "name": "JulesResearch", 			"binding": "JULES_RESEARCH_WORKFLOW", 		"class_name": "JulesResearchWorkflow" },
+		{ "name": "ContinuousLearning", 	"binding": "CONTINUOUS_LEARNING_WORKFLOW", 	"class_name": "ContinuousLearningWorkflow" },
+		{ "name": "Hitl", 					"binding": "HITL_WORKFLOW", 				"class_name": "HitlWorkflow" }
 	],
 	"browser": {
 		"binding": "BROWSER"
 	},
 	"r2_buckets": [
-		{
-			"binding": "PLAN_ARTIFACTS",
-			"bucket_name": "core-github-api-plan-artifacts"
-		},
-		{
-			"binding": "ARTIFACT_STORE",
-			"bucket_name": "core-planning-artifacts"
-		}
+		{ "binding": "PLAN_ARTIFACTS", "bucket_name": "core-github-api-plan-artifacts" },
+		{ "binding": "ARTIFACT_STORE", "bucket_name": "core-planning-artifacts" },
+		{ "binding": "SANDBOX_BUCKET", "bucket_name": "core-github-api-sandbox-bucket" }
 	],
 	"kv_namespaces": [
-		{
-			"binding": "ETAG_KV",
-			"id": "eed6ba4656704616acf168be80ba770a",
-			"preview_id": "cfc441ebd1d8492497f49e88ae98aa2f"
-		},
-		{
-			"binding": "COMMENTS_KV",
-			"id": "82d47893d39a4b0fb574b1a760e06452"
-		},
-		{
-			"binding": "AGENT_CACHE",
-			"id": "9f070471888c435297b4bce51924f2df"
-		},
-		{
-			"binding": "KV_CONFIGS",
-			"id": "a2f723e74e3c4fd6a6377ab09bce9829",
-			"remote": true
-		}
+		{ "binding": "ETAG_KV", "id": "eed6ba4656704616acf168be80ba770a", 	  "remote": true },
+		{ "binding": "COMMENTS_KV", "id": "82d47893d39a4b0fb574b1a760e06452", "remote": true },
+		{ "binding": "AGENT_CACHE", "id": "9f070471888c435297b4bce51924f2df", "remote": true },
+		{ "binding": "KV_CONFIGS", "id": "a2f723e74e3c4fd6a6377ab09bce9829",  "remote": true }
 	],
 	// wrangler vectorize create core-github-api-vectors --preset @cf/baai/bge-large-en-v1.5
 	// wrangler vectorize create core-github-api-research --dimensions=1024 --metric=cosine
@@ -564,66 +206,23 @@
 	// wrangler vectorize create core-github-api-plan-rag --dimensions=1024 --metric=cosine
 	// wrangler vectorize create core-github-api-file-embeddings --dimensions=1024 --metric=cosine
 	"vectorize": [
-		{
-			"binding": "VECTORIZE",
-			"index_name": "core-github-api-vectors",
-			"remote": true
-		},
-		{
-			"binding": "RESEARCH_INDEX",
-			"index_name": "core-github-api-research",
-			"remote": true
-		},
-		{
-			"binding": "VECTORIZE_LOGS",
-			"index_name": "core-github-api-logs",
-			"remote": true
-		},
-		{
-			"binding": "PLAN_EMBEDDINGS",
-			"index_name": "core-github-api-plan-rag",
-			"remote": true
-		},
-		{
-			"binding": "FILE_EMBEDDINGS",
-			"index_name": "core-github-api-file-embeddings",
-			"remote": true
-		},
-		{
-			"binding": "VECTORIZE_INDEX",
-			"index_name": "sentinel-patterns"
-		}
+		{ "binding": "VECTORIZE", "index_name": "core-github-api-vectors", "remote": true },
+		{ "binding": "RESEARCH_INDEX", "index_name": "core-github-api-research", "remote": true },
+		{ "binding": "VECTORIZE_LOGS", "index_name": "core-github-api-logs", "remote": true },
+		{ "binding": "PLAN_EMBEDDINGS", "index_name": "core-github-api-plan-rag", "remote": true },
+		{ "binding": "FILE_EMBEDDINGS", "index_name": "core-github-api-file-embeddings", "remote": true },
+		{ "binding": "VECTORIZE_INDEX", "index_name": "sentinel-patterns", "remote": true }
 	],
 	"d1_databases": [
-		{
-			"binding": "DB",
-			"database_name": "core-github-api",
-			"database_id": "4db39958-8554-4da4-b23d-8a4ea8404588",
-			"migrations_dir": "migrations/core"
-		},
-		{
-			"binding": "DB_WEBHOOKS",
-			"database_name": "core-github-api-webhooks",
-			"database_id": "df714884-593d-45da-9c7f-9f67903c4fca",
-			"migrations_dir": "migrations/webhooks"
-		}
+		{ "binding": "DB", "database_name": "core-github-api", "database_id": "4db39958-8554-4da4-b23d-8a4ea8404588", "migrations_dir": "migrations/core", "remote": true },
+		{ "binding": "DB_WEBHOOKS", "database_name": "core-github-api-webhooks", "database_id": "df714884-593d-45da-9c7f-9f67903c4fca", "migrations_dir": "migrations/webhooks", "remote": true }
 	],
 	// Email sending bindings for Email Routing
 	// Targeted binding - sends only to the specified destination address
 	"send_email": [
-		{
-			"name": "SEND_EMAIL"
-		},
-		{
-			"name": "SEND_EMAIL_NEWSLETTER",
-			"destination_address": "ai@126colby.com"
-		},
-		{
-			"name": "Core Github API",
-			"allowed_destination_addresses": [
-				"ai@126colby.com"
-			]
-		}
+		{ "name": "SEND_EMAIL" },
+		{ "name": "SEND_EMAIL_NEWSLETTER", "destination_address": "ai@126colby.com" },
+		{ "name": "SEND_EMAIL_ALERTS", "destination_address": "ai@126colby.com" }
 	],
 	// Scheduled triggers for automated tasks
 	// Cron format: minute hour day month day-of-week
@@ -647,15 +246,6 @@
 		]
 	},
 	"services": [
-		{
-			"name": "core-github-api-edgraph",
-			"binding": "EDGRAPH",
-			"service": "core-github-api-edgraph"
-		},
-		{
-			"binding": "CLAUDE_AGENT",
-			"service": "claude-agent-worker",
-			"entrypoint": "ClaudeAgentRPC"
-		}
+		{ "name": "core-github-api-edgraph", "binding": "EDGRAPH", "service": "core-github-api-edgraph" }
 	]
 }

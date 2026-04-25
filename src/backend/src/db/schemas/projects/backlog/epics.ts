@@ -5,6 +5,7 @@ import {
     index
 } from "drizzle-orm/sqlite-core";
 import { repositories } from "@/db/schemas/github/repos";
+import { planRevisions } from "../plans/revisions";
 
 
 // 1. Epics (High-level initiatives, replacing projects/projectPhases)
@@ -13,6 +14,8 @@ export const epics = sqliteTable("epics", {
     repoId: text("repo_id")
         .notNull()
         .references(() => repositories.id, { onDelete: "cascade" }),
+    planRevisionId: text("plan_revision_id")
+        .references(() => planRevisions.id, { onDelete: "set null" }),         
     title: text("title").notNull(),
     description: text("description"),
     status: text("status").$type<"todo" | "in_progress" | "done" | "backlog">().default("todo"),
@@ -20,5 +23,6 @@ export const epics = sqliteTable("epics", {
     createdAt: integer("created_at", { mode: 'timestamp' }).$defaultFn(() => new Date()),
     updatedAt: integer("updated_at", { mode: 'timestamp' }).$defaultFn(() => new Date()),
 }, (table) => ({
-    repoIdx: index("idx_epics_repo").on(table.repoId)
+    repoIdx: index("idx_epics_repo").on(table.repoId),
+    planRevisionIdx: index("idx_epics_revision").on(table.planRevisionId)
 }));

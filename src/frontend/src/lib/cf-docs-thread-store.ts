@@ -6,6 +6,8 @@
  * The thread.id is used as the WS sessionId sent in every message.
  */
 
+import { handleGlobalError } from '@/lib/error-handler';
+
 const nanoid = () => crypto.randomUUID();
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -73,7 +75,8 @@ export function loadThreads(): CFDocsThread[] {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     return JSON.parse(raw) as CFDocsThread[];
-  } catch {
+  } catch (err) {
+    handleGlobalError(`[CFDocsThreadStore] Failed to load threads: ${err}`);
     return [];
   }
 }
@@ -81,7 +84,9 @@ export function loadThreads(): CFDocsThread[] {
 function saveThreads(threads: CFDocsThread[]): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(threads));
-  } catch { /* storage full — silently fail */ }
+  } catch (err) {
+    handleGlobalError(`[CFDocsThreadStore] Failed to save threads: ${err}`);
+  }
 }
 
 export function createThread(repoUrl: string | null): CFDocsThread {

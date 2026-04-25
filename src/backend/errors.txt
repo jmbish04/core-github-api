@@ -1,0 +1,55 @@
+src/ai/agents/workshop/UxResearcher.ts(309,52): error TS2345: Argument of type 'string' is not assignable to parameter of type '{ name: string; description?: string | undefined; }'.
+src/ai/agents/workshop/UxResearcher.ts(311,51): error TS18046: 'project' is of type 'unknown'.
+src/ai/agents/workshop/UxResearcher.ts(312,64): error TS18046: 'project' is of type 'unknown'.
+src/ai/agents/workshop/UxResearcher.ts(315,48): error TS18046: 'project' is of type 'unknown'.
+src/ai/agents/workshop/UxResearcher.ts(352,50): error TS2345: Argument of type '{ projectId: string; prompt: string; }' is not assignable to parameter of type '{ projectId: string; prompt: string; deviceType: "DESKTOP" | "MOBILE" | "TABLET"; }'.
+  Property 'deviceType' is missing in type '{ projectId: string; prompt: string; }' but required in type '{ projectId: string; prompt: string; deviceType: "DESKTOP" | "MOBILE" | "TABLET"; }'.
+src/ai/agents/workshop/UxResearcher.ts(353,7): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/ai/agents/workshop/UxResearcher.ts(369,69): error TS2554: Expected 1 arguments, but got 2.
+src/ai/agents/workshop/UxResearcher.ts(372,23): error TS18046: 'screenDetails' is of type 'unknown'.
+src/ai/agents/workshop/UxResearcher.ts(476,20): error TS2551: Property 'editScreen' does not exist on type 'StitchService'. Did you mean 'editScreens'?
+src/ai/agents/workshop/UxResearcher.ts(478,69): error TS2554: Expected 1 arguments, but got 2.
+src/ai/agents/workshop/UxResearcher.ts(480,26): error TS18046: 'screenDetails' is of type 'unknown'.
+src/ai/agents/workshop/UxResearcher.ts(490,90): error TS18046: 'screenDetails' is of type 'unknown'.
+src/ai/mcp/tools/cloudflare/stitch.ts(54,46): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type '{ name: string; description?: string | undefined; }'.
+  Type 'undefined' is not assignable to type '{ name: string; description?: string | undefined; }'.
+src/ai/mcp/tools/cloudflare/stitch.ts(81,53): error TS2554: Expected 1 arguments, but got 2.
+src/ai/mcp/tools/cloudflare/stitch.ts(97,58): error TS2554: Expected 1 arguments, but got 4.
+src/ai/mcp/tools/cloudflare/stitch.ts(114,32): error TS2551: Property 'editScreen' does not exist on type 'StitchService'. Did you mean 'editScreens'?
+src/ai/mcp/tools/cloudflare/stitch.ts(134,32): error TS2339: Property 'generateVariants' does not exist on type 'StitchService'.
+src/ai/mcp/tools/cloudflare/stitch.ts(154,32): error TS2339: Property 'listTools' does not exist on type 'StitchService'.
+src/routes/api/jules/stitch.ts(57,47): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type '{ name: string; description?: string | undefined; }'.
+  Type 'undefined' is not assignable to type '{ name: string; description?: string | undefined; }'.
+src/routes/api/jules/stitch.ts(107,58): error TS2554: Expected 1 arguments, but got 4.
+src/routes/api/jules/stitch.ts(120,51): error TS2554: Expected 1 arguments, but got 2.
+src/routes/api/jules/stitch.ts(144,32): error TS2551: Property 'editScreen' does not exist on type 'StitchService'. Did you mean 'editScreens'?
+src/routes/api/jules/stitch.ts(175,34): error TS2339: Property 'generateVariants' does not exist on type 'StitchService'.
+src/routes/api/jules/stitch.ts(196,29): error TS2339: Property 'listTools' does not exist on type 'StitchService'.
+src/routes/api/jules/stitch.ts(228,76): error TS2554: Expected 1 arguments, but got 2.
+src/routes/api/learning/index.ts(25,30): error TS2307: Cannot find module '@services/jules' or its corresponding type declarations.
+src/routes/api/sentinel/insights.ts(56,36): error TS2769: No overload matches this call.
+  Overload 1 of 3, '(left: SQLiteColumn<{ name: "pattern_type"; tableName: "learning_ai_insights"; dataType: "string"; columnType: "SQLiteText"; data: "doom_loop" | "anti_pattern" | "standard_violation" | "best_practice"; ... 9 more ...; generated: undefined; }, {}, { ...; }>, right: SQLWrapper | ... 3 more ... | "best_practice"): SQL<...>', gave the following error.
+    Argument of type 'string' is not assignable to parameter of type 'SQLWrapper | "doom_loop" | "anti_pattern" | "standard_violation" | "best_practice"'.
+  Overload 2 of 3, '(left: Aliased<string>, right: string | SQLWrapper): SQL<unknown>', gave the following error.
+    Argument of type 'SQLiteColumn<{ name: "pattern_type"; tableName: "learning_ai_insights"; dataType: "string"; columnType: "SQLiteText"; data: "doom_loop" | "anti_pattern" | "standard_violation" | "best_practice"; ... 9 more ...; generated: undefined; }, {}, { ...; }>' is not assignable to parameter of type 'Aliased<string>'.
+      Type 'SQLiteColumn<{ name: "pattern_type"; tableName: "learning_ai_insights"; dataType: "string"; columnType: "SQLiteText"; data: "doom_loop" | "anti_pattern" | "standard_violation" | "best_practice"; ... 9 more ...; generated: undefined; }, {}, { ...; }>' is missing the following properties from type 'Aliased<string>': sql, fieldAlias
+  Overload 3 of 3, '(left: never, right: unknown): SQL<unknown>', gave the following error.
+    Argument of type 'SQLiteColumn<{ name: "pattern_type"; tableName: "learning_ai_insights"; dataType: "string"; columnType: "SQLiteText"; data: "doom_loop" | "anti_pattern" | "standard_violation" | "best_practice"; ... 9 more ...; generated: undefined; }, {}, { ...; }>' is not assignable to parameter of type 'never'.
+src/routes/api/sentinel/insights.ts(92,25): error TS2554: Expected 2-3 arguments, but got 1.
+src/routes/api/sentinel/insights.ts(93,30): error TS2554: Expected 2-3 arguments, but got 1.
+src/routes/api/sentinel/insights.ts(94,27): error TS2554: Expected 2-3 arguments, but got 1.
+src/routes/api/sentinel/orchestrate.ts(61,31): error TS2345: Argument of type '(c: Context<{ Bindings: Env; }, "/orchestrate-ui", { in: { json: { prompt: string; repoOwner: string; repoName: string; pageId: string; branch?: string | undefined; routeType?: "repo" | "global" | undefined; stitchProjectId?: string | undefined; structure?: string[] | undefined; }; }; out: { ...; }; }>) => Promise<....' is not assignable to parameter of type 'Handler<{ Bindings: Env; }, "/orchestrate-ui", { in: { json: { prompt: string; repoOwner: string; repoName: string; pageId: string; branch?: string | undefined; routeType?: "repo" | "global" | undefined; stitchProjectId?: string | undefined; structure?: string[] | undefined; }; }; out: { ...; }; }, MaybePromise<...>>'.
+  Type 'Promise<JSONRespondReturn<{ workflowId: any; status: string; }, 200 | 500> | JSONRespondReturn<{ error: any; }, 500>>' is not assignable to type 'MaybePromise<RouteConfigToTypedResponse<{ method: "post"; path: "/orchestrate-ui"; operationId: string; tags: string[]; request: { body: { content: { "application/json": { schema: ZodObject<{ prompt: ZodString; repoOwner: ZodString; ... 5 more ...; structure: ZodOptional<...>; }, $strip>; }; }; }; }; responses: { .....'.
+    Type 'Promise<JSONRespondReturn<{ workflowId: any; status: string; }, 200 | 500> | JSONRespondReturn<{ error: any; }, 500>>' is not assignable to type 'Promise<RouteConfigToTypedResponse<{ method: "post"; path: "/orchestrate-ui"; operationId: string; tags: string[]; request: { body: { content: { "application/json": { schema: ZodObject<{ prompt: ZodString; repoOwner: ZodString; ... 5 more ...; structure: ZodOptional<...>; }, $strip>; }; }; }; }; responses: { ...; };...'.
+      Type 'JSONRespondReturn<{ workflowId: any; status: string; }, 200 | 500> | JSONRespondReturn<{ error: any; }, 500>' is not assignable to type 'RouteConfigToTypedResponse<{ method: "post"; path: "/orchestrate-ui"; operationId: string; tags: string[]; request: { body: { content: { "application/json": { schema: ZodObject<{ prompt: ZodString; repoOwner: ZodString; ... 5 more ...; structure: ZodOptional<...>; }, $strip>; }; }; }; }; responses: { ...; }; } & { ....'.
+        Type 'JSONRespondReturn<{ workflowId: any; status: string; }, 200 | 500>' is not assignable to type 'RouteConfigToTypedResponse<{ method: "post"; path: "/orchestrate-ui"; operationId: string; tags: string[]; request: { body: { content: { "application/json": { schema: ZodObject<{ prompt: ZodString; repoOwner: ZodString; ... 5 more ...; structure: ZodOptional<...>; }, $strip>; }; }; }; }; responses: { ...; }; } & { ....'.
+          Type 'JSONRespondReturn<{ workflowId: any; status: string; }, 200 | 500>' is not assignable to type 'TypedResponse<{ error: string; }, 500, "json">'.
+            Types of property '_data' are incompatible.
+              Property 'error' is missing in type '{ workflowId: any; status: string; }' but required in type '{ error: string; }'.
+src/routes/api/sentinel/tasks.ts(41,29): error TS2345: Argument of type '(c: Context<{ Bindings: Env; }, "/tasks/available", {}>) => Promise<JSONRespondReturn<{ tasks: { id: string; repoId: string; parentId: string | null; title: string; description: string | null; ... 9 more ...; updatedAt: string | null; }[]; }, 200>>' is not assignable to parameter of type 'Handler<{ Bindings: Env; }, "/tasks/available", {}, MaybePromise<TypedResponse<never, 200, "json">>>'.
+  Type 'Promise<JSONRespondReturn<{ tasks: { id: string; repoId: string; parentId: string | null; title: string; description: string | null; status: string; priority: string; assignee: string | null; position: number | null; ... 5 more ...; updatedAt: string | null; }[]; }, 200>>' is not assignable to type 'MaybePromise<TypedResponse<never, 200, "json">>'.
+    Type 'Promise<JSONRespondReturn<{ tasks: { id: string; repoId: string; parentId: string | null; title: string; description: string | null; status: string; priority: string; assignee: string | null; position: number | null; ... 5 more ...; updatedAt: string | null; }[]; }, 200>>' is not assignable to type 'Promise<TypedResponse<never, 200, "json">>'.
+      Type 'JSONRespondReturn<{ tasks: { id: string; repoId: string; parentId: string | null; title: string; description: string | null; status: string; priority: string; assignee: string | null; position: number | null; ... 5 more ...; updatedAt: string | null; }[]; }, 200>' is not assignable to type 'TypedResponse<never, 200, "json">'.
+        Types of property '_data' are incompatible.
+          Type '{ tasks: { id: string; repoId: string; parentId: string | null; title: string; description: string | null; status: string; priority: string; assignee: string | null; position: number | null; ... 5 more ...; updatedAt: string | null; }[]; }' is not assignable to type 'never'.

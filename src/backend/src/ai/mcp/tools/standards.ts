@@ -1,4 +1,4 @@
-import { tool } from "@/ai/agents/honi";
+import { tool } from "ai";
 import { GOLDEN_PATH_OUTPUT_DISCIPLINE } from "@/services/golden-path-config";
 import { z } from "zod";
 
@@ -9,21 +9,15 @@ import { listGoldenPathConfigs } from "@/services/golden-path-config";
  * Agents use this to pull current coding rules by scope, infrastructure, or tag.
  */
 export const makeQueryStandardsTool = (env: Env) => tool({
-  name: "query_standards",
   description:
     "Query the active golden path standards stored in D1. Use this before generating code so your output follows the current repository rules and always returns full code without elisions.",
-  input: z.object({
+  parameters: z.object({
     filterByTag: z.string().optional().describe("Optional active tag name filter."),
     filterByScope: z.string().optional().describe("Optional scope title filter, such as frontend, backend, ai, infra, or docs."),
     filterByInfrastructure: z.string().optional().describe("Optional infrastructure filter, such as worker-assets, workers, or coding-agent."),
     search: z.string().optional().describe("Optional free-text search across titles, descriptions, rules, and tags."),
   }),
-  handler: async (args: {
-    filterByTag?: string;
-    filterByScope?: string;
-    filterByInfrastructure?: string;
-    search?: string;
-  }) => {
+  execute: async (args: any) => {
     const results = await listGoldenPathConfigs(env, {
       tagName: args.filterByTag,
       scopeTitle: args.filterByScope,
@@ -55,4 +49,4 @@ export const makeQueryStandardsTool = (env: Env) => tool({
 
     return `${rendered}\n\n---\n\n${GOLDEN_PATH_OUTPUT_DISCIPLINE}`;
   },
-});
+} as any);

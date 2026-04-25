@@ -5,7 +5,6 @@ import { prependColbyPrimer } from '@/automations/shared/colby/primer';
 import { detectPRAuthorAgent } from '../../../utils/github/detectAgent';
 import {
   formatBuildFailureComment,
-  inferWorkerName,
 } from './analysis';
 
 const BuildAnalyzerPayloadSchema = z.object({
@@ -129,11 +128,11 @@ export class BuildAnalyzer extends BaseAutomation<BuildAnalyzerPayload> {
           : await getCloudflareApiToken(this.env);
 
       const scriptName =
-        (await (new WranglerInspectorService((await getOctokitAsUser(this.env)) as any).getWorkerName(payload.repository.owner.login, payload.repository.name))) ||
+        (await new WranglerInspectorService((await getOctokitAsUser(this.env)) as any)
+            .getWorkerName(payload.repository.owner.login, payload.repository.name)
+            .catch(() => null)) ||
         ids?.scriptName ||
-        inferWorkerName(
-          payload.repository.full_name || `${payload.repository.owner.login}/${payload.repository.name}`,
-        );
+        payload.repository.name;
 
       let logs: string | null = null;
       if (ids && ids.buildUuid) {
@@ -175,7 +174,9 @@ export class BuildAnalyzer extends BaseAutomation<BuildAnalyzerPayload> {
               docsContent: heuristics.docsContent,
               rawLogs: logs,
               buildUuid: ids?.buildUuid,
-            }),
+            },
+            this.env
+          ),
           ),
         ),
       });

@@ -4,7 +4,8 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { Loader2, Send, Sparkles, Layout } from "lucide-react";
-import { toast } from "sonner";
+import { handleGlobalError } from '@/lib/error-handler';
+import { handleGlobalSuccess } from '@/lib/success-handler';
 import {} from "@/lib/utils";
 
 // RPC Client
@@ -47,7 +48,7 @@ export function LandingPageGenerator({ projectId, projectName }: LandingPageGene
         const data = JSON.parse(event.data);
         if (data.type === 'STATUS_UPDATE') {
             setStatus(data.message);
-            if (data.progress === 100) toast.success("AI Synthesis Complete");
+            if (data.progress === 100) handleGlobalSuccess('Synthesis Complete', "AI Synthesis Complete");
         }
       } catch (e) {
         console.error("WS Parse Error", e);
@@ -89,10 +90,10 @@ export function LandingPageGenerator({ projectId, projectName }: LandingPageGene
         const data = (await res.json()) as any;
         if (data.html) {
             setHtml(data.html);
-            toast.success("Preview updated");
+            handleGlobalSuccess('Preview Updated', "Preview updated");
         }
     } catch (err) {
-        toast.error("Communication error with backend isolate");
+        handleGlobalError("Communication error with backend isolate");
         console.error(err);
     } finally {
         setLoading(false);

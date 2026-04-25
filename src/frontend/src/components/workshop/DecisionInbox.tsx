@@ -4,7 +4,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardFooter } from '@/comp
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
-import { toast } from 'sonner';
+import { handleGlobalSuccess } from '@/lib/success-handler';
 import { handleGlobalError } from "@/lib/error-handler";
 
 export const DecisionInbox = () => {
@@ -38,7 +38,7 @@ export const DecisionInbox = () => {
                 json: { eventId, decision }
             });
             if (res.ok) {
-                toast.success(`Action ${decision} successfully.`);
+                handleGlobalSuccess('Decision Applied', `Action ${decision} successfully.`);
                 setEvents(events.filter(e => e.id !== eventId));
             } else {
                 handleGlobalError(`Failed to apply decision. ${res}`);

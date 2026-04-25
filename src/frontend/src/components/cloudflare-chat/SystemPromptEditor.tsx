@@ -20,7 +20,8 @@ import {
   ExternalLink, Copy, CheckCheck, Code2, Zap,
   Sparkles, History,
 } from "lucide-react";
-import { toast } from "sonner";
+import { handleGlobalError } from '@/lib/error-handler';
+import { handleGlobalSuccess } from '@/lib/success-handler';
 import { formatDistanceToNow } from "date-fns";
 import { PromptDraftModal } from "@/components/cloudflare-chat/PromptDraftModal";
 import {
@@ -63,7 +64,7 @@ function EndpointCopyButton({
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);
-    toast.success("Copied to clipboard");
+    handleGlobalSuccess('Copied', "Copied to clipboard");
   };
   return (
     <button
@@ -114,7 +115,7 @@ export function SystemPromptEditor() {
   // ── Load revisions ───────────────────────────────────────────────────────
 
   const loadRevisions = async () => {
-    if (!apiKey) { toast.error("Not authenticated"); return; }
+    if (!apiKey) { handleGlobalError("Not authenticated"); return; }
     setRevisionsLoading(true);
     try {
       const res = await fetch("/api/agents/cloudflare-docs/prompt-revisions", {
@@ -125,7 +126,7 @@ export function SystemPromptEditor() {
       setRevisions(data.revisions ?? []);
       setShowRevisions(true);
     } catch (e: any) {
-      toast.error("Could not load revisions", { description: e.message });
+      handleGlobalError(`Could not load revisions: ${e.message}`);
     } finally {
       setRevisionsLoading(false);
     }
@@ -134,7 +135,7 @@ export function SystemPromptEditor() {
   // ── Reset to default ─────────────────────────────────────────────────────
 
   const reset = async () => {
-    if (!apiKey) { toast.error("Not authenticated"); return; }
+    if (!apiKey) { handleGlobalError("Not authenticated"); return; }
     setResetting(true);
     try {
       const res = await fetch("/api/agents/cloudflare-docs/system-prompt", {
@@ -144,9 +145,9 @@ export function SystemPromptEditor() {
       const data = (await res.json()) as any;
       if (!res.ok) throw new Error(data.error ?? `${res.status}`);
       setState({ systemPrompt: data.systemPrompt, lastUpdated: null, source: "default" });
-      toast.success("Reset to built-in default");
+      handleGlobalSuccess('Reset Complete', "Reset to built-in default");
     } catch (e: any) {
-      toast.error("Reset failed", { description: e.message });
+      handleGlobalError(`Reset failed: ${e.message}`);
     } finally {
       setResetting(false);
     }
@@ -190,7 +191,7 @@ export function SystemPromptEditor() {
 
         <div className="flex items-center gap-1.5 shrink-0">
           <button
-            onClick={() => { navigator.clipboard.writeText(state?.systemPrompt ?? ""); setCopied(true); setTimeout(() => setCopied(false), 2000); toast.success("Copied"); }}
+            onClick={() => { navigator.clipboard.writeText(state?.systemPrompt ?? ""); setCopied(true); setTimeout(() => setCopied(false), 2000); handleGlobalSuccess('Copied', "Copied"); }}
             title="Copy prompt text"
             className="flex items-center gap-1 px-2 py-1 rounded border border-border/40 text-[10px] text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors font-mono"
           >

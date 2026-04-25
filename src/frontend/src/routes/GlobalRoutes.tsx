@@ -25,6 +25,7 @@ import Health from "@/views/public/Health";
 import Sitemap from "@/views/public/Sitemap";
 import SparkLanding from "@/views/public/SparkLanding";
 import CloudflareDocsInfo from "@/views/public/CloudflareDocsInfo";
+import SoftwareOrchestrationDoc from "@/views/public/SoftwareOrchestrationDoc";
 import WorkflowEditor from "@/views/public/WorkflowEditor";
 import WorkflowNew from "@/views/public/WorkflowNew";
 
@@ -47,6 +48,8 @@ import CloudflareChat from "@/views/control/global/CloudflareChat";
 import Workflows from "@/views/control/global/Workflows";
 import { PRCommandCenter } from "@/views/control/global/PRCommandCenter";
 import DesignLabPage from "@/views/control/global/jules/DesignLabPage";
+import ChatRoomsList from "@/views/control/global/ChatRoomsList";
+import AgentOperations from "@/views/control/global/AgentOperations";
 
 // Global planning & project management views
 // These have cross-repo purview — they call /api/projects, /api/tasks, etc.
@@ -91,11 +94,8 @@ import {
   MCPSettingsPage,
   SkillsPage,
   CategoriesPage,
-  DesignLabPage,
   GitHubPage,
   BacklogPage,
-  VelocityPage,
-  AgentInsightsPage,
   ChatPage as JulesChatPage
 } from "@/views/control/global/jules";
 
@@ -163,6 +163,7 @@ export function GlobalRoutes() {
         {/* /projects — global project board (Asana/Linear style) */}
         <Route path="/projects" element={<Projects />} />
         <Route path="/projects/:projectId" element={guard(<ProjectView />)} />
+        <Route path="/projects/chat-rooms" element={guard(<ChatRoomsList />)} />
 
         {/* /projects — work items (TODO: replace with dedicated global views) */}
         <Route path="/projects/tasks" element={guard(<Projects />)} />
@@ -214,6 +215,7 @@ export function GlobalRoutes() {
         {/* ── Cloudflare module (global AI docs agent) ─────────────── */}
         <Route path="/cloudflare-chat" element={guard(<CloudflareChat />)} />
         <Route path="/docs/cloudflare-agent" element={<CloudflareDocsInfo />} />
+        <Route path="/docs/software-orchestration" element={<SoftwareOrchestrationDoc />} />
 
         {/* ── Traditional global utility views ─────────────────────── */}
         <Route path="/reverse-engineering" element={guard(<ReverseEngineering />)} />
@@ -229,6 +231,9 @@ export function GlobalRoutes() {
         <Route path="/standardization" element={guard(<Standardization />)} />
         <Route path="/apps" element={guard(<AppStore />)} />
         <Route path="/alerts" element={guard(<Alerts />)} />
+
+        {/* ── Agent Operations (global) ───────────────────────────── */}
+        <Route path="/agents" element={guard(<AgentOperations />)} />
 
         {/* ── Beta Tracker (global) ──────────────────────────────── */}
         <Route path="/beta/tracker" element={guard(<TrackerBeta />)} />

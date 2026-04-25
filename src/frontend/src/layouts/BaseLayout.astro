@@ -1,0 +1,23 @@
+---
+import '@/index.css';
+
+const { title = "Core GitHub API" } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="shortcut icon" href="/favicon.svg" />
+    <title>{title}</title>
+  </head>
+  <body class="min-h-screen bg-zinc-950 text-zinc-50 font-sans antialiased">
+    <div class="relative flex min-h-screen flex-col">
+      <main class="flex-1">
+        <slot />
+      </main>
+    </div>
+  </body>
+</html>

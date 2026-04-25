@@ -7,7 +7,7 @@
 
 
 import { getOctokit } from '@services/octokit/core';
-import { decode } from '@utils/base64';
+import { decodeBase64 as decode } from '@/utils/base64';
 import { getGithubConfigs } from '@utils/github/configs';
 
 export const INFRA_TYPES = [

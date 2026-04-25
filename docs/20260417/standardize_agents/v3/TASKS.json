@@ -1,0 +1,379 @@
+[
+  {
+    "id": "P0-AUDIT",
+    "phase": 0,
+    "title": "Audit all agent AI invocations",
+    "description": "Read-only grep pass across all agent method files. Document: (1) hardcoded systemPrompt strings, (2) hardcoded provider/model strings, (3) generateText calls that request JSON output (→ should be generateStructuredResponse), (4) all buildSkillContext call sites, (5) all agents with custom onStart() logic to preserve in agentInit(). Output findings inline before proceeding to Phase 1.",
+    "files": ["src/backend/src/ai/agents/**/*.ts"],
+    "depends_on": [],
+    "priority": "critical",
+    "type": "audit",
+    "success_criteria": [
+      "Complete list of every agent method hardcoding prompts/providers/models — these need seed.ts entries",
+      "Complete list of generateText calls that expect JSON responses — these need conversion",
+      "Complete list of buildSkillContext call sites — removed in Phase 2",
+      "Complete list of custom onStart() logic per agent — preserved in agentInit()"
+    ]
+  },
+  {
+    "id": "P1-TYPES",
+    "phase": 1,
+    "title": "Add skills field to AIOptions",
+    "description": "Add `skills?: string[]` to the AIOptions interface in types.ts. This is the single entry point for skill injection into any AI generation call.",
+    "files": ["src/backend/src/ai/providers/types.ts"],
+    "depends_on": ["P0-AUDIT"],
+    "priority": "critical",
+    "type": "modify",
+    "success_criteria": [
+      "AIOptions interface has `skills?: string[]` field",
+      "npx tsc --noEmit passes with zero errors"
+    ]
+  },
+  {
+    "id": "P1-SKILLMANAGER",
+    "phase": 1,
+    "title": "Create SkillManager class",
+    "description": "New file agent-support/skills.ts. Implements SkillManager with getSkillInstructions(skillNames: string[]): Promise<string>. Reads from existing agent_skills D1 table using getDb(env.DB). Wraps output in <skill_context> tags. Never throws — catch errors, log warning, return empty string. Returns empty string for empty skillNames without hitting D1.",
+    "files": ["src/backend/src/ai/providers/agent-support/skills.ts"],
+    "depends_on": ["P1-TYPES"],
+    "priority": "critical",
+    "type": "new",
+    "success_criteria": [
+      "new SkillManager(env).getSkillInstructions([]) returns \"\" without D1 call",
+      "Valid skill names return <skill_context>...</skill_context> wrapped content",
+      "D1 failure returns \"\" (non-fatal) with console.warn"
+    ]
+  },
+  {
+    "id": "P1-GENERATION",
+    "phase": 1,
+    "title": "Inject skills in all generation methods",
+    "description": "In methods/generation.ts, add skill injection at the start of every generation function: generateTextImpl, generateStructuredResponseImpl, generateTextWithToolsImpl, generateStructuredWithToolsImpl, generateTextFromFilesImpl, generateStructuredResponseFromFilesImpl. Pattern: if options?.skills?.length, create SkillManager, fetch instructions, prepend to systemPrompt. Runs before any provider dispatch.",
+    "files": ["src/backend/src/ai/providers/methods/generation.ts"],
+    "depends_on": ["P1-SKILLMANAGER"],
+    "priority": "critical",
+    "type": "modify",
+    "success_criteria": [
+      "All 6 generation functions have skill injection block at the top",
+      "ai.generateText(prompt, system, { skills: ['test'] }) does not throw",
+      "Worker logs show <skill_context> in systemPrompt when skills are present"
+    ]
+  },
+  {
+    "id": "P1-JULES-STRUCTURED",
+    "phase": 1,
+    "title": "Formalize Jules two-step generateStructuredResponse",
+    "description": "In vendors/jules.ts, implement the two-step pattern. Step 1: Jules generates text with schema description appended to prompt. Step 2: Workers AI generateObject() with STRUCTURING_MODEL (@cf/meta/llama-4-scout-17b-16e-instruct) structures Jules text into Zod schema. V3 CORRECTION: Step 2 system prompt is loaded from getAgentFunctionConfig(agentName, functionName) — not hardcoded. Fall back to Workers AI directly if Jules step 1 fails.",
+    "files": ["src/backend/src/ai/providers/vendors/jules.ts"],
+    "depends_on": ["P0-AUDIT"],
+    "priority": "critical",
+    "type": "modify",
+    "success_criteria": [
+      "generateStructuredResponse with provider='jules' returns typed T",
+      "Step 2 system prompt is loaded from D1 via getAgentFunctionConfig — not hardcoded",
+      "STRUCTURING_MODEL constant is used (not a literal model string)",
+      "Jules step 1 failure falls back to Workers AI direct structuring without throwing"
+    ]
+  },
+  {
+    "id": "P1-BASE-AGENT",
+    "phase": 1,
+    "title": "Create BaseAgent abstract class",
+    "description": "New file agent-support/base-agent.ts. Imports Agent and callable from 'agents'. Abstract properties: agentName (string), skills (string[] = []). Public properties initialized in onStart: ai (AIProvider), logger (Logger), store (AgentStateStore with object-param constructor), hitl (HitlQueue), collab (CollaborationService), memory (EdigraphService, optional). Optional hooks: agentInit(), agentHealth(). Implements ping() and healthProbe() with @callable(). healthProbe returns { agent, status, timestamp, capabilities, isFrontendFacing: false }.",
+    "files": ["src/backend/src/ai/providers/agent-support/base-agent.ts"],
+    "depends_on": ["P1-SKILLMANAGER", "P1-HITL-SERVICE", "P1-COLLAB-SERVICE"],
+    "priority": "critical",
+    "type": "new",
+    "success_criteria": [
+      "File compiles with zero TypeScript errors",
+      "Extending class only needs: readonly agentName, optional agentInit()",
+      "healthProbe() returns isFrontendFacing: false",
+      "AgentStateStore constructor uses object params: { ctx, env, agentName, initialState }"
+    ]
+  },
+  {
+    "id": "P1-BASE-CHAT-AGENT",
+    "phase": 1,
+    "title": "Create BaseChatAgent abstract class",
+    "description": "New file agent-support/base-chat-agent.ts. V3 CORRECTION: import AIChatAgent from 'agents' (NOT '@cloudflare/ai-chat' which is frontend-only). Same properties as BaseAgent. Adds default onChatMessage() using streamText().toUIMessageStreamResponse(). Adds verifyChatFormat() as STATIC CHECKS ONLY: verify env.AI binding exists, verify Array.isArray(this.messages), verify toUIMessageStreamResponse is a function via AbortSignal.timeout(0) probe. No inference calls in health. healthProbe returns isFrontendFacing: true.",
+    "files": ["src/backend/src/ai/providers/agent-support/base-chat-agent.ts"],
+    "depends_on": ["P1-BASE-AGENT"],
+    "priority": "critical",
+    "type": "new",
+    "success_criteria": [
+      "Import is: import { AIChatAgent } from 'agents'",
+      "verifyChatFormat() contains zero calls to generateText, streamText with actual prompts, or fetch to AI endpoints",
+      "verifyChatFormat() checks: env.AI present, this.messages is array, toUIMessageStreamResponse is function",
+      "AbortError from the shape-check probe is treated as ok:true",
+      "healthProbe returns isFrontendFacing: true",
+      "File compiles with zero TypeScript errors"
+    ]
+  },
+  {
+    "id": "P1-STATE-STORE-MIRROR",
+    "phase": 1,
+    "title": "Add D1 mirror to AgentStateStore",
+    "description": "Modify state-store.ts. In both set() and patch() methods, after writing to DO SQLite storage, call ctx.waitUntil(this.mirrorToD1(nextState).catch(warn)). Implement mirrorToD1() using insert().onConflictDoUpdate() into the existing agentStateMirror table (already in db/schemas/agents/mirror.ts). D1 failure must never throw or block the DO state write.",
+    "files": ["src/backend/src/ai/providers/agent-support/state-store.ts"],
+    "depends_on": ["P0-AUDIT"],
+    "priority": "high",
+    "type": "modify",
+    "success_criteria": [
+      "AgentStateStore.set() writes to DO SQLite then fires D1 mirror via waitUntil",
+      "AgentStateStore.patch() does the same",
+      "D1 failure is caught and warned — state.set() does not throw from D1 errors",
+      "agentStateMirror import comes from db/schemas/agents/mirror.ts"
+    ]
+  },
+  {
+    "id": "P1-COLLAB-SERVICE",
+    "phase": 1,
+    "title": "Create CollaborationService",
+    "description": "New file agent-support/collaboration.ts. CollaborationService class that opens and interacts with CollaborationSpace DO instances via getAgentByName(env.COLLABORATION_SPACE, sessionId). Methods: openSession(), addCollaborator(), postMessage(), triggerCollaborator(), closeSession(). All operations mirror to D1 collaboration_sessions and collaboration_events tables (from the new schema file in P1-COLLAB-SCHEMA).",
+    "files": [
+      "src/backend/src/ai/providers/agent-support/collaboration.ts",
+      "src/backend/src/db/schemas/agents/collaborations.ts"
+    ],
+    "depends_on": ["P0-AUDIT"],
+    "priority": "high",
+    "type": "new",
+    "success_criteria": [
+      "CollaborationService instantiates with just env",
+      "openSession() creates a CollaborationSpace DO and writes D1 row",
+      "D1 schema file creates collaboration_sessions, collaboration_participants, collaboration_events tables"
+    ]
+  },
+  {
+    "id": "P1-HITL-SERVICE",
+    "phase": 1,
+    "title": "Create HitlQueue service",
+    "description": "New file agent-support/hitl-queue.ts. HitlQueue class with methods: propose(), approve(), reject(), iterate(), list(), get(). V3 CORRECTION: import hitl table schemas from db/schemas/workflows/hitl.ts (already exists — do NOT create a new schema file). propose() creates a D1 row and returns hitlId. approve() marks approved and returns payload for deferred execution. iterate() creates a hitl_revisions row.",
+    "files": ["src/backend/src/ai/providers/agent-support/hitl-queue.ts"],
+    "depends_on": ["P0-AUDIT"],
+    "priority": "high",
+    "type": "new",
+    "success_criteria": [
+      "HitlQueue imports from db/schemas/workflows/hitl.ts (not agents/)",
+      "propose() inserts to hitl_proposals and returns string id",
+      "approve() inserts to hitl_decisions with decision='approved'",
+      "iterate() inserts to hitl_revisions with incremented version"
+    ]
+  },
+  {
+    "id": "P1-EXPORTS",
+    "phase": 1,
+    "title": "Wire barrel exports",
+    "description": "Update agent-support/index.ts to export BaseAgent, BaseChatAgent, SkillManager, HitlQueue, CollaborationService, AgentHealthService. Update providers/index.ts to re-export BaseAgent and BaseChatAgent so agents can import from '@/ai/providers'.",
+    "files": [
+      "src/backend/src/ai/providers/agent-support/index.ts",
+      "src/backend/src/ai/providers/index.ts"
+    ],
+    "depends_on": ["P1-BASE-AGENT", "P1-BASE-CHAT-AGENT", "P1-SKILLMANAGER", "P1-HITL-SERVICE", "P1-COLLAB-SERVICE"],
+    "priority": "critical",
+    "type": "modify",
+    "success_criteria": [
+      "import { BaseAgent, BaseChatAgent } from '@/ai/providers' resolves",
+      "npx tsc --noEmit passes with zero errors after Phase 1"
+    ]
+  },
+  {
+    "id": "P1-CONFIG-SEED",
+    "phase": 1,
+    "title": "Seed missing agent function configs",
+    "description": "Add entries to db/services/agent-config/seed.ts for every hardcoded prompt/model/provider string identified in P0-AUDIT. Also add the Jules step-2 structuring entry: agentName='Jules', functionName='structureResponse', systemInstructions='Extract and format the input text into the JSON schema provided. Output only valid JSON.'",
+    "files": ["src/backend/src/db/services/agent-config/seed.ts"],
+    "depends_on": ["P0-AUDIT"],
+    "priority": "high",
+    "type": "modify",
+    "success_criteria": [
+      "Every hardcoded systemPrompt from audit has a corresponding seed entry",
+      "Jules structureResponse entry exists in seed.ts",
+      "No duplicate entries"
+    ]
+  },
+  {
+    "id": "P2-ORCHESTRATOR",
+    "phase": 2,
+    "title": "Migrate OrchestratorAgent to BaseChatAgent",
+    "description": "Change extends clause to BaseChatAgent. Add readonly agentName = 'OrchestratorAgent'. Add protected readonly skills = ['plan-writing', 'architecture', 'task-management']. Move agent-specific onStart() logic to agentInit(). Remove duplicate AIProvider/Logger init. Remove duplicate healthProbe()/ping() — inherited. Replace all buildSkillContext() calls with options: { skills: this.skills }. Keep all @callable() method signatures identical.",
+    "files": ["src/backend/src/ai/agents/OrchestratorAgent/index.ts"],
+    "depends_on": ["P1-EXPORTS"],
+    "priority": "critical",
+    "type": "modify",
+    "success_criteria": [
+      "extends BaseChatAgent (not AIChatAgent directly)",
+      "agentName and skills properties present",
+      "No direct AIProvider or Logger instantiation",
+      "All @callable() method signatures unchanged",
+      "npx tsc --noEmit passes"
+    ]
+  },
+  {
+    "id": "P2-RESEARCH",
+    "phase": 2,
+    "title": "Migrate ResearchAgent to BaseChatAgent",
+    "description": "Same migration pattern as OrchestratorAgent. skills = ['deep-research', 'brainstorming', 'source-evaluation']. Replace all buildSkillContext() calls with options.skills.",
+    "files": ["src/backend/src/ai/agents/ResearchAgent/index.ts", "src/backend/src/ai/agents/ResearchAgent/methods/*.ts"],
+    "depends_on": ["P1-EXPORTS"],
+    "priority": "critical",
+    "type": "modify",
+    "success_criteria": [
+      "extends BaseChatAgent",
+      "buildSkillContext removed from all ResearchAgent method files",
+      "npx tsc --noEmit passes"
+    ]
+  },
+  {
+    "id": "P2-CLOUDFLARE",
+    "phase": 2,
+    "title": "Migrate CloudflareAgent to BaseChatAgent",
+    "description": "Same migration pattern. skills = ['cloudflare-docs', 'workers-architecture', 'debugging']. Preserve existing agentInit() logic (StateStore setup, ensureReady). CloudflareAgent agentHealth() override: verify CF API token via lightweight fetch.",
+    "files": ["src/backend/src/ai/agents/CloudflareAgent/index.ts"],
+    "depends_on": ["P1-EXPORTS"],
+    "priority": "critical",
+    "type": "modify",
+    "success_criteria": [
+      "extends BaseChatAgent",
+      "agentHealth() verifies CLOUDFLARE_API_TOKEN via fetch (not inference)",
+      "npx tsc --noEmit passes"
+    ]
+  },
+  {
+    "id": "P2-ENGINEER",
+    "phase": 2,
+    "title": "Migrate EngineerAgent to BaseAgent",
+    "description": "Change extends to BaseAgent. Preserve existing agentInit() logic (DDL migration, D1 session recovery). All Jules session orchestration methods must wrap long operations in this.keepAliveWhile(). skills = ['engineering', 'jules-orchestration', 'code-review']. Remove duplicate health/ping methods.",
+    "files": ["src/backend/src/ai/agents/EngineerAgent/index.ts"],
+    "depends_on": ["P1-EXPORTS"],
+    "priority": "critical",
+    "type": "modify",
+    "success_criteria": [
+      "extends BaseAgent",
+      "Jules session calls wrapped in keepAliveWhile()",
+      "DDL migration logic preserved in agentInit()",
+      "npx tsc --noEmit passes"
+    ]
+  },
+  {
+    "id": "P2-BACKEND-AGENTS",
+    "phase": 2,
+    "title": "Migrate remaining 5 backend agents to BaseAgent",
+    "description": "Apply BaseAgent migration to: GithubAgent, GuardrailAgent, LearningAgent, WorkshopAgent, DesignAgent, OverseerAgent. Each gets: extends BaseAgent, readonly agentName, protected readonly skills, agentInit() for agent-specific setup, agentHealth() for agent-specific checks. Remove all duplicate Logger/AIProvider instantiation. Keep all @callable() method signatures identical.",
+    "files": [
+      "src/backend/src/ai/agents/GithubAgent/index.ts",
+      "src/backend/src/ai/agents/GuardrailAgent/index.ts",
+      "src/backend/src/ai/agents/LearningAgent/index.ts",
+      "src/backend/src/ai/agents/WorkshopAgent/index.ts",
+      "src/backend/src/ai/agents/DesignAgent/index.ts",
+      "src/backend/src/ai/agents/OverseerAgent/index.ts"
+    ],
+    "depends_on": ["P1-EXPORTS"],
+    "priority": "critical",
+    "type": "modify",
+    "success_criteria": [
+      "All 6 agents extend BaseAgent",
+      "GuardrailAgent agentHealth() checks D1 rule count and DO cache warmth",
+      "No agent directly instantiates AIProvider or Logger",
+      "npx tsc --noEmit passes"
+    ]
+  },
+  {
+    "id": "P2-COLLAB-SPACE",
+    "phase": 2,
+    "title": "Refactor ChatRoom to CollaborationSpace",
+    "description": "Rename ChatRoom/index.ts to CollaborationSpace/index.ts. Change class name to CollaborationSpace extending BaseChatAgent. Implement all @callable() RPC methods: openSession, addCollaborator, postMessage, triggerCollaborator, getEvents, closeSession. All writes mirror to D1 collaboration_sessions, collaboration_participants, collaboration_events. Update ai/agents/exports.ts to reference CollaborationSpace.",
+    "files": [
+      "src/backend/src/ai/agents/CollaborationSpace/index.ts",
+      "src/backend/src/ai/agents/exports.ts"
+    ],
+    "depends_on": ["P1-COLLAB-SERVICE", "P1-BASE-CHAT-AGENT"],
+    "priority": "high",
+    "type": "new",
+    "success_criteria": [
+      "CollaborationSpace class exists and extends BaseChatAgent",
+      "All 6 @callable() methods implemented",
+      "D1 writes fire on openSession and postMessage",
+      "exports.ts references CollaborationSpace not ChatRoom"
+    ]
+  },
+  {
+    "id": "P2-DELETE-LEGACY",
+    "phase": 2,
+    "title": "Delete legacy files (after confirming no imports)",
+    "description": "Before deleting: grep for any remaining imports of ChatRoom.ts and skill-fetcher.ts. Only delete after grep confirms zero import sites. Delete: ai/agents/ChatRoom.ts (root legacy duplicate), services/octokit/skill-fetcher.ts (replaced by SkillManager).",
+    "files": [
+      "src/backend/src/ai/agents/ChatRoom.ts",
+      "src/backend/src/services/octokit/skill-fetcher.ts"
+    ],
+    "depends_on": ["P2-COLLAB-SPACE", "P2-BACKEND-AGENTS"],
+    "priority": "high",
+    "type": "delete",
+    "success_criteria": [
+      "grep -rn 'ChatRoom.ts' src/ returns zero results after deletion",
+      "grep -rn 'skill-fetcher' src/ returns zero results after deletion",
+      "npx tsc --noEmit passes"
+    ]
+  },
+  {
+    "id": "P3-WEBHOOK-HITL",
+    "phase": 3,
+    "title": "Replace webhook auto-trigger with HITL propose",
+    "description": "In routes/api/webhooks/index.ts, replace every direct agent invocation with new HitlQueue(env).propose(). Return 202 with { status: 'queued', hitlId }. Preserve existing delivery_id deduplication. Implement buildActionSummary() and buildProposalMarkdown() helpers that produce human-readable descriptions of the proposed action.",
+    "files": ["src/backend/src/routes/api/webhooks/index.ts"],
+    "depends_on": ["P1-HITL-SERVICE"],
+    "priority": "high",
+    "type": "modify",
+    "success_criteria": [
+      "POST /api/webhooks with PR event returns 202 { status: 'queued', hitlId }",
+      "D1 hitl_proposals row created with status='pending'",
+      "No direct agent invocation in webhook handler",
+      "delivery_id deduplication still works"
+    ]
+  },
+  {
+    "id": "P3-HITL-ROUTES",
+    "phase": 3,
+    "title": "Add HITL API routes",
+    "description": "New file routes/api/hitl.ts. Register with Hono app. Endpoints: GET /api/hitl (list with ?repoOwner, ?repoName, ?status filters), POST /api/hitl/:id/approve (userId from auth), POST /api/hitl/:id/reject (userId + reason), POST /api/hitl/:id/iterate (feedback string). approve() executes the deferred action via the relevant agent RPC.",
+    "files": ["src/backend/src/routes/api/hitl.ts"],
+    "depends_on": ["P1-HITL-SERVICE"],
+    "priority": "high",
+    "type": "new",
+    "success_criteria": [
+      "GET /api/hitl returns array of proposals",
+      "POST /api/hitl/:id/approve creates hitl_decisions row and executes deferred action",
+      "POST /api/hitl/:id/reject creates hitl_decisions row with decision='rejected'",
+      "POST /api/hitl/:id/iterate creates hitl_revisions row"
+    ]
+  },
+  {
+    "id": "P3-HEALTH-COORDINATOR",
+    "phase": 3,
+    "title": "Add per-agent health checks to coordinator",
+    "description": "In health/coordinator.ts, add health check entries for all 10 agents using the agentBindings pattern from PLAN.md §7. Each check calls stub.healthProbe() via getAgentByName() with 8-second timeout. Frontend agents (isFrontendFacing:true) must have 'assistant_ui_stream_compatible' in capabilities or the check fails.",
+    "files": ["src/backend/src/health/coordinator.ts"],
+    "depends_on": ["P2-ORCHESTRATOR", "P2-RESEARCH", "P2-CLOUDFLARE", "P2-ENGINEER", "P2-BACKEND-AGENTS"],
+    "priority": "high",
+    "type": "modify",
+    "success_criteria": [
+      "curl /health shows agent:OrchestratorAgent, agent:ResearchAgent, etc.",
+      "Frontend agents fail health if stream_error is in capabilities",
+      "Each check has 8-second timeout to prevent coordinator from hanging"
+    ]
+  },
+  {
+    "id": "P3-COMPILE-CHECK",
+    "phase": 3,
+    "title": "Final TypeScript compilation check",
+    "description": "Run npx tsc --noEmit and resolve all remaining errors. Run pnpm run dry-run to verify all DO bindings resolve including CollaborationSpace.",
+    "files": [],
+    "depends_on": ["P3-HEALTH-COORDINATOR", "P3-HITL-ROUTES", "P3-WEBHOOK-HITL"],
+    "priority": "critical",
+    "type": "verify",
+    "success_criteria": [
+      "npx tsc --noEmit exits with code 0",
+      "pnpm run dry-run exits with code 0",
+      "All DO bindings in wrangler.toml have corresponding class implementations"
+    ]
+  }
+]

@@ -1,4 +1,3 @@
-import React, { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -9,64 +8,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { Loader2 } from "lucide-react"
 import { AgentMetricsGrid } from "@/components/jules/AgentMetricsGrid"
 import { SessionAnalyticsChart } from "@/components/jules/SessionAnalyticsChart"
-
-interface HistorySession {
-  id: string
-  repo: string
-  status: "success" | "failed" | "in_progress" | "unknown"
-  duration: string
-  startedAt: string
-}
+import { useAgentInsights } from "@/hooks/jules/useAgentInsights"
 
 export function AgentInsightsPage() {
-  const [recentSessions, setRecentSessions] = useState<HistorySession[]>([])
-
-  // Load mock data representing a client-side aggregation of /api/julius/history
-  useEffect(() => {
-    // In a real application, this would fetch from GET /api/julius/history
-    // For now, we use mock data representing the aggregated result.
-    const mockSessions: HistorySession[] = [
-      {
-        id: "sess_01HGWJ9Z4K2",
-        repo: "google/jules-dashboard",
-        status: "success",
-        duration: "4m 12s",
-        startedAt: "10 mins ago",
-      },
-      {
-        id: "sess_01HGWJ9Z4K3",
-        repo: "google/jules-agent",
-        status: "in_progress",
-        duration: "2m 05s",
-        startedAt: "2 mins ago",
-      },
-      {
-        id: "sess_01HGWJ9Z4K4",
-        repo: "google/genai-sdk",
-        status: "failed",
-        duration: "1m 30s",
-        startedAt: "1 hour ago",
-      },
-      {
-        id: "sess_01HGWJ9Z4K5",
-        repo: "google/jules-dashboard",
-        status: "success",
-        duration: "15m 22s",
-        startedAt: "3 hours ago",
-      },
-      {
-        id: "sess_01HGWJ9Z4K6",
-        repo: "google/jules-dashboard",
-        status: "success",
-        duration: "8m 45s",
-        startedAt: "5 hours ago",
-      },
-    ]
-
-    setRecentSessions(mockSessions)
-  }, [])
+  const { sessions: recentSessions, metrics, timelineData, outcomeData, isLoading, error } = useAgentInsights()
 
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
@@ -103,12 +51,24 @@ export function AgentInsightsPage() {
         </div>
       </div>
 
-      <div className="space-y-4">
-        {/* Top metrics grid */}
-        <AgentMetricsGrid />
+      {isLoading && (
+        <div className="flex items-center justify-center py-12 text-zinc-500 gap-2">
+          <Loader2 className="w-5 h-5 animate-spin" />
+          Loading insights...
+        </div>
+      )}
+      {error ? (
+        <div className="text-sm text-red-400 bg-red-950/30 border border-red-900 rounded-md p-3">
+          Failed to load insights: {error instanceof Error ? error.message : String(error)}
+        </div>
+      ) : null}
 
-        {/* Charts section */}
-        <SessionAnalyticsChart />
+      <div className="space-y-4">
+        {/* Top metrics grid — pass real computed metrics */}
+        <AgentMetricsGrid metrics={metrics} />
+
+        {/* Charts section — pass real computed data */}
+        <SessionAnalyticsChart timelineData={timelineData} outcomeData={outcomeData} />
 
         {/* Recent sessions table */}
         <Card>

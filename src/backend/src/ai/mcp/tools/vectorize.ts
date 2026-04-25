@@ -8,7 +8,8 @@
  * @module AI/MCP/Tools/Vectorize
  */
 import { z } from 'zod';
-import type { AgentTool as Tool } from '@/ai/agents/support/types';
+import type { AgentTool as Tool } from '@/ai/providers';
+import { getSecret } from '@/utils/secrets';
 
 // Helper to get OpenAI client for embeddings via Gateway
 
@@ -16,7 +17,7 @@ async function getEmbeddingClient(env: Env) {
   const gatewayId = env.AI_GATEWAY_NAME || 'rag';
   const gateway = env.AI.gateway(gatewayId);
   const baseUrl = await gateway.getUrl("openai"); // Specific OpenAI endpoint for real ada-002
-  const apiKey = await env.AI_GATEWAY_TOKEN.get();
+  const apiKey = await getSecret(env, 'AI_GATEWAY_TOKEN');
   
   return {
     embeddings: {

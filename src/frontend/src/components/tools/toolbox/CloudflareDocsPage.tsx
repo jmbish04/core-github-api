@@ -1,12 +1,10 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
 import { useAgent } from "agents/react";
 import {
-    Cloud, Loader2, Send, Package2, Database, HardDrive,
-    Globe, Camera, ChevronRight, RefreshCw, Activity,
+    Cloud, Loader2, Database, HardDrive,
+    Camera, ChevronRight, RefreshCw,
     Server, Box, Network, Copy, CheckCheck, Sparkles, Check,
-    MessageSquare, Plus, Trash2, Bot, User, Cpu, Square, Settings, FileText,
-    Mic as MicIcon, Square as SquareIcon
+    MessageSquare, Plus, Trash2, Bot, User, Cpu, FileText,
 } from "lucide-react";
 import { ChatComposer } from "@/components/cloudflare-chat/ChatComposer";
 import { CFCommandCenterNav } from "@/components/cloudflare-chat/CFCommandCenterNav";
@@ -21,10 +19,10 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { SystemPromptEditor } from "@/components/cloudflare-chat/SystemPromptEditor";
 import { SystemPromptModal } from "@/components/cloudflare-chat/SystemPromptModal";
-import { toast } from "sonner";
+import { handleGlobalError } from '@/lib/error-handler';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 
@@ -324,6 +322,7 @@ function ChatPanel({ defaultOwner, defaultRepo, source = "global-tools", locked 
         setInput("");
         setProgressSteps([]);
         setFollowupPrompts([]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeThread?.id]);
 
     const sessionId = activeThread?.id ?? "init";
@@ -331,18 +330,18 @@ function ChatPanel({ defaultOwner, defaultRepo, source = "global-tools", locked 
         agent: "cloudflare-docs-agent",
         name: sessionId,
         onOpen() { setWsStatus("open"); },
-        onClose(_event: CloseEvent) {
+        onClose() {
             setWsStatus("closed");
             if (loading) {
-                toast.error("Connection Closed", { description: "The agent connection was closed unexpectedly." });
+                handleGlobalError("The agent connection was closed unexpectedly.");
                 setProgressSteps([]);
                 setLoading(false);
             }
         },
-        onError(err: Event) {
+        onError() {
             setWsStatus("error");
             if (loading) {
-                toast.error("Connection Error", { description: "Failed to connect to the Cloudflare Docs Agent." });
+                handleGlobalError("Failed to connect to the Cloudflare Docs Agent.");
                 setProgressSteps([]);
                 setLoading(false);
             }
@@ -379,7 +378,9 @@ function ChatPanel({ defaultOwner, defaultRepo, source = "global-tools", locked 
                     setProgressSteps([]);
                     setLoading(false);
                 }
-            } catch { /* ignore non-JSON */ }
+            } catch (err) {
+                handleGlobalError(`[CloudflareDocsTool] Failed to parse WebSocket message: ${err}`);
+            }
         },
     } as any);
 
@@ -437,6 +438,7 @@ function ChatPanel({ defaultOwner, defaultRepo, source = "global-tools", locked 
             sessionId: activeThread.id,
             model: selectedModel,
         }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [input, loading, activeThread, agent, source, defaultRepoUrl]);
 
     const messages = activeThread ? (getThread(activeThread.id)?.messages ?? []) : [];
@@ -663,6 +665,7 @@ function ResourceBrowser() {
 
     const refresh = () => { setData(prev => ({ ...prev, [active]: null })); fetchResource(active); };
 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => { fetchResource('workers'); }, []);
 
     const items = data[active];
@@ -783,7 +786,6 @@ function BrowserRenderTab() {
 // ─── Main page export ──────────────────────────────────────────────────────────
 
 export default function CloudflareDocsPage() {
-    const paramMatch = window.location.pathname.match(/\/(?:project\/[^/]+\/[^/]+\/)?tools\/cloudflare-docs/);
     const pathParts = window.location.pathname.split("/");
     const isProjectCtx = pathParts[1] === "project";
     const owner = isProjectCtx ? pathParts[2] : undefined;

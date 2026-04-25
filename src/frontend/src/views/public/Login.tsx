@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Lock } from 'lucide-react';
 import { GithubLoginButton } from "react-social-login-buttons";
-import { toast } from 'sonner';
+import { handleGlobalSuccess } from '@/lib/success-handler';
 
 export default function LoginPage() {
     const [keyInput, setKeyInput] = useState('');
@@ -22,7 +22,7 @@ export default function LoginPage() {
         if (!keyInput.trim()) return;
 
         setApiKey(keyInput.trim());
-        toast.success("Authentication successful");
+        handleGlobalSuccess("Authentication Successful");
         navigate(from, { replace: true });
     };
 

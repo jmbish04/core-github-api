@@ -1,4 +1,3 @@
-import React from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -10,111 +9,12 @@ import {
 } from '@/components/ui/accordion';
 import { RepoSessionList } from '@/components/jules/RepoSessionList';
 import { Link } from 'react-router-dom';
-import { Github, Plus, GitBranch } from 'lucide-react';
-
-interface RepoSession {
-  id: string;
-  prompt: string;
-  status: 'active' | 'completed' | 'failed' | 'waiting_for_user';
-  createdAt: string;
-  duration?: string;
-}
-
-interface ConnectedRepo {
-  name: string;
-  fullName: string;
-  defaultBranch: string;
-  sessions: RepoSession[];
-}
-
-const mockRepos: ConnectedRepo[] = [
-  {
-    name: 'core-github-api',
-    fullName: 'jmbish04/core-github-api',
-    defaultBranch: 'main',
-    sessions: [
-      {
-        id: 'sess-gh-01',
-        prompt: 'Refactor the authentication middleware to use JWT refresh tokens',
-        status: 'completed',
-        createdAt: '2 hours ago',
-        duration: '12m 34s',
-      },
-      {
-        id: 'sess-gh-02',
-        prompt: 'Fix CORS headers on the API routes for production deployment',
-        status: 'active',
-        createdAt: '15 mins ago',
-        duration: '3m 12s',
-      },
-    ],
-  },
-  {
-    name: 'jules-dashboard',
-    fullName: 'google/jules-dashboard',
-    defaultBranch: 'main',
-    sessions: [
-      {
-        id: 'sess-gh-03',
-        prompt: 'Add dark mode toggle to the settings panel',
-        status: 'completed',
-        createdAt: '1 day ago',
-        duration: '8m 55s',
-      },
-      {
-        id: 'sess-gh-04',
-        prompt: 'Implement real-time notifications using WebSocket',
-        status: 'failed',
-        createdAt: '3 hours ago',
-        duration: '5m 01s',
-      },
-      {
-        id: 'sess-gh-05',
-        prompt: 'Write Playwright E2E tests for the onboarding flow',
-        status: 'completed',
-        createdAt: '5 hours ago',
-        duration: '22m 10s',
-      },
-    ],
-  },
-  {
-    name: 'genai-sdk',
-    fullName: 'google/genai-sdk',
-    defaultBranch: 'develop',
-    sessions: [
-      {
-        id: 'sess-gh-06',
-        prompt: 'Add streaming support for multi-turn conversations',
-        status: 'completed',
-        createdAt: '6 hours ago',
-        duration: '15m 42s',
-      },
-      {
-        id: 'sess-gh-07',
-        prompt: 'Update TypeScript types for the new API response format',
-        status: 'waiting_for_user',
-        createdAt: '1 hour ago',
-        duration: '2m 30s',
-      },
-    ],
-  },
-  {
-    name: 'infra-terraform',
-    fullName: 'jmbish04/infra-terraform',
-    defaultBranch: 'main',
-    sessions: [
-      {
-        id: 'sess-gh-08',
-        prompt: 'Add CloudFront distribution module for static assets',
-        status: 'completed',
-        createdAt: '2 days ago',
-        duration: '18m 03s',
-      },
-    ],
-  },
-];
+import { Github, Plus, GitBranch, Loader2 } from 'lucide-react';
+import { useJulesGitHub } from '@/hooks/jules/useJulesGitHub';
 
 export function GitHubPage() {
+  const { repos, isLoading, error } = useJulesGitHub();
+
   return (
     <div className="container max-w-7xl mx-auto py-6 px-4 space-y-8">
       {/* Header */}
@@ -127,9 +27,30 @@ export function GitHubPage() {
         </div>
       </div>
 
+      {/* Loading / Error states */}
+      {isLoading && (
+        <div className="flex items-center justify-center py-12 text-zinc-500 gap-2">
+          <Loader2 className="w-5 h-5 animate-spin" />
+          Loading repositories...
+        </div>
+      )}
+      {error ? (
+        <div className="text-sm text-red-400 bg-red-950/30 border border-red-900 rounded-md p-3">
+          Failed to load repositories: {error instanceof Error ? error.message : String(error)}
+        </div>
+      ) : null}
+
+      {!isLoading && !error && repos.length === 0 && (
+        <div className="text-center py-12 text-zinc-500">
+          <Github className="h-8 w-8 mx-auto mb-3 text-zinc-600" />
+          <p className="text-sm">No repositories with Jules sessions found.</p>
+          <p className="text-xs text-zinc-600 mt-1">Start a Jules task on a repo to see it here.</p>
+        </div>
+      )}
+
       {/* Repo list */}
       <Accordion type="single" className="space-y-3">
-        {mockRepos.map((repo) => (
+        {repos.map((repo) => (
           <AccordionItem key={repo.fullName} value={repo.fullName}>
             <Card className="bg-zinc-950 border-zinc-800">
               <CardHeader className="pb-0">
@@ -158,7 +79,7 @@ export function GitHubPage() {
                         className="border-zinc-700 hover:bg-zinc-800 text-zinc-300 text-xs"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <Link to={`/jules/tasks/new?repo=${encodeURIComponent(repo.fullName)}`}>
+                        <Link to={`/repos/${repo.fullName}/jules/tasks/new`}>
                           <Plus className="h-3 w-3 mr-1" />
                           New Task
                         </Link>

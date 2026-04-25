@@ -13,7 +13,8 @@ import {
   Sparkles,
   Workflow,
 } from 'lucide-react';
-import { toast } from 'sonner';
+import { handleGlobalError } from '@/lib/error-handler';
+import { handleGlobalSuccess } from '@/lib/success-handler';
 import { AuthEditor } from '@/components/reverse-engineering/AuthEditor';
 import { ConsultantPanel } from '@/components/reverse-engineering/ConsultantPanel';
 import {
@@ -117,8 +118,8 @@ export default function ReverseEngineeringSnapshotPage() {
             recentEvents: nextEvents,
           };
         });
-      } catch {
-        // Ignore malformed websocket frames.
+      } catch (e: unknown) {
+        handleGlobalError(new Error(`[ReverseEngineeringSnapshot] WebSocket message malformed JSON: ${e instanceof Error ? e.message : String(e)}`));
       }
     };
 
@@ -137,11 +138,11 @@ export default function ReverseEngineeringSnapshotPage() {
       });
     },
     onSuccess: () => {
-      toast.success('Reverse-engineering snapshot resumed.');
+      handleGlobalSuccess('Snapshot Resumed', 'Reverse-engineering snapshot resumed.');
       void snapshotQuery.refetch();
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : 'Failed to resume snapshot.');
+      handleGlobalError(error instanceof Error ? error.message : 'Failed to resume snapshot.');
     },
   });
 

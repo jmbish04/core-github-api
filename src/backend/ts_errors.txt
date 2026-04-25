@@ -1,0 +1,18 @@
+src/ai/agents/backend/GuardrailAgent/index.ts(154,11): error TS2322: Type '"ai"' is not assignable to type 'CheckCategory'.
+src/ai/agents/backend/GuardrailAgent/index.ts(155,19): error TS2367: This comparison appears to be unintentional because the types 'VerdictStatus' and '"error"' have no overlap.
+src/ai/agents/backend/GuardrailAgent/index.ts(163,11): error TS2322: Type '"ai"' is not assignable to type 'CheckCategory'.
+src/ai/agents/backend/LearningAgent/index.ts(125,11): error TS2322: Type '"ai"' is not assignable to type 'CheckCategory'.
+src/ai/agents/backend/LearningAgent/index.ts(134,11): error TS2322: Type '"ai"' is not assignable to type 'CheckCategory'.
+src/ai/agents/backend/LearningAgent/methods/api/onRequest.ts(24,8): error TS2307: Cannot find module '../types' or its corresponding type declarations.
+src/ai/agents/backend/LearningAgent/methods/hitl/actions/approve.ts(5,15): error TS2305: Module '"../../index"' has no exported member 'LearningAgent'.
+src/ai/agents/backend/LearningAgent/methods/hitl/actions/dispatchApproved.ts(3,15): error TS2305: Module '"../../index"' has no exported member 'LearningAgent'.
+src/ai/agents/backend/LearningAgent/methods/hitl/actions/reject.ts(5,15): error TS2305: Module '"../../index"' has no exported member 'LearningAgent'.
+src/ai/agents/backend/LearningAgent/methods/hitl/legacy/reject.ts(5,15): error TS2305: Module '"../../index"' has no exported member 'LearningAgent'.
+src/ai/agents/backend/LearningAgent/methods/hitl/legacy/reject.ts(6,37): error TS2307: Cannot find module '../../types' or its corresponding type declarations.
+src/ai/providers/agent-support/health/base-checks.ts(357,9): error TS2304: Cannot find name 'HealthMode'.
+src/ai/providers/agent-support/health/base-checks.ts(414,11): error TS2322: Type '"pass" | "fail" | "warn" | "skip"' is not assignable to type 'CheckStatus'.
+  Type '"warn"' is not assignable to type 'CheckStatus'.
+src/ai/utils/pricing-registry.ts(182,3): error TS1117: An object literal cannot have multiple properties with the same name.
+src/health/checks/agents-health.ts(1,21): error TS2307: Cannot find module '../../../../worker-configuration' or its corresponding type declarations.
+src/health/health-check.ts(7,58): error TS2307: Cannot find module '@/health/checks/agent-health-detailed' or its corresponding type declarations.
+src/routes/api/agents/health.ts(15,8): error TS2307: Cannot find module '@/health/checks/agent-health-detailed' or its corresponding type declarations.

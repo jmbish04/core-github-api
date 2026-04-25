@@ -1,5 +1,5 @@
 import type { Octokit } from '@octokit/rest';
-import { generateText } from '@/ai/providers';
+import { AIProvider } from '@/ai/providers';
 import { withFullCodeOutputRules } from '@/ai/utils/code-output-rules';
 import { generateUuid } from '@/utils/common';
 import { getOctokit } from '@/services/octokit/core';
@@ -39,15 +39,15 @@ Focus on:
 4. Keeping existing code EXACTLY as is, only adding docstrings above the declarations.
 Return the ENTIRE file content with the docstrings added.`);
 
-  return generateText(
-    env,
+  const ai = new AIProvider(env);
+  return ai.generateText(
     `File: ${path}\n\nCode:\n${content}`,
     systemPrompt,
     {
+      provider: 'worker-ai',
       model: '@cf/openai/gpt-oss-120b',
       temperature: 0.1,
-    },
-    'worker-ai',
+    }
   );
 }
 

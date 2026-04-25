@@ -3,7 +3,7 @@ import {
   JulesCodingTaskInputSchema,
   PlanningRequestInputSchema,
 } from "@/lib/schemas/jules";
-import { extractFilesFromDiff } from "@/services/planning/honi-babysitter";
+import { extractFilesFromDiff } from "@/services/planning/babysitter";
 import { buildPlanningArtifactUrls } from "@/services/planning/artifacts";
 
 describe("planning schemas", () => {

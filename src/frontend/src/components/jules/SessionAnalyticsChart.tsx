@@ -31,17 +31,17 @@ interface SessionAnalyticsChartProps {
 }
 
 const defaultTimelineData: SessionTimelineData[] = [
-  { time: "00:00", successful: 4, failed: 1 },
-  { time: "04:00", successful: 7, failed: 0 },
-  { time: "08:00", successful: 25, failed: 2 },
-  { time: "12:00", successful: 42, failed: 4 },
-  { time: "16:00", successful: 38, failed: 3 },
-  { time: "20:00", successful: 15, failed: 1 },
+  { time: "00:00", successful: 0, failed: 0 },
+  { time: "04:00", successful: 0, failed: 0 },
+  { time: "08:00", successful: 0, failed: 0 },
+  { time: "12:00", successful: 0, failed: 0 },
+  { time: "16:00", successful: 0, failed: 0 },
+  { time: "20:00", successful: 0, failed: 0 },
 ]
 
 const defaultOutcomeData: SessionOutcomeData[] = [
-  { name: "Success", value: 131 },
-  { name: "Failed", value: 11 },
+  { name: "Success", value: 0 },
+  { name: "Failed", value: 0 },
 ]
 
 // Zinc monochrome palette

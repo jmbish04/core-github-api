@@ -1,7 +1,7 @@
 import { AlertTriangle, RefreshCcw } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { JulesSession } from '@/hooks/jules/useJulesSession';
+import type { JulesSession } from '@/hooks/jules/useJulesSession';
 
 export function TaskFailedView({ session }: { session: JulesSession }) {
   const handleRetry = async () => {

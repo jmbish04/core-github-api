@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { generateStructuredResponse } from '@/ai/providers';
+import { AIProvider } from '@/ai/providers';
 
 export const AgentResponseSchema = z.object({
   summary: z.string().describe("A concise 1-2 sentence summary of what this application does."),
@@ -39,8 +39,8 @@ Your tasks:
 Respond strictly matching the required JSON schema.
 `;
 
-  const result = await generateStructuredResponse<z.infer<typeof AgentResponseSchema>>(
-    env,
+  const ai = new AIProvider(env);
+  const result = await ai.generateStructuredResponse<z.infer<typeof AgentResponseSchema>>(
     prompt,
     AgentResponseSchema,
     undefined,

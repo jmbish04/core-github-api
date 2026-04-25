@@ -104,7 +104,7 @@ const handler = async (c: any) => {
       console.log(`[OctokitProxy] octokit.repos keys: ${Object.keys(octokit['repos'])}`)
   }
 
-  // @ts-ignore
+  // @ts-expect-error
   if (!octokit[namespace] || !octokit[namespace][method]) {
     console.error(`[OctokitProxy] Method not found: ${namespace}.${method}`)
     return c.json({ error: 'Not Found' }, 404)
@@ -120,7 +120,7 @@ const handler = async (c: any) => {
     params = c.req.query()
   }
 
-  // @ts-ignore
+  // @ts-expect-error
   const { data, headers, status } = await octokit[namespace][method](params)
 
   return c.newResponse(JSON.stringify(data), {

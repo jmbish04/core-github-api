@@ -6,7 +6,7 @@
 
 import { OpenAPIHono, createRoute } from '@hono/zod-openapi'
 import { z } from 'zod'
-import { HoniClient } from '@utils/honi-client';
+import { getAgentByName } from 'agents';
 import { generateUuid } from "@/utils/common";
 
 const chatApi = new OpenAPIHono<{ Bindings: Env }>()
@@ -52,7 +52,7 @@ chatApi.openapi(route, async (c) => {
     const { message, sessionId: providedSessionId, history } = c.req.valid('json')
 
     const sessionId = providedSessionId || generateUuid()
-    const stub = HoniClient.getStub(c.env.GEMINI_AGENT as any, sessionId);
+    const stub = await getAgentByName(c.env.CLOUDFLARE_AGENT as any, sessionId);
 
     // Define the expected return type from the Durable Object
     interface ChatResult {

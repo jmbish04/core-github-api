@@ -8,8 +8,9 @@
 
 import { useState, useCallback } from "react";
 import { Loader2, Wand2, Play, ChevronRight } from "lucide-react";
-import { toast } from "sonner";
+import { handleGlobalLoading, handleGlobalInfo } from '@/lib/notification-handler';
 import { handleGlobalError } from "@/lib/error-handler";
+import { handleGlobalSuccess } from "@/lib/success-handler";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -85,7 +86,7 @@ export function RepoActionsDialog({
   const dispatchToJules = useCallback(
     async (prompt: string, taskTitle: string) => {
       setIsRunning(true);
-      const toastId = toast.loading(`Dispatching ${taskTitle}...`);
+      const loader = handleGlobalLoading(`Dispatching ${taskTitle}...`);
       try {
         const res = await fetch(
           `/api/repos/${encodeURIComponent(repoOwner)}/${encodeURIComponent(repoName)}/jules/dispatch`,
@@ -102,12 +103,18 @@ export function RepoActionsDialog({
         const data = (await res.json()) as any;
         if (!res.ok || !data.success)
           throw new Error(data.error || "Failed to dispatch task");
-        toast.success(`${taskTitle} Dispatched`, {
-          id: toastId,
-          description: `Session tracking ID: ${data.sessionId}`,
-        });
+        loader.dismiss();
+        handleGlobalSuccess(
+          `${taskTitle} Dispatched`,
+          <span>
+            Session tracking ID:{" "}
+            <a href={`https://jules.google.com/session/${data.sessionId}`} target="_blank" rel="noopener noreferrer" className="underline hover:text-emerald-500">
+              {data.sessionId}
+            </a>
+          </span>
+        );
       } catch (e: any) {
-        toast.dismiss(toastId);
+        loader.dismiss();
         handleGlobalError(
           new Error(`Failed to dispatch ${taskTitle}: ${e.message}`)
         );
@@ -123,11 +130,11 @@ export function RepoActionsDialog({
       const owner = repositoryData?.owner || repoOwner;
       const repo = repositoryData?.name || repoName;
       if (!owner || !repo) {
-        toast.error("Repository information missing.");
+        handleGlobalError("Repository information missing.");
         return;
       }
       setIsRunning(true);
-      const toastId = toast.loading("Syncing secrets to GitHub...");
+      const loader = handleGlobalLoading("Syncing secrets to GitHub...");
       try {
         const res = await fetch("/api/ops/secrets/sync", {
           method: "POST",
@@ -141,15 +148,14 @@ export function RepoActionsDialog({
         };
         if (!res.ok || !data.success)
           throw new Error(data.error || "Failed to sync secrets");
-        toast.success("Secrets Synced Successfully", {
-          id: toastId,
-          description: `Updated ${data.results?.length || 0} secrets in ${owner}/${repo}`,
-        });
+        loader.dismiss();
+        handleGlobalSuccess(
+          'Secrets Synced',
+          `Updated ${data.results?.length || 0} secrets in ${owner}/${repo}`
+        );
       } catch (e: any) {
-        toast.error("Failed to Sync Secrets", {
-          id: toastId,
-          description: e.message,
-        });
+        loader.dismiss();
+        handleGlobalError(`Failed to Sync Secrets: ${e.message}`);
       } finally {
         setIsRunning(false);
       }
@@ -168,7 +174,7 @@ export function RepoActionsDialog({
           ? customInput.trim()
           : selectedAction.prompt || "";
         if (!prompt) {
-          toast.error("Please enter a prompt before running this action.");
+          handleGlobalError("Please enter a prompt before running this action.");
           return;
         }
         await dispatchToJules(prompt, selectedAction.label);
@@ -179,7 +185,7 @@ export function RepoActionsDialog({
         await handleSyncSecrets(true);
         break;
       default:
-        toast.info("Custom action handler not implemented yet.");
+        handleGlobalInfo('Not Implemented', 'Custom action handler not implemented yet.');
     }
   }, [selectedAction, customInput, dispatchToJules, handleSyncSecrets]);
 

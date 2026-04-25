@@ -9,7 +9,7 @@
  */
 
 import { z } from "zod";
-import { generateStructuredResponse } from "@/ai/providers";
+import { AIProvider } from "@/ai/providers";
 
 import { execInSandbox, writeSandboxFile, createGitHubApp, getInstallationToken, toShortLog } from "../../shared/sandbox";
 import { shellEscape, sanitizeForPath } from "@/ai/mcp/tools/sandbox-sdk";
@@ -74,14 +74,14 @@ async function parseIssueWithGemini(env: Env, issueTitle: string, issueBody: str
   ].join("\n\n");
 
   const { zodToJsonSchema } = await import("zod-to-json-schema");
-  const result = await generateStructuredResponse<z.infer<typeof ParsedIssueSchema>>(
-    env,
+  const ai = new AIProvider(env);
+  const result = await ai.generateStructuredResponse<z.infer<typeof ParsedIssueSchema>>(
     prompt,
     zodToJsonSchema(ParsedIssueSchema as any, "bug_hunter_issue") as any,
     "Parse bug reports into concise, deterministic engineering notes. Return only structured JSON.",
     { model: bugHunterModel },
   );
-  
+
   return result;
 }
 
@@ -108,14 +108,14 @@ async function generateFailingVitest(env: Env, parsedIssue: z.infer<typeof Parse
   ].join("\n\n");
 
   const { zodToJsonSchema } = await import("zod-to-json-schema");
-  const result = await generateStructuredResponse<z.infer<typeof GeneratedTestSchema>>(
-    env,
+  const ai2 = new AIProvider(env);
+  const result = await ai2.generateStructuredResponse<z.infer<typeof GeneratedTestSchema>>(
     prompt,
     zodToJsonSchema(GeneratedTestSchema as any, "bug_hunter_test") as any,
     "Generate a single-file failing Vitest reproduction test. Return only structured JSON with valid TypeScript in testCode.",
     { model: bugHunterModel },
   );
-  
+
   return result;
 }
 

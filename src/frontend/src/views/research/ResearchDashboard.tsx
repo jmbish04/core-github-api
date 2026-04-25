@@ -5,7 +5,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { api } from '@/lib/api-client';
 import { Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
+import { handleGlobalError } from '@/lib/error-handler';
+import { handleGlobalSuccess } from '@/lib/success-handler';
 
 export default function ResearchDashboard() {
   const [candidates, setCandidates] = useState<any[]>([]);
@@ -37,10 +38,10 @@ export default function ResearchDashboard() {
       await api['daily-research'].trigger.$post({
         json: { topic }
       });
-      toast.success("Swarm dispatched! It will analyze and email you shortly.");
+      handleGlobalSuccess('Research Started', "Swarm dispatched! It will analyze and email you shortly.");
     } catch (err) {
       console.error(err);
-      toast.error("Failed to trigger research swarm.");
+      handleGlobalError("Failed to trigger research swarm.");
     } finally {
       setLoading(false);
     }
@@ -49,7 +50,7 @@ export default function ResearchDashboard() {
   const submitFeedback = async (id: string) => {
     const data = feedback[id];
     if (!data?.rating) {
-      toast.error("Please provide a rating from 1 to 5.");
+      handleGlobalError("Please provide a rating from 1 to 5.");
       return;
     }
 
@@ -62,7 +63,7 @@ export default function ResearchDashboard() {
       setCandidates(prev => prev.filter((c: any) => c.id !== id));
     } catch (err) {
       console.error(err);
-      toast.error("Failed to save feedback.");
+      handleGlobalError("Failed to save feedback.");
     }
   };
 

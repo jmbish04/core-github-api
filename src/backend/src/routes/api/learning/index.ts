@@ -12,8 +12,8 @@
  *   GET  /health         — ingestor health status
  */
 
-import { OpenAPIHono, createRoute } from '@hono/zod-openapi';
-import { z } from 'zod';
+import { OpenAPIHono } from '@hono/zod-openapi';
+
 import { getDb } from '@db';
 import {
   learningSessions,
@@ -22,7 +22,7 @@ import {
   learningMessages,
 } from '@db/schemas/github/learning';
 import { eq, desc, and, gte, sql } from 'drizzle-orm';
-import { JulesService } from '@services/jules';
+import { JulesService } from '@/services/jules/service';
 
 export const learningRouter = new OpenAPIHono<{ Bindings: Env }>();
 
@@ -30,11 +30,11 @@ export const learningRouter = new OpenAPIHono<{ Bindings: Env }>();
 // POST /sync
 // ---------------------------------------------------------------------------
 
-const SyncResponseSchema = z.object({
-  sessionId: z.string().nullable(),
-  status: z.string(),
-  workflowInstanceId: z.string().optional(),
-});
+// const SyncResponseSchema = z.object({
+//   sessionId: z.string().nullable(),
+//   status: z.string(),
+//   workflowInstanceId: z.string().optional(),
+// });
 
 learningRouter.post('/sync', async (c) => {
   try {

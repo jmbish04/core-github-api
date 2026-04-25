@@ -22,7 +22,7 @@ export async function createOpenAIChatClient(
   }
 
   return new OpenAI({
-    baseURL: baseUrl,
+    baseURL: AIGateway.formatBaseUrlForClient(baseUrl, 'openai_sdk'),
     apiKey: apiKey || 'dummy-key',
     defaultHeaders: Object.keys(headers).length > 0 ? headers : undefined,
   });

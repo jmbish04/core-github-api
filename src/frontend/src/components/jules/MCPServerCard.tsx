@@ -3,7 +3,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Pencil, Trash2, Wifi } from 'lucide-react';
-import { MCPServer } from '@/stores/useJulesMCPStore';
+import type { MCPServer } from '@/stores/useJulesMCPStore';
 
 interface MCPServerCardProps {
   server: MCPServer;

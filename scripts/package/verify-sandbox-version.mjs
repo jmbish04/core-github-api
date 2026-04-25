@@ -67,8 +67,8 @@ if (isUpdateAvailable) {
   console.log(`[Sandbox Check] Automating the recommended update process...`);
   
   try {
-    console.log(`[Sandbox Check] Running: pnpm add @cloudflare/sandbox@${targetVersion}`);
-    execSync(`pnpm add @cloudflare/sandbox@${targetVersion}`, { stdio: 'inherit' });
+    console.log(`[Sandbox Check] Running: pnpm add -w @cloudflare/sandbox@${targetVersion}`);
+    execSync(`pnpm add -w @cloudflare/sandbox@${targetVersion}`, { stdio: 'inherit' });
     console.log(`[Sandbox Check] Package successfully updated to v${targetVersion}.`);
   } catch (e) {
     console.error(`[Sandbox Check] Failed to run pnpm add. Please run: pnpm add @cloudflare/sandbox@${targetVersion}`);

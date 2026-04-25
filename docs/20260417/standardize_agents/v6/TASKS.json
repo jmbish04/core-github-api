@@ -1,0 +1,361 @@
+{
+  "version": "v6",
+  "title": "Comprehensive Agent Health Services",
+  "description": "Replace trivial healthProbe() stubs with layered diagnostic-grade checks inherited from Base*Agent and extended per-agent. Fast mode runs on cron; deep mode (Workers AI round-trip) is user-triggered only.",
+  "phases": [
+    {
+      "phase": 1,
+      "name": "Foundation — Types, Runner, Base Checks",
+      "tasks": [
+        {
+          "id": "F1-TYPES",
+          "type": "new",
+          "priority": "critical",
+          "title": "Create HealthReport and HealthCheck types",
+          "files": ["src/backend/src/ai/providers/agent-support/health/types.ts"],
+          "depends_on": [],
+          "description": "Define HealthReport, HealthCheck, HealthMode, HealthStatus interfaces per PLAN.md §HealthReport Shape. Export from agent-support/index.ts.",
+          "success_criteria": "Interfaces exported and importable from @/ai/providers/agent-support."
+        },
+        {
+          "id": "F2-RUNNER",
+          "type": "new",
+          "priority": "critical",
+          "title": "Create parallel check runner with per-check timeout",
+          "files": ["src/backend/src/ai/providers/agent-support/health/runner.ts"],
+          "depends_on": ["F1-TYPES"],
+          "description": "Export runChecks(fns: Array<() => Promise<HealthCheck>>, opts: { timeoutMs: number }): Promise<HealthCheck[]>. Each fn wrapped in Promise.race with timeout; timeout produces a fail HealthCheck, not a throw. Aggregate pass/fail/skip counts outside runner.",
+          "success_criteria": "Runner returns all results even if individual checks hang; no single check can block > timeoutMs."
+        },
+        {
+          "id": "F3-BASE-CHECKS",
+          "type": "new",
+          "priority": "critical",
+          "title": "Implement B1–B7 base check factories",
+          "files": ["src/backend/src/ai/providers/agent-support/health/base-checks.ts"],
+          "depends_on": ["F1-TYPES", "F2-RUNNER"],
+          "description": "Export a factory per check: bindingSanity(env, required, optional), aiProviderInit(ai), stateStoreRoundTrip(stateStore, agentName, env.DB), skillManagerReachability(ai, skills), edigraphConnectivity(memory), hitlQueueDryRun(env.DB, agentName), collabBindingResolution(env, peerBindings). Each returns a () => Promise<HealthCheck>. StateStore round-trip writes/reads/cleans up a sentinel row; mirror verification via D1 SELECT on agentStateMirror.",
+          "success_criteria": "Each factory returns a check function; fail cases produce HealthCheck with error + details; skip used for optional bindings absent."
+        },
+        {
+          "id": "F4-CHAT-CHECKS",
+          "type": "new",
+          "priority": "critical",
+          "title": "Implement C1–C3 chat-specific check factories",
+          "files": ["src/backend/src/ai/providers/agent-support/health/chat-checks.ts"],
+          "depends_on": ["F1-TYPES"],
+          "description": "Export aiChatAgentInternals(agent), streamShapeSanity() [uses AbortSignal.timeout(0) — no tokens], workersAiChatRoundTrip(env) [DEEP MODE ONLY — real streamText call with 10s timeout]. Round-trip reads first decoded chunk, reports total ms, verifies non-empty text.",
+          "success_criteria": "streamShapeSanity passes in fast mode without consuming tokens; workersAiChatRoundTrip only called when mode=deep."
+        },
+        {
+          "id": "F5-BARREL",
+          "type": "modify",
+          "priority": "high",
+          "title": "Export health module from agent-support barrel",
+          "files": [
+            "src/backend/src/ai/providers/agent-support/health/index.ts",
+            "src/backend/src/ai/providers/agent-support/index.ts"
+          ],
+          "depends_on": ["F1-TYPES", "F2-RUNNER", "F3-BASE-CHECKS", "F4-CHAT-CHECKS"],
+          "description": "Create health/index.ts re-exporting types, runner, base-checks, chat-checks. Add re-exports to agent-support/index.ts.",
+          "success_criteria": "`import { runChecks, HealthReport } from '@/ai/providers/agent-support'` compiles."
+        }
+      ]
+    },
+    {
+      "phase": 2,
+      "name": "Base Class Integration",
+      "tasks": [
+        {
+          "id": "B1-BASE-AGENT",
+          "type": "modify",
+          "priority": "critical",
+          "title": "Replace trivial healthProbe() in BaseAgent",
+          "files": ["src/backend/src/ai/providers/agent-support/base-agent.ts"],
+          "depends_on": ["F5-BARREL"],
+          "description": "Replace the current healthProbe() method. Add `protected abstract get peerAgentBindings(): Record<string, { bindingKey: string; required: boolean }>` (default {}). Add `protected async agentHealthChecks(mode: HealthMode): Promise<HealthCheck[]>` (default returns []). The new @callable() healthProbe(opts?: { mode?: HealthMode }) runs: B1 bindingSanity, B2 aiProviderInit, B3 stateStoreRoundTrip, B4 skillManagerReachability, B5 edigraphConnectivity (skip if no memory), B6 hitlQueueDryRun, B7 collabBindingResolution — via runChecks with 1500ms fast / 10000ms deep timeout. Merges in agentHealthChecks(mode). Aggregates into HealthReport with overall status (any fail → degraded; all required fail → unhealthy).",
+          "success_criteria": "BaseAgent.healthProbe() returns a HealthReport with >=7 checks; runs under 2s in fast mode; no trivial `{status: 'ok'}` paths remain."
+        },
+        {
+          "id": "B2-BASE-CHAT-AGENT",
+          "type": "modify",
+          "priority": "critical",
+          "title": "Replace trivial healthProbe() in BaseChatAgent",
+          "files": ["src/backend/src/ai/providers/agent-support/base-chat-agent.ts"],
+          "depends_on": ["B1-BASE-AGENT"],
+          "description": "Same abstract additions as BaseAgent plus: fast mode runs B1–B7 + C1 aiChatAgentInternals + C2 streamShapeSanity; deep mode additionally runs C3 workersAiChatRoundTrip. Preserves the peerAgentBindings and agentHealthChecks hooks. Remove the existing stub healthProbe() at the bottom of base-chat-agent.ts.",
+          "success_criteria": "Fast probe returns >=9 checks with no token consumption; deep probe adds one model-category check with non-zero durationMs."
+        }
+      ]
+    },
+    {
+      "phase": 3,
+      "name": "Per-Agent Layer 3 Checks",
+      "tasks": [
+        {
+          "id": "A1-CLOUDFLARE",
+          "type": "modify",
+          "priority": "high",
+          "title": "CloudflareAgent specialized health checks",
+          "files": [
+            "src/backend/src/ai/agents/CloudflareAgent/index.ts",
+            "src/backend/src/ai/agents/CloudflareAgent/health.ts"
+          ],
+          "depends_on": ["B2-BASE-CHAT-AGENT"],
+          "description": "Implement peerAgentBindings (GITHUB_AGENT required for wrangler scanning). Implement agentHealthChecks: cf docs MCP reachable (HEAD fast / real search deep); CF API accounts list (HEAD fast / GET deep); wrangler.jsonc/wrangler.toml parser loads; sentinel known-worker lookup via workers_get_worker (deep only); CF docs MCP listed in env.MCP registry. Refactor existing health.ts to return HealthCheck[].",
+          "success_criteria": "Fast mode has >=3 CF-specific checks without network calls beyond HEAD; deep mode includes at least one real CF API GET."
+        },
+        {
+          "id": "A2-ENGINEER",
+          "type": "modify",
+          "priority": "high",
+          "title": "EngineerAgent specialized health checks",
+          "files": ["src/backend/src/ai/agents/EngineerAgent/index.ts"],
+          "depends_on": ["B1-BASE-AGENT"],
+          "description": "peerAgentBindings: CLOUDFLARE_AGENT, GUARDRAIL_AGENT (both required). agentHealthChecks: Jules MCP reachable (HEAD + list tools deep); JULES_SESSION_MANAGER DO binding resolves; GitHub API /user (HEAD fast / GET deep); Jules-orchestration skill resolves.",
+          "success_criteria": "Checks cover Jules MCP + peer bindings + GitHub auth."
+        },
+        {
+          "id": "A3-GUARDRAIL",
+          "type": "modify",
+          "priority": "high",
+          "title": "GuardrailAgent specialized health checks",
+          "files": [
+            "src/backend/src/ai/agents/GuardrailAgent/index.ts",
+            "src/backend/src/ai/agents/GuardrailAgent/health.ts"
+          ],
+          "depends_on": ["B1-BASE-AGENT"],
+          "description": "peerAgentBindings: CLOUDFLARE_AGENT, ENGINEER_AGENT (required). agentHealthChecks: golden-path rule set loaded (COUNT(*) > 0); code-standards skill resolves; cloudflare-standards skill resolves. Refactor existing health.ts.",
+          "success_criteria": "Rule set count check passes when rules loaded; peer bindings resolve."
+        },
+        {
+          "id": "A4-GITHUB",
+          "type": "modify",
+          "priority": "high",
+          "title": "GithubAgent specialized health checks",
+          "files": [
+            "src/backend/src/ai/agents/GithubAgent/index.ts",
+            "src/backend/src/ai/agents/GithubAgent/health.ts"
+          ],
+          "depends_on": ["B1-BASE-AGENT"],
+          "description": "agentHealthChecks: GitHub App installation token obtainable (fast: credential shape only; deep: actual token fetch); Octokit constructs without error; webhook signature verifier loaded. Refactor existing health.ts.",
+          "success_criteria": "Fast mode skips real token exchange; deep mode performs actual auth round-trip."
+        },
+        {
+          "id": "A5-WORKSHOP",
+          "type": "modify",
+          "priority": "high",
+          "title": "WorkshopAgent specialized health checks",
+          "files": ["src/backend/src/ai/agents/WorkshopAgent/index.ts"],
+          "depends_on": ["B1-BASE-AGENT"],
+          "description": "peerAgentBindings: DESIGN_AGENT, ENGINEER_AGENT, CLOUDFLARE_AGENT, GUARDRAIL_AGENT (all required). agentHealthChecks: jules-stitch-loop skill resolves; collaboration service dry-run (insert collaboration_sessions row with status='health-probe', immediately delete — wrapped in D1 batch).",
+          "success_criteria": "All four peer bindings must resolve; dry-run session row does not persist."
+        },
+        {
+          "id": "A6-DESIGN",
+          "type": "modify",
+          "priority": "high",
+          "title": "DesignAgent specialized health checks",
+          "files": [
+            "src/backend/src/ai/agents/DesignAgent/index.ts",
+            "src/backend/src/ai/agents/DesignAgent/health.ts"
+          ],
+          "depends_on": ["B1-BASE-AGENT"],
+          "description": "peerAgentBindings: ENGINEER_AGENT (required). agentHealthChecks: Stitch MCP reachable (HEAD); stitch-pipeline skill resolves; ui-design skill resolves.",
+          "success_criteria": "Stitch MCP HEAD returns 2xx in fast mode."
+        },
+        {
+          "id": "A7-RESEARCH",
+          "type": "modify",
+          "priority": "high",
+          "title": "ResearchAgent specialized health checks",
+          "files": ["src/backend/src/ai/agents/ResearchAgent/index.ts"],
+          "depends_on": ["B2-BASE-CHAT-AGENT"],
+          "description": "agentHealthChecks: search provider API HEAD; Vectorize binding resolves (env.VECTORIZE.describe() or equivalent); research skills (plan-writing, brainstorming) resolve.",
+          "success_criteria": "Vectorize binding check passes when configured."
+        },
+        {
+          "id": "A8-LEARNING",
+          "type": "modify",
+          "priority": "high",
+          "title": "LearningAgent specialized health checks",
+          "files": [
+            "src/backend/src/ai/agents/LearningAgent/index.ts",
+            "src/backend/src/ai/agents/LearningAgent/methods/health.ts"
+          ],
+          "depends_on": ["B1-BASE-AGENT"],
+          "description": "peerAgentBindings: ENGINEER_AGENT (required). agentHealthChecks: CI healer queue table queryable; HitlQueue type='ci-heal' SELECT works. Refactor methods/health.ts.",
+          "success_criteria": "HITL type-specific query returns a count."
+        },
+        {
+          "id": "A9-ORCHESTRATOR",
+          "type": "modify",
+          "priority": "high",
+          "title": "OrchestratorAgent specialized health checks",
+          "files": ["src/backend/src/ai/agents/OrchestratorAgent/index.ts"],
+          "depends_on": ["B2-BASE-CHAT-AGENT"],
+          "description": "peerAgentBindings: every other canonical agent binding (all required). agentHealthChecks: orchestration skill resolves; task assignment table queryable; existing checkOrchestrationHealth export adapted to return HealthCheck[] consumable from this probe.",
+          "success_criteria": "Peer binding count matches agent taxonomy (>=9)."
+        },
+        {
+          "id": "A10-COLLAB-SPACE",
+          "type": "modify",
+          "priority": "high",
+          "title": "CollaborationSpace specialized health checks",
+          "files": ["src/backend/src/ai/agents/CollaborationSpace/index.ts"],
+          "depends_on": ["B2-BASE-CHAT-AGENT"],
+          "description": "agentHealthChecks: thread_participants table queryable; chat subscribers table queryable; room DDL up-to-date (schema version check if applicable).",
+          "success_criteria": "Both participant and subscriber tables return counts."
+        },
+        {
+          "id": "A11-STANDARDIZATION",
+          "type": "modify",
+          "priority": "critical",
+          "title": "Fix StandardizationAgent trivial healthProbe (user-flagged)",
+          "files": ["src/backend/src/ai/agents/GuardrailAgent/todo_integration/StandardizationAgent.ts"],
+          "depends_on": ["B1-BASE-AGENT"],
+          "description": "Replace `async healthProbe() { return { status: 'ok', ... } }` with proper inheritance. If this class does not yet extend BaseAgent, migrate it. peerAgentBindings: GUARDRAIL_AGENT (required). agentHealthChecks: standardization rule set loaded; style-guide skill resolves; agent_inventory table queryable. This is the exemplar the user explicitly called out.",
+          "success_criteria": "StandardizationAgent.healthProbe returns a HealthReport with >=10 checks; no trivial `{ status: 'ok' }` path remains."
+        },
+        {
+          "id": "A12-OVERSEER",
+          "type": "modify",
+          "priority": "medium",
+          "title": "OverseerAgent specialized health checks (if not dissolved)",
+          "files": ["src/backend/src/ai/agents/OverseerAgent/index.ts"],
+          "depends_on": ["B2-BASE-CHAT-AGENT"],
+          "description": "If OverseerAgent still exists (v5/followup may have dissolved it into EngineerAgent + GuardrailAgent), add agentHealthChecks covering its Jules monitoring responsibilities. If dissolved, skip this task.",
+          "success_criteria": "Either OverseerAgent has layered health checks, or task is explicitly documented as N/A because agent was dissolved."
+        }
+      ]
+    },
+    {
+      "phase": 4,
+      "name": "Coordinator + Route Integration",
+      "tasks": [
+        {
+          "id": "C1-DETAILED-CHECK",
+          "type": "new",
+          "priority": "critical",
+          "title": "Create checkAgentsHealthDetailed for coordinator",
+          "files": ["src/backend/src/ai/providers/health-detailed.ts"],
+          "depends_on": ["B1-BASE-AGENT", "B2-BASE-CHAT-AGENT"],
+          "description": "New export: iterates the AGENTS_SDK_AGENTS list (move from existing agent-support/health.ts or reuse). For each: getAgentByName → stub.healthProbe({ mode: 'fast' }) with 2s per-agent timeout. Aggregates per-agent HealthReports into a single HealthStepResult consumable by the coordinator. Summary includes per-agent status + counts of passed/failed checks.",
+          "success_criteria": "Returns HealthStepResult with overall status = 'success' only if all agents healthy, 'warning' if any degraded, 'failure' if any unhealthy."
+        },
+        {
+          "id": "C2-WIRE-COORDINATOR",
+          "type": "modify",
+          "priority": "critical",
+          "title": "Swap coordinator's agents check to detailed version",
+          "files": ["src/backend/src/health/coordinator.ts"],
+          "depends_on": ["C1-DETAILED-CHECK"],
+          "description": "Replace `import { checkHealth as checkAgentsHealth } from '@/ai/providers'` with the new detailed import. Update CODE_CHECKS entry `{ id: 'agents', ... }` to use checkAgentsHealthDetailed. Keep 8s PER_CHECK_TIMEOUT_MS — detailed check must complete within that budget (~11 agents × 2s each won't fit serially; the detailed check MUST parallelize the per-agent probes).",
+          "success_criteria": "Coordinator runs complete within existing deadlines; agents step shows per-agent detail in results.details."
+        },
+        {
+          "id": "C3-ROUTE",
+          "type": "new",
+          "priority": "critical",
+          "title": "POST /api/agents/:agentName/health route",
+          "files": [
+            "src/backend/src/routes/api/agents/health.ts",
+            "src/backend/src/routes/api/agents/index.ts"
+          ],
+          "depends_on": ["B1-BASE-AGENT", "B2-BASE-CHAT-AGENT"],
+          "description": "New Hono route. Path param :agentName resolves to a binding via static mapping. Query ?mode=fast|deep (default fast). Calls getAgentByName(binding, 'health-probe') and invokes stub.healthProbe({ mode }) with 30s timeout in deep mode. Returns HealthReport as JSON. Auth: existing admin guard pattern. Mount in routes/api/agents/index.ts (create if absent).",
+          "success_criteria": "Route responds with HealthReport shape; deep mode successfully includes Workers AI round-trip check."
+        }
+      ]
+    },
+    {
+      "phase": 5,
+      "name": "Cleanup + Verification",
+      "tasks": [
+        {
+          "id": "V1-DEPRECATE-OLD-HEALTH",
+          "type": "modify",
+          "priority": "medium",
+          "title": "Deprecate old agent-support/health.ts",
+          "files": ["src/backend/src/ai/providers/agent-support/health.ts"],
+          "depends_on": ["C1-DETAILED-CHECK", "C2-WIRE-COORDINATOR"],
+          "description": "After C2 is in place and verified, either delete the old checkHealth or reduce it to a thin re-export pointing to the new detailed version. Do not orphan callers.",
+          "success_criteria": "No remaining imports of the old `checkHealth` from `@/ai/providers` except the new entry point."
+        },
+        {
+          "id": "V2-GREP-TRIVIAL",
+          "type": "audit",
+          "priority": "high",
+          "title": "Grep for remaining trivial healthProbe stubs",
+          "files": [],
+          "depends_on": ["A11-STANDARDIZATION"],
+          "description": "Run: `rg -n \"status:\\s*['\\\"]ok['\\\"]\" src/backend/src/ai/agents/` and `rg -n \"healthProbe\\(\\)\\s*\\{\" src/backend/src/ai/agents/` — audit every hit. Any that just return `{ status: 'ok' }` must be migrated. Document findings. Fix or ticket each.",
+          "success_criteria": "Zero trivial healthProbe stubs remain across ai/agents/ tree (excluding base classes)."
+        },
+        {
+          "id": "V3-TYPE-CHECK",
+          "type": "verify",
+          "priority": "critical",
+          "title": "Zero TypeScript errors",
+          "files": [],
+          "depends_on": ["V1-DEPRECATE-OLD-HEALTH", "V2-GREP-TRIVIAL"],
+          "description": "Run `npx tsc --noEmit` in repo root; zero errors.",
+          "success_criteria": "Command exits 0."
+        },
+        {
+          "id": "V4-FAST-MODE-AUDIT",
+          "type": "verify",
+          "priority": "critical",
+          "title": "Confirm cron runs consume zero Workers AI tokens",
+          "files": [],
+          "depends_on": ["C2-WIRE-COORDINATOR"],
+          "description": "Deploy to preview. Trigger coordinator via `POST /api/health/run`. Check AI Gateway analytics for the time window — there should be ZERO @cf/meta/llama-3.3 requests attributed to health probes. Confirms fast mode never calls C3.",
+          "success_criteria": "AI Gateway shows no llama-3.3 traffic during health runs unless ?mode=deep was used."
+        },
+        {
+          "id": "V5-DEEP-MODE-TRIP",
+          "type": "verify",
+          "priority": "high",
+          "title": "Deep-mode probe includes model round-trip",
+          "files": [],
+          "depends_on": ["C3-ROUTE"],
+          "description": "curl `POST /api/agents/OrchestratorAgent/health?mode=deep` — response MUST include a check with category='model' and non-zero durationMs.",
+          "success_criteria": "Exactly one model-category check present with status='pass' and durationMs > 0."
+        },
+        {
+          "id": "V6-NEGATIVE-TESTS",
+          "type": "verify",
+          "priority": "high",
+          "title": "Negative tests produce real failures",
+          "files": [],
+          "depends_on": ["C3-ROUTE"],
+          "description": "In a preview env, unbind EDGRAPH (optional → expect skip), unbind a required peer (expect fail), insert a bad skill name into an agent's skills list (expect B4 fail). Verify each produces the correct HealthCheck outcome.",
+          "success_criteria": "Each negative case reports the expected status (skip vs fail) with actionable error message."
+        }
+      ]
+    }
+  ],
+  "execution_order": [
+    "F1-TYPES",
+    "F2-RUNNER",
+    ["F3-BASE-CHECKS", "F4-CHAT-CHECKS"],
+    "F5-BARREL",
+    "B1-BASE-AGENT",
+    "B2-BASE-CHAT-AGENT",
+    ["A1-CLOUDFLARE", "A2-ENGINEER", "A3-GUARDRAIL", "A4-GITHUB", "A5-WORKSHOP", "A6-DESIGN", "A7-RESEARCH", "A8-LEARNING", "A9-ORCHESTRATOR", "A10-COLLAB-SPACE", "A11-STANDARDIZATION", "A12-OVERSEER"],
+    "C1-DETAILED-CHECK",
+    "C2-WIRE-COORDINATOR",
+    "C3-ROUTE",
+    "V1-DEPRECATE-OLD-HEALTH",
+    "V2-GREP-TRIVIAL",
+    "V3-TYPE-CHECK",
+    ["V4-FAST-MODE-AUDIT", "V5-DEEP-MODE-TRIP", "V6-NEGATIVE-TESTS"]
+  ],
+  "notes": [
+    "Parallel groups in execution_order use [brackets]. All agents in phase 3 can be modified in parallel once base classes are updated.",
+    "Layer 3 per-agent checks MUST NOT duplicate Layer 2 inherited checks (don't re-verify env.DB — that's B1).",
+    "The ONLY place Workers AI is called during a probe is C3, and ONLY when mode=deep.",
+    "StandardizationAgent (A11) is the user-flagged exemplar — treat as a quality bar for the other agents.",
+    "Every agent under src/backend/src/ai/agents/ MUST own a non-trivial agentHealthChecks() by end of Phase 3. Use V2-GREP-TRIVIAL to verify."
+  ]
+}

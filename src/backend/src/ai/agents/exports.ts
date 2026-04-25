@@ -2,35 +2,27 @@
  * @file ai/agents/exports.ts
  * @description Barrel re-export of every Durable Object agent class.
  *              Consumed by the root exports.ts for the Worker entry point.
+ *
+ * Architecture: Agents (10 canonical agents + infrastructure DOs)
+ * Migration: v6 — legacy classes deleted, new Agent classes added.
  */
 
-export { OrchestratorAgent } from './Orchestrator';
-export { RetrofitAgent } from './retrofit';
-export { GeminiAgent } from './Gemini';
-export { PlannerAgent } from './Planner';
-export { RepoAgent } from './github/Repo';
-export { Supervisor } from './Supervisor';
-export { DeepReasoningAgent } from './DeepReasoning';
-export { OwnerAgent } from './github/Owner';
-export { ResearchAgent } from './Research';
-export { DiscordResearchAgent } from './research/DiscordResearch';
-export { JulesOverseer } from './JulesOverseer';
-export { TopicOrchestratorAgent } from './TopicOrchestrator';
-export { WebSearchAgent } from './WebSearch';
-export { JudgeAgent } from './Judge';
-export { ReportingAgent } from './Reporting';
-export { LandingPageAgent } from './LandingPageAgent';
-export { CloudflareDocsAgent } from './CloudflareDocs';
-export { DeepResearchChatAgent } from './DeepResearchChat';
-export { HealthDiagnostician } from './HealthDiagnostician';
-export { PlanningSupervisorAgent } from './planning/Supervisor';
-export { PlanningOrchestratorAgent } from './planning/Orchestrator';
-export { HoniOrchestrator } from './reverse-engineering/Orchestrator';
-export { HoniConsultant } from './reverse-engineering/Consultant';
-export { WorkshopAgent } from './workshop/WorkshopAgent';
-export { CfWorkshop_AgentsSdk } from './workshop/CfAgentsSdk';
-export { StandardizationAgent } from './StandardizationAgent';
-export { JulesPrReviewer } from './pr-reviewer/JulesPrReviewer';
-export { UxResearcher } from './workshop/UxResearcher';
-export { SandboxAgent } from './SandboxAgent';
-export { LearningAgent } from './LearningAgent';
+// ── Chat Agents (3 canonical) ─────────────────────────────────────────
+export { CloudflareAgent } from './chat/CloudflareAgent';
+export { WorkshopAgent } from './chat/WorkshopAgent';
+export { CoordinatorAgent } from './chat/CoordinatorAgent';
+
+// ── Backend Agents (7 canonical) ─────────────────────────────────────────
+export { GithubAgent } from './backend/GithubAgent';
+export { DesignAgent } from './backend/DesignAgent';
+export { EngineerAgent } from './backend/EngineerAgent';
+export { GuardrailAgent } from './backend/GuardrailAgent';
+export { LearningAgent } from './backend/LearningAgent';
+export { OrchestratorAgent } from './backend/OrchestratorAgent';
+export { ResearchAgent } from './backend/ResearchAgent';
+export { CollaborationAgent } from './backend/CollaborationAgent';
+
+
+// ── Workflows ───────────────────────────────────────────────────────────────
+export { JulesResearchWorkflow } from './workflows/GithubResearch';
+export { ContinuousLearningWorkflow } from './workflows/ContinuousLearning';

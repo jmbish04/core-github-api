@@ -26,7 +26,8 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import axios from "axios";
-import { toast } from "sonner";
+import { handleGlobalError } from '@/lib/error-handler';
+import { handleGlobalSuccess } from '@/lib/success-handler';
 
 // Types
 type WebhookConfig = {
@@ -83,10 +84,10 @@ export default function Workflows() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["webhook-configs"] });
-      toast.success("Configuration updated successfully.");
+      handleGlobalSuccess("Configuration Updated", "Configuration updated successfully.");
     },
     onError: (err: Error) => {
-      toast.error(`Failed to update config: ${err.message}`);
+      handleGlobalError(`Failed to update config: ${err.message}`);
     }
   });
 
@@ -149,7 +150,7 @@ export default function Workflows() {
       }
     } catch (err: unknown) {
       const error = err as Error;
-      toast.error("Chat error: " + error.message);
+      handleGlobalError("Chat error: " + error.message);
     } finally {
       setIsChatLoading(false);
     }

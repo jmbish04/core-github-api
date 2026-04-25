@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { MCPServerCard } from '@/components/jules/MCPServerCard';
 import { AddMCPServerDialog } from '@/components/jules/AddMCPServerDialog';
-import { useJulesMCPStore, MCPServer } from '@/stores/useJulesMCPStore';
+import { useJulesMCPStore } from '@/stores/useJulesMCPStore';
+import type { MCPServer } from '@/stores/useJulesMCPStore';
 import { Plus, Server } from 'lucide-react';
 
 export function MCPSettingsPage() {

@@ -3,7 +3,7 @@ import { api } from '@/lib/api-client';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
-import { toast } from 'sonner';
+import { handleGlobalError } from '@/lib/error-handler';
 
 export const MillerMarketplace = () => {
     const [specialists, setSpecialists] = useState<any[]>([]);
@@ -18,10 +18,11 @@ export const MillerMarketplace = () => {
                     const data = await res.json();
                     setSpecialists(data);
                 } else {
-                    toast.error("Failed to load specialists.");
+                    handleGlobalError("Failed to load specialists.");
                 }
-            } catch (e) {
-                toast.error("Error fetching marketplace data.");
+            } catch (e: unknown) {
+                const msg = e instanceof Error ? e.message : String(e);
+                handleGlobalError(`Error fetching marketplace data. ${msg}`);
             } finally {
                 setLoading(false);
             }

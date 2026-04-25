@@ -1,83 +1,60 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { SkillCard, Skill } from '@/components/jules/SkillCard';
+import { SkillCard } from '@/components/jules/SkillCard';
+import type { Skill } from '@/components/jules/SkillCard';
 import { CreateSkillDialog } from '@/components/jules/CreateSkillDialog';
 import { ImportSkillsDialog } from '@/components/jules/ImportSkillsDialog';
-import { Plus, Download } from 'lucide-react';
+import { Plus, Download, Loader2 } from 'lucide-react';
+import { useSkills, useCreateSkill } from '@/hooks/jules/useSkills';
 
-const initialSkills: Skill[] = [
-  {
-    id: 'skill-1',
-    name: 'Code Review',
-    description: 'Analyzes pull requests for code quality, security issues, and best practices. Provides inline suggestions.',
-    triggers: ['review', 'code review', 'PR review'],
-    instructions: 'When triggered, fetch the PR diff and analyze each changed file for potential issues.',
+/** Map backend Skill shape to frontend SkillCard shape */
+function toCardSkill(s: { id: string; name: string; description: string; markdownContent: string }): Skill {
+  return {
+    id: s.id,
+    name: s.name,
+    description: s.description,
+    triggers: [s.name.toLowerCase().replace(/\s+/g, '-')],
+    instructions: s.markdownContent,
     enabled: true,
-  },
-  {
-    id: 'skill-2',
-    name: 'Test Generator',
-    description: 'Generates unit and integration tests based on source code analysis. Supports Vitest and Jest.',
-    triggers: ['test', 'generate tests', 'write tests'],
-    instructions: 'Analyze the target module, identify edge cases, and generate comprehensive test suites.',
-    enabled: true,
-  },
-  {
-    id: 'skill-3',
-    name: 'Documentation Writer',
-    description: 'Creates and updates JSDoc comments, README files, and API documentation from code.',
-    triggers: ['docs', 'document', 'jsdoc', 'readme'],
-    instructions: 'Scan exported functions and types, generate documentation following the project style.',
-    enabled: false,
-  },
-  {
-    id: 'skill-4',
-    name: 'Refactor Assistant',
-    description: 'Suggests and applies refactoring patterns to improve code structure and readability.',
-    triggers: ['refactor', 'clean up', 'simplify'],
-    instructions: 'Identify code smells, propose refactoring strategies, and apply changes incrementally.',
-    enabled: true,
-  },
-  {
-    id: 'skill-5',
-    name: 'Deploy Monitor',
-    description: 'Watches deployment pipelines and reports status, errors, and rollback recommendations.',
-    triggers: ['deploy', 'deployment', 'ship', 'release'],
-    instructions: 'Monitor CI/CD pipeline status and provide real-time updates on deployment progress.',
-    enabled: false,
-  },
-];
+  };
+}
 
 export function SkillsPage() {
-  const [skills, setSkills] = useState<Skill[]>(initialSkills);
+  const { skills: rawSkills, isLoading, error } = useSkills();
+  const createSkill = useCreateSkill();
+
+  const [enabledOverrides, setEnabledOverrides] = useState<Record<string, boolean>>({});
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
 
+  const skills: Skill[] = rawSkills.map((s) => {
+    const card = toCardSkill(s);
+    if (s.id in enabledOverrides) card.enabled = enabledOverrides[s.id];
+    return card;
+  });
+
   const handleToggle = (id: string) => {
-    setSkills((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, enabled: !s.enabled } : s))
-    );
+    setEnabledOverrides((prev) => ({ ...prev, [id]: !(prev[id] ?? true) }));
   };
 
   const handleCreateSkill = (data: { name: string; description: string; triggers: string[]; instructions: string }) => {
-    const newSkill: Skill = {
-      id: `skill-${Date.now()}`,
-      ...data,
-      enabled: true,
-    };
-    setSkills((prev) => [...prev, newSkill]);
+    createSkill.mutate({
+      name: data.name,
+      description: data.description,
+      markdownContent: data.instructions,
+    });
   };
 
   const handleImportSkills = (imported: { id: string; name: string; description: string }[]) => {
-    const newSkills: Skill[] = imported.map((s) => ({
-      id: `skill-imp-${Date.now()}-${s.id}`,
-      name: s.name,
-      description: s.description,
-      triggers: [s.name.toLowerCase()],
-      instructions: '',
-      enabled: true,
-    }));
-    setSkills((prev) => [...prev, ...newSkills]);
+    // The import dialog provides a repoUrl; use ingest endpoint
+    // For now, import each as a new skill via POST
+    for (const s of imported) {
+      createSkill.mutate({
+        name: s.name,
+        description: s.description,
+        markdownContent: '',
+      });
+    }
   };
 
   return (
@@ -109,12 +86,33 @@ export function SkillsPage() {
         </div>
       </div>
 
+      {/* Loading / Error states */}
+      {isLoading && (
+        <div className="flex items-center justify-center py-12 text-zinc-500 gap-2">
+          <Loader2 className="w-5 h-5 animate-spin" />
+          Loading skills...
+        </div>
+      )}
+      {error ? (
+        <div className="text-sm text-red-400 bg-red-950/30 border border-red-900 rounded-md p-3">
+          Failed to load skills: {error instanceof Error ? error.message : String(error)}
+        </div>
+      ) : null}
+
       {/* Skills grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {skills.map((skill) => (
-          <SkillCard key={skill.id} skill={skill} onToggle={handleToggle} />
-        ))}
-      </div>
+      {!isLoading && !error && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {skills.length === 0 ? (
+            <p className="text-sm text-zinc-500 col-span-full text-center py-8">
+              No skills configured yet. Create one or import from GitHub.
+            </p>
+          ) : (
+            skills.map((skill) => (
+              <SkillCard key={skill.id} skill={skill} onToggle={handleToggle} />
+            ))
+          )}
+        </div>
+      )}
 
       {/* Dialogs */}
       <CreateSkillDialog

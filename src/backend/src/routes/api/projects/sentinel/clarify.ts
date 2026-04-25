@@ -3,7 +3,7 @@
  * @description POST /api/projects/sentinel/tasks/:taskId/clarify
  *
  * Accepts a clarification question for a Sentinel task, broadcasts it via
- * JulesWebhookBroadcaster Agent, and notifies JulesOverseer for AI-assisted answering.
+ * JulesWebhookBroadcaster Agent, and notifies EngineerAgent for AI-assisted answering.
  */
 
 import { Hono } from 'hono';
@@ -51,11 +51,11 @@ clarifyRouter.post('/tasks/:taskId/clarify', async (c) => {
     logger.error(`${logPrefix} Failed to broadcast to JulesWebhookBroadcaster`, { error: String(err) });
   }
 
-  // 2. Notify JulesOverseer for AI-assisted answering (non-blocking)
+    // 2. Notify EngineerAgent for AI-assisted answering (non-blocking)
   try {
-    const overseer = await getAgentByName(env.ENGINEER_AGENT as any, 'singleton');
-    logger.info(`${logPrefix} Notifying JulesOverseer for AI-assisted answering`);
-    // Direct DO RPC — ingestEvent is a @callable on OverseerAgent
+    const engineer = await getAgentByName(env.ENGINEER_AGENT as any, 'singleton');
+    logger.info(`${logPrefix} Notifying EngineerAgent for AI-assisted answering`);
+    // Direct DO RPC — ingestEvent is a @callable on EngineerAgent (absorbed from OverseerAgent)
     const ingestEventObj = {
       type: 'clarification_request',
       sessionId: taskId,
@@ -65,11 +65,11 @@ clarifyRouter.post('/tasks/:taskId/clarify', async (c) => {
       agentId: body.agentId,
       timestamp: new Date().toISOString(),
     };
-    logger.info(`${logPrefix} Notifying JulesOverseer for AI-assisted answering: ${JSON.stringify(ingestEventObj)}`);
-    await (overseer as any).ingestEvent(ingestEventObj);
+    logger.info(`${logPrefix} Notifying EngineerAgent for AI-assisted answering: ${JSON.stringify(ingestEventObj)}`);
+    await (engineer as any).ingestEvent(ingestEventObj);
     logger.info(`${logPrefix} Event notified successfully`);
   } catch (err: any) {
-    logger.error(`${logPrefix} Failed to notify JulesOverseer`, { error: String(err) });
+    logger.error(`${logPrefix} Failed to notify EngineerAgent`, { error: String(err) });
   }
 
   return c.json({

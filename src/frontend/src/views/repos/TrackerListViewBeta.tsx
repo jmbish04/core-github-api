@@ -33,6 +33,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { handleGlobalError } from "@/lib/error-handler";
 
 interface Tag {
   id: string;
@@ -87,30 +88,81 @@ export default function TrackerListViewBeta() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [newTagInput, setNewTagInput] = useState("");
 
-  // Fetch tasks from sentinel API
+  // Fetch tasks from magical backlog API
   useEffect(() => {
     let cancelled = false;
     async function fetchTasks() {
       try {
-        const res = await fetch("/api/projects/sentinel/tasks/available", {
+        const res = await fetch(`/api/repos/${owner}/${repo}/backlog`, {
           credentials: "include",
         });
-        if (!res.ok) throw new Error("Failed to fetch");
-        const data = await res.json();
-        if (!cancelled && Array.isArray(data?.tasks) && data.tasks.length > 0) {
-          const mapped: ListItem[] = data.tasks.map((t: any) => ({
-            id: t.id || t.taskId || `TASK-${Math.random().toString(36).slice(2, 6)}`,
-            type: t.type || "task",
-            title: t.title || t.name || "Untitled",
-            status: t.status || "todo",
-            assignee: t.assignee || t.claimedBy || null,
-            tags: t.tags || [],
-            children: [],
+        if (!res.ok) throw new Error("Failed to fetch backlog hierarchy");
+        const json = await res.json();
+        
+        if (!cancelled && json.success && Array.isArray(json.data)) {
+          // Normalize the deep hierarchy into ListItem structure
+          const mapped: ListItem[] = json.data.map((phase: any) => ({
+            id: phase.id,
+            type: "phase",
+            title: phase.title,
+            status: phase.status || "todo",
+            assignee: null,
+            tags: [{ id: "tag-phase", name: "Phase", color: "bg-purple-500/10 text-purple-400 border-purple-500/20" }],
+            children: phase.sprints?.map((sp: any) => {
+              const sprint = sp.sprint;
+              return {
+                id: sprint.id,
+                type: "sprint",
+                title: sprint.title,
+                status: sprint.status || "todo",
+                assignee: null,
+                tags: [{ id: "tag-sprint", name: "Sprint", color: "bg-blue-500/10 text-blue-400 border-blue-500/20" }],
+                children: sprint.epics?.map((ep: any) => {
+                  const epic = ep.epic;
+                  return {
+                    id: epic.id,
+                    type: "epic",
+                    title: epic.title,
+                    status: epic.status || "todo",
+                    assignee: null,
+                    tags: [{ id: "tag-epic", name: "Epic", color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" }],
+                    children: epic.stories?.map((st: any) => {
+                      const story = st.story;
+                      return {
+                        id: story.id,
+                        type: "story",
+                        title: story.title,
+                        status: story.status || "todo",
+                        assignee: null,
+                        tags: [{ id: "tag-story", name: "Story", color: "bg-amber-500/10 text-amber-400 border-amber-500/20" }],
+                        children: story.tasks?.map((ta: any) => {
+                          const task = ta.task;
+                          return {
+                            id: task.id,
+                            type: "task",
+                            title: task.title,
+                            status: task.status || "todo",
+                            assignee: null,
+                            tags: [{ id: "tag-task", name: "Task", color: "bg-zinc-500/10 text-zinc-400 border-zinc-500/20" }],
+                            children: []
+                          }
+                        }) || []
+                      }
+                    }) || []
+                  }
+                }) || []
+              }
+            }) || []
           }));
           setItems(mapped);
+          
+          if (mapped.length > 0) {
+             setExpanded(new Set(mapped.map(m => m.id))); // Auto expand Root Phases
+          }
         }
-      } catch {
-        // Keep fallback data
+      } catch (e) {
+        // Log explicitly instead of just keeping fallback data silently
+        handleGlobalError(e instanceof Error ? e : new Error(`[Tracker List] API Error: Failed to fetch available tracker tasks list data: ${JSON.stringify(e)}`));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -122,7 +174,11 @@ export default function TrackerListViewBeta() {
   const toggleSelect = (id: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
       return next;
     });
   };
@@ -171,7 +227,11 @@ export default function TrackerListViewBeta() {
               )}
               onClick={() => {
                 const next = new Set(expanded);
-                next.has(item.id) ? next.delete(item.id) : next.add(item.id);
+                if (next.has(item.id)) {
+                  next.delete(item.id);
+                } else {
+                  next.add(item.id);
+                }
                 setExpanded(next);
               }}
             >

@@ -5,14 +5,22 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Search, Plus } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 
 export interface TasksListPageProps {
   projectId?: string;
   baseUrl?: string;
 }
 
-export function TasksListPage({ projectId, baseUrl = '/jules/tasks' }: TasksListPageProps) {
+export function TasksListPage(props: TasksListPageProps) {
+  const { owner, repo } = useParams<{ owner?: string; repo?: string }>();
+  
+  const routeProjectId = owner && repo ? `${owner}/${repo}` : undefined;
+  const routeBaseUrl = owner && repo ? `/repos/${owner}/${repo}/jules/tasks` : '/jules/tasks';
+  
+  const projectId = props.projectId || routeProjectId;
+  const baseUrl = props.baseUrl || routeBaseUrl;
+  
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[] | null>(null);

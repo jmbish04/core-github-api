@@ -1,5 +1,6 @@
 import React from 'react';
-import { WorkItem, WorkItemRow } from '@/components/jules/WorkItemRow';
+import { WorkItemRow } from '@/components/jules/WorkItemRow';
+import type { WorkItem } from '@/components/jules/WorkItemRow';
 
 interface WorkItemGridProps {
   items: WorkItem[];

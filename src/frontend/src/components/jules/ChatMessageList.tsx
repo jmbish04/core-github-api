@@ -1,5 +1,6 @@
 import React, { useRef, useEffect } from 'react';
-import { ChatMessage, ChatMessageProps } from './ChatMessage';
+import { ChatMessage } from './ChatMessage';
+import type { ChatMessageProps } from './ChatMessage';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Loader2 } from 'lucide-react';
 

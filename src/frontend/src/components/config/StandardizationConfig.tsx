@@ -3,7 +3,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Loader2, Trash2, Search, PlusCircle } from "lucide-react";
-import { toast } from "sonner";
+import { handleGlobalError } from '@/lib/error-handler';
+import { handleGlobalSuccess } from '@/lib/success-handler';
 import {
   Select,
   SelectContent,
@@ -64,7 +65,7 @@ export function StandardizationConfig() {
       setConfigs(configsData.configs || []);
       setAvailableFiles(filesData.files || []);
     } catch (e: any) {
-      toast.error(e.message || "Failed to load standardization config");
+      handleGlobalError(e.message || 'Failed to load standardization config');
     } finally {
       setLoading(false);
     }
@@ -72,7 +73,7 @@ export function StandardizationConfig() {
 
   const handleAddConfig = async () => {
     if (!newFileName || !newTargetPattern) {
-      toast.error("Please provide a file name and target pattern");
+      handleGlobalError('Please provide a file name and target pattern');
       return;
     }
 
@@ -89,12 +90,12 @@ export function StandardizationConfig() {
       });
       if (!res.ok) throw new Error("Failed to create configuration");
       
-      toast.success("Standardization config added");
+      handleGlobalSuccess('Config Added', 'Standardization config added');
       setNewFileName("");
       setNewTargetPattern("*");
       fetchData();
     } catch (e: any) {
-      toast.error(e.message);
+      handleGlobalError(e.message);
     } finally {
       setIsAdding(false);
     }
@@ -105,10 +106,10 @@ export function StandardizationConfig() {
     try {
       const res = await fetch(`/api/standardization/configs/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to delete configuration");
-      toast.success("Configuration deleted");
+      handleGlobalSuccess('Deleted', 'Configuration deleted');
       fetchData();
     } catch (e: any) {
-      toast.error(e.message);
+      handleGlobalError(e.message);
     }
   };
 
@@ -126,9 +127,9 @@ export function StandardizationConfig() {
       if (!res.ok) throw new Error("Failed to search repositories");
       const data = await res.json();
       setSearchResults(data.repos || []);
-      toast.success(`Found ${data.totalCount || data.repos.length} matching repositories`);
+      handleGlobalSuccess('Search Complete', `Found ${data.totalCount || data.repos.length} matching repositories`);
     } catch (e: any) {
-      toast.error(e.message);
+      handleGlobalError(e.message);
     } finally {
       setIsSearching(false);
     }
@@ -157,13 +158,13 @@ export function StandardizationConfig() {
       
       const data = await res.json();
       const successes = data.results.filter((r: any) => r.success).length;
-      toast.success(`Successfully deleted from ${successes}/${reposToDelete.length} repositories.`);
+      handleGlobalSuccess('Bulk Delete Complete', `Successfully deleted from ${successes}/${reposToDelete.length} repositories.`);
       
       // Remove successful deletions from UI
       const successfulRepos = data.results.filter((r: any) => r.success).map((r: any) => r.repo);
       setSearchResults(prev => prev.filter(r => !successfulRepos.includes(r.fullName)));
     } catch (e: any) {
-      toast.error(e.message);
+      handleGlobalError(e.message);
     } finally {
       setIsDeleting(null);
       setIsBulkDeleting(false);

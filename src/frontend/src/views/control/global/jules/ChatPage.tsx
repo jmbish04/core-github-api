@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ChatMessageList } from '@/components/jules/ChatMessageList';
 import { ChatInput } from '@/components/jules/ChatInput';
-import { ChatMessageProps } from '@/components/jules/ChatMessage';
+import type { ChatMessageProps } from '@/components/jules/ChatMessage';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { FolderGit2, History, GitBranch, Github } from 'lucide-react';

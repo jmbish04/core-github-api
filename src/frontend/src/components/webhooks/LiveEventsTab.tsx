@@ -1,10 +1,11 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Radio, RefreshCcw, Wifi, WifiOff } from "lucide-react";
 import { EventCard, type StoredEvent, type AutomationRunInfo } from "./EventCard";
 import { useColbySocket } from "@/hooks/useColbySocket";
+import { handleGlobalError } from "@/lib/error-handler";
 
 // ── Types ───────────────────────────────────────────────────────
 
@@ -16,7 +17,6 @@ interface ConfigResponse {
 // ── Component ───────────────────────────────────────────────────
 
 export function LiveEventsTab() {
-  const queryClient = useQueryClient();
   const [events, setEvents] = useState<StoredEvent[]>([]);
   const [automationRunsMap, setAutomationRunsMap] = useState<Record<string, AutomationRunInfo[]>>({});
   const eventsRef = useRef<StoredEvent[]>([]);
@@ -125,8 +125,9 @@ export function LiveEventsTab() {
               setAutomationRunsMap((prev) => ({ ...prev, [event.id]: [] }));
             }
           }
-        } catch {
+        } catch (e) {
           // Endpoint may not exist yet, silently skip
+          handleGlobalError(new Error("[Live Events] Automation Fetch Error: " + (e instanceof Error ? e.message : String(e))));
         }
       }
     };

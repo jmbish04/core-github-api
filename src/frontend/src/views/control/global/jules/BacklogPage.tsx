@@ -1,149 +1,30 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { WorkItemGrid } from '@/components/jules/WorkItemGrid';
-import { WorkItem } from '@/components/jules/WorkItemRow';
+import type { WorkItem } from '@/components/jules/WorkItemRow';
 import { BulkActionsBar } from '@/components/jules/BulkActionsBar';
-import { ListFilter } from 'lucide-react';
+import { ListFilter, Loader2 } from 'lucide-react';
+import { useBacklogItems, useUpdateTask } from '@/hooks/jules/useBacklogItems';
+import type { BacklogTask } from '@/hooks/jules/useBacklogItems';
 
-const mockWorkItems: WorkItem[] = [
-  {
-    id: 'wi-1',
-    title: 'Authentication & Authorization Overhaul',
-    status: 'in_progress',
-    priority: 'critical',
-    estimate: '8 pts',
-    dueDate: 'Apr 10',
-    depth: 0,
-    children: [
-      {
-        id: 'wi-1a',
-        title: 'Implement JWT refresh token rotation',
-        status: 'done',
-        priority: 'high',
-        estimate: '3 pts',
-        dueDate: 'Apr 5',
-        depth: 1,
-      },
-      {
-        id: 'wi-1b',
-        title: 'Add OAuth2 provider support (GitHub, Google)',
-        status: 'in_progress',
-        priority: 'high',
-        estimate: '5 pts',
-        dueDate: 'Apr 8',
-        depth: 1,
-        children: [
-          {
-            id: 'wi-1b-i',
-            title: 'GitHub OAuth callback handler',
-            status: 'done',
-            priority: 'medium',
-            estimate: '2 pts',
-            dueDate: 'Apr 6',
-            depth: 2,
-          },
-          {
-            id: 'wi-1b-ii',
-            title: 'Google OAuth callback handler',
-            status: 'todo',
-            priority: 'medium',
-            estimate: '2 pts',
-            dueDate: 'Apr 8',
-            depth: 2,
-          },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'wi-2',
-    title: 'Database Migration to Drizzle ORM',
-    status: 'todo',
-    priority: 'high',
-    estimate: '13 pts',
-    dueDate: 'Apr 18',
-    depth: 0,
-    children: [
-      {
-        id: 'wi-2a',
-        title: 'Define Drizzle schema from existing Prisma models',
-        status: 'todo',
-        priority: 'high',
-        estimate: '5 pts',
-        dueDate: 'Apr 12',
-        depth: 1,
-      },
-      {
-        id: 'wi-2b',
-        title: 'Write migration scripts with data integrity checks',
-        status: 'todo',
-        priority: 'medium',
-        estimate: '5 pts',
-        dueDate: 'Apr 15',
-        depth: 1,
-      },
-      {
-        id: 'wi-2c',
-        title: 'Update repository layer queries',
-        status: 'todo',
-        priority: 'medium',
-        estimate: '3 pts',
-        dueDate: 'Apr 18',
-        depth: 1,
-      },
-    ],
-  },
-  {
-    id: 'wi-3',
-    title: 'Add end-to-end test coverage for onboarding',
-    status: 'blocked',
-    priority: 'medium',
-    estimate: '5 pts',
-    dueDate: 'Apr 14',
-    depth: 0,
-  },
-  {
-    id: 'wi-4',
-    title: 'Performance optimization: reduce bundle size',
-    status: 'todo',
-    priority: 'low',
-    estimate: '3 pts',
-    dueDate: 'Apr 22',
-    depth: 0,
-    children: [
-      {
-        id: 'wi-4a',
-        title: 'Audit and tree-shake unused dependencies',
-        status: 'todo',
-        priority: 'low',
-        estimate: '1 pt',
-        dueDate: 'Apr 20',
-        depth: 1,
-      },
-      {
-        id: 'wi-4b',
-        title: 'Implement code-splitting for route-level chunks',
-        status: 'todo',
-        priority: 'low',
-        estimate: '2 pts',
-        dueDate: 'Apr 22',
-        depth: 1,
-      },
-    ],
-  },
-  {
-    id: 'wi-5',
-    title: 'Set up error monitoring with Sentry integration',
-    status: 'done',
-    priority: 'medium',
-    estimate: '2 pts',
-    dueDate: 'Apr 2',
-    depth: 0,
-  },
-];
+/** Map flat BacklogTask tree to WorkItem tree with depth */
+function toWorkItem(task: BacklogTask, depth: number = 0): WorkItem {
+  return {
+    id: task.id,
+    title: task.title,
+    status: (task.status === 'backlog' ? 'todo' : task.status) as WorkItem['status'],
+    priority: (task.priority || 'medium') as WorkItem['priority'],
+    estimate: undefined,
+    dueDate: undefined,
+    depth,
+    children: task.children?.map((c) => toWorkItem(c, depth + 1)),
+  };
+}
 
 type StatusFilter = 'all' | 'todo' | 'in_progress' | 'done' | 'blocked';
 type PriorityFilter = 'all' | 'critical' | 'high' | 'medium' | 'low';
+
+import { useParams } from 'react-router-dom';
 
 function filterItems(items: WorkItem[], status: StatusFilter, priority: PriorityFilter): WorkItem[] {
   return items
@@ -166,14 +47,21 @@ function filterItems(items: WorkItem[], status: StatusFilter, priority: Priority
 }
 
 export function BacklogPage() {
+  const { owner, repo } = useParams<{ owner?: string; repo?: string }>();
+  const projectId = owner && repo ? `${owner}/${repo}` : undefined;
+  
+  const { items: rawItems, isLoading, error } = useBacklogItems(projectId);
+  const updateTask = useUpdateTask();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>('all');
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set(['wi-1', 'wi-2']));
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
+  const workItems = useMemo(() => rawItems.map((t) => toWorkItem(t)), [rawItems]);
+
   const filteredItems = useMemo(
-    () => filterItems(mockWorkItems, statusFilter, priorityFilter),
-    [statusFilter, priorityFilter]
+    () => filterItems(workItems, statusFilter, priorityFilter),
+    [workItems, statusFilter, priorityFilter]
   );
 
   const toggleExpand = (id: string) => {
@@ -211,6 +99,19 @@ export function BacklogPage() {
           Review and prioritize upcoming work items.
         </p>
       </div>
+
+      {/* Loading / Error states */}
+      {isLoading && (
+        <div className="flex items-center justify-center py-12 text-zinc-500 gap-2">
+          <Loader2 className="w-5 h-5 animate-spin" />
+          Loading backlog...
+        </div>
+      )}
+      {error ? (
+        <div className="text-sm text-red-400 bg-red-950/30 border border-red-900 rounded-md p-3">
+          Failed to load backlog: {error instanceof Error ? error.message : String(error)}
+        </div>
+      ) : null}
 
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-3">
@@ -265,11 +166,15 @@ export function BacklogPage() {
       <BulkActionsBar
         selectedCount={selectedIds.size}
         onChangeStatus={() => {
-          // Mock: set all selected to "in_progress"
+          for (const id of selectedIds) {
+            updateTask.mutate({ id, status: 'in_progress' });
+          }
           clearSelection();
         }}
         onSetPriority={() => {
-          // Mock: set all selected to "high"
+          for (const id of selectedIds) {
+            updateTask.mutate({ id, priority: 'high' });
+          }
           clearSelection();
         }}
         onDelete={() => {

@@ -1,5 +1,8 @@
 import { getSandbox } from "@cloudflare/sandbox";
 import { getSandboxOptions } from "@/ai/utils/sandbox";
+import { Logger } from "@/lib/logger";
+import { getOctokit } from "@services/octokit/core";
+import { getGithubToken } from "@utils/secrets";
 
 
 export interface GitOperation {
@@ -14,67 +17,102 @@ export interface GitOperation {
  * 
  * Flow:
  * 1. Initialize Sandbox
- * 2. Clone Repository
- * 3. Checkout Branch
+ * 2. Fetch repo default branch via Octokit
+ * 3. Clone Repository & Checkout Branch
  * 4. Apply Changes (Write Files)
  * 5. Commit
- * 6. Push
+ * 6. Push using injected GITHUB_TOKEN
+ * 7. Open Pull Request
  */
 export async function runGitOperation(env: Env, op: GitOperation) {
+    const logger = new Logger(env, "Sandbox SDK");
+    const logPreface = "[Sandbox SDK: runGitOperation]: ";
     if (!env.SANDBOX) {
+        logger.error(`${logPreface} SANDBOX binding not found in Env`);
         throw new Error("SANDBOX binding not found in Env");
     }
 
-    console.log(`[Sandbox] Starting Git Operation: ${op.repoUrl} (${op.branch})`);
+    // Parse owner and repo from URL
+    const match = op.repoUrl.match(/github\.com\/([^/]+)\/([^/.]+)/);
+    if (!match) {
+        throw new Error(`Could not parse owner and repo from repoUrl: ${op.repoUrl}`);
+    }
+    const owner = match[1];
+    const repo = match[2];
+
+    logger.info(`${logPreface} Parsed repo: ${owner}/${repo}`);
+
+    // Fetch default branch
+    const octokit = await getOctokit(env);
+    const { data: repoData } = await octokit.repos.get({ owner, repo });
+    const defaultBranch = repoData.default_branch;
+
+    logger.info(`${logPreface} Default branch detected as: ${defaultBranch}`);
 
     // 1. Init Sandbox
-    // "engineer-session" shares the sandbox instance/state if needed, or unique ID for isolation
     const id = "engineer-session";
     const options = await getSandboxOptions(env);
     const sandbox = getSandbox(env.SANDBOX as any, id, options);
 
+    logger.info(`${logPreface} Starting Git Operation: ${op.repoUrl} (${op.branch}) on sandbox id: ${id}`);
+
     try {
         // 2. Clone
-        console.log(`[Sandbox] Cloning...`);
-        // Note: sandbox.gitCheckout is a high-level helper if available, otherwise we use exec
-        // The user prompt example implies gitCheckout exists on the SDK or wrapper.
-        // If the SDK doesn't have it, we'd use exec: await sandbox.exec("git clone ...")
-        // But let's follow the user's reference pattern which suggests a high-level API.
-        // However, checking standard docs, 'gitCheckout' might be a user-defined helper. 
-        // I will implement it robustly using exec if the method is missing, but try the reference first.
-
-        // Actually, @cloudflare/sandbox standard API is mostly `exec`, `writeFile`, `readFile`.
-        // The user's prompt: `await sandbox.gitCheckout(repoUrl, { branch });`
-        // I will trust the user knows a specific version or wrapper. 
-        // BUT, to be safe and ensuring it works, I'll cast to any or check existence.
-        // Or better, I will assume the prompt reference is aspirational and implement via exec if needed?
-        // Let's assume the user reference is correct for the SDK version they want.
-
+        logger.info(`${logPreface} Cloning repo: ${op.repoUrl}...`);
         await (sandbox as any).gitCheckout(op.repoUrl, { branch: op.branch });
 
         // 3. Apply Changes
-        console.log(`[Sandbox] Applying ${Object.keys(op.changes).length} changes...`);
+        logger.info(`${logPreface} Applying ${Object.keys(op.changes).length} changes...`);
         for (const [path, content] of Object.entries(op.changes)) {
             // Write file relative to workspace root
             await sandbox.writeFile(`/workspace/${path}`, content);
+            logger.info(`${logPreface} Wrote file: ${path}`);
         }
 
-        // 4. Commit & Push
-        console.log(`[Sandbox] Committing...`);
-        await sandbox.exec('git config user.name "AI Engineer"');
-        await sandbox.exec('git config user.email "ai-engineer@cloudflare.com"');
-        await sandbox.exec(`git commit -am "${op.commitMessage}"`);
+        // 4. Commit
+        logger.info(`${logPreface} Setting git config and committing...`);
 
-        // Note: Push would require auth token. 
-        // Ideally: git push https://oauth2:${token}@github.com/...
-        // We assume token is handled by gitCheckout or env vars inside sandbox.
-        // Or we might need to inject it. For now, following the simple reference.
-        // await sandbox.exec('git push'); // Uncomment when auth is solved
+        const gitConfigUsername = 'cd /workspace && git config user.name "AI Engineer"';
+        const gitConfigEmail = 'cd /workspace && git config user.email "ai-engineer@cloudflare.com"';
+        const gitCommit = `cd /workspace && git commit -am "${op.commitMessage}"`;
+        
+        await sandbox.exec(gitConfigUsername);
+        await sandbox.exec(gitConfigEmail);
+        await sandbox.exec(gitCommit);
+        
+        logger.info(`${logPreface} Changes committed successfully`);
+        
+        // 5. Push
+        logger.info(`${logPreface} Authenticating and pushing branch to remote...`);
+        const token = await getGithubToken(env);
+        if (!token) {
+            throw new Error("No GITHUB_TOKEN found in environment secrets.");
+        }
+        
+        const pushUrl = `https://oauth2:${token}@github.com/${owner}/${repo}.git`;
+        await sandbox.exec(`cd /workspace && git remote set-url origin "${pushUrl}"`);
+        await sandbox.exec(`cd /workspace && git push -u origin ${op.branch}`);
 
-        return { status: "success", message: "Changes applied and committed (Sandbox)" };
+        logger.info(`${logPreface} Branch ${op.branch} pushed successfully.`);
+
+        // 6. Open PR
+        logger.info(`${logPreface} Opening PR against ${defaultBranch}...`);
+        const { data: pr } = await octokit.pulls.create({
+            owner,
+            repo,
+            title: op.commitMessage,
+            head: op.branch,
+            base: defaultBranch,
+            body: `Automated PR generated by Colby API.\n\nChanges:\n${Object.keys(op.changes).map(c => `- \`${c}\``).join('\n')}`,
+        });
+
+        const message = `Changes applied, pushed, and PR opened: ${pr.html_url}`;
+        logger.info(`${logPreface} ${message}`);
+
+        return { status: "success", message, prUrl: pr.html_url };
 
     } catch (error) {
-        console.error("[Sandbox] Error:", error);
+        logger.error(`${logPreface} Error: ${error}`);
         throw error;
     }
 }

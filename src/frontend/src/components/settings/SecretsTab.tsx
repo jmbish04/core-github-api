@@ -17,7 +17,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { toast } from "sonner";
+import { handleGlobalSuccess } from '@/lib/success-handler';
+import { handleGlobalPromise } from '@/lib/notification-handler';
 import {
   KeyRound,
   Plus,
@@ -84,7 +85,8 @@ export function SecretsTab() {
     );
     const secret = secrets.find((s) => s.name === name);
     if (secret) {
-      toast.success(
+      handleGlobalSuccess(
+        'Secret Updated',
         secret.active
           ? `Removed ${name} from default sync list`
           : `Added ${name} to default sync list`,
@@ -102,7 +104,7 @@ export function SecretsTab() {
   };
 
   const handleForceSync = () => {
-    toast.promise(new Promise((r) => setTimeout(r, 2000)), {
+    handleGlobalPromise(new Promise((r) => setTimeout(r, 2000)), {
       loading: "Force syncing secrets to ALL connected repositories…",
       success: "Sync command queued for all repositories",
       error: "Failed to queue sync",

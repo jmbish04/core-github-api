@@ -25,7 +25,6 @@ import RepoLayout from "@/layouts/RepoLayout";
 // Repo-scoped views (dedicated per-repo implementations)
 
 import RepoDashboard from "@/views/repos/Dashboard";
-import { NewTaskPage } from "@/views/control/global/jules/NewTaskPage";
 import RepoStats from "@/views/repos/Stats";
 import RepoExplorer from "@/views/repos/Explorer";
 import RepoPlan from "@/views/repos/Plan";
@@ -45,8 +44,8 @@ import TrackerLayoutBeta from "@/views/repos/TrackerLayoutBeta";
 import TrackerListViewBeta from "@/views/repos/TrackerListViewBeta";
 import TrackerBoardViewBeta from "@/views/repos/TrackerBoardViewBeta";
 import TrackerReportsViewBeta from "@/views/repos/TrackerReportsViewBeta";
+import TrackerShadcnViewBeta from "@/views/repos/TrackerShadcnViewBeta";
 
-// Jules control views (reused for repo scope)
 import {
   JulesHomePage,
   TasksListPage,
@@ -54,11 +53,17 @@ import {
   NewTaskPage,
   JulesActivityPage,
   SettingsPage as JulesSettingsPage,
+  MCPSettingsPage,
+  SkillsPage,
+  CategoriesPage,
+  GitHubPage,
   DesignLabPage,
   BacklogPage,
   VelocityPage,
   ChatPage as JulesChatPage
 } from "@/views/control/global/jules";
+
+import { AgentInsightsPage } from "@/views/control/global/jules/AgentInsightsPage";
 
 // Global views reused in repo context (scoped by RepoLayout context provider)
 // Retained for routes that haven't yet been given dedicated repo-scoped variants.
@@ -76,6 +81,7 @@ import Chat from "@/views/control/global/Chat";
 import CloudflareChat from "@/views/control/global/CloudflareChat";
 import CloudflareDocsInfo from "@/views/public/CloudflareDocsInfo";
 import { PRCommandCenter } from "@/views/control/global/PRCommandCenter";
+import AgentOperations from "@/views/control/global/AgentOperations";
 
 
 function guard(element: React.ReactElement) {
@@ -126,6 +132,12 @@ export function RepoRoutes() {
         <Route path="board" element={<TrackerBoardViewBeta />} />
         <Route path="reports" element={<TrackerReportsViewBeta />} />
       </Route>
+
+      {/* Tracker Shadcn (integrated with layout) */}
+      <Route path="projects/tracker-shadcn" element={<TrackerLayoutBeta />}>
+        <Route index element={<Navigate to="list" replace />} />
+        <Route path="list" element={<TrackerShadcnViewBeta />} />
+      </Route>
       <Route path="projects/:projectId" element={guard(<ProjectView />)} />
 
       {/* Work items within a project */}
@@ -168,6 +180,7 @@ export function RepoRoutes() {
       <Route path="vibesdk" element={<RepoVibeSDK />} />
       <Route path="ux-workshop" element={<RepoUxWorkshop />} />
       <Route path="component-identifier" element={<RepoComponentIdentifier />} />
+      <Route path="agents" element={guard(<AgentOperations />)} />
 
       {/* ── Reverse engineering (repo-scoped) ─────────────────────── */}
       <Route path="reverse-engineering" element={guard(<ReverseEngineering />)} />
@@ -196,10 +209,15 @@ export function RepoRoutes() {
       <Route path="jules/tasks/new" element={guard(<NewTaskPage />)} />
       <Route path="jules/tasks/:sessionId" element={guard(<TaskDetailPage />)} />
       <Route path="jules/activity" element={guard(<JulesActivityPage />)} />
+      <Route path="jules/settings" element={guard(<JulesSettingsPage />)} />
+      <Route path="jules/settings/mcp" element={guard(<MCPSettingsPage />)} />
+      <Route path="jules/skills" element={guard(<SkillsPage />)} />
+      <Route path="jules/categories" element={guard(<CategoriesPage />)} />
+      <Route path="jules/design" element={guard(<DesignLabPage />)} />
+      <Route path="jules/github" element={guard(<GitHubPage />)} />
       <Route path="jules/backlog" element={guard(<BacklogPage />)} />
       <Route path="jules/velocity" element={guard(<VelocityPage />)} />
-      <Route path="jules/design" element={guard(<DesignLabPage />)} />
-      <Route path="jules/settings" element={guard(<JulesSettingsPage />)} />
+      <Route path="jules/insights" element={guard(<AgentInsightsPage />)} />
       <Route path="jules/chat" element={guard(<JulesChatPage />)} />
 
       {/* ── Repo scope catch-all → redirect to dashboard ─────────── */}

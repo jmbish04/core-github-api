@@ -120,23 +120,23 @@ async function createTestBranchAndPR(
   logger: Logger,
 ): Promise<number> {
   // 1. Get base SHA from default branch
-  const baseSha = await getRef(env, owner, repo, 'heads/main');
+  const baseShaData = await getRef(env, { owner, repo, ref: 'heads/main' });
+  const baseSha = (baseShaData as any).object?.sha || (baseShaData as any).sha || baseShaData;
 
   // 2. Create branch
-  await createBranch(env, owner, repo, branchName, baseSha);
+  await createBranch(env, { owner, repo, branch: branchName, sha: baseSha });
   logger.info(`Created branch: ${branchName}`);
 
   // 3. Commit marker file
   const fileContent = `# Slash Command Health Check\n\nBranch: ${branchName}\nCreated: ${new Date().toISOString()}\n`;
-  await createOrUpdateFile(
-    env,
+  await createOrUpdateFile(env, {
     owner,
     repo,
-    '.health/slash-cmd-test.md',
-    fileContent,
-    'chore: add slash command health check marker',
-    branchName,
-  );
+    path: '.health/slash-cmd-test.md',
+    content: fileContent,
+    message: 'chore: add slash command health check marker',
+    branch: branchName,
+  });
   logger.info('Committed marker file');
 
   // 4. Open PR using user PAT (so webhook fires as user)

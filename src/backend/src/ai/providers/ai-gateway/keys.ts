@@ -11,23 +11,13 @@
 
 import { normalizeProvider } from './normalize';
 import { Logger } from '@/lib/logger';
+import { getSecret } from '@/utils/secrets';
 
 export class ProviderKey {
   private logger: Logger;
 
   constructor(private env: Env) {
     this.logger = new Logger(env, 'ProviderKey');
-  }
-
-  /**
-   * Resolves a secret from the environment. 
-   * Handles both plain strings and Secret Store bindings (.get()).
-   */
-  private async resolveSecret(binding: any): Promise<string | null> {
-    if (!binding) return null;
-    if (typeof binding === 'string') return binding;
-    if (typeof binding.get === 'function') return await binding.get();
-    return null;
   }
 
   /**
@@ -42,28 +32,28 @@ export class ProviderKey {
     });
 
     try {
-      let key: string | null = null;
+      let key: string | null | undefined = null;
 
       switch (normalized) {
         case 'anthropic':
-          key = await this.resolveSecret(this.env.ANTHROPIC_API_KEY);
+          key = await getSecret(this.env, 'ANTHROPIC_API_KEY');
           break;
 
         case 'google-ai-studio':
         case 'gemini':
-          key = await this.resolveSecret(this.env.GEMINI_API_KEY);
+          key = await getSecret(this.env, 'GEMINI_API_KEY');
           break;
 
         case 'openai':
-          key = await this.resolveSecret(this.env.OPENAI_API_KEY);
+          key = await getSecret(this.env, 'OPENAI_API_KEY');
           break;
 
         case 'jules':
-          key = await this.resolveSecret(this.env.JULES_API_KEY);
+          key = await getSecret(this.env, 'JULES_API_KEY');
           break;
 
         case 'stitch':
-          key = await this.resolveSecret(this.env.STITCH_API_KEY);
+          key = await getSecret(this.env, 'STITCH_API_KEY');
           break;
 
         default: {

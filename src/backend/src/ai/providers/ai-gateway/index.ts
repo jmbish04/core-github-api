@@ -1,7 +1,8 @@
-import { 
-  normalizeProvider, 
-  normalizeWorkerAiModel, 
-  normalizeModelForGateway 
+import {
+  normalizeProvider,
+  normalizeWorkerAiModel,
+  normalizeModelForGateway,
+  formatBaseUrlForClient
 } from './normalize';
 import { getBaseUrl } from './normalize';
 import { 
@@ -12,6 +13,7 @@ import { checkAIGatewayHealth } from './health';
 
 export class AIGateway {
   public static getBaseUrl = getBaseUrl;
+  public static formatBaseUrlForClient = formatBaseUrlForClient;
   public static getApiKeyForProvider = getApiKeyForProvider;
   public static verifyProviderApiKey = verifyProviderApiKey;
   public static checkAIGatewayHealth = checkAIGatewayHealth;

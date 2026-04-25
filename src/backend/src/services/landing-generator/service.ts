@@ -5,7 +5,7 @@ import { BlueprintGenerator } from "./blueprint";
 import { TemplateGenerator } from "./template";
 import type { WorkerAnalysis, WranglerConfig, PackageJson } from "./types";
 import TOML from "@iarna/toml";
-import { generateText } from "@/ai/providers";
+import { AIProvider } from "@/ai/providers";
 import { Logger } from "@/lib/logger";
 
 interface GenerateOptions {
@@ -131,8 +131,8 @@ ${userPrompt || "Make it sound enterprise-ready."}
 `;
 
         try {
-            const text = await generateText(
-                env as Env,
+            const ai = new AIProvider(env as Env);
+            const text = await ai.generateText(
                 userMessage,
                 `${systemPrompt}\n\nReturn valid JSON only, with no markdown or commentary.`
             );

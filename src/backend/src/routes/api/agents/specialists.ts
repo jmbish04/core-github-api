@@ -40,41 +40,12 @@ specialistsApi.openapi(getSpecialistsRoute, (c) => {
   // In a production system, this could be driven by D1 or KV.
   // For the Agentic Workshop, we codify the available specialist personas here.
   const agents = [
-    {
-      id: "CfWorkshop_AgentsSdk",
-      name: "CF Agents SDK",
-      subtitle: "Cloudflare SDK Expert",
-      icon: "Wrench",
-      status: "online" as const,
-    },
-    {
-      id: "Orchestrator",
-      name: "Orchestrator",
-      subtitle: "Multi-agent coordination",
-      icon: "Bot",
-      status: "busy" as const,
-    },
-    {
-      id: "DBArchitect",
-      name: "DB Architect",
-      subtitle: "D1 + Drizzle ORM",
-      icon: "Database",
-      status: "offline" as const,
-    },
-    {
-      id: "ApiEngineer",
-      name: "API Engineer",
-      subtitle: "Hono + OpenAPI",
-      icon: "Globe",
-      status: "offline" as const,
-    },
-    {
-      id: "FrontendDev",
-      name: "Frontend Dev",
-      subtitle: "React + Astro",
-      icon: "Palette",
-      status: "offline" as const,
-    }
+    { id: "OrchestratorAgent", name: "Orchestrator", subtitle: "Planning & Delegation", icon: "Bot", status: "online" as const },
+    { id: "EngineerAgent", name: "Software Engineer", subtitle: "Implementation & PRs", icon: "Code", status: "online" as const },
+    { id: "ResearchAgent", name: "Research", subtitle: "Deep Analysis & Docs", icon: "Search", status: "online" as const },
+    // OverseerAgent was absorbed into EngineerAgent — removed from specialists list
+    // Existing workshop agents retained
+    { id: "CfWorkshop_AgentsSdk", name: "CF Agents SDK", subtitle: "Cloudflare SDK Expert", icon: "Wrench", status: "online" as const },
   ];
 
   return c.json({ agents });

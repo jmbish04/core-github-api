@@ -74,7 +74,8 @@ app.get('/run/:runId', async (c) => {
 app.get('/run/:runId/stream', async (c) => {
   const { runId } = c.req.param();
 
-  // Proxy the SSE stream from the Durable Object
+  // Legacy HTTP-SSE proxy for browser EventSource clients.
+  // Prefer @callable({ streaming: true }) streamPipeline() for RPC consumers.
   const agent = await getAgentByName(c.env.DESIGN_AGENT as any, runId);
   const doResponse = await agent.fetch(new Request("http://agent/stream", {
     headers: { 'Accept': 'text/event-stream' },
@@ -83,7 +84,7 @@ app.get('/run/:runId/stream', async (c) => {
   return new Response(doResponse.body, {
     headers: {
       'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
+      'Cache-Control': 'no-cache, no-transform',
       'Connection': 'keep-alive',
       'X-Accel-Buffering': 'no',
       'Access-Control-Allow-Origin': '*',

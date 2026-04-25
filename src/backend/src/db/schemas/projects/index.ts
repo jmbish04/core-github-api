@@ -12,7 +12,8 @@
  *   - `corkboardLabels`
  *   - `pmProjects`, `pmEpics`, `pmStories`, `pmTasks` (hierarchy, pending migration)
  */
-export * from './planning_requests';
-export * from './reverse_engineering';
+export * from './plans/requests';
+export * from './plans/revisions';
+export * from './plans/reverse_engineering';
 export * from './todos';     // todos, corkboardLabels, todoTags, todoTagMap, todoLinks, todoAiInsights
 export * from './backlog';   // epics, stories, tasks, taskComments, taskEvents

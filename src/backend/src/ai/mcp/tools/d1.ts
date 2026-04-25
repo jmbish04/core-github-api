@@ -7,12 +7,11 @@
  * @module AI/MCP/Tools/D1
  */
 import { z } from 'zod';
-import type { AgentTool as Tool } from '@/ai/agents/support/types';
+import type { AgentTool as Tool } from '@/ai/providers';
 
 /**
  * Tool for reading from D1 database via SQL.
  */
-// @ts-ignore Env is global
 export const D1ReadTool = (env: Env): Tool => ({
   name: 'd1_read_sql',
   description: 'Execute a SELECT query against the D1 database. Use this to retrieve data. Valid SQL only.',
@@ -37,7 +36,6 @@ export const D1ReadTool = (env: Env): Tool => ({
 /**
  * Tool for writing to D1 database via SQL.
  */
-// @ts-ignore Env is global
 export const D1WriteTool = (env: Env): Tool => ({
   name: 'd1_write_sql',
   description: 'Execute an INSERT, UPDATE, or DELETE query against the D1 database. Returns the execution result metadata.',

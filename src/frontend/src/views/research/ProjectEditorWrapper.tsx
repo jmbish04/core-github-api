@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import ProjectEditor from '@/views/research/components/ProjectEditor';
-import { toast } from 'sonner';
+import { handleGlobalError } from '@/lib/error-handler';
 
 interface ProjectEditorWrapperProps {
     type: 'custom' | 'cron';
@@ -34,7 +34,7 @@ export default function ProjectEditorWrapper({ type }: ProjectEditorWrapperProps
                     setDraftId(data.id);
                 } catch (e) {
                     console.error("Failed to create draft:", e);
-                    toast.error("Failed to initialize new project");
+                    handleGlobalError("Failed to initialize new project");
                     navigate(`/research/${type === 'cron' ? 'configure-cron' : 'custom'}`);
                 } finally {
                     setIsCreating(false);

@@ -14,9 +14,10 @@
  * Route summary (relative to mount point):
  *  GET  /tasks/available      — list unclaimed tasks
  *  GET  /tasks/:id            — task detail with story+epic context
+ *  POST /tasks                — create a new task
  *  POST /tasks/:id/claim      — agent claims a task
  *  PATCH /tasks/:id           — update status/notes
- *  POST /tasks/:id/submit     — submit for review, dispatch JUDGE_AGENT
+ *  POST /tasks/:id/submit     — submit for review, dispatch GUARDRAIL_AGENT
  *  POST /tasks/:id/clarify    — broadcast clarification request to orchestrators
  *  GET  /status               — system status (task counts, recent events)
  *  POST /ingest               — ingest an insight from LearningAgent
@@ -27,6 +28,7 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
 import availableApi from './available';
 import taskApi from './task';
+import createApi from './create';
 import claimApi from './claim';
 import updateApi from './update';
 import submitApi from './submit';
@@ -79,6 +81,7 @@ sentinelApi.use('*', async (c, next) => {
 sentinelApi
     .route('/', availableApi)   // GET  /tasks/available
     .route('/', taskApi)        // GET  /tasks/:id
+    .route('/', createApi)      // POST /tasks
     .route('/', claimApi)       // POST /tasks/:id/claim
     .route('/', updateApi)      // PATCH /tasks/:id
     .route('/', submitApi)      // POST /tasks/:id/submit

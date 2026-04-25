@@ -3,7 +3,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { TaskStatusBadge } from './TaskStatusBadge';
 import { Link } from 'react-router-dom';
 import { Progress } from '@/components/ui/progress';
-import { JulesSession } from '@/hooks/jules/useJulesSessions';
+import type { JulesSession } from '@/hooks/jules/useJulesSessions';
 
 interface TaskCardProps {
   session: JulesSession;

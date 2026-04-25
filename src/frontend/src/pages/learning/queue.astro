@@ -1,0 +1,19 @@
+---
+import { LearningQueueView } from "@/views/learning/LearningQueueView";
+---
+
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HITL Approval Queue | Colony CI Healer</title>
+    <meta
+      name="description"
+      content="Human-in-the-Loop approval queue for CI Healer build fix proposals. Review, approve, or reject AI-generated Jules prompts before they execute."
+    />
+  </head>
+  <body class="bg-zinc-950 text-zinc-100 min-h-screen">
+    <LearningQueueView client:load />
+  </body>
+</html>

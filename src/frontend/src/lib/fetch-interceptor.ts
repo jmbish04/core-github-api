@@ -7,7 +7,8 @@
  * was successfully caught by the worker-ai fallback.
  */
 
-import { toast } from 'sonner';
+import { handleGlobalWarning } from '@/lib/notification-handler';
+import { handleGlobalError } from '@/lib/error-handler';
 
 export function setupFetchInterceptor() {
   if (typeof window === 'undefined') return;
@@ -27,13 +28,15 @@ export function setupFetchInterceptor() {
         // Check for fallback metadata flag injected by the Hono API
         if (data && data.fallbackAlert && data.fallbackAlert.fallbackUsed) {
           const alert = data.fallbackAlert;
-          toast.warning(`Provider Failed: ${alert.originalProvider}`, {
-            description: `Request caught and completed by worker-ai fallback. Error: ${alert.errorMessage}`,
-            duration: 8000,
-          });
+          handleGlobalWarning(
+            `Provider Failed: ${alert.originalProvider}`,
+            `Request caught and completed by worker-ai fallback. Error: ${alert.errorMessage}`,
+            8000
+          );
         }
-      } catch {
-        // Silently ignore clone parsing errors
+      } catch (e) {
+        // Log clone parsing errors instead of silencing
+        handleGlobalError(new Error("[Fetch Interceptor] Parse Error: " + (e instanceof Error ? e.message : String(e))));
       }
     }
 

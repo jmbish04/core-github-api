@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Loader2, Download, UploadCloud, RefreshCw } from "lucide-react";
+import { handleGlobalError } from "@/lib/error-handler";
+import { handleGlobalSuccess } from "@/lib/success-handler";
 
 interface Skill {
   id: string;
@@ -16,7 +18,10 @@ interface Skill {
 export function SkillsManager() {
   const [skills, setSkills] = useState<Skill[]>([]);
   const [loading, setLoading] = useState(true);
-  const [ingestUrl, setIngestUrl] = useState("");
+  const [ingestOwner, setIngestOwner] = useState("google-labs-code");
+  const [ingestRepo, setIngestRepo] = useState("stitch-skills");
+  const [ingestPath, setIngestPath] = useState("skills");
+  const [ingestBranch, setIngestBranch] = useState("main");
   const [actionLoading, setActionLoading] = useState(false);
 
   const fetchSkills = async () => {
@@ -49,13 +54,14 @@ export function SkillsManager() {
       if (!res.ok) {
         const errorText = await res.text();
         console.error("Action failed:", errorText);
-        alert(`Action failed: ${errorText}`);
+        handleGlobalError(new Error(`Action failed: ${errorText}`));
       } else {
         fetchSkills();
+        handleGlobalSuccess("Action Successful");
       }
     } catch (e: any) {
       console.error(e);
-      alert(`Error: ${e.message}`);
+      handleGlobalError(e);
     } finally {
       setActionLoading(false);
     }
@@ -81,25 +87,61 @@ export function SkillsManager() {
       <Card>
         <CardHeader>
           <CardTitle>Ingest Repository</CardTitle>
-          <CardDescription>Target a GitHub tree URL containing SKILL.md files to ingest into D1.</CardDescription>
+          <CardDescription>Target a GitHub repository containing SKILL.md files to ingest into D1.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-2">
-            <Input 
-              placeholder="e.g. https://github.com/google-labs-code/stitch-skills/tree/main/skills" 
-              value={ingestUrl} 
-              onChange={(e) => setIngestUrl(e.target.value)}
-              className="flex-1"
-            />
-            <Button 
-              variant="secondary" 
-              onClick={() => handleAction("/api/skills/ingest", { repoUrl: ingestUrl })} 
-              disabled={actionLoading || !ingestUrl}
-            >
-              <RefreshCw className={`mr-2 h-4 w-4 ${actionLoading ? 'animate-spin' : ''}`} />
-              Ingest
-            </Button>
+          <div className="grid grid-cols-2 gap-3 mb-3">
+            <div className="space-y-1">
+              <label htmlFor="ingest-owner" className="text-sm text-muted-foreground">Owner / Org</label>
+              <Input 
+                id="ingest-owner"
+                placeholder="google-labs-code" 
+                value={ingestOwner} 
+                onChange={(e) => setIngestOwner(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="ingest-repo" className="text-sm text-muted-foreground">Repository</label>
+              <Input 
+                id="ingest-repo"
+                placeholder="stitch-skills" 
+                value={ingestRepo} 
+                onChange={(e) => setIngestRepo(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="ingest-path" className="text-sm text-muted-foreground">Target Path</label>
+              <Input 
+                id="ingest-path"
+                placeholder="skills" 
+                value={ingestPath} 
+                onChange={(e) => setIngestPath(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="ingest-branch" className="text-sm text-muted-foreground">Branch</label>
+              <Input 
+                id="ingest-branch"
+                placeholder="main" 
+                value={ingestBranch} 
+                onChange={(e) => setIngestBranch(e.target.value)}
+              />
+            </div>
           </div>
+          <Button 
+            variant="secondary" 
+            onClick={() => handleAction("/api/skills/ingest-structured", { 
+              owner: ingestOwner, 
+              repo: ingestRepo, 
+              path: ingestPath, 
+              branch: ingestBranch 
+            })} 
+            disabled={actionLoading || !ingestOwner || !ingestRepo}
+            className="w-full"
+          >
+            <RefreshCw className={`mr-2 h-4 w-4 ${actionLoading ? 'animate-spin' : ''}`} />
+            Ingest Skills
+          </Button>
         </CardContent>
       </Card>
 

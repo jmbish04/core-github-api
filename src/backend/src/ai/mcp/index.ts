@@ -5,7 +5,7 @@
  * Consolidates:
  *  - Native MCP tools (assistant_ui_docs, generate_plan, sequential_thinking, remote_mcp_proxy)
  *  - Jules MCP dynamic registration (@google/jules-mcp)
- *  - Stitch MCP dynamic registration (@/ai/mcp/tools/cloudflare/stitch)
+ *  - Stitch MCP dynamic registration (@/ai/mcp/tools/stitch/mcp)
  *  - /mcp and /mcp/stitch Hono route handlers
  */
 
@@ -16,6 +16,8 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
 import { z } from 'zod';
 import { handleStatelessMcpRequest } from './http-handler';
+import { getSecret } from "@/utils/secrets";
+import { Logger } from "@/lib/logger";
 
 type McpEnv = Pick<Env, 'STITCH_API_KEY' | 'JULES_API_KEY'>;
 
@@ -28,6 +30,9 @@ function createOurMcpServer(env: McpEnv) {
     name: 'Codex-Orchestrator-MCP',
     version: '1.0.0',
   });
+
+  const logger = new Logger(env as any, "MCP");
+  const logPrefix = "[MCP] ";
 
   // ── Native: Assistant-UI Documentation ──────────────────────────────────
   server.tool(
@@ -57,15 +62,18 @@ function createOurMcpServer(env: McpEnv) {
       try {
         const { JulesService } = await import('@/services/jules/service');
         const jules = JulesService.getInstance(env as any);
+        logger.info(`${logPrefix} Jules Planning Tool Called`);
 
         let contextText = '';
         if (sourceRepo) {
           contextText = `Context Repository: ${sourceRepo} on branch ${baseBranch || 'main'}\n`;
+          logger.info(`${logPrefix} Context Repository: ${sourceRepo} on branch ${baseBranch || 'main'}`);
         }
 
         const prompt = `You are an expert software architect. Analyze the provided context and generate a comprehensive implementation plan for the following request:\n${contextText}\n${description}\n\nReturn the plan in structured markdown format.`;
-
+        logger.info(`${logPrefix} Prompt: ${prompt}`);
         const outcome = await jules.runRepolessSession(prompt);
+        logger.info(`${logPrefix} Jules Planning Tool Completed: ${JSON.stringify(outcome, null, 2)}`);
 
         return {
           content: [
@@ -76,6 +84,7 @@ function createOurMcpServer(env: McpEnv) {
           ],
         };
       } catch (e: any) {
+        logger.error(`${logPrefix} Jules Planning Tool Failed: ${String(e)}`);
         return { isError: true, content: [{ type: 'text', text: `Planning failed: ${e.message}` }] };
       }
     },
@@ -124,20 +133,14 @@ function createOurMcpServer(env: McpEnv) {
           text: typeof value === 'string' ? value : JSON.stringify(value),
         },
       ];
-
+      logger.info(`${logPrefix} Remote Proxy Tool Called: ${targetServer} ${toolName} ${JSON.stringify(parameters)}`);
       if (targetServer === 'cloudflare-docs') {
         url = 'https://docs.mcp.cloudflare.com/mcp';
-        if (toolName === 'migrate_pages_to_workers_guide') {
-          return {
-            content: toTextContent('This tool is disabled by configuration.'),
-          };
-        }
+        logger.info(`${logPrefix} Cloudflare Docs URL: ${url}`);
       } else if (targetServer === 'StitchMCP') {
         url = 'https://stitch.googleapis.com/mcp';
-        headers['X-Goog-Api-Key'] =
-          typeof env.STITCH_API_KEY === 'string'
-            ? env.STITCH_API_KEY
-            : await env.STITCH_API_KEY.get();
+        const stitchApiKey = await getSecret(env as any, 'STITCH_API_KEY');
+        headers['X-Goog-Api-Key'] = stitchApiKey || '';
       }
 
       const fetchWithHeaders: typeof fetch = (input, init) =>
@@ -177,8 +180,8 @@ function createOurMcpServer(env: McpEnv) {
   // ── Jules MCP Tools (@google/jules-mcp) ─────────────────────────────────
   import('@google/jules-mcp').then(async ({ JulesMCPServer }) => {
     const { jules } = await import('@google/jules-sdk');
-    const apiKey = await (env as any).JULES_API_KEY?.get?.() ?? '';
-    const julesClient = jules.with({ apiKey });
+    const apiKey = await getSecret(env as any, 'JULES_API_KEY');
+    const julesClient = jules.with({ apiKey: apiKey || '' });
     const mcpServer = new JulesMCPServer(julesClient as any);
     const { tools: rawTools } = mcpServer._listTools();
 
@@ -206,7 +209,7 @@ function createOurMcpServer(env: McpEnv) {
   });
 
   // ── Stitch MCP Tools (@google/stitch-sdk) ───────────────────────────────
-  import('./tools/cloudflare/stitch').then(({ registerStitchTools }) => {
+  import('./tools/stitch/mcp').then(({ registerStitchTools }) => {
     registerStitchTools(server, env as any);
   }).catch(() => {
     // Stitch tools not resolvable at runtime — skip silently
@@ -217,7 +220,8 @@ function createOurMcpServer(env: McpEnv) {
     registerSentinelMcpTools(server, env as any);
   }).catch(() => {
     // Should always resolve — log if not
-    console.warn('[MCP] Failed to register Sentinel tools');
+    const logger = new Logger(env as any, "MCP");
+    logger.warn('[MCP] Failed to register Sentinel tools');
   });
 
   return server;
@@ -252,8 +256,8 @@ async function handleStitchProxy(c: Context<{ Bindings: Env }>) {
     const stitchMod = await import('@google/stitch-sdk');
     const forwardToStitch = (stitchMod as Record<string, unknown>)['forwardToStitch'] as ForwardFn | undefined;
 
-    const rawKey = c.env.STITCH_API_KEY;
-    const apiKey = typeof rawKey === 'string' ? rawKey : await (rawKey as any).get();
+    const rawKey = await getSecret(c.env, 'STITCH_API_KEY');
+    const apiKey = typeof rawKey === 'string' ? rawKey : '';
 
     if (typeof forwardToStitch !== 'function') {
       return c.json({ jsonrpc: '2.0', error: { code: -32000, message: 'forwardToStitch not available in this SDK build' }, id: null }, 501);

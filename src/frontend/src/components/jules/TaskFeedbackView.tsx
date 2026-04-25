@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { JulesSession } from '@/hooks/jules/useJulesSession';
+import type { JulesSession } from '@/hooks/jules/useJulesSession';
 import { Textarea } from '@/components/ui/textarea';
 import { Send, Loader2, MessageSquareWarning } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';

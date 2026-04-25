@@ -10,7 +10,7 @@ import { getOctokit } from '@/services/octokit/core';
 import { getWebhooksDb } from '@/db';
 import { searches, repoAnalysis } from '@/db/schemas/github/webhooks';
 import { eq, and, inArray } from 'drizzle-orm';
-import { HoniClient } from '@utils/honi-client';
+import { getAgentByName } from 'agents';
 
 interface GithubSearchWorkflowParams {
   sessionId: string;
@@ -100,8 +100,8 @@ export class GithubSearchWorkflow extends WorkflowEntrypoint<Env, GithubSearchWo
         .where(eq(searches.id, searchId));
 
       // Notify Orchestrator
-      if (this.env.ORCHESTRATOR) {
-        const stub = HoniClient.getStub(this.env.ORCHESTRATOR as any, 'orchestrator') as any;
+      if (this.env.ORCHESTRATOR_AGENT) {
+        const stub = await getAgentByName(this.env.ORCHESTRATOR_AGENT as any, 'orchestrator') as any;
         await stub.workflowComplete(searchId);
       }
     });

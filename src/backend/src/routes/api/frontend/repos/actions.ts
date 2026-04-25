@@ -6,7 +6,7 @@
 
 import { Hono } from "hono";
 import { z } from "zod";
-import { generateStructuredResponse } from "@/ai/providers";
+import { AIProvider } from "@/ai/providers";
 import { getDb } from "@db";
 import { fetchProjectContextByOwnerRepo } from "./utils";
 import { generateDocstringsForProject } from "@/automations/pr/doc-string-generator/service";
@@ -16,8 +16,12 @@ import { broadcastPlanningEvent } from "@/services/planning/monitor";
 import { PlanningRequestInputSchema } from "@/lib/schemas/jules";
 import { ReverseEngineeringAuthSchema } from "@/lib/schemas/reverse-engineering";
 import { createReverseEngineeringSnapshot } from "@/services/reverse-engineering/store";
-import { HoniClient } from '@utils/honi-client';
-
+import { getAgentByName } from 'agents';
+import { fetchBuildLogs, analyzeBuildFailure } from "@/automations/pr/build-analyzer/analysis";
+import { Octokit } from "octokit";
+import { WranglerInspectorService } from "@/services/github/wrangler-inspector";
+import { getSecret } from '@/utils/secrets'
+import { Logger } from '@/lib/logger'
 const app = new Hono<{ Bindings: Env }>();
 
 /**
@@ -25,14 +29,19 @@ const app = new Hono<{ Bindings: Env }>();
  * Dispatches an engineering task to the Project Assistant Agent.
  */
 app.post("/:owner/:repo/assistant", async (c) => {
+  const logger = new Logger(c.env, "FrontendReposActions");
   const db = getDb(c.env.DB);
   const owner = c.req.param("owner");
   const repo = c.req.param("repo");
   const ctx = await fetchProjectContextByOwnerRepo(db, owner, repo);
-  if (!ctx) return c.json({ success: false, error: "Project not found" }, 404);
+  if (!ctx) {
+    logger.warn(`Project context not found for ${owner}/${repo}`);
+    return c.json({ success: false, error: "Project not found" }, 404);
+  }
   
   const _body = (await c.req.json().catch(() => ({}))) as { prompt?: string };
   if (!_body.prompt) {
+    logger.warn(`Assistant request rejected: Missing prompt for ${owner}/${repo}`);
     return c.json({ success: false, error: "Prompt is required" }, 400);
   }
 
@@ -47,10 +56,11 @@ app.post("/:owner/:repo/assistant", async (c) => {
   });
 
   try {
-    const aiResponse = await generateStructuredResponse<z.infer<typeof AssistantSchema>>(
-      c.env,
+    logger.info(`Dispatching assistant task for ${owner}/${repo}`, { promptLength: _body.prompt.length });
+    const ai = new AIProvider(c.env);
+    const aiResponse = await ai.generateStructuredResponse<z.infer<typeof AssistantSchema>>(
       `You are the Project Assistant for repository ${owner}/${repo}.
-      
+
 Project Context:
 ${JSON.stringify(ctx, null, 2)}
 
@@ -61,6 +71,7 @@ Respond thoroughly and carefully.`,
       AssistantSchema
     );
 
+    logger.info(`Assistant task completed successfully for ${owner}/${repo}`);
     return c.json({ 
       success: true, 
       reply: aiResponse.reply,
@@ -68,6 +79,7 @@ Respond thoroughly and carefully.`,
       planSaved: aiResponse.planSaved,
     });
   } catch (error: any) {
+    logger.error(`Assistant task failed for ${owner}/${repo}`, { error: error.message });
     return c.json({ success: false, error: error.message }, 500);
   }
 });
@@ -77,19 +89,25 @@ Respond thoroughly and carefully.`,
  * Direct handoff of a technical task to the Jules agent session.
  */
 app.post("/:owner/:repo/jules/dispatch", async (c) => {
+  const logger = new Logger(c.env, "FrontendReposActions");
   const db = getDb(c.env.DB);
   const owner = c.req.param("owner");
   const repo = c.req.param("repo");
   const body = await c.req.json() as any;
   const ctx = await fetchProjectContextByOwnerRepo(db, owner, repo);
-  if (!ctx) return c.json({ error: "Context missing" }, 404);
+  if (!ctx) {
+    logger.warn(`Jules dispatch failed: Context missing for ${owner}/${repo}`);
+    return c.json({ error: "Context missing" }, 404);
+  }
 
+  logger.info(`Dispatching Jules session for ${owner}/${repo}`);
   const jules = JulesService.getInstance(c.env);
   const session = await jules.startSession({
     prompt: body.prompt,
     repo: { owner: ctx.repoOwner!, repo: ctx.repoName! }
   });
 
+  logger.info(`Jules session created: ${session.id}`);
   return c.json({ success: true, sessionId: session.id });
 });
 
@@ -98,19 +116,25 @@ app.post("/:owner/:repo/jules/dispatch", async (c) => {
  * Automatically generates AI-powered docstrings for repository files.
  */
 app.post("/:owner/:repo/docstrings/generate", async (c) => {
+    const logger = new Logger(c.env, "FrontendReposActions");
     const db = getDb(c.env.DB);
     const owner = c.req.param("owner");
     const repo = c.req.param("repo");
     const ctx = await fetchProjectContextByOwnerRepo(db, owner, repo);
-    if (!ctx) return c.json({ error: "Context missing" }, 404);
+    if (!ctx) {
+      logger.warn(`Docstrings generation failed: Context missing for ${owner}/${repo}`);
+      return c.json({ error: "Context missing" }, 404);
+    }
 
     const body = await c.req.json() as any;
+    logger.info(`Generating docstrings for ${owner}/${repo}`, { filesCount: body.files?.length || 0 });
     const result = await generateDocstringsForProject(
       c.env,
       ctx.repoOwner!,
       ctx.repoName!,
       body.files || [],
     );
+    logger.info(`Docstring generation completed for ${owner}/${repo}`);
     return c.json({ success: true, ...result });
 });
 
@@ -119,11 +143,13 @@ app.post("/:owner/:repo/docstrings/generate", async (c) => {
  * Convenience wrapper to create a planning request from a project context.
  */
 app.post("/:owner/:repo/planning/request", async (c) => {
+  const logger = new Logger(c.env, "FrontendReposActions");
   const db = getDb(c.env.DB);
   const owner = c.req.param("owner");
   const repo = c.req.param("repo");
   const ctx = await fetchProjectContextByOwnerRepo(db, owner, repo);
   if (!ctx) {
+    logger.warn(`Planning request failed: Context missing for ${owner}/${repo}`);
     return c.json({ error: "Context missing" }, 404);
   }
   const projectId = ctx.projectId;
@@ -133,6 +159,7 @@ app.post("/:owner/:repo/planning/request", async (c) => {
   const githubRepo =
     body.githubRepo || (ctx.repoOwner && ctx.repoName ? `${ctx.repoOwner}/${ctx.repoName}` : undefined);
 
+  logger.info(`Creating planning request for ${owner}/${repo}`);
   const request = await createPlanningRequest(c.env, {
     ...body,
     requestId,
@@ -165,6 +192,8 @@ app.post("/:owner/:repo/planning/request", async (c) => {
     message: "Workflow instance queued from project context.",
   });
 
+  logger.info(`Planning workflow enqueued: ${instance.id} for request: ${requestId}`);
+
   return c.json({
     success: true,
     requestId,
@@ -179,11 +208,13 @@ app.post("/:owner/:repo/planning/request", async (c) => {
  * Convenience wrapper to create a reverse engineering snapshot from project context.
  */
 app.post("/:owner/:repo/reverse-engineering/request", async (c) => {
+  const logger = new Logger(c.env, "FrontendReposActions");
   const db = getDb(c.env.DB);
   const owner = c.req.param("owner");
   const repo = c.req.param("repo");
   const ctx = await fetchProjectContextByOwnerRepo(db, owner, repo);
   if (!ctx || !ctx.repoOwner || !ctx.repoName) {
+    logger.warn(`Reverse engineering request failed: Context missing for ${owner}/${repo}`);
     return c.json({ success: false, error: "Project repository context missing" }, 404);
   }
   const projectId = ctx.projectId;
@@ -199,6 +230,8 @@ app.post("/:owner/:repo/reverse-engineering/request", async (c) => {
 
   const snapshotId = crypto.randomUUID();
   const repoUrl = ctx.repoUrl || `https://github.com/${ctx.repoOwner}/${ctx.repoName}`;
+  
+  logger.info(`Creating reverse engineering snapshot for ${owner}/${repo}`);
   const snapshot = await createReverseEngineeringSnapshot(c.env, {
     snapshotId,
     projectId,
@@ -212,21 +245,21 @@ app.post("/:owner/:repo/reverse-engineering/request", async (c) => {
     useSandboxPreview: body.useSandboxPreview ?? true,
   });
 
-  await HoniClient.fetch(c.env.HONI_ORCHESTRATOR, snapshotId, "/run", {
-    method: "POST",
-    body: JSON.stringify({
-      snapshotId,
-      projectId,
-      owner: ctx.repoOwner,
-      repo: ctx.repoName,
-      repoUrl,
-      branch: body.branch || "main",
-      frontendUrl: body.frontendUrl,
-      auth,
-      useSandboxPreview: body.useSandboxPreview ?? true,
-      title: body.title || `${ctx.repoOwner}/${ctx.repoName}`,
-    }),
+  const agent = await getAgentByName(c.env.ORCHESTRATOR_AGENT as any, snapshotId);
+  await (agent as any).runReverseEngineering({
+    snapshotId,
+    projectId,
+    owner: ctx.repoOwner,
+    repo: ctx.repoName,
+    repoUrl,
+    branch: body.branch || "main",
+    frontendUrl: body.frontendUrl,
+    auth,
+    useSandboxPreview: body.useSandboxPreview ?? true,
+    title: body.title || `${ctx.repoOwner}/${ctx.repoName}`,
   });
+
+  logger.info(`Reverse engineering snapshot started: ${snapshotId}`);
 
   return c.json({
     success: true,
@@ -234,6 +267,92 @@ app.post("/:owner/:repo/reverse-engineering/request", async (c) => {
     snapshot,
     detailUrl: `/api/reverse-engineering/snapshots/${snapshotId}`,
   });
+});
+
+/**
+ * GET /:owner/:repo/pr-command/:prNumber/build/logs/raw
+ * Provides a direct URL to fetch the build logs using Cloudflare API.
+ */
+app.get("/:owner/:repo/pr-command/:prNumber/build/logs/raw", async (c) => {
+  const logger = new Logger(c.env, "FrontendReposActions");
+  const owner = c.req.param("owner");
+  const repo = c.req.param("repo");
+  
+  let scriptName = repo;
+  try {
+    const octokit = new Octokit({ auth: await getSecret(c.env, "GITHUB_PERSONAL_ACCESS_TOKEN") });
+    const inspector = new WranglerInspectorService(octokit as any);
+    scriptName = await inspector.getWorkerName(owner, repo);
+  } catch (error) {
+    logger.warn(`Failed to resolve scriptName from wrangler config for ${owner}/${repo}. Falling back to repo name: ${repo}; Error: ${JSON.stringify(error)}`);
+  }
+
+  logger.info(`Fetching build logs for script: ${scriptName}`);
+  const result = await fetchBuildLogs(c.env, scriptName);
+  
+  if (!result.isSuccess) {
+    logger.error(`Build logs fetching failed for ${scriptName}: ${result.errorMessage}`);
+    return c.text(`Build logs not found or unavailable. ${result.errorMessage}`, 404);
+  }
+  
+  logger.info(`Build logs successfully fetched for ${scriptName}`);
+  return c.text(result.logs);
+});
+
+/**
+ * POST /:owner/:repo/pr-command/:prNumber/build/logs/analyze
+ * Dispatches Jules to analyze and fix the build failures based on the logs.
+ */
+app.post("/:owner/:repo/pr-command/:prNumber/build/logs/analyze", async (c) => {
+  const logger = new Logger(c.env, "FrontendReposActions");
+  const db = getDb(c.env.DB);
+  const owner = c.req.param("owner");
+  const repo = c.req.param("repo");
+  const prNumber = c.req.param("prNumber");
+  
+  const ctx = await fetchProjectContextByOwnerRepo(db, owner, repo);
+  if (!ctx || !ctx.repoOwner || !ctx.repoName) {
+    logger.warn(`Analyze build logs failed: Context missing for ${owner}/${repo}`);
+    return c.json({ success: false, error: "Project repository context missing" }, 404);
+  }
+
+  logger.info(`Pre-analyzing build failure for ${owner}/${repo} PR #${prNumber}`);
+  // Pre-analyze the failure (this will internally fetch the logs)
+  const analysis = await analyzeBuildFailure(c.env, {
+    prNumber: parseInt(prNumber, 10),
+    prTitle: `Fix CI Build for PR #${prNumber}`,
+    headRef: "unknown",
+    repoFullName: `${ctx.repoOwner}/${ctx.repoName}`,
+  });
+
+  const prompt = `A CI build failure was detected on PR #${prNumber}.
+
+**AI Log Analysis:**
+${analysis.analysis}
+
+**Suggested Fix / Instructions:**
+${analysis.fixPrompt}
+
+**Raw Logs Snippet:**
+\`\`\`
+${analysis.relevantLogs}
+\`\`\`
+
+**Your Task:**
+1. Determine what the actual cause of the build failure is. 
+2. If this is a missing Cloudflare Binding issue (like a missing D1 database, KV namespace, R2 bucket), you MUST create it using the Cloudflare API. You have access to Cloudflare binding MCP tools (e.g., cf_d1_create, cf_kv_create). Use them to provision the resources.
+3. If it requires updating the source code or changing \`wrangler.jsonc\` / \`wrangler.toml\` (e.g., to add the new binding IDs), do so.
+4. Auto-submit or push your fixes as a Pull Request, or directly to the PR branch if possible.`;
+
+  logger.info(`Dispatching Jules session to fix build failure for ${owner}/${repo} PR #${prNumber}`);
+  const jules = JulesService.getInstance(c.env);
+  const session = await jules.startSession({
+    prompt,
+    repo: { owner: ctx.repoOwner, repo: ctx.repoName }
+  });
+
+  logger.info(`Jules session created for build failure analysis: ${session.id}`);
+  return c.json({ success: true, sessionId: session.id });
 });
 
 export default app;

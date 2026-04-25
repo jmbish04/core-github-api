@@ -21,6 +21,7 @@ import {
 } from "@/schemas/research";
 import { getOctokit } from "@/services/octokit/core";
 import { generateUuid } from "@/utils/common";
+import { Logger } from "@/lib/logger";
 
 export class ResearchOrchestrator extends AgentWorkflow<any, ResearchWorkflowParams> {
   
@@ -33,9 +34,11 @@ export class ResearchOrchestrator extends AgentWorkflow<any, ResearchWorkflowPar
     model: string,
     system: string,
     prompt: string,
-    outputSchema: z.ZodType<T>
+    outputSchema: z.ZodType<T>,
+    /** Optional provider override — inferred from model prefix when omitted. */
+    provider?: string,
   ): Promise<T> {
-    const { Agent, run } = await import("@/ai/agents/runtime/openai");
+    const { Agent, run } = await import("@/ai/providers/clients/openai/agent");
 
     const agent = new Agent({
       name,
@@ -43,6 +46,7 @@ export class ResearchOrchestrator extends AgentWorkflow<any, ResearchWorkflowPar
       instructions: system,
       outputType: outputSchema,
       env: this.env,
+      provider: provider as any,
     });
 
     const result = await run(agent, prompt);
@@ -54,6 +58,7 @@ export class ResearchOrchestrator extends AgentWorkflow<any, ResearchWorkflowPar
     step: AgentWorkflowStep
   ) {
     const { mode, query, maxCandidates, requireApproval } = event.payload;
+    const logger = new Logger(this.env, "ResearchOrchestrator");
 
     // Create research session
     const sessionId = await step.do("create-session", async () => {
@@ -71,7 +76,7 @@ export class ResearchOrchestrator extends AgentWorkflow<any, ResearchWorkflowPar
       return session.id;
     });
 
-    console.log(`[Orchestrator] Session ${sessionId} started - Mode: ${mode}`);
+    logger.info(`[Orchestrator] Session ${sessionId} started - Mode: ${mode}`);
     
     // Non-durable progress reporting for connected Agent clients
     await this.reportProgress({
@@ -82,7 +87,7 @@ export class ResearchOrchestrator extends AgentWorkflow<any, ResearchWorkflowPar
 
     // Step 1: Parallel Exploration
     const candidates = await step.do("parallel-exploration", async () => {
-      console.log(`[Orchestrator] Identifying ${maxCandidates} candidate repos...`);
+      logger.info(`[Orchestrator] Identifying ${maxCandidates} candidate repos...`);
 
       const orchestratorPrompt = `Task: Identify ${maxCandidates} GitHub repositories that match: ${query || "trending repositories in the last week"}
 
@@ -128,7 +133,7 @@ For each repository, provide:
       return validated.filter((c) => c.sampleScore > 0.5); // Filter low-scoring candidates
     });
 
-    console.log(`[Orchestrator] Found ${candidates.length} valid candidates`);
+    logger.info(`[Orchestrator] Found ${candidates.length} valid candidates`);
 
     // Store candidates in D1
     await step.do("store-candidates", async () => {
@@ -172,14 +177,14 @@ For each repository, provide:
         message: "Awaiting human approval to proceed with deep dive."
       });
 
-      console.log(`[Orchestrator] Waiting for human approval via AgentWorkflow...`);
+      logger.info(`[Orchestrator] Waiting for human approval via AgentWorkflow...`);
 
       // Native AgentWorkflow HITL Pause (Throws WorkflowRejectedError if rejected)
       const approval = await this.waitForApproval<{ approvedBy: string }>(step, {
         timeout: "24 hours",
       });
 
-      console.log(`[Orchestrator] Approval received from ${approval?.approvedBy || "Admin"}, continuing...`);
+      logger.info(`[Orchestrator] Approval received from ${approval?.approvedBy ?? "Admin"}, continuing...`);
     }
 
     // Update session status
@@ -195,31 +200,31 @@ For each repository, provide:
 
     // Step 3: Deep Dive with Sandbox
     const analyses = await step.do("deep-dive", async () => {
-      console.log(`[Orchestrator] Performing deep analysis...`);
+      logger.info(`[Orchestrator] Performing deep analysis...`);
       const analysisPromises = candidates.map(async (candidate) => {
         return await this.deepAnalyze(candidate, sessionId);
       });
       return await Promise.all(analysisPromises);
     });
 
-    console.log(`[Orchestrator] Completed ${analyses.length} deep analyses`);
+    logger.info(`[Orchestrator] Completed ${analyses.length} deep analyses`);
     
     await this.reportProgress({ step: "llm-judge", status: "running" });
 
     // Step 4: LLM-as-Judge
     const scores = await step.do("llm-judge", async () => {
-      console.log(`[Orchestrator] Evaluating with LLM-as-Judge...`);
+      logger.info(`[Orchestrator] Evaluating with LLM-as-Judge...`);
       const judgePromises = analyses.map(async (analysis) => {
         return await this.judgeAnalysis(analysis, sessionId);
       });
       return await Promise.all(judgePromises);
     });
 
-    console.log(`[Orchestrator] Judge scored ${scores.length} repositories`);
+    logger.info(`[Orchestrator] Judge scored ${scores.length} repositories`);
 
     // Step 5: Vectorize insights
     await step.do("vectorize-insights", async () => {
-      console.log(`[Orchestrator] Vectorizing insights...`);
+      logger.info(`[Orchestrator] Vectorizing insights...`);
       for (const analysis of analyses) {
         const embedding = (await this.env.AI.run(
           "@cf/baai/bge-large-en-v1.5",
@@ -251,7 +256,7 @@ For each repository, provide:
         .where(eq(schema.researchSessions.id, sessionId));
     });
 
-    console.log(`[Orchestrator] Session ${sessionId} completed successfully`);
+    logger.info(`[Orchestrator] Session ${sessionId} completed successfully`);
 
     const finalResult = {
       sessionId,
@@ -283,9 +288,11 @@ For each repository, provide:
         description: repo.data.description || candidate.description,
         language: repo.data.language || null,
       };
-    } catch (error) {
-      console.warn(`[Orchestrator] Failed to validate ${candidate.owner}/${candidate.repo}:`, error);
-      return { ...candidate, sampleScore: 0 }; 
+    } catch (error: any) {
+      new Logger(this.env, "ResearchOrchestrator").warn(
+        `[Orchestrator] Failed to validate ${candidate.owner}/${candidate.repo}: ${error?.message ?? error}`
+      );
+      return { ...candidate, sampleScore: 0 };
     }
   }
 
@@ -296,7 +303,8 @@ For each repository, provide:
     candidate: CandidateRepo,
     sessionId: string
   ): Promise<any> {
-    console.log(`[Orchestrator] Dispatching deep_analysis to standardization repo for ${candidate.owner}/${candidate.repo}`);
+    const logger = new Logger(this.env, "ResearchOrchestrator");
+    logger.info(`[Orchestrator] Dispatching deep_analysis for ${candidate.owner}/${candidate.repo}`);
     
     const dispatchUrl = `${this.env.BASE_URL}/api/actions/dispatch`;
     const res = await fetch(dispatchUrl, {
@@ -315,7 +323,7 @@ For each repository, provide:
     });
     
     if (!res.ok) {
-        console.error(`Dispatch failed for ${candidate.repo}`);
+        logger.error(`[Orchestrator] Dispatch failed for ${candidate.repo}`);
         return { repoId: `${candidate.owner}/${candidate.repo}`, error: "Dispatch failed" };
     }
     
@@ -345,7 +353,8 @@ For each repository, provide:
     analysis: any,
     sessionId: string
   ): Promise<any> {
-    console.log(`[Orchestrator] Dispatching judge_analysis to standardization repo for ${analysis.repoId}`);
+    const logger = new Logger(this.env, "ResearchOrchestrator");
+    logger.info(`[Orchestrator] Dispatching judge_analysis for ${analysis.repoId}`);
     
     const dispatchUrl = `${this.env.BASE_URL}/api/actions/dispatch`;
     const res = await fetch(dispatchUrl, {
@@ -362,7 +371,7 @@ For each repository, provide:
     });
     
     if (!res.ok) {
-        console.error(`Dispatch failed for judge ${analysis.repoId}`);
+        logger.error(`[Orchestrator] Dispatch failed for judge ${analysis.repoId}`);
         return { repoId: analysis.repoId, error: "Dispatch failed" };
     }
 

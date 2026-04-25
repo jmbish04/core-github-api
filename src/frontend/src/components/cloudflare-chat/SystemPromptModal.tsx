@@ -22,7 +22,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import {
     Loader2, Copy, CheckCheck, Settings2, Cloud,
     Code2, Zap} from "lucide-react";
-import { toast } from "sonner";
+import { handleGlobalSuccess } from '@/lib/success-handler';
 
 interface Props {
     open: boolean;
@@ -249,7 +249,7 @@ function CopyButton({ text, label, icon: Icon = Copy }: { text: string; label: s
         navigator.clipboard.writeText(text);
         setCopied(true);
         setTimeout(() => setCopied(false), 2500);
-        toast.success("Copied to clipboard");
+        handleGlobalSuccess('Copied', "Copied to clipboard");
     };
     return (
         <Button variant="outline" size="sm" onClick={copy}

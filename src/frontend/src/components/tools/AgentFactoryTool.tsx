@@ -24,6 +24,7 @@ import {
     loadThreads, createThread, getThread, appendMessage, deleteThread,
     type CFDocsThread,
 } from "@/lib/cf-docs-thread-store";
+import { handleGlobalError } from "@/lib/error-handler";
 import { ChatComposer } from "@/components/cloudflare-chat/ChatComposer";
 import { cn } from "@/lib/utils";
 
@@ -414,7 +415,9 @@ export function AgentFactoryTool() {
                     const pro = data.models.find((m: any) => m.id.includes("pro"));
                     if (pro) setSelectedModel(pro.id);
                 }
-            } catch { /* silent */ }
+            } catch (e: any) {
+                handleGlobalError(e instanceof Error ? e : new Error(`[AgentFactoryTool] Failed to fetch models: ${e}`));
+            }
         };
         fetchModels();
     }, []);
@@ -477,7 +480,7 @@ export function AgentFactoryTool() {
                     setProgressSteps([]);
                     setLoading(false);
                 }
-            } catch { /* ignore non-JSON */ }
+            } catch (e: unknown) { handleGlobalError(new Error(`[AgentFactoryTool] WebSocket malformed JSON: ${e instanceof Error ? e.message : String(e)}`)); }
         },
     } as any);
 

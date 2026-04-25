@@ -31,11 +31,14 @@ import { cn } from '@/lib/utils';
 
 interface RepoFolderProps {
   repo: Repository;
-  isCollapsed?: boolean;
+
+  /** Controlled: whether this folder is expanded */
+  isOpen?: boolean;
+  /** Controlled: callback when the folder header is clicked */
+  onToggle?: () => void;
 }
 
-export function RepoFolder({ repo, isCollapsed }: RepoFolderProps) {
-  const [isOpen, setIsOpen] = useState(true);
+export function RepoFolder({ repo, isOpen = false, onToggle }: RepoFolderProps) {
   const [isToolsOpen, setIsToolsOpen] = useState(false);
   const { addFavorite, removeFavorite, isFavorite } = useProjectStore();
   const isFav = isFavorite(repo.full_name);
@@ -72,25 +75,13 @@ export function RepoFolder({ repo, isCollapsed }: RepoFolderProps) {
     { slug: "projects/tracker-beta/list", label: "Tracker List [Beta]", icon: LayoutList },
     { slug: "projects/tracker-beta/board", label: "Tracker Board [Beta]", icon: KanbanSquare },
     { slug: "projects/tracker-beta/reports", label: "Tracker Reports [Beta]", icon: BarChart3 },
+    { slug: "projects/tracker-shadcn/list", label: "Tracker Shadcn [Beta]", icon: LayoutList },
     { slug: "prs", label: "PRs", icon: GitPullRequest, badge: activePrCount > 0 ? activePrCount : null },
   ];
 
-  if (isCollapsed) {
-    return (
-      <div className="flex justify-center py-2">
-        <Button variant="ghost" size="icon" className="h-9 w-9 p-0" title={repo.name} asChild>
-          <NavLink to={basePath}>
-            <span className="font-semibold text-xs bg-muted text-muted-foreground rounded-md h-full w-full flex items-center justify-center uppercase">
-              {repo.name.substring(0, 2)}
-            </span>
-          </NavLink>
-        </Button>
-      </div>
-    );
-  }
 
   return (
-    <Collapsible open={isOpen} onOpenChange={setIsOpen} className="space-y-1">
+    <Collapsible open={isOpen} onOpenChange={() => onToggle?.()} className="space-y-1">
       
       {/* Folder Header */}
       <div className="flex items-center group justify-between px-2 py-1 rounded-md hover:bg-accent/50">

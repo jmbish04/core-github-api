@@ -10,6 +10,7 @@ import { useParams } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Plus, GripHorizontal, CircleDashed, Clock, CheckCircle2, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { handleGlobalError } from "@/lib/error-handler";
 
 const COLUMNS = [
   { id: "todo", title: "To Do", icon: CircleDashed, color: "text-zinc-400", border: "border-zinc-700" },
@@ -59,8 +60,9 @@ export default function TrackerBoardViewBeta() {
           }));
           setCards(mapped);
         }
-      } catch {
-        // Keep fallback data
+      } catch (e) {
+        // Log explicitly instead of just keeping fallback data silently
+        handleGlobalError(e instanceof Error ? e : new Error(`[Tracker Board] API Error: Failed to fetch available tracker tasks board data: ${JSON.stringify(e)}`));
       } finally {
         if (!cancelled) setLoading(false);
       }

@@ -4,6 +4,7 @@
  * Call with a runId once returned from POST /api/ux/run.
  */
 import { useState, useEffect, useCallback } from 'react';
+import { handleGlobalError } from "@/lib/error-handler";
 
 // ─── Event Types ─────────────────────────────────────────────────────────────
 
@@ -153,8 +154,8 @@ export function useUxRunStream(runId: string | null): UxRunStreamState {
             break;
           }
         }
-      } catch {
-        // ignore parse errors
+      } catch (err) {
+        handleGlobalError(`Failed to parse SSE message event. ${err}`);
       }
     };
 

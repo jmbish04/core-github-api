@@ -6,6 +6,7 @@
  */
 
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi';
+import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
 import { getDb } from '@db';
 import { standardizationRules, standardizationItems, standardizationTagDefinitions, standardizationTagMappings } from '@db/schemas/app/standardization';
 import { eq } from 'drizzle-orm';
@@ -18,23 +19,18 @@ import { listActiveRepositorySecretNames } from '@/services/repository-secret-de
 
 const standardsApi = new OpenAPIHono<{ Bindings: Env }>();
 
-// --- Types & Schemas ---
+// --- Drizzle-Zod Derived Schemas ---
 
-const RuleSchema = z.object({
-    id: z.string(),
-    sourceRepo: z.string(),
-    filePath: z.string(),
-    description: z.string().nullable(),
-    relevantInfra: z.array(z.string()),
-    irrelevantInfra: z.array(z.string()),
-    aiInstructions: z.string().nullable(),
-    shouldOverwrite: z.boolean(),
-    createdAt: z.string(),
-    updatedAt: z.string()
+const RuleSchema = createSelectSchema(standardizationRules, {
+  relevantInfra: () => z.array(z.string()),
+  irrelevantInfra: () => z.array(z.string()),
 });
 
-const CreateRuleSchema = RuleSchema.omit({ id: true, createdAt: true, updatedAt: true }).partial({
-    sourceRepo: true, relevantInfra: true, irrelevantInfra: true, shouldOverwrite: true
+const CreateRuleSchema = createInsertSchema(standardizationRules, {
+  relevantInfra: () => z.array(z.string()).default([]),
+  irrelevantInfra: () => z.array(z.string()).default([]),
+}).omit({ id: true, createdAt: true, updatedAt: true }).partial({
+  sourceRepo: true, relevantInfra: true, irrelevantInfra: true, shouldOverwrite: true
 });
 
 // --- Helper Functions ---
@@ -117,20 +113,17 @@ standardsApi.post("/secrets/sync", zValidator("json", z.object({ owner: z.string
 
 // --- Modern Standardization System Routes ---
 
-const TagSchema = z.object({
+const TagSchema = createInsertSchema(standardizationTagDefinitions, {
+  hexColor: (s) => s.default('#808080'),
+}).pick({ id: true, name: true, description: true, hexColor: true, isActive: true }).extend({
   id: z.string().optional(),
-  name: z.string(),
-  description: z.string().nullable().optional(),
-  hexColor: z.string().default('#808080'),
-  isActive: z.boolean().default(true)
 });
 
-const ItemSchema = z.object({
+const ItemSchema = createInsertSchema(standardizationItems).pick({
+  id: true, title: true, rule: true, isActive: true,
+}).extend({
   id: z.string().optional(),
-  title: z.string(),
-  rule: z.string(),
-  isActive: z.boolean().default(true),
-  tagIds: z.array(z.string()).optional()
+  tagIds: z.array(z.string()).optional(),
 });
 
 standardsApi.openapi(createRoute({

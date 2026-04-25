@@ -21,20 +21,7 @@ const toolsApi = new OpenAPIHono<{ Bindings: Env }>()
 // Given strict typed routes usually expect specific paths, let's mount at / to preserve existing behavior if any
 toolsApi.route('/', githubTools)
 
-/**
- * MCP Tool Definition
- */
-export interface MCPTool {
-    name: string;
-    description: string;
-    inputSchema: z.ZodTypeAny; // Zod schema for validation
-    examples?: Array<{
-        input: Record<string, any>;
-        output: Record<string, any>;
-    }>;
-    category: string;
-    tags?: string[];
-}
+export { MCPTool } from "./types";
 
 export { GITHUB_TOOLS, ORCHESTRATION_TOOLS }
 export const MCP_TOOLS = [

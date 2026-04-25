@@ -9,6 +9,7 @@
  */
 
 import { z } from "zod";
+import { getAgentByName } from "agents";
 import {
   BaseAutomation,
   type AutomationMetadata,
@@ -72,22 +73,15 @@ export class SentinelPostMerge extends BaseAutomation<PostMergePayload> {
 
       // Signal the LearningAgent to ingest this PR
       try {
-        const agentId = this.env.LEARNING_AGENT.idFromName("default");
-        const agentStub = this.env.LEARNING_AGENT.get(agentId);
-        await agentStub.fetch(
-          new Request("http://internal/ingest-pr", {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({
-              prNumber: pr.number,
-              repoOwner: repository.owner.login,
-              repoName: repository.name,
-              prUrl: pr.html_url,
-              prDescription: pr.body?.substring(0, 2000),
-              merged: true,
-            }),
-          })
-        );
+        const agent = await getAgentByName(this.env.LEARNING_AGENT as any, "learning-agent");
+        await (agent as any).ingestPR({
+          prNumber: pr.number,
+          repoOwner: repository.owner.login,
+          repoName: repository.name,
+          prUrl: pr.html_url,
+          prDescription: pr.body?.substring(0, 2000),
+          merged: true,
+        });
       } catch (err) {
         console.error(
           "[SentinelPostMerge] Failed to signal LearningAgent:",

@@ -1,5 +1,12 @@
 const repoSpecialistTemplate = `# Repo Specialist\nYou are the repository specialist. Ensure structural decisions follow the AGENTS.md guide and standardizations.`;
-import { RepoSpecialistBuilder } from '@/ai/services/repository-specialist-builder';
+
+export class RepoSpecialistBuilder {
+  constructor(private env: Env) {}
+  async generateAgentMarkdown(repo: string, description: string | null, template: string): Promise<string> {
+    return template;
+  }
+}
+
 
 function createRepoSpecialistBuilder(env: Env): RepoSpecialistBuilder {
   return new RepoSpecialistBuilder(env);

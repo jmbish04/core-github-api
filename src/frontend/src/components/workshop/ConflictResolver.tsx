@@ -3,7 +3,8 @@ import { api } from '@/lib/api-client';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { toast } from 'sonner';
+import { handleGlobalError } from '@/lib/error-handler';
+import { handleGlobalSuccess } from '@/lib/success-handler';
 
 export const ConflictResolver = ({ projectId }: { projectId: string }) => {
     const [conflicts, setConflicts] = useState<any[]>([]);
@@ -21,8 +22,9 @@ export const ConflictResolver = ({ projectId }: { projectId: string }) => {
                     setConflicts(c);
                     if (c.length > 0) setEditValue(c[0].content);
                 }
-            } catch (e) {
-                toast.error("Failed to load memory conflicts.");
+            } catch (e: unknown) {
+                const msg = e instanceof Error ? e.message : String(e);
+                handleGlobalError(`Failed to load memory conflicts. ${msg}`);
             } finally {
                 setLoading(false);
             }
@@ -39,17 +41,18 @@ export const ConflictResolver = ({ projectId }: { projectId: string }) => {
                 json: { memoryId: activeConflict.id, resolvedContent: editValue }
             });
             if (res.ok) {
-                toast.success("Conflict resolved.");
+                handleGlobalSuccess('Resolved', 'Conflict resolved.');
                 setConflicts(prev => prev.filter((_, i) => i !== activeIndex));
                 setActiveIndex(0);
                 if (conflicts.length > 1) {
                     setEditValue(conflicts[1].content);
                 }
             } else {
-                toast.error("Failed to resolve conflict.");
+                handleGlobalError("Failed to resolve conflict.");
             }
-        } catch (e) {
-            toast.error("Error resolving conflict.");
+        } catch (e: unknown) {
+            const msg = e instanceof Error ? e.message : String(e);
+            handleGlobalError(`Error resolving conflict. ${msg}`);
         }
     };
 

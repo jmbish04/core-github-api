@@ -18,11 +18,11 @@ import {
   type CFDocsThread,
   type CFDocsMessage,
   appendMessage,
-  updateThread,
   getThread,
 } from '@/lib/cf-docs-thread-store';
 
-import { toast } from 'sonner';
+import { handleGlobalError } from '@/lib/error-handler';
+import { handleGlobalWarning } from '@/lib/notification-handler';
 
 export interface ThinkingStep {
   step: string;
@@ -63,6 +63,7 @@ export function useCFDocsRuntime(
     setMessages(t?.messages ?? []);
     setFollowupPrompts([]);
     setThinkingSteps([]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [thread?.id]);
 
   const ensureWs = useCallback((sessionId: string): Promise<WebSocket> => {
@@ -73,7 +74,7 @@ export function useCFDocsRuntime(
       }
       const ws = new WebSocket(buildWsUrl(sessionId));
       ws.onopen = () => { wsRef.current = ws; resolve(ws); };
-      ws.onerror = (e) => reject(new Error('WebSocket connection failed'));
+      ws.onerror = () => reject(new Error('WebSocket connection failed'));
     });
   }, []);
 
@@ -81,7 +82,7 @@ export function useCFDocsRuntime(
     if (!thread || isRunning) return;
 
     // 1. Append user message
-    const userMsg = appendMessage(thread.id, { role: 'user', content: text });
+    appendMessage(thread.id, { role: 'user', content: text });
     const freshThread = getThread(thread.id)!;
     setMessages(freshThread.messages);
     setThread(freshThread);
@@ -121,10 +122,11 @@ export function useCFDocsRuntime(
             } else if (data.type === 'fallback_alert') {
               try {
                 const { originalProvider, errorMessage } = data.payload;
-                toast.warning(`Model Fallback Triggered`, {
-                  description: `Ah snap! The primary model (${originalProvider}) failed: ${errorMessage}. Falling back to Workers AI Llama.`,
-                  duration: 6000,
-                });
+                handleGlobalWarning(
+                  `Model Fallback Triggered`,
+                  `Ah snap! The primary model (${originalProvider}) failed: ${errorMessage}. Falling back to Workers AI Llama.`,
+                  6000
+                );
               } catch (e) {
                 console.error("Failed to parse fallback alert", e);
               }
@@ -165,12 +167,15 @@ export function useCFDocsRuntime(
               setIsRunning(false);
               setThinkingSteps([]);
             }
-          } catch { /* malformed JSON — ignore */ }
+          } catch (e: unknown) { 
+            handleGlobalError(new Error(`[useCFDocsRuntime] WebSocket malformed JSON: ${e instanceof Error ? e.message : String(e)}`)); 
+          }
         };
 
         ws.addEventListener('message', handleMessage);
         ws.send(payload);
-      } catch (err: any) {
+      } catch (e: unknown) { 
+        handleGlobalError(new Error(`[useCFDocsRuntime] WebSocket connection failed: ${e instanceof Error ? e.message : String(e)}`)); 
         // WS connection failed — fall back to REST
         try {
           const res = await fetch('/api/agents/cloudflare-chat', {
@@ -205,10 +210,11 @@ export function useCFDocsRuntime(
                const j = await res.json() as any;
                if (j.error) errText = j.error;
             } catch {}
-            toast.error("Agent Request Failed", { description: errText || "Failed to communicate with Docs agent" });
+            handleGlobalError(`Agent request failed. ${errText || 'Failed to communicate with Docs agent'}`);
           }
-        } catch (fallbackErr: any) {
-            toast.error("Network Error", { description: fallbackErr?.message || "Could not reach the AI agent endpoints." });
+        } catch (fallbackErr: unknown) {
+            const msg = fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr);
+            handleGlobalError(`Network error. ${msg || 'Could not reach the AI agent endpoints.'}`);
         }
         setIsRunning(false);
         setThinkingSteps([]);

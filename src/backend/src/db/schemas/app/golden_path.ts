@@ -25,6 +25,16 @@ export const goldenPathConfig = sqliteTable("golden_path_config", {
   scopeId: integer("scope_id")
     .notNull()
     .references(() => goldenPathConfigScopes.id, { onDelete: "cascade" }),
+  /** Detection severity: info | warning | error | critical */
+  severity: text("severity").notNull().default("warning"),
+  /** Static detection pattern — string literal or regex. Null = AI-only evaluation. */
+  pattern: text("pattern"),
+  /** How to interpret the pattern field: 'string' (includes check) or 'regex'. */
+  patternType: text("pattern_type").default("string"),
+  /** Link to relevant Cloudflare or project documentation. */
+  docsUrl: text("docs_url"),
+  /** Toggle to enable/disable this rule instantly from the frontend. */
+  isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });

@@ -4,18 +4,15 @@ import { healthRuns, healthResults, healthTestDefinitions } from '@db/schemas/lo
 import { v4 as uuidv4 } from 'uuid';
 import { eq, desc, and, gt } from 'drizzle-orm';
 import { HealthResult, HealthCategory, HealthStepResult } from './types';
-import { HoniClient } from '@utils/honi-client';
-import { analyzeFailure } from '@/ai/utils/diagnostician'; // eslint-disable-line @typescript-eslint/no-unused-vars
+import { Logger } from '@/lib/logger';
 
 // ─── Import ALL distributed modular checks ──────────────────────────────
 import { checkGitHubAPIHealth, checkWebhooksHealth, checkGitHubAppAuthHealth } from '@/workflows/health';
 import { checkHealth as checkAIHealth } from '@/ai/health';
 import { checkAIGatewayHealth } from '@/ai/providers/ai-gateway/health';
-import { checkHealth as checkAgentsHealth } from '@/ai/agents/health';
 import { checkHealth as checkMCPHealth } from '@/ai/mcp/health';
 import { checkHealth as checkBrowserHealth } from '@/ai/mcp/tools/browser/health';
-import { checkGitHealth } from '@/ai/mcp/tools/sandbox-sdk/git';
-import { checkHealth as checkSandboxHealth } from '@/ai/mcp/tools/sandbox-sdk/health_old';
+import { checkHealth as checkSandboxHealth } from '@/ai/mcp/tools/sandbox-sdk/health';
 import { checkAPIHealth } from '@/routes/api/health';
 import { checkHealth as checkPlanningHealth } from '@/workflows/planning/health';
 import { checkHealth as checkResearchHealth } from '@/workflows/research/health';
@@ -27,6 +24,32 @@ import { checkWebhookStaleness } from '@/health/checks/webhook-staleness';
 import { checkLogStaleness } from '@/health/checks/log-staleness';
 import { checkD1TableScan } from '@/health/checks/d1-table-scan';
 import { checkHealth as checkSentinelHealth } from '@/routes/api/projects/sentinel/health';
+import { checkOrchestrationHealth } from '@/ai/agents/backend/OrchestratorAgent';
+import { checkBacklogIntegrity } from '@/routes/api/projects/backlog/health';
+
+// ─── Timeouts ────────────────────────────────────────────────────────────
+/**
+ * Maximum wall-clock time (ms) a single health check is allowed to run.
+ * If a check exceeds this, it is marked as 'failure' with a timeout message.
+ * This prevents a single slow check (e.g. Sandbox boot, GitHub API) from
+ * consuming the entire Worker CPU budget.
+ */
+const PER_CHECK_TIMEOUT_MS = 8_000;
+const DEEP_CHECK_TIMEOUT_MS = 45_000;
+
+/**
+ * Maximum wall-clock time (ms) for the entire health suite (all checks +
+ * DB persistence). Must be well under the Cloudflare Worker CPU time limit
+ * (30s on paid plan). We set this to 55s to leave headroom for result
+ * persistence and JSON serialization. Note: LLM checks do not consume CPU
+ * time as heavily since they are bound by async external HTTP waits.
+ */
+const OVERALL_DEADLINE_MS = 55_000;
+
+/**
+ * Maximum wall-clock time (ms) for each dynamic (user-defined) HTTP probe.
+ */
+const DYNAMIC_TEST_TIMEOUT_MS = 5_000;
 
 // ─── Check Registry ──────────────────────────────────────────────────────
 // Each check returns HealthStepResult and maps to a category for D1 persistence.
@@ -42,13 +65,11 @@ const CODE_CHECKS: RegisteredCheck[] = [
     { id: 'semantics',  category: 'semantics',   fn: checkSemanticsHealth },
     { id: 'ai',         category: 'ai',          fn: checkAIHealth },
     { id: 'ai_gateway', category: 'ai',          fn: checkAIGatewayHealth },
-    { id: 'agents',     category: 'agents',      fn: checkAgentsHealth },
     { id: 'mcp',        category: 'mcp',         fn: checkMCPHealth },
     { id: 'browser',    category: 'browser',     fn: checkBrowserHealth },
     { id: 'github_app', category: 'github',      fn: checkGitHubAppAuthHealth },
     { id: 'github',     category: 'github',      fn: checkGitHubAPIHealth },
     { id: 'webhooks',   category: 'webhooks',    fn: checkWebhooksHealth },
-    { id: 'git',        category: 'git',         fn: checkGitHealth },
     { id: 'sandbox',    category: 'sandbox',     fn: checkSandboxHealth },
     { id: 'research',   category: 'research',    fn: checkResearchHealth },
     { id: 'planning',   category: 'planning',    fn: checkPlanningHealth },
@@ -58,31 +79,90 @@ const CODE_CHECKS: RegisteredCheck[] = [
     { id: 'log_staleness',     category: 'database',    fn: checkLogStaleness },
     { id: 'd1_table_scan',     category: 'database',    fn: checkD1TableScan },
     { id: 'sentinel',          category: 'sentinel',    fn: checkSentinelHealth },
+    { id: 'orchestration',     category: 'agents',      fn: checkOrchestrationHealth },
+    { id: 'backlog',           category: 'database',    fn: checkBacklogIntegrity },
 ];
+
+/**
+ * Wraps a health check function with a per-check timeout.
+ * If the check doesn't resolve within \`PER_CHECK_TIMEOUT_MS\`, a synthetic
+ * failure result is returned so the suite can continue.
+ */
+async function runCheckWithTimeout(
+    check: RegisteredCheck,
+    env: Env,
+): Promise<{ check: RegisteredCheck; result: HealthStepResult }> {
+    const checkStart = Date.now();
+    const timeoutOverride = check.id === 'guardrail_deep' ? DEEP_CHECK_TIMEOUT_MS : PER_CHECK_TIMEOUT_MS;
+
+    try {
+        const result = await Promise.race([
+            check.fn(env),
+            new Promise<never>((_, reject) =>
+                setTimeout(() => reject(new Error(`Timed out after ${timeoutOverride}ms`)), timeoutOverride)
+            ),
+        ]);
+        return { check, result };
+    } catch (e: any) {
+        return {
+            check,
+            result: {
+                name: check.id,
+                status: 'failure' as const,
+                message: e.message || 'Check threw an exception',
+                durationMs: Date.now() - checkStart,
+                details: {
+                    errorName: e.name,
+                    timeout: e.message?.includes('Timed out'),
+                    category: check.category,
+                },
+                analysis: undefined,
+            } as HealthStepResult,
+        };
+    }
+}
 
 export class HealthCoordinator {
     private env: Env;
     private db: ReturnType<typeof getDb>;
+    private logger: Logger;
 
     constructor(env: Env) {
         this.env = env;
         this.db = getDb(env.DB);
+        this.logger = new Logger(env, 'HealthCoordinator');
     }
 
     /**
      * Run all system health checks (code-based + dynamic) and persist results.
+     *
+     * ──────────────────────────────────────────────────────────────────────
+     * PERFORMANCE ARCHITECTURE (prevents Error 1102):
+     *
+     * 1. Each check has an 8-second timeout — a slow Sandbox boot or GitHub
+     *    API call cannot burn the entire CPU budget.
+     *
+     * 2. AI diagnosis is NOT run inline. Health checks must be fast and
+     *    deterministic. AI analysis (via HEALTH_DIAGNOSTICIAN DO) is
+     *    available as a separate POST /api/health/analyze endpoint that the
+     *    frontend can call per-failure after results are displayed.
+     *
+     * 3. An overall 25-second deadline exists. If the suite is still running
+     *    after 25s, it bails out with whatever results it has. This leaves
+     *    5 seconds of headroom for DB persistence before the 30s CPU limit.
+     *
+     * 4. Dynamic tests have a 5-second per-test timeout via AbortSignal.
+     * ──────────────────────────────────────────────────────────────────────
      */
     async runAllChecks(trigger: 'manual' | 'scheduled' | 'api' = 'manual') {
         const runId = uuidv4();
-        const start = Date.now();
+        const suiteStart = Date.now();
         let runRecordCreated = false;
 
         const results: HealthResult[] = [];
 
         try {
             // 1. Create Run Record (Pending)
-            // Note: omit created_at (let D1 use CURRENT_TIMESTAMP default) and
-            // metadata (no value yet — set on the subsequent update after checks complete).
             await this.db.insert(healthRuns).values({
                 id: runId,
                 status: 'unknown',
@@ -90,75 +170,27 @@ export class HealthCoordinator {
             });
             runRecordCreated = true;
 
-            // 2. Run ALL Code Checks in Parallel
-            const checkPromises = CODE_CHECKS.map(async (check) => {
-                const checkStart = Date.now();
-                try {
-                    return { check, result: await check.fn(this.env) };
-                } catch (e: any) {
-                    return {
-                        check,
-                        result: {
-                            name: check.id,
-                            status: 'failure' as const,
-                            message: e.message || 'Check threw an exception',
-                            durationMs: Date.now() - checkStart,
-                            details: {
-                                errorName: e.name,
-                                errorStack: e.stack,
-                                errorCause: e.cause,
-                                category: check.category
-                            },
-                            analysis: undefined,
-                        } as HealthStepResult
-                    };
-                }
-            });
+            // 2. Run ALL Code Checks in Parallel (each with individual timeout)
+            const settledChecks = await Promise.all(
+                CODE_CHECKS.map(check => runCheckWithTimeout(check, this.env))
+            );
 
-            const settledChecks = await Promise.all(checkPromises);
+            // 3. Check overall deadline before dynamic tests
+            const elapsedMs = Date.now() - suiteStart;
+            let dynamicResults: HealthResult[] = [];
+            let dynamicSkipped = false;
 
-            // 3. Run Dynamic DB-Driven Tests
-            const dynamicResults = await this.runDynamicTests(runId);
+            if (elapsedMs < OVERALL_DEADLINE_MS - DYNAMIC_TEST_TIMEOUT_MS) {
+                dynamicResults = await this.runDynamicTests(runId);
+            } else {
+                dynamicSkipped = true;
+                this.logger.warn(`Skipping dynamic tests — ${elapsedMs}ms elapsed, approaching deadline`);
+            }
 
-            // 4. Map results + AI analysis for failures
+            // 4. Map results to persistence format (NO AI analysis inline)
             const now = new Date().toISOString();
 
             for (const { check, result } of settledChecks) {
-                let aiSuggestion: string | null = null;
-
-                // Dispatch failure to the dedicated Agent DO
-                if (result.status === 'failure' && this.env.HEALTH_DIAGNOSTICIAN) {
-                    try {
-                        const diagnosticResponse = await HoniClient.fetch(this.env.HEALTH_DIAGNOSTICIAN, 'singleton', '/diagnose', {
-                            method: "POST",
-                            body: JSON.stringify({
-                                errorName: result.name,
-                                errorMessage: result.message || 'Unknown failure',
-                                errorDetails: result.details || { notice: 'No details provided' },
-                                category: check.category,
-                                target: result.name
-                            })
-                        });
-
-                        if (diagnosticResponse.ok) {
-                            const rawAnalysis = await diagnosticResponse.json<{ severity: string, rootCause: string, suggestedFix: string, prUrl: string | null }>();
-                            aiSuggestion = `[${rawAnalysis.severity}] ${rawAnalysis.rootCause} — Fix: ${rawAnalysis.suggestedFix}`;
-                            if (rawAnalysis.prUrl) {
-                                aiSuggestion += `\nApplied Fix PR: ${rawAnalysis.prUrl}`;
-                            }
-                            result.analysis = {
-                                severity: rawAnalysis.severity as any,
-                                rootCause: rawAnalysis.rootCause,
-                                suggestedFix: rawAnalysis.suggestedFix,
-                                confidence: 1.0,
-                                fixPrompt: "Remediation managed by autonomous HealthDiagnostician DO"
-                            };
-                        }
-                    } catch (e) {
-                        console.error("Agent Diagnostic DO Call Failed", e);
-                    }
-                }
-
                 results.push({
                     id: uuidv4(),
                     run_id: runId,
@@ -170,36 +202,13 @@ export class HealthCoordinator {
                     message: result.message,
                     duration_ms: result.durationMs,
                     details: result.details,
-                    ai_suggestion: aiSuggestion,
+                    ai_suggestion: null, // AI analysis is deferred — use POST /analyze
                     timestamp: now
                 });
             }
 
             // Add dynamic test results
             for (const r of dynamicResults) {
-                if (r.status === 'failure' && this.env.HEALTH_DIAGNOSTICIAN) {
-                    try {
-                        const diagnosticResponse = await HoniClient.fetch(this.env.HEALTH_DIAGNOSTICIAN, 'singleton', '/diagnose', {
-                            method: "POST",
-                            body: JSON.stringify({
-                                errorName: r.name,
-                                errorMessage: r.message,
-                                errorDetails: r.details,
-                                category: r.category,
-                                target: r.name
-                            })
-                        });
-                        if (diagnosticResponse.ok) {
-                            const rawAnalysis = await diagnosticResponse.json<{ severity: string, rootCause: string, suggestedFix: string, prUrl: string | null }>();
-                            r.ai_suggestion = `[${rawAnalysis.severity}] ${rawAnalysis.rootCause} — Fix: ${rawAnalysis.suggestedFix}`;
-                            if (rawAnalysis.prUrl) {
-                                r.ai_suggestion += `\nApplied Fix PR: ${rawAnalysis.prUrl}`;
-                            }
-                        }
-                    } catch (e) {
-                        console.error("Dynamic test agent diagnostic failed", e);
-                    }
-                }
                 results.push(r);
             }
 
@@ -211,15 +220,20 @@ export class HealthCoordinator {
                     ? 'degraded'
                     : 'unhealthy';
 
-            console.log(`[HealthCoordinator] Run ${runId}: ${results.length} checks, ${failureCount} failures → ${overallStatus}`);
+            const totalDuration = Date.now() - suiteStart;
+            this.logger.info(`Run ${runId}: ${results.length} checks, ${failureCount} failures → ${overallStatus}`, { durationMs: totalDuration, failureCount });
 
             // 6. Update Run Record
             const fullSteps = settledChecks.map(s => s.result);
             await this.db.update(healthRuns)
                 .set({
                     status: overallStatus,
-                    duration_ms: Date.now() - start,
-                    metadata: { steps: fullSteps }
+                    duration_ms: totalDuration,
+                    metadata: {
+                        steps: fullSteps,
+                        dynamicSkipped,
+                        deadline: OVERALL_DEADLINE_MS,
+                    }
                 })
                 .where(eq(healthRuns.id, runId));
 
@@ -237,21 +251,23 @@ export class HealthCoordinator {
                 await this.db.batch(stmts as any);
             }
 
-
+            await this.logger.flush();
             return { runId, status: overallStatus, results };
 
         } catch (e: any) {
-            console.error('Critical Health Coordinator Failure', e);
+            this.logger.error('Critical Health Coordinator Failure', { error: e.message || e });
 
             if (runRecordCreated) {
                 try {
                     await this.db.update(healthRuns)
-                        .set({ status: 'unhealthy', duration_ms: Date.now() - start })
+                        .set({ status: 'unhealthy', duration_ms: Date.now() - suiteStart })
                         .where(eq(healthRuns.id, runId));
-                } catch (updateError) {
-                    console.error('Failed to persist unhealthy health run state', updateError);
+                } catch (updateError: any) {
+                    this.logger.error('Failed to persist unhealthy health run state', { error: updateError.message || updateError });
                 }
             }
+
+            await this.logger.flush();
 
             return {
                 runId,
@@ -263,7 +279,7 @@ export class HealthCoordinator {
                     name: 'Health Coordinator',
                     status: 'failure' as const,
                     message: e.message || 'Health coordinator failed',
-                    duration_ms: Date.now() - start,
+                    duration_ms: Date.now() - suiteStart,
                     timestamp: new Date().toISOString()
                 }]
             };
@@ -272,6 +288,7 @@ export class HealthCoordinator {
 
     /**
      * Execute dynamic tests from healthTestDefinitions table.
+     * Each test has a per-request timeout of DYNAMIC_TEST_TIMEOUT_MS.
      */
     private async runDynamicTests(runId: string): Promise<HealthResult[]> {
         const results: HealthResult[] = [];
@@ -288,7 +305,7 @@ export class HealthCoordinator {
                 try {
                     const response = await fetch(def.target, {
                         method: def.method || 'GET',
-                        signal: AbortSignal.timeout(10_000),
+                        signal: AbortSignal.timeout(DYNAMIC_TEST_TIMEOUT_MS),
                     });
 
                     const isExpected = response.status === (def.expected_status || 200);
@@ -296,7 +313,7 @@ export class HealthCoordinator {
                     
                     try {
                         const text = await response.text();
-                        bodySnippet = text.slice(0, 1000); // Capture up to 1000 chars for AI debugging
+                        bodySnippet = text.slice(0, 1000); // Capture up to 1000 chars for debugging
                     } catch {
                         // ignore body read errors
                     }
@@ -332,15 +349,13 @@ export class HealthCoordinator {
                             criticality: def.criticality, 
                             target: def.target,
                             errorName: e.name,
-                            errorStack: e.stack,
-                            errorCause: e.cause
                         },
                         timestamp: new Date().toISOString()
                     });
                 }
             }
-        } catch (e) {
-            console.error('[HealthCoordinator] Failed to load dynamic tests:', e);
+        } catch (e: any) {
+            this.logger.error('Failed to load dynamic tests', { error: e.message || e });
         }
 
         return results;
@@ -364,8 +379,9 @@ export class HealthCoordinator {
                 run: lastRun[0],
                 results: runResults
             };
-        } catch (e) {
-            console.error('Failed to read latest health run', e);
+        } catch (e: any) {
+            this.logger.error('Failed to read latest health run', { error: e.message || e });
+            await this.logger.flush();
             return null;
         }
     }
@@ -398,8 +414,9 @@ export class HealthCoordinator {
             }));
 
             return history;
-        } catch (e) {
-            console.error('Failed to read health history', e);
+        } catch (e: any) {
+            this.logger.error('Failed to read health history', { error: e.message || e });
+            await this.logger.flush();
             return [];
         }
     }

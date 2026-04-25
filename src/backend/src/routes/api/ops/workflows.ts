@@ -1,8 +1,10 @@
 import { Hono } from "hono";
 import { z } from "zod";
+import { createInsertSchema } from "drizzle-zod";
 import { zValidator } from "@hono/zod-validator";
 import { getDb } from "@db";
 import { automationRules } from "@/db/schemas/app/automation_rules";
+import { automationRunnerPolicies } from "@/db/schemas/app/automation_runner_policies";
 import { eq } from "drizzle-orm";
 import { generateUuid } from "@/utils/common";
 import { DEFAULT_GITHUB_OWNER, DEFAULT_TEMPLATE_REPO } from "@github-utils";
@@ -141,29 +143,39 @@ workflowsApi.post("/jules", zValidator("json", JulesTaskSchema), async (c) => {
 
 // Removed redeclared imports
 
-const AutomationRuleBody = z.object({
-  name: z.string(),
-  description: z.string(),
-  triggerEvent: z.string(),
-  triggerAction: z.string().optional().nullable(),
-  triggerBranch: z.string().optional().nullable(),
-  workflow: z.string(),
-  isActive: z.boolean().default(true)
+const AutomationRuleBody = createInsertSchema(automationRules, {
+  name: (s) => s.min(1),
+  description: (s) => s.min(1),
+  triggerEvent: (s) => s.min(1),
+}).pick({
+  name: true,
+  description: true,
+  triggerEvent: true,
+  triggerAction: true,
+  triggerBranch: true,
+  workflow: true,
+  isActive: true,
 });
 
-const AutomationRunnerPolicyBody = z.object({
-  title: z.string().trim().min(1),
-  description: z.string().trim().optional().nullable(),
-  automationKey: z.string().trim().min(1),
-  triggerEvent: z.string().trim().min(1),
-  runnerKind: z.enum(["internal_agent", "jules", "github_assignment"]),
-  targetRef: z.string().trim().optional().nullable(),
-  repoOwner: z.string().trim().optional().nullable(),
-  repoName: z.string().trim().optional().nullable(),
-  branchPattern: z.string().trim().optional().nullable(),
-  infrastructure: z.string().trim().optional().nullable(),
-  priority: z.coerce.number().int().min(0).default(100),
-  isActive: z.boolean().default(true),
+const AutomationRunnerPolicyBody = createInsertSchema(automationRunnerPolicies, {
+  title: (s) => s.trim().min(1),
+  automationKey: (s) => s.trim().min(1),
+  triggerEvent: (s) => s.trim().min(1),
+  runnerKind: () => z.enum(["internal_agent", "jules", "github_assignment"]),
+  priority: () => z.coerce.number().int().min(0).default(100),
+}).pick({
+  title: true,
+  description: true,
+  automationKey: true,
+  triggerEvent: true,
+  runnerKind: true,
+  targetRef: true,
+  repoOwner: true,
+  repoName: true,
+  branchPattern: true,
+  infrastructure: true,
+  priority: true,
+  isActive: true,
 });
 
 workflowsApi.get("/rules", async (c) => {
@@ -258,10 +270,10 @@ workflowsApi.delete("/runner-policies/:id", async (c) => {
 
 // Removed redeclared imports
 
-const WebhookConfigBody = z.object({
-  automationClass: z.string(),
-  isActive: z.boolean(),
-  usePat: z.boolean().optional(),
+const WebhookConfigBody = createInsertSchema(webhookConfigs).pick({
+  automationClass: true,
+  isActive: true,
+  usePat: true,
 });
 
 workflowsApi.get("/configs", async (c) => {

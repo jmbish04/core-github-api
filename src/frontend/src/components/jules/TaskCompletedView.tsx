@@ -1,6 +1,6 @@
 import { CheckCircle } from 'lucide-react';
 import { Card } from '@/components/ui/card';
-import { JulesSession } from '@/hooks/jules/useJulesSession';
+import type { JulesSession } from '@/hooks/jules/useJulesSession';
 
 export function TaskCompletedView({ session }: { session: JulesSession }) {
   return (

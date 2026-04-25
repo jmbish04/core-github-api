@@ -7,8 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import {
     Cloud, Loader2, Send, Package2, Database, HardDrive,
-    Globe, Camera, Code2, ChevronRight, RefreshCw, Activity,
-    Server, Box, Network, Copy, CheckCheck, Search, Sparkles, Check,
+    Globe, Camera, ChevronRight, RefreshCw, Activity,
+    Server, Box, Network, Copy, CheckCheck, Sparkles, Check,
     MessageSquare, Plus, Trash2, Bot, User, Cpu, Square, Settings, FileText,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
@@ -22,7 +22,7 @@ import {
 import { SystemPromptEditor } from "@/components/cloudflare-chat/SystemPromptEditor";
 import { SystemPromptModal } from "@/components/cloudflare-chat/SystemPromptModal";
 
-import { Suggestions } from "@assistant-ui/react";
+import { handleGlobalError } from "@/lib/error-handler";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -297,14 +297,15 @@ function ChatTab({ defaultOwner, defaultRepo, source = "global-tools", locked = 
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // Sync when active thread changes
+    // Sync when active thread changes (keyed on ID only — other thread fields are irrelevant)
+    const activeThreadId = activeThread?.id;
     useEffect(() => {
-        const t = activeThread ? getThread(activeThread.id) : null;
+        const t = activeThreadId ? getThread(activeThreadId) : null;
         messagesRef.current = t?.messages ?? [];
         setInput("");
         setProgressSteps([]);
         setFollowupPrompts([]);
-    }, [activeThread?.id]);
+    }, [activeThreadId]);
 
     // ── useAgent WebSocket ─────────────────────────────────────────────────────
     const sessionId = activeThread?.id ?? "init";
@@ -312,7 +313,7 @@ function ChatTab({ defaultOwner, defaultRepo, source = "global-tools", locked = 
         agent: "cloudflare-docs-agent",
         name: sessionId,
         onOpen() { setWsStatus("open"); },
-        onClose(event: CloseEvent) {
+        onClose() {
             setWsStatus("closed");
             if (loading) { setProgressSteps([]); setLoading(false); }
         },
@@ -352,7 +353,7 @@ function ChatTab({ defaultOwner, defaultRepo, source = "global-tools", locked = 
                     setProgressSteps([]);
                     setLoading(false);
                 }
-            } catch { /* ignore non-JSON */ }
+            } catch (e: unknown) { handleGlobalError(new Error(`WebSocket malformed JSON: ${e instanceof Error ? e.message : String(e)}`)); }
         },
     } as any);
 
@@ -645,7 +646,8 @@ function ResourceBrowser() {
         fetchResource(active);
     };
 
-    useEffect(() => { fetchResource('workers'); }, []);
+    useEffect(() => { fetchResource('workers'); // eslint-disable-next-line react-hooks/exhaustive-deps -- one-time mount fetch; fetchResource depends on mutable `data` state
+    }, []);
 
     const items = data[active];
 

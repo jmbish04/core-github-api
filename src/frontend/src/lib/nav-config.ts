@@ -39,6 +39,7 @@ export const NAV_GLOBAL: NavItem[] = [
 
 export const NAV_OPERATIONS: NavItem[] = [
   { label: 'Workflows',  href: '/workflows',  description: 'Cloudflare Workflows — background job monitoring' },
+  { label: 'Agent Operations', href: '/agents', description: 'Monitor real-time agent health and workflows' },
   { label: 'Webhooks',   href: '/webhooks',   description: 'Incoming GitHub webhook event log' },
 ];
 
@@ -61,6 +62,7 @@ export const NAV_SYSTEM: NavItem[] = [
   { label: 'Settings',      href: '/settings/general', description: 'Global application settings' },
   { label: 'Alerts',        href: '/alerts',            description: 'System alerts and notifications' },
   { label: 'App Store',     href: '/apps',              description: 'Browse installable app integrations' },
+  { label: 'Agent AI Config', href: '/config/agents-ai', description: 'Configure provider, model & instructions per agent function' },
   { label: 'Standardization', href: '/standardization', description: 'Repository standardization controls' },
   { label: 'Swagger API',   href: '/swagger',           description: 'OpenAPI Swagger Documentation' },
   { label: 'Scaler Reference', href: '/scaler',         description: 'OpenAPI Scaler Reference' },
@@ -69,7 +71,7 @@ export const NAV_SYSTEM: NavItem[] = [
 
 export const NAV_PROJECT_CONTEXT: NavItem[] = [
   { label: 'Project Dashboard',       href: '/repos/:owner/:repo/dashboard',  description: 'Per-project overview' },
-  { label: 'AI Planner',              href: '/repos/:owner/:repo/plan',      description: 'AI-driven planning agent (Honi)' },
+  { label: 'AI Planner',              href: '/repos/:owner/:repo/plan',      description: 'AI-driven planning agent' },
   { label: 'Projects (Backlog)',       href: '/repos/:owner/:repo/projects',   description: 'Epics, stories, and tasks backlog' },
   { label: 'Project Kanban',          href: '/repos/:owner/:repo/kanban',     description: 'Per-project Kanban board' },
   { label: 'Project Roadmap',         href: '/repos/:owner/:repo/roadmap',    description: 'Per-project roadmap' },

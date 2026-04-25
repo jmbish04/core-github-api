@@ -1,6 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState } from 'react';
-import { toast } from "sonner";
+import { handleGlobalError } from '@/lib/error-handler';
+import { handleGlobalSuccess } from '@/lib/success-handler';
 import type { UpdateItemInput } from '@/lib/validations';
 import { api } from '@/lib/api-client';
 
@@ -91,10 +92,10 @@ export function HierarchyProvider({ initialData, projectId, children }: { initia
       });
 
       if (!res.ok) throw new Error("Failed to sync");
-      toast.success(`${type} updated`);
-    } catch {
+      handleGlobalSuccess('Updated', `${type} updated`);
+    } catch (err) {
       setData(previousData);
-      toast.error("Sync failed. Reverted.");
+      handleGlobalError(`[HierarchyContext] Sync failed. Reverted. ${err}`);
     } finally {
       setIsPending(false);
     }
@@ -133,10 +134,10 @@ export function HierarchyProvider({ initialData, projectId, children }: { initia
       });
 
       if (!res.ok) throw new Error("Failed to move");
-      toast.success(`${type} moved successfully`);
-    } catch {
+      handleGlobalSuccess('Moved', `${type} moved successfully`);
+    } catch (err) {
       setData(previousData);
-      toast.error("Move failed. Reverted.");
+      handleGlobalError(`[HierarchyContext] Move failed. Reverted. ${err}`);
     } finally {
       setIsPending(false);
     }
@@ -156,9 +157,9 @@ export function HierarchyProvider({ initialData, projectId, children }: { initia
 
       const newRow = (await res.json()) as any;
       setData((prev: any) => addChildToNode(prev, parentId, newRow, childKeyMap[type]));
-      toast.success(`${type} created`);
-    } catch {
-        toast.error("Failed to create item");
+      handleGlobalSuccess('Created', `${type} created`);
+    } catch (err) {
+        handleGlobalError(`[HierarchyContext] Failed to create item. ${err}`);
     } finally {
       setIsPending(false);
     }
@@ -176,10 +177,10 @@ export function HierarchyProvider({ initialData, projectId, children }: { initia
       });
 
       if (!res.ok) throw new Error("Failed to delete");
-       toast.success(`${type} deleted`);
-    } catch {
+       handleGlobalSuccess('Deleted', `${type} deleted`);
+    } catch (err) {
       setData(previousData);
-      toast.error("Delete failed. Reverted.");
+      handleGlobalError(`[HierarchyContext] Delete failed. Reverted. ${err}`);
     } finally {
       setIsPending(false);
     }

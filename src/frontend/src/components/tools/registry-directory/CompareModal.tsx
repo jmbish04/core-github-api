@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowRightLeft, Loader2, X } from 'lucide-react';
 import { api } from '@/lib/api-client';
+import { handleGlobalError } from '@/lib/error-handler';
 import type { RegistryItem } from './data';
 
 interface CompareModalProps {
@@ -40,8 +41,9 @@ export const CompareModal = ({ isOpen, onClose, selectedItems }: CompareModalPro
       } else {
         throw new Error('Failed to generate comparison.');
       }
-    } catch {
+    } catch (e: any) {
       setError("Failed to generate comparison. Please try again.");
+      handleGlobalError(e instanceof Error ? e : new Error(`[CompareModal] Failed to generate comparison: ${e}`));
     } finally {
       setLoading(false);
     }

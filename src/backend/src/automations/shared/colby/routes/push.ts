@@ -1,6 +1,5 @@
 import type { ColbyRouteModule } from '../contracts';
 import { ExtractCommand } from '../commands/extract';
-import { ImplementCommand } from '../commands/implement';
 import { TestCommand } from '../commands/test';
 import { FixAllCommand } from '../fixers/all';
 import { ResolveCommentsCommand } from '../fixers/comments';
@@ -9,7 +8,6 @@ import { FixTypesCommand } from '../fixers/types';
 export const pushColbyRoute: ColbyRouteModule = {
   domain: 'push',
   commands: [
-    ImplementCommand,
     ExtractCommand,
     TestCommand,
     FixAllCommand,

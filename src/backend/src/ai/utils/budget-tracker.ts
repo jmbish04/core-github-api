@@ -12,6 +12,7 @@
 import { drizzle } from 'drizzle-orm/d1';
 import { aiCostLogs, budgetEvents } from '@db/schema';
 import { generateUuid } from '@/utils/common';
+import { Logger } from '@/lib/logger';
 import { getSecret } from '@/utils/secrets';
 import { sql, desc, eq, gt, and } from 'drizzle-orm';
 import { z } from 'zod';
@@ -97,18 +98,20 @@ export class BudgetTracker {
     const cf = await this.getCloudflare();
 
     if (!cf || !this.env.CLOUDFLARE_ACCOUNT_ID) {
-        console.warn('[BudgetTracker] Missing Cloudflare credentials, skipping dynamic pricing fetch.');
+        const logger = new Logger(this.env, "BudgetTracker");
+        logger.warn('Missing Cloudflare credentials, skipping dynamic pricing fetch.');
         return;
     }
 
-    console.log(`[BudgetTracker] Fetching pricing for: ${modelName}...`);
+    const logger = new Logger(this.env, "BudgetTracker");
+    logger.info(`Fetching pricing for: ${modelName}...`);
     try {
         // Initialize cache
         WORKERS_AI_PRICING_CACHE = WORKERS_AI_PRICING_CACHE || {};
 
         const accountId = await getSecret(this.env, "CLOUDFLARE_ACCOUNT_ID");
         if (!accountId) {
-            console.warn('[BudgetTracker] Missing CLOUDFLARE_ACCOUNT_ID, skipping dynamic pricing fetch.');
+            logger.warn('Missing CLOUDFLARE_ACCOUNT_ID, skipping dynamic pricing fetch.');
             return;
         }
 
@@ -130,7 +133,7 @@ export class BudgetTracker {
         }
 
         if (!targetModel) {
-             console.warn(`[BudgetTracker] Model '${modelName}' not found in search results.`);
+             logger.warn(`Model '${modelName}' not found in search results.`);
              WORKERS_AI_PRICING_CACHE[modelName] = []; // Mark as found but empty to avoid refetching immediately
              return;
         }
@@ -139,7 +142,7 @@ export class BudgetTracker {
         const priceProperty = targetModel.properties.find(p => p.property_id === 'price');
         
         if (!priceProperty) {
-            console.info(`[BudgetTracker] Model '${modelName}' exists but has no pricing property.`);
+            logger.info(`Model '${modelName}' exists but has no pricing property.`);
             WORKERS_AI_PRICING_CACHE[modelName] = [];
             return;
         }
@@ -147,17 +150,18 @@ export class BudgetTracker {
         // 4. Validate struct
         const result = z.array(ModelPriceSchema).safeParse(priceProperty.value);
         if (!result.success) {
-             console.error(`[BudgetTracker] Failed to parse pricing for '${modelName}':`, result.error);
+             logger.error(`Failed to parse pricing for '${modelName}':`, result.error);
              return;
         }
 
         // 5. Update Cache
         WORKERS_AI_PRICING_CACHE[modelName] = result.data;
         CACHE_TIMESTAMP = Date.now();
-        console.log(`[BudgetTracker] Cached pricing for ${modelName}:`, result.data);
+        logger.info(`Cached pricing for ${modelName}:`, result.data);
 
-    } catch (e) {
-        console.error('[BudgetTracker] Failed to fetch Workers AI pricing:', e);
+    } catch (e: any) {
+        const logger = new Logger(this.env, "BudgetTracker");
+        logger.error('Failed to fetch Workers AI pricing:', e);
     }
   }
 
@@ -281,8 +285,9 @@ export class BudgetTracker {
         documentId: params.documentId || null,
         workflowName: params.workflowName || null,
       });
-    } catch (err) {
-      console.error('[BudgetTracker] Failed to log usage:', err);
+    } catch (err: any) {
+      const logger = new Logger(this.env, "BudgetTracker");
+      logger.error('Failed to log usage:', err);
     }
   }
 
@@ -299,7 +304,8 @@ export class BudgetTracker {
     const currentSpendUsd = await this.getCurrentSpend();
 
     if (currentSpendUsd >= maxBudgetUsd) {
-      console.error(`[BudgetTracker] 🚨 BUDGET EXCEEDED! Limit: $${maxBudgetUsd}, Used: $${currentSpendUsd.toFixed(4)}`);
+      const logger = new Logger(this.env, "BudgetTracker");
+      logger.error(`🚨 BUDGET EXCEEDED! Limit: $${maxBudgetUsd}, Used: $${currentSpendUsd.toFixed(4)}`);
       throw new Error(`AI Budget Exceeded: Limit $${maxBudgetUsd}, Used $${currentSpendUsd.toFixed(4)}. Please reset budget to continue.`);
     }
   }

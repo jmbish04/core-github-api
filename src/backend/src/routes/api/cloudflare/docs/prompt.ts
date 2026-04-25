@@ -21,8 +21,8 @@ import { cors } from "hono/cors";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import { drizzle } from "drizzle-orm/d1";
-import { SYSTEM_PROMPT_BASE } from "@/ai/agents/CloudflareDocs";
-import { CF_DOCS_PROMPT_KV_KEY } from "@/ai/agents/constants";
+import { SYSTEM_PROMPT_BASE } from "@/ai/agents/chat/CloudflareAgent/methods/query-docs";
+import { CF_DOCS_PROMPT_KV_KEY } from '@/ai/providers';
 import { promptRevisions } from "@db/schema";
 
 export { CF_DOCS_PROMPT_KV_KEY };

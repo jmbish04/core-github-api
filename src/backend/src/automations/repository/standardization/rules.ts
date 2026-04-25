@@ -1,6 +1,6 @@
 import { getDb } from '@db';
 import { standardizationRules } from '@db/schemas/app/standardization';
-import { generateText } from '@/ai/providers';
+import { AIProvider } from '@/ai/providers';
 
 export class RulesStandardization {
   static async enforce(
@@ -79,8 +79,8 @@ export class RulesStandardization {
 
     if (rule.aiInstructions) {
       try {
-        const customizedOutput = await generateText(
-          env,
+        const ai = new AIProvider(env);
+        const customizedOutput = await ai.generateText(
           `Instructions: ${rule.aiInstructions}\nRepo: ${targetRepo.owner.login}/${targetRepo.name}\nTags: ${targetTags.join(', ')}\n\nFile Content:\n${content}`,
           'Customize the file content based on the instructions. Return only the customized file content.',
         );

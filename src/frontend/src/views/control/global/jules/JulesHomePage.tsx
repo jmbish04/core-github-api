@@ -3,7 +3,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useJulesSessions } from '@/hooks/jules/useJulesSessions';
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import {
   Plus,
   ListTodo,
@@ -30,7 +30,11 @@ const statusLabels: Record<string, string> = {
 };
 
 export function JulesHomePage() {
-  const { sessions, isLoading } = useJulesSessions({ limit: 5 });
+  const { owner, repo } = useParams<{ owner?: string; repo?: string }>();
+  const projectId = owner && repo ? `${owner}/${repo}` : undefined;
+  const baseUrl = owner && repo ? `/repos/${owner}/${repo}/jules` : '/jules';
+  
+  const { sessions, isLoading } = useJulesSessions({ limit: 5, projectId });
 
   const activeTasks = sessions.filter((s) => s.status === 'active').length;
   const completedToday = sessions.filter((s) => {
@@ -110,19 +114,19 @@ export function JulesHomePage() {
       {/* Quick actions */}
       <div className="flex flex-wrap gap-3">
         <Button asChild className="bg-zinc-100 text-zinc-900 hover:bg-zinc-200">
-          <Link to="/jules/tasks/new">
+          <Link to={`${baseUrl}/tasks/new`}>
             <Plus className="w-4 h-4 mr-2" />
             New Task
           </Link>
         </Button>
         <Button asChild variant="outline" className="border-zinc-700 hover:bg-zinc-800 text-zinc-300">
-          <Link to="/jules/tasks">
+          <Link to={`${baseUrl}/tasks`}>
             <ListTodo className="w-4 h-4 mr-2" />
             View All Tasks
           </Link>
         </Button>
         <Button asChild variant="outline" className="border-zinc-700 hover:bg-zinc-800 text-zinc-300">
-          <Link to="/jules/mcp">
+          <Link to={`${baseUrl}/mcp`}>
             <Settings className="w-4 h-4 mr-2" />
             Settings
           </Link>
@@ -140,7 +144,7 @@ export function JulesHomePage() {
               size="sm"
               className="text-zinc-400 hover:text-zinc-200 text-xs"
             >
-              <Link to="/jules/tasks">
+              <Link to={`${baseUrl}/tasks`}>
                 View All
                 <ArrowRight className="h-3 w-3 ml-1" />
               </Link>
@@ -164,7 +168,7 @@ export function JulesHomePage() {
               {sessions.slice(0, 5).map((session) => (
                 <Link
                   key={session.id}
-                  to={`/jules/tasks/${session.id}`}
+                  to={`${baseUrl}/tasks/${session.id}`}
                   className="flex items-center justify-between p-3 rounded-lg bg-zinc-900/50 border border-zinc-800 hover:border-zinc-700 transition-colors group"
                 >
                   <div className="flex-1 min-w-0 mr-4">

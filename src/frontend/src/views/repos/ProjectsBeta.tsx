@@ -14,7 +14,7 @@
  * - Agent Worklog and Pause/Resume Tracking
  */
 
-import { useOutletContext, useNavigate } from "react-router-dom";
+import { useOutletContext, useNavigate, useSearchParams } from "react-router-dom";
 import React, { useMemo, useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,7 +42,9 @@ import {
   Circle,
   Clock,
   XCircle,
-  User
+  User,
+  MessageSquare,
+  Bot
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -50,7 +52,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { EmbeddedChatRoom } from "./EmbeddedChatRoom";
 import { cn } from "@/lib/utils";
+import { handleGlobalError } from "@/lib/error-handler";
+import { handleGlobalSuccess } from "@/lib/success-handler";
 
 // ── Types & Configuration ──────────────────────────────────────────────────
 
@@ -162,7 +168,23 @@ function normalizeData(phases: any[], tasks: any[]): Record<string, WorkItem> {
 
 export default function RepoProjectsTracker() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { repoOwner, repoName, basePath, projectDetails, taskQueryData } = useOutletContext<any>();
+
+  const sessionId = searchParams.get("session") || `${repoOwner}-${repoName}-planning`;
+  const [isChatOpen, setIsChatOpen] = useState(searchParams.has("session"));
+
+  const toggleChat = (open: boolean) => {
+    setIsChatOpen(open);
+    setSearchParams(prev => {
+      if (open) {
+        prev.set("session", sessionId);
+      } else {
+        prev.delete("session");
+      }
+      return prev;
+    }, { replace: true });
+  };
 
   const [searchQuery, setSearchQuery] = useState("");
   const [itemsMap, setItemsMap] = useState<Record<string, WorkItem>>({});
@@ -231,10 +253,12 @@ export default function RepoProjectsTracker() {
               handleRemoteUpdate(id, changes);
             }
           }
-        } catch (e) {}
+        } catch (e) {
+          handleGlobalError(`[ProjectsBeta] Failed to process WebSocket message ${e}`);
+        }
       };
     } catch (e) {
-      console.warn("Failed to connect to WS:", e);
+      handleGlobalError(`[ProjectsBeta] Failed to connect to WS ${e}`);
     }
 
     return () => {
@@ -629,6 +653,9 @@ export default function RepoProjectsTracker() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button variant="secondary" size="sm" onClick={() => toggleChat(true)} className="gap-2 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 hover:text-blue-300 border border-blue-500/20">
+            <Bot className="w-4 h-4" /> Orchestration Room
+          </Button>
           <Button variant="outline" size="sm" onClick={() => navigate(`${basePath}/projects/kanban`)}>
             Board View
           </Button>
@@ -730,6 +757,11 @@ export default function RepoProjectsTracker() {
           </div>
         )}
       </div>
+      <Sheet open={isChatOpen} onOpenChange={toggleChat}>
+        <SheetContent side="right" className="w-[400px] sm:w-[540px] p-0 border-l border-zinc-800 bg-background overflow-hidden">
+           <EmbeddedChatRoom sessionId={sessionId} />
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

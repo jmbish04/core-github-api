@@ -10,7 +10,7 @@
  *   sentinel_list_tasks      — list unclaimed tasks for a repo
  *   sentinel_claim_task      — claim a task by ID
  *   sentinel_update_task     — update task status or notes
- *   sentinel_submit_task     — submit task for review (dispatches JUDGE_AGENT)
+ *   sentinel_submit_task     — submit task for review (dispatches GUARDRAIL_AGENT)
  *   sentinel_ask             — broadcast a clarification question to orchestrators
  *   sentinel_get_status      — get Sentinel system status (task counts, events)
  */
@@ -23,7 +23,7 @@ import { stories } from '@/db/schemas/projects/backlog/stories';
 import { epics } from '@/db/schemas/projects/backlog/epics';
 import { eq, isNull, asc, and, count, desc, isNotNull } from 'drizzle-orm';
 import { generateUuid } from '@/utils/common';
-import { broadcastSentinelEvent } from './types';
+import { broadcastSentinelEvent } from './broadcast';
 
 const toText = (value: unknown) => [
     {
@@ -173,7 +173,7 @@ export function registerSentinelMcpTools(server: McpServer, env: Env): void {
     // ── sentinel_submit_task ───────────────────────────────────────────────
     server.tool(
         'sentinel_submit_task',
-        'Submit a completed Sentinel task for review. Triggers the JUDGE_AGENT for automated verification.',
+        'Submit a completed Sentinel task for review. Triggers the GUARDRAIL_AGENT for automated verification.',
         {
             taskId: z.string().describe('The task UUID to submit'),
             notes: z.string().optional().describe('Completion notes or PR links'),
@@ -202,22 +202,22 @@ export function registerSentinelMcpTools(server: McpServer, env: Env): void {
                     timestamp: now,
                 });
 
-                // Dispatch JUDGE_AGENT
+                // Dispatch GUARDRAIL_AGENT for review via @callable RPC
                 try {
-                    if ((env as any).JUDGE_AGENT) {
-                        await (env as any).JUDGE_AGENT.fetch(
-                            new Request('http://judge/task', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ taskId, repoId: task.repoId, notes }),
-                            }),
-                        );
+                    if ((env as any).GUARDRAIL_AGENT) {
+                        const { getAgentByName } = await import('agents');
+                        const guardrail = await getAgentByName((env as any).GUARDRAIL_AGENT, `task-${taskId}`);
+                        await (guardrail as any).judgeCodeQuality({
+                            taskId,
+                            repoId: task.repoId,
+                            notes,
+                        });
                     }
                 } catch { /* non-fatal */ }
 
                 await broadcastSentinelEvent(env, { type: 'task_submitted', taskId, repoId: task.repoId, assignee: task.assignee, timestamp: now });
 
-                return { content: toText({ ok: true, taskId, status: 'in_review', message: 'JUDGE_AGENT dispatched' }) };
+                return { content: toText({ ok: true, taskId, status: 'in_review', message: 'GUARDRAIL_AGENT dispatched' }) };
             } catch (e: any) {
                 return { isError: true, content: toText(`sentinel_submit_task failed: ${e.message}`) };
             }

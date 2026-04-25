@@ -181,9 +181,7 @@ export class BrowserService {
 
     async getScreenshotBase64(url: string): Promise<string> {
         const res = await this.getScreenshot({ url, screenshotOptions: { type: 'jpeg', quality: 50, fullPage: false } }) as Response;
-        // @ts-ignore
         const buffer = await res.arrayBuffer();
-        // @ts-ignore
         const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
         return `data:image/jpeg;base64,${base64}`;
     }

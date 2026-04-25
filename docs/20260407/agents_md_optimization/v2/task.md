@@ -1,0 +1,10 @@
+- [x] Create `docs/agents_instruction_archive/research-team-spec.md` moving Research Team context from `AGENTS.md`.
+- [x] Merge `ai-routing.md` and `AGENTS.md` content into `ai-rules.md` and delete `ai-routing.md`.
+- [x] Merge `cloudflare-deployments.md` into `cloudflare-standards.md` and delete `cloudflare-deployments.md`.
+- [x] Merge `infrastructure-standards.md` into `workspace-awareness.md` and delete `infrastructure-standards.md`.
+- [x] Merge `ui-standards.md` into `03-responsive-design.md` and delete `ui-standards.md`.
+- [x] Merge `logging-standards.md` into `traceability-logging.md` and delete `logging-standards.md`.
+- [x] Merge `durable-object-agents.md` and `durable_objects.md` into `02-do-abstraction.md` and delete source scripts.
+- [x] Merge `hygiene-standards.md` into `000-bootstrap.md` and delete `hygiene-standards.md`.
+- [x] Create `exit-criteria.md` moving Exit Criteria from `AGENTS.md`.
+- [x] Completely rewrite `AGENTS.md` to be a condensed routing guide.

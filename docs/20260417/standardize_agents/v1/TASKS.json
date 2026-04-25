@@ -1,0 +1,363 @@
+[
+  {
+    "id": "P0-AUDIT",
+    "phase": 0,
+    "title": "Audit all agent AI invocations",
+    "description": "Before writing any code, grep all agent method files for: (1) hardcoded system prompt strings, (2) hardcoded provider/model strings, (3) generateText calls where the prompt instructs JSON output (should be generateStructuredResponse), (4) all buildSkillContext usages. Document findings in a comment block at the top of TASKS.json or a separate AUDIT.md. This audit drives Phase 1 config seeding and Phase 2 agent migration correctness.",
+    "files": [
+      "src/backend/src/ai/agents/**/*.ts",
+      "src/backend/src/db/services/agent-config/seed.ts"
+    ],
+    "depends_on": [],
+    "priority": "critical",
+    "type": "audit"
+  },
+
+  {
+    "id": "P1-TYPES",
+    "phase": 1,
+    "title": "Add skills field to AIOptions",
+    "description": "In src/backend/src/ai/providers/types.ts, add `skills?: string[]` to the AIOptions interface. This is the single addition that enables skill injection from any generation call. Add JSDoc: 'Array of skill names from the agent_skills D1 table. Fetched and injected as <skill_context> into systemPrompt automatically by generation methods.'",
+    "files": [
+      "src/backend/src/ai/providers/types.ts"
+    ],
+    "depends_on": ["P0-AUDIT"],
+    "priority": "critical",
+    "type": "modify"
+  },
+
+  {
+    "id": "P1-SKILLMANAGER",
+    "phase": 1,
+    "title": "Create SkillManager class",
+    "description": "Create src/backend/src/ai/providers/agent-support/skills.ts. Implement SkillManager class with constructor(env: Env) and method getSkillInstructions(skillNames: string[]): Promise<string>. Use getDb(env.DB) to query agent_skills table with inArray(agentSkills.name, skillNames). Return joined markdown content wrapped in <skill_context> tags. Return empty string if skillNames is empty or no rows found. Handle DB errors gracefully (log warning, return empty string — never throw).",
+    "files": [
+      "src/backend/src/ai/providers/agent-support/skills.ts"
+    ],
+    "depends_on": ["P1-TYPES"],
+    "priority": "critical",
+    "type": "new"
+  },
+
+  {
+    "id": "P1-GENERATION",
+    "phase": 1,
+    "title": "Inject skills into all generation methods",
+    "description": "In src/backend/src/ai/providers/methods/generation.ts, add skill injection at the top of generateTextImpl, generateStructuredResponseImpl, generateTextWithToolsImpl, generateStructuredWithToolsImpl, generateTextFromFilesImpl, generateStructuredResponseFromFilesImpl. Pattern: if (options?.skills?.length) { const sm = new SkillManager(ai.env); const ctx = await sm.getSkillInstructions(options.skills); if (ctx) systemPrompt = `${systemPrompt || ''}\\n\\n<skill_context>\\n${ctx}\\n</skill_context>`; }. Import SkillManager from '../agent-support/skills'.",
+    "files": [
+      "src/backend/src/ai/providers/methods/generation.ts"
+    ],
+    "depends_on": ["P1-SKILLMANAGER"],
+    "priority": "critical",
+    "type": "modify"
+  },
+
+  {
+    "id": "P1-JULES-STRUCTURED",
+    "phase": 1,
+    "title": "Formalize Jules two-step generateStructuredResponse",
+    "description": "In src/backend/src/ai/providers/vendors/jules.ts, ensure generateStructuredResponse uses the two-step pattern: Step 1 — call Jules generateText with the prompt concatenated with 'Respond with a JSON object matching this schema: ' + JSON.stringify(zodToJsonSchema(schema)). Step 2 — call workers-ai generateStructuredResponse with prompt 'Parse the following into the schema provided:\\n' + julesResponse and the original schema. Return Step 2 result. The caller interface is unchanged — providers/methods/generation.ts already routes to this based on options.provider === 'jules'. Verify the existing partial implementation in vendors/jules.ts and complete/formalize it.",
+    "files": [
+      "src/backend/src/ai/providers/vendors/jules.ts"
+    ],
+    "depends_on": ["P1-GENERATION"],
+    "priority": "high",
+    "type": "modify"
+  },
+
+  {
+    "id": "P1-HEALTH-BASE",
+    "phase": 1,
+    "title": "Create AgentHealthService common base checks",
+    "description": "Create src/backend/src/ai/providers/agent-support/health-base.ts. Export class AgentHealthService with static method baseChecks(agentName: string, env: Env, ctx: DurableObjectState): Promise<Record<string, unknown>>. Checks to include: (1) env.DB binding exists, (2) env.AI binding exists, (3) env.EDGRAPH binding exists (non-fatal if missing), (4) D1 read/write round-trip (write then delete a test row to healthChecks table or use existing table), (5) new AIProvider(env).verifyApiKey() with timeout, (6) Logger write test. Return structured { agentName, checks: { db: 'ok'|'error', ai: 'ok'|'error', ... }, timestamp }.",
+    "files": [
+      "src/backend/src/ai/providers/agent-support/health-base.ts"
+    ],
+    "depends_on": ["P1-TYPES"],
+    "priority": "high",
+    "type": "new"
+  },
+
+  {
+    "id": "P1-BASE-AGENT",
+    "phase": 1,
+    "title": "Create BaseAgent abstract class",
+    "description": "Create src/backend/src/ai/providers/agent-support/base-agent.ts. Abstract class BaseAgent extends Agent<Env>. Properties: agentName (abstract readonly string), skills (protected readonly string[] = []), ai (public AIProvider), logger (public Logger), store (public AgentStateStore), hitl (public HumanInTheLoopService), memory (public optional EdigraphService). Methods: agentInit (protected optional async), onStart (async — initializes all properties, calls agentInit), ensureReady (protected async — guards uninitialized state), ping (@callable — returns pong with agentName + ts), healthProbe (@callable — calls AgentHealthService.baseChecks + agentHealthChecks), agentHealthChecks (protected async — returns {} by default, override per agent), buildFullHealth (private). Import AgentHealthService from './health-base'. Import HumanInTheLoopService from './hitl' (stub if not yet created).",
+    "files": [
+      "src/backend/src/ai/providers/agent-support/base-agent.ts"
+    ],
+    "depends_on": ["P1-HEALTH-BASE"],
+    "priority": "critical",
+    "type": "new"
+  },
+
+  {
+    "id": "P1-BASE-CHAT-AGENT",
+    "phase": 1,
+    "title": "Create BaseChatAgent abstract class",
+    "description": "Create src/backend/src/ai/providers/agent-support/base-chat-agent.ts. Abstract class BaseChatAgent extends AIChatAgent<Env>. Identical to BaseAgent but extends AIChatAgent<Env> from '@cloudflare/agents'. Add verifyChatFormat(): Promise<{ ok: boolean; error?: string }> — sends a synthetic assistant-ui message through the agent's message handler, verifies response is in parts format [{ type: 'text', text: string }], tests WebSocket upgrade path. Override buildFullHealth to include verifyChatFormat result as 'chat_format' key. This is the critical check that catches spinning wheel issues programmatically.",
+    "files": [
+      "src/backend/src/ai/providers/agent-support/base-chat-agent.ts"
+    ],
+    "depends_on": ["P1-BASE-AGENT"],
+    "priority": "critical",
+    "type": "new"
+  },
+
+  {
+    "id": "P1-STATE-STORE-MIRROR",
+    "phase": 1,
+    "title": "Add D1 mirror to AgentStateStore",
+    "description": "In src/backend/src/ai/providers/agent-support/state-store.ts, modify set() and patch() to fire-and-forget mirror to D1 agentStateMirror table. Use ctx.waitUntil(this.mirrorToD1(nextState)). Add private mirrorToD1(state) method that upserts to agentStateMirror: { agentId: ctx.id.toString(), agentType: agentName, stateJson: JSON.stringify(state), updatedAt: new Date().toISOString() }. Use onConflictDoUpdate. Handle DB errors silently (log warning, do not rethrow — DO state write must not fail because D1 mirror failed).",
+    "files": [
+      "src/backend/src/ai/providers/agent-support/state-store.ts"
+    ],
+    "depends_on": ["P1-BASE-AGENT"],
+    "priority": "high",
+    "type": "modify"
+  },
+
+  {
+    "id": "P1-COLLAB-SERVICE",
+    "phase": 1,
+    "title": "Create CollaborationService",
+    "description": "Create src/backend/src/ai/providers/agent-support/collaboration.ts. CollaborationService class with constructor(env: Env). Methods: openCollaboration({ sessionId, initiator, participants: [{agentName, assignment, triggerCondition}], repoOwner?, repoName?, projectId? }) — creates D1 collaborations row + collaboration_participants rows + creates CollaborationRoom DO instance; sendCollabMessage(sessionId, from, message, metadata?) — posts to CollaborationRoom DO + inserts collaboration_events D1 row; triggerCollaborator(sessionId, agentName, prompt) — calls getAgentByName RPC on target agent, inserts collaboration_events row with type='trigger'; closeCollaboration(sessionId, outcome) — updates collaborations row status='closed'; listActive(repoOwner?, repoName?) — queries D1 collaborations WHERE status='active'. All operations logged via Logger. All write failures throw (collaboration integrity is critical).",
+    "files": [
+      "src/backend/src/ai/providers/agent-support/collaboration.ts",
+      "src/backend/src/db/schemas/agents/collaborations.ts",
+      "src/backend/src/db/migrations/XXXX_add_collaborations.sql"
+    ],
+    "depends_on": ["P1-BASE-AGENT"],
+    "priority": "high",
+    "type": "new"
+  },
+
+  {
+    "id": "P1-HITL-SERVICE",
+    "phase": 1,
+    "title": "Create HumanInTheLoopService",
+    "description": "Create src/backend/src/ai/providers/agent-support/hitl.ts. HumanInTheLoopService class with constructor(env: Env). Methods: propose({ type, proposedAction, payload, repoOwner?, repoName?, agentName? }): Promise<string> — inserts hitl_proposals D1 row, returns hitlId; approve(hitlId, userId): Promise<void> — updates status='approved', inserts hitl_decisions row, executes the deferred action stored in payload_json; reject(hitlId, userId, reason): Promise<void> — updates status='rejected', inserts hitl_decisions row; iterate(hitlId, feedback): Promise<string> — inserts hitl_revisions row with version++ (max existing version + 1), returns revision id; listProposals({ repoOwner?, repoName?, status? }): Promise<HitlProposal[]> — queries D1 with optional filters. Add D1 schema for hitl_proposals, hitl_revisions, hitl_decisions tables.",
+    "files": [
+      "src/backend/src/ai/providers/agent-support/hitl.ts",
+      "src/backend/src/db/schemas/agents/hitl.ts",
+      "src/backend/src/db/migrations/XXXX_add_hitl.sql"
+    ],
+    "depends_on": ["P1-BASE-AGENT"],
+    "priority": "high",
+    "type": "new"
+  },
+
+  {
+    "id": "P1-EXPORTS",
+    "phase": 1,
+    "title": "Update agent-support and providers barrel exports",
+    "description": "In src/backend/src/ai/providers/agent-support/index.ts: add exports for BaseAgent, BaseChatAgent, SkillManager, CollaborationService, HumanInTheLoopService, AgentHealthService. In src/backend/src/ai/providers/index.ts: re-export BaseAgent, BaseChatAgent from './agent-support'. In src/backend/src/ai/providers/clients/vercel/chat/tools.ts: add selectedSkills extraction from message context (message.metadata?.selectedSkills or options?.skills) and pass to generation methods.",
+    "files": [
+      "src/backend/src/ai/providers/agent-support/index.ts",
+      "src/backend/src/ai/providers/index.ts",
+      "src/backend/src/ai/providers/clients/vercel/chat/tools.ts"
+    ],
+    "depends_on": ["P1-HITL-SERVICE", "P1-COLLAB-SERVICE", "P1-BASE-CHAT-AGENT"],
+    "priority": "critical",
+    "type": "modify"
+  },
+
+  {
+    "id": "P1-CONFIG-SEED",
+    "phase": 1,
+    "title": "Audit and complete agent-config seed entries",
+    "description": "Using the P0-AUDIT findings: add missing entries to src/backend/src/db/services/agent-config/seed.ts for all agent/function combinations that currently hardcode prompts or provider/model. Current seed has 24 entries covering 10 agents. Audit will likely reveal 20-40 missing entries across all agent methods. Each entry must include: agentName, functionName, systemInstructions, primaryProvider, primaryModel, secondaryProvider, secondaryModel. Agents confirmed to need entries: OverseerAgent (all methods), LearningAgent (all methods), WorkshopAgent (orchestrateTasks, initializeRepository, ingestProjectPlan), DesignAgent (startUxPipeline), ChatRoom (processMessage). Also convert any generateText calls that hardcode JSON-response instructions into generateStructuredResponse calls.",
+    "files": [
+      "src/backend/src/db/services/agent-config/seed.ts",
+      "src/backend/src/ai/agents/**/*.ts"
+    ],
+    "depends_on": ["P0-AUDIT"],
+    "priority": "high",
+    "type": "modify"
+  },
+
+  {
+    "id": "P2-COLLABORATION-ROOM",
+    "phase": 2,
+    "title": "Refactor ChatRoom into CollaborationRoom",
+    "description": "Refactor src/backend/src/ai/agents/ChatRoom/index.ts into src/backend/src/ai/agents/CollaborationRoom/index.ts. Rename class CollaborationRoom. Move messaging methods to CollaborationRoom/methods/messaging.ts. Update wrangler binding name if needed (check wrangler.jsonc). Update exports.ts to export CollaborationRoom instead of ChatRoom. Delete root-level src/backend/src/ai/agents/ChatRoom.ts (legacy duplicate — confirm it is NOT in exports.ts before deleting). CollaborationRoom extends BaseChatAgent (it needs WebSocket for agent broadcast). Its agentName = 'CollaborationRoom'.",
+    "files": [
+      "src/backend/src/ai/agents/CollaborationRoom/index.ts",
+      "src/backend/src/ai/agents/CollaborationRoom/methods/messaging.ts",
+      "src/backend/src/ai/agents/exports.ts",
+      "src/backend/src/ai/agents/ChatRoom.ts"
+    ],
+    "depends_on": ["P1-EXPORTS"],
+    "priority": "critical",
+    "type": "new"
+  },
+
+  {
+    "id": "P2-MIGRATE-ORCHESTRATOR",
+    "phase": 2,
+    "title": "Migrate OrchestratorAgent to BaseChatAgent",
+    "description": "In src/backend/src/ai/agents/OrchestratorAgent/index.ts: change extends from AIChatAgent<Env, OrchestratorState> to BaseChatAgent. Add readonly agentName = 'OrchestratorAgent'. Add protected readonly skills = ['plan-writing', 'architecture', 'task-management']. Rename onStart() to agentInit() (keep only OrchestratorAgent-specific logic — remove AIProvider, Logger, StateStore init which are now inherited). Remove duplicate healthProbe/ping methods. Add agentHealthChecks() that verifies all agent bindings (EngineerAgent, GithubAgent, etc.) are reachable via RPC ping. Update all generateText/generateStructured calls to use await this.ai.getAgentFunctionConfig(this.agentName, functionName) for config + options: { skills: this.skills }. Remove all buildSkillContext imports/calls.",
+    "files": [
+      "src/backend/src/ai/agents/OrchestratorAgent/index.ts",
+      "src/backend/src/ai/agents/OrchestratorAgent/methods/*.ts"
+    ],
+    "depends_on": ["P2-COLLABORATION-ROOM", "P1-CONFIG-SEED"],
+    "priority": "critical",
+    "type": "modify"
+  },
+
+  {
+    "id": "P2-MIGRATE-RESEARCH",
+    "phase": 2,
+    "title": "Migrate ResearchAgent to BaseChatAgent",
+    "description": "In src/backend/src/ai/agents/ResearchAgent/index.ts: change extends to BaseChatAgent. Add agentName = 'ResearchAgent'. Add skills = ['deep-research', 'plan-writing', 'brainstorming', 'source-evaluation']. Rename onStart() to agentInit(). Remove duplicate healthProbe/ping. Add agentHealthChecks() that verifies web search tool availability and Discord API access. Update all AI calls to use getAgentFunctionConfig + skills options. Remove all buildSkillContext imports/calls (used in topic-orchestrator.ts, deep-research.ts, etc.).",
+    "files": [
+      "src/backend/src/ai/agents/ResearchAgent/index.ts",
+      "src/backend/src/ai/agents/ResearchAgent/methods/*.ts"
+    ],
+    "depends_on": ["P2-MIGRATE-ORCHESTRATOR"],
+    "priority": "critical",
+    "type": "modify"
+  },
+
+  {
+    "id": "P2-MIGRATE-CLOUDFLARE",
+    "phase": 2,
+    "title": "Migrate CloudflareAgent to BaseChatAgent",
+    "description": "In src/backend/src/ai/agents/CloudflareAgent/index.ts: change extends from Agent<Env> to BaseChatAgent (CloudflareAgent needs frontend chat for docs consultation). Add agentName = 'CloudflareAgent'. Add skills = ['cloudflare-docs', 'workers-architecture', 'debugging']. Rename onStart() to agentInit() (preserve StateStore-specific init inside agentInit). Remove duplicate healthProbe/ping. Add agentHealthChecks() that verifies CF API key, CF docs MCP tool availability. Update all AI calls. Remove all buildSkillContext imports/calls.",
+    "files": [
+      "src/backend/src/ai/agents/CloudflareAgent/index.ts",
+      "src/backend/src/ai/agents/CloudflareAgent/methods/*.ts"
+    ],
+    "depends_on": ["P2-MIGRATE-RESEARCH"],
+    "priority": "critical",
+    "type": "modify"
+  },
+
+  {
+    "id": "P2-MIGRATE-ENGINEER",
+    "phase": 2,
+    "title": "Migrate EngineerAgent to BaseAgent",
+    "description": "In src/backend/src/ai/agents/EngineerAgent/index.ts: change extends from AIChatAgent<Env, EngineerState> to BaseAgent. Add agentName = 'EngineerAgent'. Add skills = ['engineering-best-practices', 'code-review', 'sprint-planning']. Rename onStart() to agentInit() (preserve DO SQLite DDL migration + D1 recovery inside agentInit). Remove duplicate healthProbe/ping/Logger/AIProvider init. Add agentHealthChecks() that verifies Jules session creation test + D1 migration status. Update all AI calls to use getAgentFunctionConfig + skills options. Remove all buildSkillContext imports/calls.",
+    "files": [
+      "src/backend/src/ai/agents/EngineerAgent/index.ts",
+      "src/backend/src/ai/agents/EngineerAgent/methods/*.ts"
+    ],
+    "depends_on": ["P2-MIGRATE-CLOUDFLARE"],
+    "priority": "critical",
+    "type": "modify"
+  },
+
+  {
+    "id": "P2-MIGRATE-GITHUB",
+    "phase": 2,
+    "title": "Migrate GithubAgent to BaseAgent",
+    "description": "In src/backend/src/ai/agents/GithubAgent/index.ts: change extends from AIChatAgent<Env> to BaseAgent. Add agentName = 'GithubAgent'. Add skills = ['code-review', 'pr-standards', 'github-best-practices']. Rename onStart() to agentInit() (preserve StateStore setup + DO SQLite DDL migration). Remove duplicate healthProbe/ping/Logger. Add agentHealthChecks() that verifies GitHub API key + webhook D1 table access. Update all AI calls. Remove all buildSkillContext imports/calls.",
+    "files": [
+      "src/backend/src/ai/agents/GithubAgent/index.ts",
+      "src/backend/src/ai/agents/GithubAgent/methods/*.ts"
+    ],
+    "depends_on": ["P2-MIGRATE-ENGINEER"],
+    "priority": "high",
+    "type": "modify"
+  },
+
+  {
+    "id": "P2-MIGRATE-GUARDRAIL",
+    "phase": 2,
+    "title": "Migrate GuardrailAgent to BaseAgent",
+    "description": "In src/backend/src/ai/agents/GuardrailAgent/index.ts: change extends from AIChatAgent<Env, GuardrailState> to BaseAgent. Add agentName = 'GuardrailAgent'. Add skills = ['code-review-checklist', 'evidence-discipline', 'golden-path-standards', 'security-review']. Rename onStart() to agentInit() (preserve DO SQLite DDL + warmRuleCacheFromD1). Remove duplicate healthProbe/ping/Logger. Add agentHealthChecks() that verifies D1 guardrail rules table + rule cache warm status. Update all AI calls. Remove all buildSkillContext imports/calls.",
+    "files": [
+      "src/backend/src/ai/agents/GuardrailAgent/index.ts",
+      "src/backend/src/ai/agents/GuardrailAgent/methods/*.ts"
+    ],
+    "depends_on": ["P2-MIGRATE-GITHUB"],
+    "priority": "high",
+    "type": "modify"
+  },
+
+  {
+    "id": "P2-MIGRATE-REMAINING",
+    "phase": 2,
+    "title": "Migrate LearningAgent, WorkshopAgent, DesignAgent, OverseerAgent to BaseAgent",
+    "description": "Migrate remaining 4 backend agents following the same pattern: (1) LearningAgent → BaseAgent, agentName='LearningAgent', skills=['continuous-learning', 'pattern-extraction'], agentInit preserves nothing (no existing onStart body), agentHealthChecks verifies CI API + LearningAgent-specific D1 tables. (2) WorkshopAgent → BaseAgent, agentName='WorkshopAgent', skills=['spec-writing', 'architecture'], agentInit preserves StateStore setup. (3) DesignAgent → BaseAgent, agentName='DesignAgent', skills=['frontend-design', 'react-best-practices', 'ui-ux-pro-max'], agentInit preserves nothing notable. (4) OverseerAgent → BaseAgent, agentName='OverseerAgent', skills=[], agentInit preserves nothing. For each: remove duplicate healthProbe/ping/Logger/AIProvider. Update all AI calls. Remove buildSkillContext imports.",
+    "files": [
+      "src/backend/src/ai/agents/LearningAgent/index.ts",
+      "src/backend/src/ai/agents/WorkshopAgent/index.ts",
+      "src/backend/src/ai/agents/DesignAgent/index.ts",
+      "src/backend/src/ai/agents/OverseerAgent/index.ts",
+      "src/backend/src/ai/agents/LearningAgent/methods/*.ts",
+      "src/backend/src/ai/agents/WorkshopAgent/methods/*.ts",
+      "src/backend/src/ai/agents/DesignAgent/methods/*.ts",
+      "src/backend/src/ai/agents/OverseerAgent/methods/*.ts"
+    ],
+    "depends_on": ["P2-MIGRATE-GUARDRAIL"],
+    "priority": "high",
+    "type": "modify"
+  },
+
+  {
+    "id": "P2-DELETE-LEGACY",
+    "phase": 2,
+    "title": "Delete legacy files",
+    "description": "Delete: (1) src/backend/src/ai/agents/ChatRoom.ts — root-level legacy duplicate. Confirm it is NOT referenced in exports.ts before deleting. (2) src/backend/src/services/octokit/skill-fetcher.ts — replaced by D1-backed SkillManager. Grep entire codebase for remaining imports of skill-fetcher after deletion and fix any that still reference it. Grep for remaining buildSkillContext usages and fix any missed in agent migration tasks.",
+    "files": [
+      "src/backend/src/ai/agents/ChatRoom.ts",
+      "src/backend/src/services/octokit/skill-fetcher.ts"
+    ],
+    "depends_on": ["P2-MIGRATE-REMAINING", "P2-COLLABORATION-ROOM"],
+    "priority": "critical",
+    "type": "delete"
+  },
+
+  {
+    "id": "P3-WEBHOOK-HITL",
+    "phase": 3,
+    "title": "Wire GitHub webhook handler to HITL service",
+    "description": "In src/backend/src/routes/api/webhooks/index.ts: instead of auto-triggering agent actions based on webhook payload conditionals, call hitl.propose() to create a proposal. Pattern: const hitlId = await hitl.propose({ type: `webhook-${event}`, proposedAction: buildProposalDescription(payload), payload, repoOwner: payload.repository?.owner?.login, repoName: payload.repository?.name }). Return 200 immediately — no agent action taken until user approves via frontend. Add a buildProposalDescription(payload) function that generates a human-readable description of the proposed action based on event type and payload content. Add HITL API routes: GET /api/hitl (list proposals), POST /api/hitl/:id/approve, POST /api/hitl/:id/reject, POST /api/hitl/:id/iterate.",
+    "files": [
+      "src/backend/src/routes/api/webhooks/index.ts",
+      "src/backend/src/routes/api/hitl.ts"
+    ],
+    "depends_on": ["P1-HITL-SERVICE", "P2-DELETE-LEGACY"],
+    "priority": "high",
+    "type": "modify"
+  },
+
+  {
+    "id": "P3-HEALTH-COORDINATOR",
+    "phase": 3,
+    "title": "Integrate per-agent health into system coordinator",
+    "description": "In src/backend/src/health/coordinator.ts: add health check entries for each agent by calling getAgentByName(env.BINDING, agentName).healthProbe() for: OrchestratorAgent, ResearchAgent, CloudflareAgent, EngineerAgent, GithubAgent, GuardrailAgent, LearningAgent, WorkshopAgent, DesignAgent, OverseerAgent. Each check should have an 8-second timeout (matching existing per-check timeout). Results flow into the existing coordinator's check result array with name format 'agent:{agentName}'. The coordinator already has AI-powered diagnostics on failure — no change needed there.",
+    "files": [
+      "src/backend/src/health/coordinator.ts"
+    ],
+    "depends_on": ["P2-DELETE-LEGACY"],
+    "priority": "high",
+    "type": "modify"
+  },
+
+  {
+    "id": "P3-COMPILE-CHECK",
+    "phase": 3,
+    "title": "TypeScript compilation verification",
+    "description": "Run npx tsc --noEmit from src/backend/. Zero errors required. Fix any type errors found. Common expected issues: (1) missing imports in agent files after base class migration, (2) AgentStateStore type parameter mismatches, (3) CollaborationRoom binding type in Env. Do not proceed to P3-DRY-RUN until compilation is clean.",
+    "files": [],
+    "depends_on": ["P3-HEALTH-COORDINATOR", "P3-WEBHOOK-HITL"],
+    "priority": "critical",
+    "type": "verify"
+  },
+
+  {
+    "id": "P3-DRY-RUN",
+    "phase": 3,
+    "title": "Dry-run deployment verification",
+    "description": "Run pnpm run dry-run from the worker root. This validates all DO bindings resolve correctly — CollaborationRoom binding must appear, all agent bindings must be present. If new bindings (CollaborationRoom, HITL) need to be added to wrangler.jsonc, add them. Fix any binding resolution errors before marking complete.",
+    "files": [
+      "wrangler.jsonc"
+    ],
+    "depends_on": ["P3-COMPILE-CHECK"],
+    "priority": "critical",
+    "type": "verify"
+  }
+]

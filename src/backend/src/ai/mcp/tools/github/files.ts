@@ -1,14 +1,14 @@
 /**
  * @file src/tools/files.ts
- * @description This file contains the implementation of the file upsert tool.
+ * @description This file contains the implementation of the file upsert and tree listing tools.
  * @owner AI-Builder
  */
 
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
 import { getOctokit } from '@services/octokit/core'
 import { encode } from '@utils/base64'
-import { DEFAULT_TEMPLATE_REPO, DEFAULT_GITHUB_OWNER } from "@github-utils";
-
+import { DEFAULT_GITHUB_OWNER } from "@github-utils";
+import { tool } from "@/ai/providers";
 
 // --- 1. Zod Schema Definitions ---
 
@@ -75,42 +75,11 @@ const ListRepoTreeResponseSchema = z.object({
   truncated: z.boolean(),
 })
 
-// --- 2. Route Definition ---
+// --- 2. Core Implementation ---
 
-const upsertFileRoute = createRoute({
-  method: 'post',
-  path: '/files/upsert',
-  operationId: 'upsertFile',
-  request: {
-    body: {
-      content: {
-        'application/json': {
-          schema: UpsertFileRequestSchema,
-        },
-      },
-    },
-  },
-  responses: {
-    200: {
-      content: {
-        'application/json': {
-          schema: UpsertFileResponseSchema,
-        },
-      },
-      description: 'File created or updated successfully.',
-    },
-  },
-  'x-agent': true,
-  description: 'Create or update a file in a GitHub repository.',
-})
-
-// --- 3. Hono App and Handler ---
-
-const files = new OpenAPIHono<{ Bindings: Env }>()
-
-files.openapi(upsertFileRoute, async (c) => {
-  const { owner, repo, path, content, message, sha } = c.req.valid('json')
-  const octokit = await getOctokit(c.env)
+export async function upsertFile(env: Env, params: z.infer<typeof UpsertFileRequestSchema>) {
+  const { owner, repo, path, content, message, sha } = params;
+  const octokit = await getOctokit(env);
 
   const { data } = await octokit.repos.createOrUpdateFileContents({
     owner,
@@ -119,10 +88,9 @@ files.openapi(upsertFileRoute, async (c) => {
     message,
     content: encode(content),
     sha,
-  })
+  });
 
-  // The response from Octokit is more verbose than our schema, so we need to map it.
-  const response: z.infer<typeof UpsertFileResponseSchema> = {
+  return {
     content: {
       name: data.content!.name ?? '',
       path: data.content!.path ?? '',
@@ -140,107 +108,59 @@ files.openapi(upsertFileRoute, async (c) => {
       html_url: data.commit.html_url ?? '',
       message: data.commit.message ?? '',
     },
-  }
+  };
+}
 
-  return c.json(response)
-})
+export async function listRepoTree(env: Env, params: z.infer<typeof ListRepoTreeRequestSchema>) {
+  const { owner, repo, ref, path, recursive } = params;
+  const octokit = await getOctokit(env);
 
-const listRepoTreeRoute = createRoute({
-  method: 'post',
-  path: '/files/tree',
-  operationId: 'listRepoTree',
-  request: {
-    body: {
-      content: {
-        'application/json': {
-          schema: ListRepoTreeRequestSchema,
-        },
-      },
-    },
-  },
-  responses: {
-    200: {
-      content: {
-        'application/json': {
-          schema: ListRepoTreeResponseSchema,
-        },
-      },
-      description: 'Repository tree retrieved successfully.',
-    },
-  },
-  'x-agent': true,
-  description: 'List repository contents with an ls-style tree representation.',
-})
-
-files.openapi(listRepoTreeRoute, async (c) => {
-  const { owner, repo, ref, path, recursive } = c.req.valid('json')
-  const octokit = await getOctokit(c.env)
-
-  const treeSha = ref ?? 'HEAD'
-  const recursiveFlag = recursive ?? true
+  const treeSha = ref ?? 'HEAD';
+  const recursiveFlag = recursive ?? true;
 
   const { data } = await octokit.git.getTree({
     owner,
     repo,
     tree_sha: treeSha,
     recursive: recursiveFlag ? '1' : undefined,
-  })
+  });
 
-  const normalizedPath = path?.replace(/^\/+|\/+$/g, '')
+  const normalizedPath = path?.replace(/^\/+|\/+$/g, '');
 
   const filteredTree = normalizedPath
     ? data.tree.filter((entry) => {
-      if (!entry.path) {
-        return false
-      }
-
-      return entry.path === normalizedPath || entry.path.startsWith(`${normalizedPath}/`)
-    })
-    : data.tree
+        if (!entry.path) return false;
+        return entry.path === normalizedPath || entry.path.startsWith(`${normalizedPath}/`);
+      })
+    : data.tree;
 
   const sortedEntries = [...filteredTree].sort((a, b) => {
-    const pathA = a.path ?? ''
-    const pathB = b.path ?? ''
-    return pathA.localeCompare(pathB)
-  })
+    const pathA = a.path ?? '';
+    const pathB = b.path ?? '';
+    return pathA.localeCompare(pathB);
+  });
 
   const formattedEntries = sortedEntries.map((entry) => {
-    const pathValue = entry.path ?? ''
+    const pathValue = entry.path ?? '';
     const segments = (() => {
-      if (!pathValue) {
-        return [] as string[]
-      }
-
-      if (!normalizedPath) {
-        return pathValue.split('/').filter(Boolean)
-      }
-
-      if (pathValue === normalizedPath) {
-        return [] as string[]
-      }
-
+      if (!pathValue) return [] as string[];
+      if (!normalizedPath) return pathValue.split('/').filter(Boolean);
+      if (pathValue === normalizedPath) return [] as string[];
       if (pathValue.startsWith(`${normalizedPath}/`)) {
-        return pathValue
-          .slice(normalizedPath.length + 1)
-          .split('/')
-          .filter(Boolean)
+        return pathValue.slice(normalizedPath.length + 1).split('/').filter(Boolean);
       }
+      return pathValue.split('/').filter(Boolean);
+    })();
 
-      return pathValue.split('/').filter(Boolean)
-    })()
-
-    const relativeDepth = normalizedPath
-      ? segments.length
-      : Math.max(0, segments.length - 1)
-
-    const indent = '  '.repeat(relativeDepth)
-    const suffix = entry.type === 'tree' ? '/' : ''
+    const relativeDepth = normalizedPath ? segments.length : Math.max(0, segments.length - 1);
+    const indent = '  '.repeat(relativeDepth);
+    const suffix = entry.type === 'tree' ? '/' : '';
 
     const displayPath = normalizedPath && pathValue === normalizedPath
       ? './'
       : segments.length === 0
         ? (pathValue || './') + suffix
-        : `${indent}${segments[segments.length - 1]}${suffix}`
+        : `${indent}${segments[segments.length - 1]}${suffix}`;
 
     return {
       path: pathValue,
@@ -251,23 +171,74 @@ files.openapi(listRepoTreeRoute, async (c) => {
       url: entry.url ?? null,
       depth: relativeDepth,
       displayPath,
-    }
-  })
+    };
+  });
 
-  const header = 'MODE     TYPE   SIZE      SHA                                      PATH'
+  const header = 'MODE     TYPE   SIZE      SHA                                      PATH';
   const listingLines = formattedEntries.map((entry) => {
-    const sizeValue = entry.size === null ? '-' : entry.size.toString()
-    return `${entry.mode.padEnd(8)} ${entry.type.padEnd(5)} ${sizeValue.padStart(8)} ${entry.sha} ${entry.displayPath}`
-  })
+    const sizeValue = entry.size === null ? '-' : entry.size.toString();
+    return `${entry.mode.padEnd(8)} ${entry.type.padEnd(5)} ${sizeValue.padStart(8)} ${entry.sha} ${entry.displayPath}`;
+  });
 
-  const listing = [header, ...listingLines].join('\n')
+  const listing = [header, ...listingLines].join('\n');
 
-  return c.json({
+  return {
     entries: formattedEntries,
     listing,
     truncated: data.truncated ?? false,
-  })
-})
+  };
+}
+
+// --- 3. Tool Factory ---
+
+export function makeFileTools(env: Env) {
+  return {
+    upsertFile: tool({
+      description: 'Create or update a file in a GitHub repository.',
+      parameters: UpsertFileRequestSchema,
+      execute: async (params: any) => upsertFile(env, params),
+    } as any),
+    listRepoTree: tool({
+      description: 'List repository contents with an ls-style tree representation.',
+      parameters: ListRepoTreeRequestSchema,
+      execute: async (params: any) => listRepoTree(env, params),
+    } as any),
+  };
+}
+
+// --- 4. Hono App and Routes ---
+
+const files = new OpenAPIHono<{ Bindings: Env }>()
+
+files.openapi(
+  createRoute({
+    method: 'post',
+    path: '/files/upsert',
+    operationId: 'upsertFile',
+    request: { body: { content: { 'application/json': { schema: UpsertFileRequestSchema } } } },
+    responses: {
+      200: { content: { 'application/json': { schema: UpsertFileResponseSchema } }, description: 'Success' }
+    },
+    'x-agent': true,
+    description: 'Create or update a file',
+  }),
+  async (c) => c.json(await upsertFile(c.env, c.req.valid('json')))
+)
+
+files.openapi(
+  createRoute({
+    method: 'post',
+    path: '/files/tree',
+    operationId: 'listRepoTree',
+    request: { body: { content: { 'application/json': { schema: ListRepoTreeRequestSchema } } } },
+    responses: {
+      200: { content: { 'application/json': { schema: ListRepoTreeResponseSchema } }, description: 'Success' }
+    },
+    'x-agent': true,
+    description: 'List repository contents',
+  }),
+  async (c) => c.json(await listRepoTree(c.env, c.req.valid('json')))
+)
 
 export default files
 

@@ -51,6 +51,10 @@ export interface StartSessionParams {
 
   /** Logical role of the session within a planning flow. */
   sessionRole?: string;
+
+  /** Optional title for the session. */
+  title?: string;
+  
 }
 
 // ─── Webhook Event ────────────────────────────────────────────────────────────

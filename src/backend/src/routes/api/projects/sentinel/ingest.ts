@@ -18,8 +18,8 @@ import {
     IngestInsightBodySchema,
     OkResponseSchema,
     ErrorResponseSchema,
-    broadcastSentinelEvent,
 } from './types';
+import { broadcastSentinelEvent } from './broadcast';
 
 const ResponseSchema = OkResponseSchema.extend({
     insightId: z.string(),
