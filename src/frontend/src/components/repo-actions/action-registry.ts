@@ -22,6 +22,7 @@ import {
   ScrollText,
   Activity,
   GitMerge,
+  BookOpen,
 } from "lucide-react";
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -145,6 +146,96 @@ export const REPO_ACTIONS: RepoAction[] = [
       "Jules will bump versions, resolve breaking API changes, run tests, and submit a PR.",
     prompt:
       "Analyze package.json and update dependencies to their latest stable versions, fixing any breaking changes. Create a PR.",
+  },
+  {
+    id: "jules-generate-readme",
+    label: "Generate README",
+    category: "Jules Commands",
+    icon: BookOpen,
+    handler: "jules",
+    description:
+      "Conduct a comprehensive analysis of the codebase and generate a professional, production-grade README.md with architecture diagrams, deployment guides, and code examples.",
+    instructions:
+      "Jules will act as a Senior Technical Writer and Lead Systems Architect. It scans the entire codebase — tech stack, entry points, environment config, and data flow — then generates a fully structured README with badges, feature lists, Mermaid diagrams, deployment checklists, and local dev instructions.",
+    prompt: `# 🤖 Repository Analysis & README Generation
+
+> **Role:** Senior Technical Writer & Lead Systems Architect
+>
+> **Objective:** Analyze this repository and generate a professional, production-grade \`README.md\`.
+> Match the structure, visual hierarchy, and persuasive flow of top-tier OSS READMEs (e.g., Cloudflare Vibe SDK).
+
+---
+
+## Phase 1 — Deep Codebase Analysis
+
+Before writing, scan and understand:
+
+1. **Core Mission** — What is the primary problem this repo solves?
+2. **Tech Stack** — Identify frontend, backend, database, ORM, and infrastructure (e.g., Cloudflare Workers, Hono, Drizzle, Astro, React, Python).
+3. **Entry Points** — Identify main scripts, API routes (\`/openapi.json\`, \`/health\`), and application logic.
+4. **Environment Config** — Scan for \`.env.example\`, \`wrangler.jsonc\`, or config files; list required secrets and variables.
+5. **Architecture** — Map data flow: how the frontend talks to the backend, how AI is integrated, etc.
+
+---
+
+## Phase 2 — README Sections (Required)
+
+Generate the README using **exactly** these sections in order:
+
+### 2.1 Header & Hook
+- Bold title with a relevant emoji
+- Single-sentence high-impact tagline
+- "Live Demo / Deploy" CTA block with badges
+
+### 2.2 What is [Project Name]?
+- 1–2 paragraphs capturing the "vibe" and purpose
+
+### 2.3 Perfect For
+- 3 personas or use cases, each as an \`### H3\` header (e.g., "Internal Dev Teams", "SaaS Platforms")
+
+### 2.4 Key Features
+- Bulleted list with **bolded labels** and relevant emojis (🤖 ⚡ 💬 🔒)
+
+### 2.5 Tech Stack
+- "Built on …" section highlighting the ecosystem (e.g., "Built on Cloudflare's Platform")
+
+### 2.6 Programmatic Access / SDK Usage
+- Copy-pasteable TypeScript or Python code block showing primary usage
+
+### 2.7 Deployment Guide
+- Quick Deploy Checklist with checkboxes (\`- [ ]\`)
+- Required API Keys subsection
+- Configuration table for environment variables:
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+
+### 2.8 How It Works
+- Mermaid \`graph\` flowchart showing the application's logic flow
+
+### 2.9 Deep Dive
+- 1–2 code snippets highlighting unique architectural patterns (e.g., a specific Class, Middleware, or Agent)
+
+### 2.10 Local Development
+- Step-by-step: \`git clone\` → install → setup → \`run dev\`
+
+### 2.11 Operations & Support
+- **Troubleshooting** — common errors and fixes
+- **Security / Privacy** — relevant notes
+- **Contributing** — contribution guidelines
+
+---
+
+## Style & Tone Rules
+
+- **Scannability:** Use horizontal rules (\`---\`), blockquotes (\`>\`), and tables to break up text.
+- **Tone:** Professional, authoritative, approachable, and exciting.
+- **5-Minute Rule:** A developer must be able to get the project running using only the README.
+- **No Placeholders:** Never use \`[Insert Info Here]\`. Omit the section or derive the answer from the code.
+
+---
+
+**Now analyze the codebase and output the final \`README.md\`.**`,
   },
 
   // ── Design ─────────────────────────────────────────────────────────────
