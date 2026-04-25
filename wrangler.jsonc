@@ -188,6 +188,9 @@
 	"browser": {
 		"binding": "BROWSER"
 	},
+	"worker_loaders": [
+		{ "binding": "LOADER" }
+	],
 	"r2_buckets": [
 		{ "binding": "PLAN_ARTIFACTS", "bucket_name": "core-github-api-plan-artifacts" },
 		{ "binding": "ARTIFACT_STORE", "bucket_name": "core-planning-artifacts" },
@@ -247,5 +250,8 @@
 	},
 	"services": [
 		{ "name": "core-github-api-edgraph", "binding": "EDGRAPH", "service": "core-github-api-edgraph" }
+	],
+	"tail_consumers": [
+		{ "service": "core-github-api-tail" }
 	]
 }

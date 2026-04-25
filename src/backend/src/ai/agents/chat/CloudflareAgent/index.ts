@@ -18,6 +18,7 @@ import type { CloudflareAgentState, StructuredChatResult } from './types';
 import { getSecret } from '@/utils/secrets';
 import { testAnyValidToken } from '@/utils/cloudflare/tokens';
 import type { HealthCheck, HealthMode } from '@/ai/providers/agent-support/health';
+import { createBrowserToolsForAgent } from '@/ai/tools/browser-tools';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Agent Class
@@ -42,6 +43,23 @@ export class CloudflareAgent extends BaseChatAgent<CloudflareAgentState> {
 
   protected async agentInit(): Promise<void> {
     // any extra initialization can go here
+  }
+
+  // ── Browser Tools ────────────────────────────────────────────────────
+
+  protected getTools(): Record<string, any> {
+    // Retrieve base tools (if any are returned by superclass)
+    let tools = {};
+    if (typeof (super.getTools as any) === 'function') {
+      tools = (super as any).getTools() || {};
+    }
+
+    if ((this as any).env.BROWSER_TOOLS_ENABLED === '1') {
+      const browserTools = createBrowserToolsForAgent((this as any).env, { agentId: this.agentName });
+      tools = { ...tools, ...browserTools };
+    }
+
+    return tools;
   }
 
   // ── Layer 3 Health Checks ────────────────────────────────────────────

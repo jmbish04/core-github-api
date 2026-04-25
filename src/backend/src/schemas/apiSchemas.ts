@@ -6,6 +6,9 @@
 
 import { DEFAULT_GITHUB_OWNER } from "@github-utils";
 import { z } from "zod";
+import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
+
+extendZodWithOpenApi(z);
 
 // ============================================================================
 // Common Schemas

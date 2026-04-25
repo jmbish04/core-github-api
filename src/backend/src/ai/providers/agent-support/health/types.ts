@@ -12,6 +12,7 @@
  */
 
 // ─── Core Enums ──────────────────────────────────────────────────────────
+import type { ObservabilityEvent } from '../observability';
 
 /** Probe execution mode. Fast = cron-safe; Deep = user-triggered only. */
 export type HealthMode = 'fast' | 'deep';
@@ -102,6 +103,10 @@ export interface HealthReport {
     failed: number;
     skipped: number;
   };
+
+  /** Optional ring buffer snapshot from V8 observability metrics */
+  recentRpcErrors?: ObservabilityEvent[];
+  recentMcpEvents?: ObservabilityEvent[];
 }
 
 // ─── Check Factory Type ──────────────────────────────────────────────────

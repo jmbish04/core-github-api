@@ -1,0 +1,282 @@
+{
+  "version": "v8.1",
+  "supersedes": "docs/20260417/standardize_agents/v8/TASKS.json",
+  "title": "Adopt new Cloudflare Agents SDK features (Think, Browser tools, Observability, Codemode, Subagents)",
+  "description": "Additively absorb the SDK capabilities documented in docs/new_agents_sdk/*.md without disturbing v7 specialist-delegation invariants. Pin the agents package, add observability subscribers, introduce BaseThinkAgent as a peer to BaseChatAgent (with a Think-shaped SkillProvider adapter over the existing D1-backed SkillManager — no R2/Octokit/edigraph/KV migration), migrate WorkshopAgent as a Think proof-of-concept, layer browser tools onto CloudflareAgent and ResearchAgent, scaffold codemode behind a feature flag, and prove the Agent-level subAgent primitive with a single parallel-queries POC in ResearchAgent (WebQueryWorker subagent class).",
+  "context": {
+    "prd": "docs/20260417/standardize_agents/v8.1/PRD.md",
+    "prompt": "docs/20260417/standardize_agents/v8.1/PROMPT.md",
+    "audit": "docs/20260417/standardize_agents/v8.1/AGENTS_PACKAGE_AUDIT.md",
+    "sdk_docs": [
+      "docs/new_agents_sdk/think.md",
+      "docs/new_agents_sdk/browse_web.md",
+      "docs/new_agents_sdk/observability.md",
+      "docs/new_agents_sdk/codemode.md",
+      "docs/new_agents_sdk/subagents.md"
+    ],
+    "builds_on": ["v7/PRD.md"],
+    "non_negotiable_invariants": [
+      "MCP ownership is chat/CloudflareAgent (v7).",
+      "Octokit ownership is backend/GithubAgent (v7).",
+      "@callable signatures are append-only (v7).",
+      "BaseChatAgent and Logger are not removed in v8.1.",
+      "Codemode is gated on CODEMODE_ENABLED='1'; default off.",
+      "Browser Render JSON-schema extraction in ResearchAgent is preserved.",
+      "this.subAgent() is for parent-owned ephemeral children only — NEVER used to reach another specialist. Cross-specialist dispatch stays on getPeerAgent (v7).",
+      "Skills storage backend stays D1. The new SkillProvider is an adapter over the existing SkillManager — no R2, no Octokit-backed storage, no edigraph/KV migration in v8.1."
+    ]
+  },
+  "phases": [
+    {
+      "phase": 1,
+      "name": "Foundation — pin SDK and scaffold infra",
+      "tasks": [
+        {
+          "id": "V8-01",
+          "type": "modify",
+          "priority": "critical",
+          "complexity": "S",
+          "title": "Pin agents package version + document changelog audit",
+          "files": [
+            "package.json",
+            "package-lock.json",
+            "docs/20260417/standardize_agents/v8.1/AGENTS_PACKAGE_AUDIT.md"
+          ],
+          "depends_on": [],
+          "description": "Replace \"agents\": \"latest\" in package.json with a pinned semver (the version that ships @cloudflare/think interop, agents/browser/ai, agents/observability). Run npm install and commit the lockfile delta. Verify AGENTS_PACKAGE_AUDIT.md (already drafted in v8.1/) documents: (a) the pinned version, (b) breaking-change diff vs. previous behavior, (c) confirmation that getAgentByName, @callable, AIChatAgent, Agent.subAgent still resolve. Add a CI grep step (or .agent/rules/ doc) that fails when \"agents\": \"latest\" reappears.",
+          "success_criteria": "rg -n '\"latest\"' package.json | wc -l == 0. npx tsc --noEmit passes. AGENTS_PACKAGE_AUDIT.md exists and lists the chosen version."
+        }
+      ]
+    },
+    {
+      "phase": 2,
+      "name": "Independent scaffolding (parallel-safe)",
+      "tasks": [
+        {
+          "id": "V8-02",
+          "type": "new",
+          "priority": "high",
+          "complexity": "S",
+          "title": "Scaffold observability module — subscribe to SDK diagnostic channels and forward to Logger",
+          "files": [
+            "src/backend/src/ai/observability/index.ts",
+            "src/backend/src/ai/observability/subscribers.ts",
+            "src/backend/src/index.ts"
+          ],
+          "depends_on": ["V8-01"],
+          "description": "Create src/backend/src/ai/observability/ with index.ts (entrypoint registerObservability(env)) and subscribers.ts (one subscribe(channel, handler) per channel). Subscribe to: 'rpc', 'rpc:error', 'state:update', 'lifecycle' (connect/disconnect/destroy), 'mcp:client:connect'/':error', 'schedule:execute'/':error'. Each handler invokes Logger.persist() with a structured payload and emits to a process-scope ring buffer (lazy-init, max 200 events) consumed later by V8-11. Wire registerObservability(env) into src/backend/src/index.ts boot path. Module-scope idempotent guard so registration survives DO restarts without leaking subscribers.",
+          "success_criteria": "rg -n 'subscribe\\(' src/backend/src/ai/observability returns ≥ 5. A unit test demonstrates a fake event reaching Logger.persist. npx tsc --noEmit passes."
+        },
+        {
+          "id": "V8-04",
+          "type": "new",
+          "priority": "high",
+          "complexity": "L",
+          "title": "Build BaseThinkAgent shim + Think-shaped SkillProvider adapter over the existing D1-backed SkillManager",
+          "files": [
+            "src/backend/src/ai/providers/agent-support/base-think-agent.ts",
+            "src/backend/src/ai/providers/agent-support/skill-provider.ts",
+            "src/backend/src/ai/providers/agent-support/index.ts"
+          ],
+          "depends_on": ["V8-01"],
+          "description": "Create base-think-agent.ts mirroring base-chat-agent.ts's service surface: protected logger, stateStore, hitl, peerEventsLog; abstract agentName, skills, agentInit(); public accessors getEnv/getAI/getLogger/getStateStore/getSkills/getAgentName (matching commit 8bdbdd7); @callable streamEvents and receivePeerEvent (matching BaseChatAgent); agentHealthChecks(mode) override point. Class extends Think<Env, State> from the agents SDK. Set chatRecovery: false explicitly. ALSO create skill-provider.ts: a thin adapter class implementing the Think SkillProvider interface (get/set/list shape from the R2SkillProvider example) backed by the existing SkillManager — no new caching layer, no new storage backend, just a presentation-layer wrapper. Override BaseThinkAgent.configureSession() to call session.withContext('skills', { provider: new SkillManagerSkillProvider(this.skillManager, this.skills) }) so Think handles per-turn skill injection idiomatically. Override getTools() to return the agent's existing tool registry. Export both classes from agent-support/index.ts. Do NOT modify base-chat-agent.ts. Do NOT modify SkillManager or the agentSkills D1 schema. Do NOT introduce R2, Octokit-backed, edigraph, or KV storage for skills.",
+          "success_criteria": "BaseThinkAgent and SkillManagerSkillProvider classes compile. rg -n 'class .*SkillProvider' src/backend/src/ai/providers/agent-support/skill-provider.ts | wc -l ≥ 1. rg -n 'withContext\\(.skills.' src/backend/src/ai/providers/agent-support/base-think-agent.ts | wc -l ≥ 1. rg -n 'SkillManager' src/backend/src/ai/providers/agent-support/skill-provider.ts | wc -l ≥ 1. rg -n 'new R2SkillProvider|R2_SKILLS_BUCKET' src/backend/src | wc -l == 0. No existing agent's behavior changes (no agent extends BaseThinkAgent yet). rg -n 'extends BaseThinkAgent' src/backend/src/ai/agents returns 0 (V8-05 will be the first). Type-check passes."
+        },
+        {
+          "id": "V8-06",
+          "type": "new",
+          "priority": "high",
+          "complexity": "M",
+          "title": "createBrowserTools wrapper + Browser Run / Worker Loader bindings",
+          "files": [
+            "src/backend/src/ai/tools/browser-tools.ts",
+            "wrangler.jsonc"
+          ],
+          "depends_on": ["V8-01"],
+          "description": "Add BROWSER (Browser Run) and LOADER (Worker Loader) bindings to wrangler.jsonc per docs/new_agents_sdk/browse_web.md. Create src/backend/src/ai/tools/browser-tools.ts exporting createBrowserToolsForAgent(env) -> { browser_search, browser_execute }. Wrapper: validates env.BROWSER and env.LOADER, applies a per-call rate limit (default 10 calls/minute/agent, configurable via env.BROWSER_TOOLS_RATE_LIMIT), logs each call to a D1 browser_tool_calls table (or via Logger.persist if D1 schema extension is out of scope). Set timeout: 30000 by default. Do not import @/ai/mcp/* or @octokit/* anywhere in this file (specialist invariant).",
+          "success_criteria": "createBrowserToolsForAgent compiles. Unit test confirms wrapper invokes createBrowserTools with the expected options. npx tsc --noEmit passes. wrangler.jsonc has BROWSER and LOADER bindings."
+        },
+        {
+          "id": "V8-09",
+          "type": "new",
+          "priority": "medium",
+          "complexity": "M",
+          "title": "Codemode wrapper behind CODEMODE_ENABLED flag — fail-closed tool filter",
+          "files": [
+            "src/backend/src/ai/tools/codemode-tool.ts",
+            "src/backend/src/ai/mcp/registry-codemode-filter.ts",
+            "src/backend/src/ai/mcp/tools.ts"
+          ],
+          "depends_on": ["V8-01"],
+          "description": "Augment src/backend/src/ai/mcp/tools.ts: every MCPTool registry entry derives a safeForCodemode boolean = !needsApproval && !writesToGitHub && !mutatesCloudflare (encode the latter two as new optional fields on existing entries). Create registry-codemode-filter.ts exporting filterToolsForCodemode(tools) that returns only entries with safeForCodemode === true and throws if any incoming tool has needsApproval || writesToGitHub || mutatesCloudflare (fail closed, do not silently filter). Create codemode-tool.ts: wrapper around createCodeTool({tools, executor}) that asserts env.CODEMODE_ENABLED === '1' (throws otherwise), passes filtered tools, configures DynamicWorkerExecutor with env.LOADER, timeout: 30000, globalOutbound: null. No call sites yet.",
+          "success_criteria": "rg -n 'createCodeTool\\(' src/backend/src | grep -v 'tools/codemode-tool.ts' returns 0. Unit test: passing a tool with needsApproval throws. Unit test: with CODEMODE_ENABLED unset, the wrapper throws. npx tsc --noEmit passes."
+        }
+      ]
+    },
+    {
+      "phase": 3,
+      "name": "Apply scaffolding to agents (parallel-safe within phase)",
+      "tasks": [
+        {
+          "id": "V8-03",
+          "type": "modify",
+          "priority": "high",
+          "complexity": "M",
+          "title": "Add Tail Worker tail_consumers and verify channel forwarding end-to-end",
+          "files": [
+            "wrangler.jsonc",
+            "docs/20260417/standardize_agents/v8.1/AGENTS_PACKAGE_AUDIT.md"
+          ],
+          "depends_on": ["V8-02"],
+          "description": "Add tail_consumers entry to wrangler.jsonc (script_name = the existing or new Tail Worker — confirm with PRD §Open Questions #2 before naming). Smoke test: deploy with --dry-run, then via wrangler dev, invoke a @callable on any agent and confirm an agents:rpc event appears in Tail Worker output (paste evidence into AGENTS_PACKAGE_AUDIT.md §SmokeEvidence).",
+          "success_criteria": "wrangler.jsonc has tail_consumers configured. AGENTS_PACKAGE_AUDIT.md §SmokeEvidence cites a Tail Worker capture. npx wrangler deploy --dry-run succeeds."
+        },
+        {
+          "id": "V8-05",
+          "type": "modify",
+          "priority": "high",
+          "complexity": "L",
+          "title": "Migrate WorkshopAgent from BaseChatAgent to BaseThinkAgent",
+          "files": [
+            "src/backend/src/ai/agents/chat/WorkshopAgent/index.ts",
+            "src/backend/src/ai/agents/chat/WorkshopAgent/health.ts",
+            "src/backend/src/ai/agents/chat/WorkshopAgent/types.ts",
+            "src/backend/src/ai/agents/chat/WorkshopAgent/methods/*"
+          ],
+          "depends_on": ["V8-04"],
+          "description": "Replace `extends BaseChatAgent<...>` with `extends BaseThinkAgent<...>`. Remove the custom onChatMessage override; rely on Think defaults. Install skills via Session.withContext('skills', { provider }) inside configureSession() (provider is the SkillManagerSkillProvider adapter from V8-04 — never instantiate a new storage backend here). Set chatRecovery: false explicitly. Preserve every existing @callable signature exactly (append-only rule). The class header comment must call out: (1) this is the v8.1 Think pilot, (2) @callable surface is append-only, (3) chatRecovery is intentionally false pending HITL × fiber characterization. Run a smoke test via wrangler dev: a chat round-trip completes and an existing @callable still works.",
+          "success_criteria": "rg -n 'extends BaseChatAgent' src/backend/src/ai/agents/chat/WorkshopAgent | wc -l == 0. rg -n 'BaseThinkAgent' src/backend/src/ai/agents/chat/WorkshopAgent | wc -l ≥ 1. All existing WorkshopAgent tests pass. Smoke test: chat round-trip + one existing @callable invocation succeeds in wrangler dev."
+        },
+        {
+          "id": "V8-07",
+          "type": "modify",
+          "priority": "medium",
+          "complexity": "M",
+          "title": "Wire browser tools into CloudflareAgent behind BROWSER_TOOLS_ENABLED flag",
+          "files": [
+            "src/backend/src/ai/agents/chat/CloudflareAgent/index.ts"
+          ],
+          "depends_on": ["V8-06"],
+          "description": "Inside CloudflareAgent.getTools() (or equivalent tool-list assembly), append the browser tools when env.BROWSER_TOOLS_ENABLED === '1' by calling createBrowserToolsForAgent(this.env). Default off. Preserve the @callable surface (no signature changes, no new methods in this task — wiring only). Specialist invariant: this is the only chat-tier agent that may register browser tools; do not add similar wiring to CoordinatorAgent or WorkshopAgent.",
+          "success_criteria": "BROWSER_TOOLS_ENABLED=1 path returns the augmented tool list; flag-off path returns the previous tool list verbatim. v7 grep guards still pass (no new MCP/Octokit imports). npx tsc --noEmit passes."
+        },
+        {
+          "id": "V8-08",
+          "type": "new",
+          "priority": "medium",
+          "complexity": "M",
+          "title": "ResearchAgent.interactiveScrape — append-only @callable for unstructured page exploration",
+          "files": [
+            "src/backend/src/ai/agents/backend/ResearchAgent/methods/browser-execute.ts",
+            "src/backend/src/ai/agents/backend/ResearchAgent/index.ts"
+          ],
+          "depends_on": ["V8-06"],
+          "description": "Create methods/browser-execute.ts exporting interactiveScrapeImpl(agent, args: { url: string; instruction: string; perCallTimeoutMs?: number }) -> Promise<{ summary: string; rawJsLog?: string }>. Implementation: build browser_execute via createBrowserToolsForAgent(this.env), invoke the tool with an LLM prompt that combines `url` + `instruction`, return the captured output. Add a single @callable interactiveScrape on ResearchAgent that dynamic-imports and delegates. **Do not modify** ResearchAgent/methods/github.ts or methods/web-search.ts — Browser Render JSON-schema extraction stays untouched. Add a clear JSDoc on the new method explaining: 'Use BrowserRenderApi.getJson for structured extraction; use this for unstructured exploration only.'",
+          "success_criteria": "rg -n '@callable' src/backend/src/ai/agents/backend/ResearchAgent | grep 'interactiveScrape' | wc -l == 1. methods/github.ts and methods/web-search.ts diff is empty. npx tsc --noEmit passes."
+        },
+        {
+          "id": "V8-10",
+          "type": "new",
+          "priority": "low",
+          "complexity": "M",
+          "title": "EngineerAgent.experimentalCodemodeOrchestrate — single gated call site",
+          "files": [
+            "src/backend/src/ai/agents/backend/EngineerAgent/methods/experimental-codemode.ts",
+            "src/backend/src/ai/agents/backend/EngineerAgent/index.ts"
+          ],
+          "depends_on": ["V8-09"],
+          "description": "Create methods/experimental-codemode.ts exporting experimentalCodemodeOrchestrateImpl(agent, args). Builds a strictly read-only tool subset (codebase grep, file-read, MCP agenticSearch via getPeerAgent — confirmed list TBD per PRD §Open Questions #5). Passes through src/backend/src/ai/tools/codemode-tool.ts (which validates CODEMODE_ENABLED and rejects approval-gated/write/mutate tools). When CODEMODE_ENABLED !== '1', return { status: 'disabled', reason: 'CODEMODE_ENABLED flag is off' } — never throw. Add a single @callable experimentalCodemodeOrchestrate on EngineerAgent. Mark Beta in JSDoc with a link to docs/new_agents_sdk/codemode.md and the PRD's Codemode footgun risk. **No production call site.**",
+          "success_criteria": "rg -n '@callable' src/backend/src/ai/agents/backend/EngineerAgent | grep 'experimentalCodemodeOrchestrate' | wc -l == 1. With CODEMODE_ENABLED unset, calling the method returns { status: 'disabled' }. v7 grep guards still pass."
+        },
+        {
+          "id": "V8-11",
+          "type": "new",
+          "priority": "medium",
+          "complexity": "M",
+          "title": "Bridge observability ring buffer into health report",
+          "files": [
+            "src/backend/src/ai/providers/agent-support/health/metrics-tap.ts",
+            "src/backend/src/ai/providers/agent-support/health/runner.ts",
+            "src/backend/src/ai/providers/agent-support/health/types.ts"
+          ],
+          "depends_on": ["V8-02"],
+          "description": "Create metrics-tap.ts exporting captureRecentEvents(): { recentRpcErrors: ObservabilityEvent[]; recentMcpEvents: ObservabilityEvent[] } that drains (peeks, does not mutate) the observability ring buffer from V8-02. Modify health/runner.ts so that after collecting Layer 2/3 checks, it appends the metrics-tap output to the HealthReport. Update health/types.ts to add optional recentRpcErrors and recentMcpEvents fields on HealthReport. Do not break the existing report shape — fields are optional and additive.",
+          "success_criteria": "An existing health report invocation now includes recentRpcErrors and recentMcpEvents fields. The fields are populated when at least one event has been captured. npx tsc --noEmit passes. Existing health tests pass."
+        },
+        {
+          "id": "V8-13",
+          "type": "new",
+          "priority": "medium",
+          "complexity": "M",
+          "title": "Subagent POC — ResearchAgent.executeParallelWebQueries via WebQueryWorker children",
+          "files": [
+            "src/backend/src/ai/agents/backend/ResearchAgent/methods/parallel-queries.ts",
+            "src/backend/src/ai/agents/backend/ResearchAgent/index.ts",
+            "src/backend/src/index.ts",
+            "wrangler.jsonc"
+          ],
+          "depends_on": ["V8-01"],
+          "description": "Prove the Agent-level subAgent primitive (docs/new_agents_sdk/subagents.md) with one surgical POC. Create methods/parallel-queries.ts exporting (a) `executeParallelWebQueriesImpl(agent, args: { queries: string[] })` which calls `Promise.all(queries.map((q, i) => agent.subAgent(WebQueryWorker, `web-query-${i}`).then(stub => stub.search(q))))` and aggregates results, and (b) `class WebQueryWorker extends Agent` with a single `async search(query: string): Promise<{ query: string; result: string }>` method (the typed RPC stub is synthesized automatically — no @callable decorator). The child's storage shape (per PRD §Open Questions #6) is a single `query_log` table created idempotently via `CREATE TABLE IF NOT EXISTS` on first call; never schedule(), cancelSchedule(), or keepAlive() inside the child (unsupported per subagents.md §Limitations). Export `WebQueryWorker` from `src/backend/src/index.ts` with the export name matching the class name (the SDK requires this). Add `WebQueryWorker` to wrangler.jsonc `migrations.new_sqlite_classes` (do NOT add a new top-level DO binding — subagents are facets of the parent). Add a single @callable executeParallelWebQueries on ResearchAgent that dynamic-imports and delegates. **Cross-specialist dispatch invariant:** never `this.subAgent(CloudflareAgent|GithubAgent|CoordinatorAgent|EngineerAgent, …)` — that stays on getPeerAgent (v7).",
+          "success_criteria": "rg -n 'this\\.subAgent\\(' src/backend/src/ai/agents | wc -l ≥ 1. rg -n 'export class WebQueryWorker' src/backend/src | wc -l == 1. rg -n 'this\\.subAgent\\(\\s*(CloudflareAgent|GithubAgent|CoordinatorAgent|EngineerAgent)' src/backend/src | wc -l == 0. rg -n 'WebQueryWorker' wrangler.jsonc | wc -l ≥ 1 (in new_sqlite_classes). rg -n '@callable' src/backend/src/ai/agents/backend/ResearchAgent | grep 'executeParallelWebQueries' | wc -l == 1. npx tsc --noEmit passes. Smoke test in wrangler dev: calling executeParallelWebQueries({ queries: ['a', 'b'] }) creates two facets with names web-query-0 and web-query-1 and returns aggregated results."
+        }
+      ]
+    },
+    {
+      "phase": 4,
+      "name": "Verification harness + sign-off",
+      "tasks": [
+        {
+          "id": "V8-12",
+          "type": "new",
+          "priority": "high",
+          "complexity": "S",
+          "title": "verify-v8.sh harness + final docs sweep",
+          "files": [
+            "scripts/verify-v8.sh",
+            "docs/20260417/standardize_agents/v8.1/PRD.md",
+            "docs/20260417/standardize_agents/v8.1/TASKS.json",
+            "docs/20260417/standardize_agents/v8.1/PROMPT.md"
+          ],
+          "depends_on": [
+            "V8-01", "V8-02", "V8-03", "V8-04", "V8-05",
+            "V8-06", "V8-07", "V8-08", "V8-09", "V8-10", "V8-11", "V8-13"
+          ],
+          "description": "Create scripts/verify-v8.sh running the full PRD §Verification block end-to-end (typecheck, v7 invariant greps, v8.1 specific guards including subagent invariants and SkillProvider adapter checks, append-only @callable greps, wrangler --dry-run). Exit non-zero on any failure. Update PRD §Open Questions to reflect resolved decisions (pinned version, Tail Worker name, rate limit, codemode tool list, WebQueryWorker storage shape). No code changes outside scripts/.",
+          "success_criteria": "bash scripts/verify-v8.sh exits 0. PRD §Open Questions has resolved entries replaced with their decisions."
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "commands": [
+      "npx tsc --noEmit",
+      "rg -n \"\\\"latest\\\"\" package.json | wc -l   # must be 0",
+      "rg -n \"from ['\\\"]@/ai/mcp/mcp-client\" src/backend/src/ai/agents | grep -v \"chat/CloudflareAgent\" | wc -l   # must be 0",
+      "rg -n \"@octokit|getOctokit|new Octokit\" src/backend/src/ai/agents | grep -v \"backend/GithubAgent\" | wc -l   # must be 0",
+      "rg -n \"rewriteQuestionForMCP\" src/backend/src/ai/agents | grep -v \"chat/CloudflareAgent\" | wc -l   # must be 0",
+      "rg -n \"createCodeTool\\(\" src/backend/src | grep -v \"tools/codemode-tool.ts\" | wc -l   # must be 0",
+      "rg -n \"createBrowserTools\\(\" src/backend/src | grep -v \"tools/browser-tools.ts\" | wc -l   # must be 0",
+      "rg -n \"subscribe\\(\" src/backend/src/ai/observability | wc -l   # must be ≥ 5",
+      "rg -n \"BaseThinkAgent\" src/backend/src/ai/agents/chat/WorkshopAgent | wc -l   # must be ≥ 1",
+      "rg -n \"extends BaseChatAgent\" src/backend/src/ai/agents/chat/WorkshopAgent | wc -l   # must be 0",
+      "rg -n \"@callable\" src/backend/src/ai/agents/backend/ResearchAgent | grep \"interactiveScrape\" | wc -l   # must be 1",
+      "rg -n \"@callable\" src/backend/src/ai/agents/backend/ResearchAgent | grep \"executeParallelWebQueries\" | wc -l   # must be 1",
+      "rg -n \"@callable\" src/backend/src/ai/agents/backend/EngineerAgent | grep \"experimentalCodemodeOrchestrate\" | wc -l   # must be 1",
+      "rg -n \"this\\\\.subAgent\\\\(\" src/backend/src/ai/agents | wc -l   # must be ≥ 1",
+      "rg -n \"this\\\\.subAgent\\\\(\\\\s*(CloudflareAgent|GithubAgent|CoordinatorAgent|EngineerAgent)\" src/backend/src | wc -l   # must be 0",
+      "rg -n \"export class WebQueryWorker\" src/backend/src | wc -l   # must be 1",
+      "rg -n \"WebQueryWorker\" wrangler.jsonc | wc -l   # must be ≥ 1",
+      "rg -n \"class .*SkillProvider\" src/backend/src/ai/providers/agent-support/skill-provider.ts | wc -l   # must be ≥ 1",
+      "rg -n \"new R2SkillProvider|R2_SKILLS_BUCKET\" src/backend/src | wc -l   # must be 0",
+      "npx wrangler deploy --dry-run",
+      "bash scripts/verify-v8.sh"
+    ]
+  },
+  "execution_order": [
+    "V8-01",
+    "[V8-02, V8-04, V8-06, V8-09]",
+    "[V8-03, V8-05, V8-07, V8-08, V8-10, V8-11, V8-13]",
+    "V8-12",
+    "final-verification"
+  ]
+}

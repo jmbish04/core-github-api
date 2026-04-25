@@ -4,6 +4,7 @@ import * as methods from "./methods";
 import type { ResearchState, ResearchQuery, ResearchResult, ResearchFinding, ResearchProposalTarget } from "./types";
 import type { PollResult } from "./methods/polling";
 import type { NewsletterResult } from "./methods/newsletter";
+import { interactiveScrapeImpl } from "./methods/browser-execute";
 import { z } from "zod";
 import type { HealthMode, HealthCheck } from '@/ai/providers/agent-support/health/types';
 import type { PeerBindingDescriptor } from '@/ai/providers/agent-support/health';
@@ -155,6 +156,17 @@ export class ResearchAgent extends BaseAgent<ResearchState> {
     this.logger.info(`[summarize] Summarizing content (${content.length} chars)`, { maxLength });
     const result = await methods.summarize(this, content, maxLength);
     this.logger.info(`[summarize] Summary generated (${result.summary.length} chars, ${result.keyPoints.length} key points)`);
+    return result;
+  }
+
+  /**
+   * Executes an interactive scrape using the browser tools for unstructured page exploration.
+   */
+  @callable()
+  async interactiveScrape(url: string, instruction: string, perCallTimeoutMs?: number): Promise<{ summary: string; rawJsLog?: string }> {
+    this.logger.info(`[interactiveScrape] Starting interactive scrape on: ${url}`);
+    const result = await interactiveScrapeImpl(this, { url, instruction, perCallTimeoutMs });
+    this.logger.info(`[interactiveScrape] Interactive scrape complete.`);
     return result;
   }
 

@@ -24,6 +24,13 @@ export interface MCPTool {
   }>;
   category: string;
   tags?: string[];
+  // V8 codemode safety annotations (default: false when omitted)
+  /** If true, the tool requires human approval before execution. */
+  needsApproval?: boolean;
+  /** If true, the tool writes to GitHub (commits, PRs, file mutations). */
+  writesToGitHub?: boolean;
+  /** If true, the tool mutates Cloudflare infrastructure (D1, KV, R2, DNS). */
+  mutatesCloudflare?: boolean;
 }
 
 /**

@@ -6,21 +6,23 @@
  */
 
 import { callable } from "agents";
-import { BaseAgent } from "@/ai/providers";
+import { BaseThinkAgent } from "@/ai/providers/agent-support";
 import * as methods from "./methods";
 import type { EngineerState, Sprint, BrainEvaluation, MilestoneEvent } from "./types";
 import type { Verdict } from "../GuardrailAgent/types";
 import { migrateEngineerDb, getEngineerDb, type EngineerDb } from "@db/schemas/agents/software/stateful";
 // Logger is inherited from BaseAgent via this.logger
 import type { HealthCheck, HealthMode } from '@/ai/providers/agent-support/health';
+import { experimentalCodemodeOrchestrateImpl } from './methods/experimental-codemode';
 
-export class EngineerAgent extends BaseAgent<EngineerState> {
+export class EngineerAgent extends BaseThinkAgent<EngineerState> {
   // We no longer need `public ai!` as it's inherited
   public db!: EngineerDb;
   public agentName = "EngineerAgent";
   public skills = ['engineering', 'jules-orchestration', 'code-review'];
 
   async agentInit() {
+    await super.agentInit();
 
     // Apply idempotent DDL for DO SQLite state
     (this as any).ctx.blockConcurrencyWhile(async () => {
@@ -76,6 +78,22 @@ export class EngineerAgent extends BaseAgent<EngineerState> {
     } catch (err: any) {
       // Non-fatal — first run or D1 unavailable
       this.logger.warn(`${logPrefix} D1 recovery skipped: ${String(err)}`);
+    }
+  }
+
+  // ── Session Configuration ─────────────────────────────────────────────
+
+  protected override configureSession(session: any): void {
+    super.configureSession(session);
+    
+    // Inject codemode tool if enabled
+    if ((this as any).env.CODEMODE_ENABLED === '1') {
+      import('@/ai/tools/codemode-tool').then(({ createCodeTool }) => {
+        session.tools.push(createCodeTool((this as any).env));
+        this.logger.info(`[configureSession] Injected CodeMode tool`);
+      }).catch(err => {
+        this.logger.error(`[configureSession] Failed to load codemode tool: ${err.message}`);
+      });
     }
   }
 
@@ -278,6 +296,17 @@ export class EngineerAgent extends BaseAgent<EngineerState> {
     this.logger.info(`[resolveConflicts] Starting conflict resolution for ${opts.owner}/${opts.repo}#${opts.prNumber}`, { head: opts.headBranch, base: opts.baseBranch });
     const { resolveConflicts: runPipeline } = await import("./methods/sandbox/git/conflicts/resolveConflicts");
     return runPipeline((this as any).env, opts);
+  }
+
+  /**
+   * Executes a strictly read-only codemode orchestration pass.
+   * @beta Experimental feature. Refer to docs/new_agents_sdk/codemode.md.
+   * Note: Codemode has severe footgun risks if mutated. This only mounts safe tools.
+   */
+  @callable()
+  async experimentalCodemodeOrchestrate(args: any) {
+    this.logger.info(`[experimentalCodemodeOrchestrate] Starting codemode orchestrate stub`);
+    return experimentalCodemodeOrchestrateImpl(this, args);
   }
 
   // ── Layer 3 Health Checks ────────────────────────────────────────────

@@ -5,6 +5,7 @@ import { mountMcpEndpoints } from '@/ai/mcp';
 import { Logger } from '@/lib/logger';
 import { proxyToSandbox } from '@cloudflare/sandbox';
 import { routeAgentRequest } from 'agents';
+import { registerObservability } from '@/ai/providers';
 
 export { Sandbox } from '@cloudflare/sandbox';
 
@@ -47,6 +48,9 @@ app.use('*', async (c, next) => {
 // Uses waitUntil so the flush doesn't block the response.
 // ---------------------------------------------------------------------------
 app.use('*', async (c, next) => {
+  // V8-02: Register observability channel subscribers (idempotent)
+  registerObservability(c.env);
+
   const logger = new Logger(c.env, 'request');
   const method = c.req.method;
   const path = new URL(c.req.url).pathname;

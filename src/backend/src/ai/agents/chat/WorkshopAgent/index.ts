@@ -3,14 +3,21 @@
  * @description WorkshopAgent — Agent structure. Orchestrates project
  *              creation, task decomposition, repo initialization, and plan
  *              ingestion for the Workshop Wizard UI.
+ *
+ * (1) This is the v8 Think pilot.
+ * (2) @callable surface is append-only.
+ * (3) chatRecovery is intentionally false pending HITL × fiber characterization.
  */
 import { callable } from "agents";
-import { type StructuredChatResult, BaseAgent } from "@/ai/providers";
+import { type StructuredChatResult, BaseThinkAgent } from "@/ai/providers";
 import * as methods from "./methods";
 import type { WorkshopAgentState } from "./types";
 import type { HealthCheck, HealthMode } from '@/ai/providers/agent-support/health';
+import { withFullCodeOutputRules } from "@/ai/utils/code-output-rules";
 
-export class WorkshopAgent extends BaseAgent<WorkshopAgentState> {
+export class WorkshopAgent extends BaseThinkAgent<WorkshopAgentState> {
+  override chatRecovery = false as const;
+
   protected get skills() {
     return ['spec-writing', 'planning', 'task-decomposition'];
   }
@@ -26,7 +33,27 @@ export class WorkshopAgent extends BaseAgent<WorkshopAgentState> {
   };
 
   async agentInit(): Promise<void> {
-    // stateStore is initialized by BaseAgent.onStart()
+    // stateStore is initialized by BaseThinkAgent.onStart()
+  }
+
+  async getSystemPrompt(): Promise<string> {
+    return withFullCodeOutputRules(`You are the Workshop Orchestrator, an expert Cloudflare Workers architect.
+Your responsibilities:
+- Analyse user project requirements and decompose them into phased tasks.
+- Coordinate specialist agents (Database, API, Frontend, AI) to build complete Cloudflare Worker applications.
+- Ensure all generated plans are aligned with Drizzle ORM, Hono, and Astro best practices.
+- Track project state via the WorkshopAgent Durable Object and persist progress to D1.
+Always respond with structured, actionable output that can be rendered in the Workshop Wizard UI.
+
+## Skills applied
+Apply these skills in every response:
+- **plan-writing**: Break tasks into phases with clear dependencies and verification criteria.
+- **architecture**: Evaluate trade-offs before recommending any approach. Document ADR-style decisions.
+- **clean-code**: Concise, self-documenting code. No over-engineering, no unnecessary comments.
+- **workers-best-practices**: No floating promises, no global mutable state, stream responses where possible, use bindings correctly.
+- **agents-sdk**: Cloudflare Agents SDK patterns — Agent class, Durable Object state, callable RPC, Workflow integration.
+- **database-design**: Drizzle ORM schema design, indexing strategy, D1 query patterns.
+- **api-patterns**: Hono RPC, typed response schemas, versioning, input validation via Zod.`);
   }
 
   // ── Layer 3 Health Checks ────────────────────────────────────────────

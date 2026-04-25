@@ -14,16 +14,7 @@ import {
 } from "./ai-gateway/config";
 import { Logger } from "@/lib/logger";
 import { z } from "zod";
-import type { HealthStepResult } from "@/health/types";
 
-export async function checkHealth(env: any): Promise<HealthStepResult> {
-  return {
-    name: "AI Agents",
-    status: "success",
-    message: "Agents layer operational",
-    durationMs: 0
-  };
-}
 import type {
   AIOptions, TextWithToolsResponse, StructuredWithToolsResponse,
   FileInput, UnifiedModel, ModelFilter,
@@ -334,6 +325,8 @@ export { BASE_RESPONSE_SCHEMA } from './agent-support/types';
 export { AgentStateStore } from './agent-support/state-store';
 export { BaseAgent } from './agent-support/base-agent';
 export { BaseChatAgent } from './agent-support/base-chat-agent';
+export { BaseThinkAgent } from './agent-support/base-think-agent';
+export { registerObservability, peekRecentEvents, getBufferSize, type ObservabilityEvent } from './agent-support/observability';
 export { SkillManager } from './agent-support/skills';
 export { HitlQueue } from './agent-support/hitl-queue';
 export { CollaborationService } from './agent-support/collaboration-service';
