@@ -1,0 +1,408 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "metadata": {
+    "feature": "gh_research_feature",
+    "version": "1.0.0",
+    "last_updated": "2026-05-14",
+    "owner": "justin",
+    "orchestrator": "current-agent (Claude Code)",
+    "executor_default": "jules",
+    "executor_overrides": "tasks tagged agent:current-agent are NOT delegated to Jules",
+    "repo": "jmbish04/core-github-api",
+    "base_branch": "feat/v8.1-migration",
+    "feature_branch_pattern": "feat/gh-research/epic-{N}-{slug}",
+    "rules_to_load_per_task": [
+      "AGENTS.md",
+      ".agent/rules/agentic-session.md",
+      ".agent/rules/gh-research.md",
+      ".agent/rules/shadcn-conventions.md"
+    ],
+    "agent_assignment_keys": {
+      "jules": "delegate to Jules session",
+      "current-agent": "current-agent (Claude Code) executes directly — typically wrangler, migrations, deploys",
+      "stitch": "Stitch MCP generates HTML mockup before any React rebuild"
+    }
+  },
+  "epics": [
+    {
+      "id": "EPIC-0",
+      "title": "AgenticSession service foundation",
+      "wave": 1,
+      "depends_on": [],
+      "summary": "Build the reusable websocket-session service used as the transparency backbone. Replaces three legacy implementations.",
+      "agent": "jules",
+      "branch": "feat/gh-research/epic-0-agentic-session",
+      "acceptance": [
+        "All 4 D1 tables exist + Drizzle schemas re-exported",
+        "AgenticSessionDO accepts websocket upgrades with token auth, broadcasts events, persists to session_events",
+        "SessionClient API works from any backend code via getSession(env, sessionId)",
+        "useAgenticSession hook works from React; SessionTranscript view renders live transcripts",
+        "JulesWebhookBroadcaster refactored to delegate to AgenticSession (backward-compatible public API)",
+        "RoomDO + AgentSessionDO marked @deprecated, no functional changes",
+        "/sessions index page lists all active sessions; /sessions/[id] shows transcript",
+        "Verification step 0 from PRD §11 passes (publish round-trip ≤ 200ms, grant rejection, filter)"
+      ],
+      "tasks": [
+        {
+          "id": "S0-T1",
+          "title": "Write migration 0013-agentic-session.sql",
+          "agent": "current-agent",
+          "files": ["migrations/core/0013-agentic-session.sql"],
+          "notes": "Generate via pnpm run db:generate after Drizzle schemas land; do NOT hand-author."
+        },
+        {
+          "id": "S0-T2",
+          "title": "Drizzle schemas for sessions, session_events, session_subscribers, session_grants",
+          "agent": "jules",
+          "files": [
+            "src/backend/src/services/agentic-session/schemas/sessions.ts",
+            "src/backend/src/services/agentic-session/schemas/session_events.ts",
+            "src/backend/src/services/agentic-session/schemas/session_subscribers.ts",
+            "src/backend/src/services/agentic-session/schemas/session_grants.ts",
+            "src/backend/src/services/agentic-session/schemas/index.ts"
+          ],
+          "rules": ["One file per table. Folder index.ts re-exports. Never a flat dump (Cloudflare-jedi modular rule)."]
+        },
+        {
+          "id": "S0-T3",
+          "title": "types.ts — discriminated-union zod schemas for SessionEvent",
+          "agent": "jules",
+          "files": ["src/backend/src/services/agentic-session/types.ts"],
+          "notes": "Event types: system.start, system.complete, system.error, agent.thought, agent.action, agent.result, hitl.request, hitl.response, jules.status, jules.event, user.message."
+        },
+        {
+          "id": "S0-T4",
+          "title": "auth.ts — signed JWT issue/verify (HMAC SESSION_TOKEN_SECRET)",
+          "agent": "jules",
+          "files": ["src/backend/src/services/agentic-session/auth.ts"],
+          "notes": "Token payload: { sessionId, subject, scope, exp }. Short-lived (default 1h). Verify on every onConnect."
+        },
+        {
+          "id": "S0-T5",
+          "title": "client.ts — SessionClient (publish, grant, subscribeAgent, listEvents, listSubscribers)",
+          "agent": "jules",
+          "files": ["src/backend/src/services/agentic-session/client.ts"],
+          "notes": "Thin wrapper around RPC to the DO. Each method returns Promise. Surface getSession(env, sessionId) helper."
+        },
+        {
+          "id": "S0-T6",
+          "title": "d1.ts — Drizzle queries against session_* tables",
+          "agent": "jules",
+          "files": ["src/backend/src/services/agentic-session/d1.ts"]
+        },
+        {
+          "id": "S0-T7",
+          "title": "AgenticSessionDO — extends Agent<SessionState> from Agents SDK",
+          "agent": "jules",
+          "files": ["src/backend/src/do/AgenticSessionDO.ts"],
+          "notes": "onConnect: validate JWT, tag connection. onMessage: zod validate, rate-limit (10/s, 64KB cap), persist, broadcast. @callable methods: publishEvent, addGrant, revokeGrant, listEvents, listSubscribers, setStatus. Wake hooks: on filter match, call peer agent RPC."
+        },
+        {
+          "id": "S0-T8",
+          "title": "server.ts + Hono routes under /api/sessions",
+          "agent": "jules",
+          "files": [
+            "src/backend/src/services/agentic-session/server.ts",
+            "src/backend/src/routes/api/sessions/index.ts",
+            "src/backend/src/routes/api/sessions/ws.ts",
+            "src/backend/src/routes/api/sessions/events.ts",
+            "src/backend/src/routes/api/sessions/subscribers.ts",
+            "src/backend/src/routes/api/sessions/grants.ts"
+          ],
+          "notes": "Use OpenAPIHono + zod schemas. All routes appear in /openapi.json automatically."
+        },
+        {
+          "id": "S0-T9",
+          "title": "index.ts public surface — exports getSession, createSession, SessionClient, types",
+          "agent": "jules",
+          "files": ["src/backend/src/services/agentic-session/index.ts"]
+        },
+        {
+          "id": "S0-T10",
+          "title": "wrangler.jsonc — add AGENTIC_SESSION DO binding + class_name migration",
+          "agent": "current-agent",
+          "files": ["wrangler.jsonc"],
+          "notes": "Add to durable_objects.bindings and migrations array (new_sqlite_classes: ['AgenticSessionDO']). Mount Hono /api/sessions router."
+        },
+        {
+          "id": "S0-T11",
+          "title": "useAgenticSession React hook",
+          "agent": "jules",
+          "files": ["src/frontend/src/hooks/useAgenticSession.ts"],
+          "notes": "Returns { events, status, participants, publish, error }. Auto-reconnect with exponential backoff. Filter prop limits which event types stream."
+        },
+        {
+          "id": "S0-T12",
+          "title": "SessionTranscript + SessionEventCard + ParticipantsRail components",
+          "agent": "jules",
+          "depends_on_stitch": true,
+          "files": [
+            "src/frontend/src/views/session/SessionTranscript.tsx",
+            "src/frontend/src/views/session/SessionEventCard.tsx",
+            "src/frontend/src/views/session/ParticipantsRail.tsx"
+          ]
+        },
+        {
+          "id": "S0-T13",
+          "title": "SessionMonitor (global active-sessions list)",
+          "agent": "jules",
+          "depends_on_stitch": true,
+          "files": ["src/frontend/src/views/session/SessionMonitor.tsx"]
+        },
+        {
+          "id": "S0-T14",
+          "title": "Astro pages /sessions and /sessions/[id]",
+          "agent": "jules",
+          "files": [
+            "src/frontend/src/pages/sessions/index.astro",
+            "src/frontend/src/pages/sessions/[id].astro"
+          ]
+        },
+        {
+          "id": "S0-T15",
+          "title": "Refactor JulesWebhookBroadcaster to delegate to AgenticSession",
+          "agent": "jules",
+          "files": ["src/backend/src/do/JulesWebhookBroadcaster.ts"],
+          "notes": "On incoming Jules webhook: ensure a session exists (kind=jules, id=jules_session_id), then SessionClient.publish() the event. Backward-compatible: keep the existing public API for one release cycle."
+        },
+        {
+          "id": "S0-T16",
+          "title": "Refactor JulesLiveProvider context to wrap useAgenticSession",
+          "agent": "jules",
+          "files": ["src/frontend/src/context/jules-live-context.tsx"],
+          "notes": "Public API unchanged. Internal: useAgenticSession(julesSessionId, { filter: { types: ['jules.*'] } })."
+        },
+        {
+          "id": "S0-T17",
+          "title": "Mark RoomDO and AgentSessionDO @deprecated",
+          "agent": "jules",
+          "files": ["src/backend/src/do/RoomDO.ts", "src/backend/src/do/AgentSessionDO.ts"],
+          "notes": "JSDoc @deprecated tags with pointer to AgenticSession. Do NOT delete (no functional break)."
+        },
+        {
+          "id": "S0-T18",
+          "title": "Vitest coverage — SessionClient publish → useAgenticSession round-trip",
+          "agent": "jules",
+          "files": ["tests/services/agentic-session/round-trip.spec.ts"]
+        },
+        {
+          "id": "S0-T19",
+          "title": "Generate migration with drizzle-kit and apply locally",
+          "agent": "current-agent",
+          "files": ["migrations/core/0013-agentic-session.sql"],
+          "notes": "pnpm run db:generate; wrangler d1 migrations apply core --local; verify tables."
+        }
+      ]
+    },
+    {
+      "id": "EPIC-1",
+      "title": "gh-research D1 schema + Drizzle",
+      "wave": 2,
+      "depends_on": ["EPIC-0"],
+      "agent": "jules",
+      "branch": "feat/gh-research/epic-1-schema",
+      "tasks": [
+        { "id": "S1-T1", "title": "Drizzle schemas under src/backend/src/db/schemas/research/gh/", "agent": "jules", "files": ["jobs.ts", "sources.ts", "sources_seen.ts", "clones.ts", "saved_searches.ts", "categories.ts", "source_categories.ts", "promotions.ts", "health_runs.ts", "index.ts"] },
+        { "id": "S1-T2", "title": "Generate migration 0012-gh-research.sql including v_gh_research_trail view", "agent": "current-agent", "files": ["migrations/core/0012-gh-research.sql"] },
+        { "id": "S1-T3", "title": "Apply migrations locally + verify all 10 tables + view", "agent": "current-agent" }
+      ]
+    },
+    {
+      "id": "EPIC-2",
+      "title": "Sandbox clone-and-inspect helpers",
+      "wave": 3,
+      "depends_on": ["EPIC-0", "EPIC-1"],
+      "agent": "jules",
+      "branch": "feat/gh-research/epic-2-sandbox",
+      "tasks": [
+        { "id": "S2-T1", "title": "ghClone — wrap getSandbox(env.SANDBOX, jobId).gitCheckout()", "agent": "jules", "files": ["src/backend/src/ai/agents/backend/ResearchAgent/methods/gh-sandbox.ts"] },
+        { "id": "S2-T2", "title": "ghInspect — find + rg + readFile loop, structured output via generateStructuredResponse", "agent": "jules" },
+        { "id": "S2-T3", "title": "ghSnapshot + ghDestroy", "agent": "jules" },
+        { "id": "S2-T4", "title": "All operations publish to AgenticSession via SessionClient — every clone/grep/read is an event", "agent": "jules" },
+        { "id": "S2-T5", "title": "Vitest: ghInspect structured output shape", "agent": "jules", "files": ["tests/services/research/gh-inspect.spec.ts"] }
+      ]
+    },
+    {
+      "id": "EPIC-3",
+      "title": "Iterative refinement loop",
+      "wave": 3,
+      "depends_on": ["EPIC-0", "EPIC-1", "EPIC-2"],
+      "agent": "jules",
+      "branch": "feat/gh-research/epic-3-iterative-refine",
+      "tasks": [
+        { "id": "S3-T1", "title": "iterativeRefineLoop with mode-specific configs (breadth/depth/budget)", "agent": "jules", "files": ["src/backend/src/ai/agents/backend/ResearchAgent/methods/iterative-refine.ts"] },
+        { "id": "S3-T2", "title": "Stopping criteria: depth cap, Jaccard ≥ 0.9, time budget, reviewer.approved, token budget", "agent": "jules" },
+        { "id": "S3-T3", "title": "Every round publishes plan/search/read/reflect/refine events to AgenticSession", "agent": "jules" },
+        { "id": "S3-T4", "title": "Vitest: stopping-criteria fires correctly", "agent": "jules", "files": ["tests/services/research/iterative-refine.spec.ts"] }
+      ]
+    },
+    {
+      "id": "EPIC-4",
+      "title": "Jules synthesis bridge",
+      "wave": 4,
+      "depends_on": ["EPIC-0", "EPIC-3"],
+      "agent": "jules",
+      "branch": "feat/gh-research/epic-4-jules-synthesis",
+      "tasks": [
+        { "id": "S4-T1", "title": "synthesizeViaJules — clone queue repo, push corpus, start session", "agent": "jules", "files": ["src/backend/src/ai/agents/backend/ResearchAgent/methods/synthesize-jules.ts"] },
+        { "id": "S4-T2", "title": "Bridge: Jules webhook events publish into the parent gh-research session (jules.* event types)", "agent": "jules" },
+        { "id": "S4-T3", "title": "Persist final report markdown to D1 (≤ 1MB) + R2 (full transcript)", "agent": "jules" }
+      ]
+    },
+    {
+      "id": "EPIC-5",
+      "title": "GhResearchWorkflow + ResearchAgent @callable extensions",
+      "wave": 4,
+      "depends_on": ["EPIC-2", "EPIC-3", "EPIC-4"],
+      "agent": "jules",
+      "branch": "feat/gh-research/epic-5-workflow",
+      "tasks": [
+        { "id": "S5-T1", "title": "GhResearchWorkflow class implementing the 12-step lifecycle from PRD §5.1", "agent": "jules", "files": ["src/backend/src/workflows/gh-research/index.ts"] },
+        { "id": "S5-T2", "title": "runGhResearchJob, ghInspectRepo, sendFindingsToPlanning, promoteFindingsToRules @callable methods on ResearchAgent", "agent": "jules", "files": ["src/backend/src/ai/agents/backend/ResearchAgent/index.ts"] },
+        { "id": "S5-T3", "title": "wrangler.jsonc — register GH_RESEARCH_WORKFLOW binding", "agent": "current-agent", "files": ["wrangler.jsonc"] }
+      ]
+    },
+    {
+      "id": "EPIC-6",
+      "title": "API routes /api/research/gh/*",
+      "wave": 4,
+      "depends_on": ["EPIC-5"],
+      "agent": "jules",
+      "branch": "feat/gh-research/epic-6-api",
+      "tasks": [
+        { "id": "S6-T1", "title": "Hono router under /api/research/gh with zod-openapi schemas", "agent": "jules", "files": ["src/backend/src/routes/api/research/gh/jobs.ts", "feedback.ts", "send-to-planning.ts", "promote-to-rules.ts", "findings.ts", "saved-searches.ts", "categories.ts", "health.ts", "index.ts"] },
+        { "id": "S6-T2", "title": "Mount /gh subrouter in src/backend/src/routes/api/research/index.ts", "agent": "jules" }
+      ]
+    },
+    {
+      "id": "EPIC-7",
+      "title": "Frontend library UX (intake + jobs + library + findings)",
+      "wave": 5,
+      "depends_on": ["EPIC-0", "EPIC-6"],
+      "agent": "jules",
+      "depends_on_stitch": true,
+      "branch": "feat/gh-research/epic-7-frontend",
+      "tasks": [
+        { "id": "S7-T1", "title": "LibraryView with three tabs (Jobs, Library, Saved Searches)", "agent": "jules", "files": ["src/frontend/src/views/research/gh/LibraryView.tsx"] },
+        { "id": "S7-T2", "title": "IntakeView with three-mode toggle", "agent": "jules" },
+        { "id": "S7-T3", "title": "JobLiveView wrapping SessionTranscript with rounds timeline + source rail", "agent": "jules" },
+        { "id": "S7-T4", "title": "JobReplayView with playback scrubber", "agent": "jules" },
+        { "id": "S7-T5", "title": "FindingDetail with code excerpts + tag editor + similar-search", "agent": "jules" },
+        { "id": "S7-T6", "title": "SavedSearchesView + CategoriesView CRUD", "agent": "jules" },
+        { "id": "S7-T7", "title": "WeeklyView digest archive + config", "agent": "jules" },
+        { "id": "S7-T8", "title": "Astro page routes (research/gh/index, /new, /jobs/[id], /jobs/[id]/replay, /findings/[id], /saved-searches, /categories, /weekly)", "agent": "jules" }
+      ]
+    },
+    {
+      "id": "EPIC-8",
+      "title": "Send-to-Planning + Promote-to-Rules pipelines",
+      "wave": 5,
+      "depends_on": ["EPIC-5"],
+      "agent": "jules",
+      "branch": "feat/gh-research/epic-8-promotions",
+      "tasks": [
+        { "id": "S8-T1", "title": "sendFindingsToPlanning method + OrchestratorAgent.submitBrief integration", "agent": "jules", "files": ["src/backend/src/ai/agents/backend/ResearchAgent/methods/send-to-planning.ts"] },
+        { "id": "S8-T2", "title": "promoteFindingsToRules — generate rule entry, append to target file, open PR with provenance footer", "agent": "jules", "files": ["src/backend/src/ai/agents/backend/ResearchAgent/methods/promote-to-rules.ts"] },
+        { "id": "S8-T3", "title": "Frontend modals: SendToPlanningModal, PromoteToRulesModal", "agent": "jules", "depends_on_stitch": true }
+      ]
+    },
+    {
+      "id": "EPIC-9",
+      "title": "Documentation suite /docs/research/* + /docs/agentic-session/*",
+      "wave": 3,
+      "depends_on": ["EPIC-0"],
+      "agent": "jules",
+      "depends_on_stitch": true,
+      "branch": "feat/gh-research/epic-9-docs",
+      "tasks": [
+        { "id": "S9-T1", "title": "/docs/research/{overview,on-demand,pre-planning,weekly,library,send-to-planning,promote-to-rules,health,architecture,api,troubleshooting}.astro", "agent": "jules" },
+        { "id": "S9-T2", "title": "/docs/agentic-session/{overview,api,auth,integration-guide,migration-from-legacy}.astro", "agent": "jules" },
+        { "id": "S9-T3", "title": "Navbar wiring + sidebar TOC + copy-link anchors", "agent": "jules" }
+      ]
+    },
+    {
+      "id": "EPIC-10",
+      "title": "On-demand health suite",
+      "wave": 5,
+      "depends_on": ["EPIC-0", "EPIC-5"],
+      "agent": "jules",
+      "depends_on_stitch": true,
+      "branch": "feat/gh-research/epic-10-health",
+      "tasks": [
+        { "id": "S10-T1", "title": "runGhResearchHealthSuite — 16 structured checks from PRD §5.4", "agent": "jules", "files": ["src/backend/src/ai/agents/backend/ResearchAgent/methods/health-suite.ts"] },
+        { "id": "S10-T2", "title": "POST /api/research/gh/health/run + GET /api/research/gh/health/runs", "agent": "jules" },
+        { "id": "S10-T3", "title": "HealthDashboard frontend with Run-button confirm dialog + live results + history diff", "agent": "jules" }
+      ]
+    },
+    {
+      "id": "EPIC-11",
+      "title": "Native shadcn audit + migration",
+      "wave": 2,
+      "depends_on": [],
+      "agent": "jules",
+      "branch": "feat/gh-research/epic-11-shadcn-audit",
+      "tasks": [
+        { "id": "S11-T1", "title": "Audit pass: walk src/frontend/src/views/ + components/ for non-@/components/ui/* imports of Button/Card/Dialog/Select etc.", "agent": "jules" },
+        { "id": "S11-T2", "title": "Verify components.json exists with correct registries; create if missing", "agent": "jules" },
+        { "id": "S11-T3", "title": "Migrate lookalikes via pnpm dlx shadcn@latest add <component> + refactor consumers", "agent": "jules" },
+        { "id": "S11-T4", "title": "Confirm globals.css has Monolith tokens (dark, OKLCH chart palette, no traditional borders)", "agent": "jules" },
+        { "id": "S11-T5", "title": "Write .agent/rules/shadcn-conventions.md with the audit findings as enforceable rules", "agent": "jules", "files": [".agent/rules/shadcn-conventions.md"] }
+      ]
+    },
+    {
+      "id": "EPIC-12",
+      "title": "Governance — AGENTS.md + .agent/rules/*",
+      "wave": 2,
+      "depends_on": [],
+      "agent": "jules",
+      "branch": "feat/gh-research/epic-12-governance",
+      "tasks": [
+        { "id": "S12-T1", "title": "AGENTS.md — add 'AgenticSession Service' and 'GitHub Research Feature' top-level sections", "agent": "jules", "files": ["AGENTS.md"] },
+        { "id": "S12-T2", "title": "Write .agent/rules/agentic-session.md (rules from PRD §plan governance)", "agent": "jules", "files": [".agent/rules/agentic-session.md"] },
+        { "id": "S12-T3", "title": "Write .agent/rules/gh-research.md (rules from PRD §plan governance)", "agent": "jules", "files": [".agent/rules/gh-research.md"] }
+      ]
+    },
+    {
+      "id": "EPIC-13",
+      "title": "Vectorize indexing + find-similar UX",
+      "wave": 5,
+      "depends_on": ["EPIC-5"],
+      "agent": "jules",
+      "branch": "feat/gh-research/epic-13-vectorize",
+      "tasks": [
+        { "id": "S13-T1", "title": "On finding persist, index summary into RESEARCH_INDEX with metadata {job_id, source_id, category_ids[]}", "agent": "jules" },
+        { "id": "S13-T2", "title": "GET /api/research/gh/findings/similar/:id route", "agent": "jules" },
+        { "id": "S13-T3", "title": "FindingDetail 'Find similar in library' UI", "agent": "jules" }
+      ]
+    },
+    {
+      "id": "EPIC-14",
+      "title": "Orchestrator wake-on-event integration",
+      "wave": 5,
+      "depends_on": ["EPIC-0", "EPIC-5"],
+      "agent": "jules",
+      "branch": "feat/gh-research/epic-14-orchestrator-wake",
+      "tasks": [
+        { "id": "S14-T1", "title": "OrchestratorAgent.onGhResearchComplete(jobId, summary) RPC method", "agent": "jules", "files": ["src/backend/src/ai/agents/backend/OrchestratorAgent/index.ts"] },
+        { "id": "S14-T2", "title": "GhResearchWorkflow auto-subscribes the Orchestrator with filter type:system.complete + wakeRpc:onGhResearchComplete when saved-search has auto_promote_to_planning flag", "agent": "jules" },
+        { "id": "S14-T3", "title": "Saved-search UI toggle 'auto-promote to planning brief on complete'", "agent": "jules" }
+      ]
+    },
+    {
+      "id": "EPIC-15",
+      "title": "End-to-end verification",
+      "wave": 6,
+      "depends_on": ["EPIC-0", "EPIC-1", "EPIC-2", "EPIC-3", "EPIC-4", "EPIC-5", "EPIC-6", "EPIC-7", "EPIC-8", "EPIC-9", "EPIC-10", "EPIC-11", "EPIC-12", "EPIC-13", "EPIC-14"],
+      "agent": "current-agent",
+      "branch": "feat/gh-research/epic-15-verification",
+      "tasks": [
+        { "id": "S15-T1", "title": "Run all 19 verification steps from PRD §11", "agent": "current-agent" },
+        { "id": "S15-T2", "title": "pnpm typecheck + pnpm test (all vitest passes)", "agent": "current-agent" },
+        { "id": "S15-T3", "title": "wrangler dev local smoke — all three modes reach complete", "agent": "current-agent" },
+        { "id": "S15-T4", "title": "On-demand health suite passes all 16 checks", "agent": "current-agent" },
+        { "id": "S15-T5", "title": "Sessions monitor shows live state for in-flight Jules + gh-research jobs", "agent": "current-agent" },
+        { "id": "S15-T6", "title": "pnpm run deploy + smoke-test on production worker", "agent": "current-agent" }
+      ]
+    }
+  ]
+}
