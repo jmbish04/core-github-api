@@ -1,18 +1,18 @@
 import { createSelectSchema } from "drizzle-zod";
-import { z } from "zod";
+import { type InferSelectModel } from "drizzle-orm";
 import { epics, sprints, stories, tasks } from "@/db/schemas/projects/backlog";
 
-export const EpicSchema = createSelectSchema(epics);
-export type Epic = z.infer<typeof EpicSchema>;
+export const EpicSchema = createSelectSchema(epics) as any;
+export type Epic = InferSelectModel<typeof epics>;
 
-export const SprintSchema = createSelectSchema(sprints);
-export type Sprint = z.infer<typeof SprintSchema>;
+export const SprintSchema = createSelectSchema(sprints) as any;
+export type Sprint = InferSelectModel<typeof sprints>;
 
-export const UserStorySchema = createSelectSchema(stories);
-export type UserStory = z.infer<typeof UserStorySchema>;
+export const UserStorySchema = createSelectSchema(stories) as any;
+export type UserStory = InferSelectModel<typeof stories>;
 
-export const SWARMTaskSchema = createSelectSchema(tasks);
-export type SWARMTask = z.infer<typeof SWARMTaskSchema>;
+export const SWARMTaskSchema = createSelectSchema(tasks) as any;
+export type SWARMTask = InferSelectModel<typeof tasks>;
 
 import type { PersistentAgentState } from "@/ai/providers/agent-support/types";
 

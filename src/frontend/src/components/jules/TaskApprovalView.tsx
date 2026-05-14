@@ -14,7 +14,7 @@ export function TaskApprovalView({ sessionId, session }: { sessionId: string; se
 
   const approvalMutation = useMutation({
     mutationFn: async (action: 'approve' | 'reject' | 'revise') => {
-      const response = await fetch('/api/julius/start', {
+      const response = await fetch('/api/jules/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

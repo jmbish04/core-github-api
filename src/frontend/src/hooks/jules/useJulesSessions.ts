@@ -5,9 +5,9 @@ export interface JulesSession {
   projectId?: string;
   repoName?: string;
   prompt: string;
-  status: 'active' | 'completed' | 'failed' | 'waiting_for_user';
+  status: 'active' | 'completed' | 'failed' | 'stuck' | 'waiting_for_user' | 'pending' | string;
   createdAt: string;
-  progress?: number;
+  progress_pct?: number;
 }
 
 interface FetchJulesSessionsParams {
@@ -17,8 +17,8 @@ interface FetchJulesSessionsParams {
 }
 
 export function useJulesSessions(params?: FetchJulesSessionsParams) {
-  const fetchSessions = async () => {
-    const url = new URL('/api/julius/history', window.location.origin);
+  const fetchSessions = async (): Promise<JulesSession[]> => {
+    const url = new URL('/api/jules/history', window.location.origin);
     if (params?.projectId) {
       url.searchParams.append('projectId', params.projectId);
     }
@@ -33,13 +33,13 @@ export function useJulesSessions(params?: FetchJulesSessionsParams) {
     if (!response.ok) {
       throw new Error('Failed to fetch sessions');
     }
-    return response.json() as Promise<JulesSession[]>;
+    const json = await response.json() as { success: boolean; sessions: JulesSession[] };
+    return json.sessions ?? [];
   };
 
   const query = useQuery({
     queryKey: ['julesSessions', params],
     queryFn: fetchSessions,
-    // Refetch interval: 10s when there are active sessions
     refetchInterval: (data) => {
       if (data && data.some((session) => session.status === 'active')) {
         return 10000;

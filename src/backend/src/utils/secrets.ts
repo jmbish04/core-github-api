@@ -137,12 +137,12 @@ export async function getGeminiApiKey(env: Env): Promise<string | undefined> {
 }
 
 export async function getCloudflareApiToken(env: Env): Promise<string | undefined> {
-    if (env.CLOUDFLARE_API_TOKEN) {
-        return typeof env.CLOUDFLARE_API_TOKEN === 'string'
-            ? env.CLOUDFLARE_API_TOKEN
-            : await (env.CLOUDFLARE_API_TOKEN as any).get();
+    if (env.CLOUDFLARE_WRANGLER_API_TOKEN) {
+        return typeof env.CLOUDFLARE_WRANGLER_API_TOKEN === 'string'
+            ? env.CLOUDFLARE_WRANGLER_API_TOKEN
+            : await (env.CLOUDFLARE_WRANGLER_API_TOKEN as any).get();
     }
-    return getSecret(env, "CLOUDFLARE_API_TOKEN");
+    return getSecret(env, "CLOUDFLARE_WRANGLER_API_TOKEN");
 }
 
 export async function getCloudflareAccountId(env: Env): Promise<string | undefined> {

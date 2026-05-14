@@ -2,7 +2,7 @@ import { getDb } from '@db';
 import { healthRuns } from '@db/schemas/logs/health';
 import { HealthStepResult } from '@/health/health-check';
 import { v4 as uuidv4 } from 'uuid';
-import { getCloudflareApiToken, getCloudflareAccountId } from '@utils/secrets';
+import { getCloudflareApiToken, getCloudflareAccountId, getGithubToken } from '@utils/secrets';
 import { verifyCloudflareTokens } from '@utils/cloudflare/tokens';
 
 export async function checkAPIHealth(env: Env): Promise<HealthStepResult> {
@@ -22,19 +22,20 @@ export async function checkAPIHealth(env: Env): Promise<HealthStepResult> {
 
         // --- 2. Cloudflare API Token Verification ---
         const cfTokenStart = Date.now();
-        const tokenName = "CLOUDFLARE_API_TOKEN";
+        const tokenName = "CLOUDFLARE_WRANGLER_API_TOKEN";
         try {
             const cfToken = await getCloudflareApiToken(env);
             const accountId = await getCloudflareAccountId(env);
 
             if (!cfToken) {
-                subChecks.cloudflareToken = { status: "SKIPPED", reason: "Missing CLOUDFLARE_API_TOKEN" };
+                subChecks.cloudflareToken = { status: "SKIPPED", reason: "Missing CLOUDFLARE_WRANGLER_API_TOKEN" };
             } else {
                 const checkResult = await verifyCloudflareTokens(cfToken, accountId || "", tokenName);
 
                 if (checkResult.passed) {
                     subChecks.cloudflareToken = { 
                         token_name: checkResult.token_name || tokenName,
+                        tokenLength: cfToken.length,
                         status: "OK", 
                         latency: Date.now() - cfTokenStart, 
                         message: checkResult.detectedType === "account" ? "Account Token Active" : "User Token Active",
@@ -52,7 +53,7 @@ export async function checkAPIHealth(env: Env): Promise<HealthStepResult> {
                         errors.push({ type: "User", details: checkResult.details.user.errors });
                     }
                     
-                    throw new Error(`Cloudflare Token verification failed: ${errors.length > 0 ? JSON.stringify(errors) : checkResult.reason}`);
+                    throw new Error(`Cloudflare Token verification failed: ${errors.length > 0 ? JSON.stringify(errors) : checkResult.reason} (Token Length: ${cfToken.length}, Starts With: ${cfToken.substring(0, 3)}...)`);
                 }
             }
         } catch (cfErr: any) {
@@ -65,11 +66,15 @@ export async function checkAPIHealth(env: Env): Promise<HealthStepResult> {
         }
 
         // --- 3. GitHub API Connectivity Check ---
+        // NOTE: GitHub blocks unauthenticated requests from Cloudflare Worker IPs with 403.
+        // Always send a token so the probe is treated as an authenticated API client.
         const ghStart = Date.now();
         try {
-            const res = await fetch("https://api.github.com/zen", {
-                headers: { "User-Agent": "Core-GitHub-API-Health" }
-            });
+            const ghToken = await getGithubToken(env);
+            const ghHeaders: Record<string, string> = { "User-Agent": "Core-GitHub-API-Health" };
+            if (ghToken) ghHeaders["Authorization"] = `Bearer ${ghToken}`;
+
+            const res = await fetch("https://api.github.com/zen", { headers: ghHeaders });
             if (res.ok) {
                 subChecks.githubAPI = { status: "OK", latency: Date.now() - ghStart };
             } else {
@@ -80,13 +85,16 @@ export async function checkAPIHealth(env: Env): Promise<HealthStepResult> {
         }
 
         // --- 4. Dispatcher Heartbeat Check (KV) ---
+        // AGENT_CACHE is a KV namespace. The research dispatcher writes a timestamp
+        // here when it runs. WARNING is expected if the agent hasn't executed yet
+        // (e.g. fresh deploy, low traffic). This is informational only.
         const kvStart = Date.now();
         try {
             const lastHeartbeatStr = await env.AGENT_CACHE?.get('research-dispatcher-heartbeat');
             if (!lastHeartbeatStr) {
                 subChecks.dispatcherHeartbeat = { 
                     status: "WARNING", 
-                    message: "No heartbeat found in AGENT_CACHE", 
+                    message: "No heartbeat in AGENT_CACHE — research dispatcher has not run yet (expected on fresh deploy)", 
                     latency: Date.now() - kvStart 
                 };
             } else {

@@ -1,4 +1,5 @@
-import type { BaseAgent } from '@/ai/providers';
+import { createGatedCodemodeTool } from '@/ai/tools/codemode-tool';
+import type { BaseThinkAgent } from '@/ai/providers/agent-support';
 
 /**
  * Executes a strictly read-only codemode orchestration pass.
@@ -6,7 +7,7 @@ import type { BaseAgent } from '@/ai/providers';
  * Note: Codemode has severe footgun risks if mutated. This only mounts safe tools.
  */
 export async function experimentalCodemodeOrchestrateImpl(
-  agent: BaseAgent<any>,
+  agent: BaseThinkAgent<any>,
   args: any
 ): Promise<{ status: string; reason?: string; result?: any }> {
   const env = (agent as any).env;
@@ -14,8 +15,24 @@ export async function experimentalCodemodeOrchestrateImpl(
     return { status: 'disabled', reason: 'CODEMODE_ENABLED flag is off' };
   }
 
-  // To be implemented: actual execution logic for codemode orchestrate
-  // Currently just a stub to satisfy the interface since there is no production call site.
-  
-  return { status: 'success', result: 'Experimental codemode orchestrated (stub)' };
+  try {
+    const codemodeTool = createGatedCodemodeTool({
+      env,
+      tools: {} // Mount empty safe tools for now until a registry is defined
+    });
+
+    const prompt = args?.prompt || args?.task || JSON.stringify(args);
+    const systemPrompt = "You are a code orchestration agent. Use the codemode tool to write code that completes the requested task.";
+
+    const response = await (agent as any).ai.generateTextWithTools(
+      prompt,
+      [codemodeTool],
+      systemPrompt
+    );
+
+    return { status: 'success', result: response };
+  } catch (error: any) {
+    (agent as any).logger.error(`[experimentalCodemodeOrchestrateImpl] Error: ${error.message}`);
+    return { status: 'error', reason: error.message };
+  }
 }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { StitchProjectBrowser } from '@/components/jules/StitchProjectBrowser';
 import { RetrofitWorkflow } from '@/components/jules/RetrofitWorkflow';
 
@@ -17,7 +17,7 @@ export default function DesignLabPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           <div className="lg:col-span-7">
-            <StitchProjectBrowser onSelectScreen={setSelectedScreenId} />
+            <StitchProjectBrowser onSelectScreen={(screenId) => setSelectedScreenId(screenId)} />
           </div>
           
           <div className="lg:col-span-5">

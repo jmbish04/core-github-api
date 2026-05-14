@@ -13,6 +13,9 @@ export default defineConfig({
       "@diceui/stat": path.resolve(__dirname, "./src/components/ui/diceui/stat.tsx"),
       "@db": path.resolve(__dirname, "../backend/src/db"),
       "@api": path.resolve(__dirname, "../backend/src"),
+      "zod/v4/core": "zod",
+      "zod/v4": "zod",
+      "zod/v3": "zod",
     },
   },
   build: {

@@ -42,7 +42,9 @@ export { default as timelineApi } from './frontend/planner/timeline';
 export { default as backlogApi } from './frontend/backlog';
 export { default as researchProjectsApi } from './frontend/research/one-time';
 export { hitlApi } from './frontend/hitl';
+export { default as observabilityApi } from './frontend/observability';
 export { default as prConflictsApi } from './frontend/repos/pr-conflicts';
+export { default as chatFrontendApi } from './frontend/ai/chat';
 
 // ── Webhooks / Jules ────────────────────────────────────────────────────
 export { default as julesApi } from './jules';

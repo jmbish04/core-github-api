@@ -4,8 +4,8 @@ import { SkillCard } from '@/components/jules/SkillCard';
 import type { Skill } from '@/components/jules/SkillCard';
 import { CreateSkillDialog } from '@/components/jules/CreateSkillDialog';
 import { ImportSkillsDialog } from '@/components/jules/ImportSkillsDialog';
-import { Plus, Download, Loader2 } from 'lucide-react';
-import { useSkills, useCreateSkill } from '@/hooks/jules/useSkills';
+import { Plus, Download, Loader2, Sprout } from 'lucide-react';
+import { useSkills, useCreateSkill, useDeleteSkill, useSeedSkills } from '@/hooks/jules/useSkills';
 
 /** Map backend Skill shape to frontend SkillCard shape */
 function toCardSkill(s: { id: string; name: string; description: string; markdownContent: string }): Skill {
@@ -22,6 +22,8 @@ function toCardSkill(s: { id: string; name: string; description: string; markdow
 export function SkillsPage() {
   const { skills: rawSkills, isLoading, error } = useSkills();
   const createSkill = useCreateSkill();
+  const deleteSkill = useDeleteSkill();
+  const seedSkills = useSeedSkills();
 
   const [enabledOverrides, setEnabledOverrides] = useState<Record<string, boolean>>({});
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -37,6 +39,12 @@ export function SkillsPage() {
     setEnabledOverrides((prev) => ({ ...prev, [id]: !(prev[id] ?? true) }));
   };
 
+  const handleDelete = (id: string) => {
+    if (confirm('Are you sure you want to delete this skill?')) {
+      deleteSkill.mutate(id);
+    }
+  };
+
   const handleCreateSkill = (data: { name: string; description: string; triggers: string[]; instructions: string }) => {
     createSkill.mutate({
       name: data.name,
@@ -46,8 +54,6 @@ export function SkillsPage() {
   };
 
   const handleImportSkills = (imported: { id: string; name: string; description: string }[]) => {
-    // The import dialog provides a repoUrl; use ingest endpoint
-    // For now, import each as a new skill via POST
     for (const s of imported) {
       createSkill.mutate({
         name: s.name,
@@ -68,6 +74,19 @@ export function SkillsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => seedSkills.mutate()}
+            disabled={seedSkills.isPending}
+            className="border-zinc-700 hover:bg-zinc-800 text-zinc-300"
+          >
+            {seedSkills.isPending ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Sprout className="w-4 h-4 mr-2" />
+            )}
+            Seed Defaults
+          </Button>
           <Button
             variant="outline"
             onClick={() => setImportDialogOpen(true)}
@@ -104,11 +123,16 @@ export function SkillsPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {skills.length === 0 ? (
             <p className="text-sm text-zinc-500 col-span-full text-center py-8">
-              No skills configured yet. Create one or import from GitHub.
+              No skills configured yet. Create one, import from GitHub, or seed defaults.
             </p>
           ) : (
             skills.map((skill) => (
-              <SkillCard key={skill.id} skill={skill} onToggle={handleToggle} />
+              <SkillCard
+                key={skill.id}
+                skill={skill}
+                onToggle={handleToggle}
+                onDelete={handleDelete}
+              />
             ))
           )}
         </div>

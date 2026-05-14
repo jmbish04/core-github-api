@@ -298,20 +298,101 @@ app.get("/history", async (c) => {
   const limit = Math.min(parseInt(c.req.query("limit") || "20"), 100);
   const page = parseInt(c.req.query("page") || "0");
   const db = getDb(c.env.DB);
+  const julesService = JulesService.getInstance(c.env);
 
   try {
-    const query = db
-      .select()
-      .from(julesSessions)
-      .orderBy(desc(julesSessions.createdAt))
-      .limit(limit)
-      .offset(page * limit);
+    let sdkSessions: any[] = [];
+    try {
+      const jules = await julesService.getClient();
+      // Fetch more if paginating, then we'll slice
+      const res = await (jules.sessions({ limit: limit * (page + 1) }) as any);
+      sdkSessions = res.sessions || [];
+    } catch (sdkError) {
+      console.error("[JulesAPI] Failed to fetch sessions from SDK:", sdkError);
+    }
 
-    const sessions = projectId
-      ? await query.where(eq(julesSessions.projectId, projectId))
-      : await query;
+    let d1Sessions: any[] = [];
+    try {
+      const query = db
+        .select()
+        .from(julesSessions)
+        .orderBy(desc(julesSessions.createdAt))
+        .limit(limit)
+        .offset(page * limit);
 
-    return c.json({ success: true, sessions, page, limit });
+      d1Sessions = projectId
+        ? await query.where(eq(julesSessions.projectId, projectId))
+        : await query;
+    } catch (d1Error) {
+      console.error("[JulesAPI] Failed to fetch sessions from D1:", d1Error);
+    }
+
+    // Merge them
+    const mergedMap = new Map<string, any>();
+
+    // Seed with SDK sessions
+    for (const s of sdkSessions) {
+      let repoName = undefined;
+      if (s.sourceContext?.source) {
+         repoName = s.sourceContext.source.replace('sources/github/', '');
+      }
+      let sdkStatus = s.state;
+      if (sdkStatus === 'inProgress') sdkStatus = 'active';
+      if (sdkStatus === 'awaitingPlanApproval' || sdkStatus === 'awaitingUserFeedback') sdkStatus = 'waiting_for_user';
+
+      mergedMap.set(s.id, {
+        id: s.id,
+        status: sdkStatus,
+        prompt: s.prompt || s.title || "Untitled Session",
+        createdAt: s.createTime,
+        repoName,
+      });
+    }
+
+    // Merge D1 metadata
+    for (const d of d1Sessions) {
+      // D1 createdAt is a Date object (Drizzle timestamp mode) — normalize to ISO
+      const d1CreatedAt = d.createdAt instanceof Date ? d.createdAt.toISOString() : d.createdAt;
+      const d1Repo = d.repoOwner && d.repoName ? `${d.repoOwner}/${d.repoName}` : d.repoName;
+
+      if (mergedMap.has(d.id)) {
+        const existing = mergedMap.get(d.id);
+        existing.projectId = d.projectId || existing.projectId;
+        existing.repoName = d1Repo || existing.repoName;
+        // D1 prompt is often the original full prompt
+        if (d.prompt) existing.prompt = d.prompt;
+      } else {
+        mergedMap.set(d.id, {
+          id: d.id,
+          status: d.status,
+          prompt: d.prompt,
+          createdAt: d1CreatedAt,
+          repoName: d1Repo,
+          projectId: d.projectId,
+        });
+      }
+    }
+
+    let finalSessions = Array.from(mergedMap.values());
+    
+    // Sort by createdAt desc — handle both ISO strings and epoch-second integers
+    const toMs = (v: any): number => {
+      if (!v) return 0;
+      if (v instanceof Date) return v.getTime();
+      if (typeof v === 'number') return v < 1e12 ? v * 1000 : v; // epoch seconds vs ms
+      return new Date(v).getTime() || 0;
+    };
+    finalSessions.sort((a, b) => toMs(b.createdAt) - toMs(a.createdAt));
+    
+    // Filter by projectId if requested
+    if (projectId) {
+      finalSessions = finalSessions.filter(s => s.projectId === projectId);
+    }
+
+    // Apply offset/limit
+    finalSessions = finalSessions.slice(page * limit, (page + 1) * limit);
+
+    return c.json({ success: true, sessions: finalSessions, page, limit });
   } catch (error: any) {
     return c.json({ success: false, error: error.message }, 500);
   }
@@ -326,25 +407,106 @@ app.get("/history", async (c) => {
 app.get("/history/:sessionId", async (c) => {
   const sessionId = c.req.param("sessionId");
   const db = getDb(c.env.DB);
+  const julesService = JulesService.getInstance(c.env);
 
   try {
-    const [session] = await db
-      .select()
-      .from(julesSessions)
-      .where(eq(julesSessions.id, sessionId))
-      .limit(1);
+    let sdkSession: any = null;
+    let sdkEvents: any[] = [];
+    try {
+      const snapshot = await julesService.getSessionSnapshot(sessionId, { activities: true, format: 'json' });
+      if (snapshot) {
+        sdkSession = snapshot;
+        sdkEvents = snapshot.activities || [];
+      }
+    } catch (sdkError) {
+      console.error(`[JulesAPI] Failed to fetch session snapshot for ${sessionId}:`, sdkError);
+    }
 
-    if (!session) {
+    let d1Session: any = null;
+    let d1Events: any[] = [];
+    try {
+      const [session] = await db
+        .select()
+        .from(julesSessions)
+        .where(eq(julesSessions.id, sessionId))
+        .limit(1);
+      
+      d1Session = session;
+
+      d1Events = await db
+        .select()
+        .from(julesWebhookEvents)
+        .where(eq(julesWebhookEvents.julesSessionId, sessionId))
+        .orderBy(desc(julesWebhookEvents.createdAt));
+    } catch (d1Error) {
+      console.error(`[JulesAPI] Failed to fetch D1 data for ${sessionId}:`, d1Error);
+    }
+
+    if (!sdkSession && !d1Session) {
       return c.json({ success: false, error: "Session not found" }, 404);
     }
 
-    const events = await db
-      .select()
-      .from(julesWebhookEvents)
-      .where(eq(julesWebhookEvents.julesSessionId, sessionId))
-      .orderBy(desc(julesWebhookEvents.createdAt));
+    let sdkStatus = sdkSession?.state;
+    if (sdkStatus === 'inProgress') sdkStatus = 'active';
+    if (sdkStatus === 'awaitingPlanApproval' || sdkStatus === 'awaitingUserFeedback') sdkStatus = 'waiting_for_user';
 
-    return c.json({ success: true, session, events });
+    const d1CreatedAt = d1Session?.createdAt instanceof Date ? d1Session.createdAt.toISOString() : d1Session?.createdAt;
+    const d1Repo = d1Session?.repoOwner && d1Session?.repoName ? `${d1Session.repoOwner}/${d1Session.repoName}` : d1Session?.repoName;
+
+    const mergedSession = {
+      id: sessionId,
+      status: sdkStatus || d1Session?.status || 'unknown',
+      prompt: sdkSession?.prompt || sdkSession?.title || d1Session?.prompt || "Untitled Session",
+      title: sdkSession?.title || d1Session?.prompt?.slice(0, 80) || "Untitled",
+      createdAt: sdkSession?.createTime || d1CreatedAt,
+      projectId: d1Session?.projectId,
+      repoName: (sdkSession?.sourceContext?.source || '').replace('sources/github/', '') || d1Repo,
+      // SDK snapshot fields
+      progress_pct: sdkSession?.progress_pct,
+      current_step_name: sdkSession?.current_step_name,
+      plan_steps: sdkSession?.plan_steps,
+      summary: sdkSession?.summary,
+      waiting_reason: sdkSession?.waiting_reason,
+      error_message: sdkSession?.error_message,
+    };
+
+    // Merge events (avoiding exact duplicates might be hard, but we can just combine them)
+    // D1 events have createdAt, eventType, message
+    // SDK events have createTime, type, summary
+    const mergedEventsMap = new Map<string, any>();
+
+    for (const e of sdkEvents) {
+      mergedEventsMap.set(e.id || e.name || Math.random().toString(), {
+        id: e.id,
+        createdAt: e.createTime,
+        eventType: e.type,
+        message: e.summary || e.message || e.type,
+      });
+    }
+
+    for (const e of d1Events) {
+      const d1EventTime = e.createdAt instanceof Date ? e.createdAt.toISOString() : e.createdAt;
+      mergedEventsMap.set(e.id, {
+        id: e.id,
+        createdAt: d1EventTime,
+        eventType: e.eventType,
+        message: e.message || e.eventType,
+        progressPct: e.progressPct,
+        stepName: e.stepName,
+      });
+    }
+
+    const finalEvents = Array.from(mergedEventsMap.values());
+    // Sort descending by timestamp — handle both ISO strings and epoch integers
+    const toMs = (v: any): number => {
+      if (!v) return 0;
+      if (v instanceof Date) return v.getTime();
+      if (typeof v === 'number') return v < 1e12 ? v * 1000 : v;
+      return new Date(v).getTime() || 0;
+    };
+    finalEvents.sort((a, b) => toMs(b.createdAt) - toMs(a.createdAt));
+
+    return c.json({ success: true, session: mergedSession, events: finalEvents });
   } catch (error: any) {
     return c.json({ success: false, error: error.message }, 500);
   }
@@ -384,9 +546,5 @@ app.get("/search", async (c) => {
     return c.json({ success: false, error: error.message }, 500);
   }
 });
-
-// Sub-routers
-import categoriesRoute from './categories';
-app.route('/categories', categoriesRoute);
 
 export default app;

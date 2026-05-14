@@ -48,11 +48,7 @@ export class CloudflareAgent extends BaseChatAgent<CloudflareAgentState> {
   // ── Browser Tools ────────────────────────────────────────────────────
 
   protected getTools(): Record<string, any> {
-    // Retrieve base tools (if any are returned by superclass)
-    let tools = {};
-    if (typeof (super.getTools as any) === 'function') {
-      tools = (super as any).getTools() || {};
-    }
+    let tools: Record<string, any> = {};
 
     if ((this as any).env.BROWSER_TOOLS_ENABLED === '1') {
       const browserTools = createBrowserToolsForAgent((this as any).env, { agentId: this.agentName });
@@ -70,9 +66,9 @@ export class CloudflareAgent extends BaseChatAgent<CloudflareAgentState> {
     // CF API Token verification (user + account auto-detect)
     const start = Date.now();
     try {
-      const token = await getSecret((this as any).env, 'CLOUDFLARE_API_TOKEN');
+      const token = await getSecret((this as any).env, 'CLOUDFLARE_WRANGLER_API_TOKEN');
       const accountId = (await getSecret((this as any).env, 'CLOUDFLARE_ACCOUNT_ID')) ?? '';
-      const result = await testAnyValidToken(token, accountId, 'CLOUDFLARE_API_TOKEN');
+      const result = await testAnyValidToken(token, accountId, 'CLOUDFLARE_WRANGLER_API_TOKEN');
 
       checks.push({
         name: 'agent.cf.apiTokenVerify',

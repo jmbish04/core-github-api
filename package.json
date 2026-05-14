@@ -15,7 +15,8 @@
       ]
     },
     "overrides": {
-      "hono": "^4.12.0"
+      "hono": "^4.12.0",
+      "zod": "^4.3.6"
     }
   },
   "scripts": {
@@ -33,9 +34,9 @@
     "check": "tsc --noEmit",
     "sandbox-check": "node scripts/package/verify-sandbox-version.mjs",
     "build:frontend": "rm -rf src/frontend/.astro && VITE_PUBLIC_API_URL=https://core-github-api.hacolby.workers.dev pnpm --filter frontend build",
-    "deploy": "pnpm run sandbox-check && pnpm run build:frontend && pnpm run db:generate:all && pnpm run migrate:remote:all && pnpm run deploy:only",
+    "deploy": "rm -f wrangler_deploy.log && pnpm run sandbox-check && pnpm run build:frontend && pnpm run db:generate:all && pnpm run migrate:remote:all && pnpm run deploy:only 2>&1 | tee wrangler_deploy.log",
     "deploy:only": "node scripts/package/deploy.mjs",
-    "deploy:tail": "rm -f wrangler.log && pnpm run deploy && pnpm dlx wrangler@latest tail --format pretty | tee wrangler.log",
+    "deploy:tail": "pnpm run deploy && > wrangler.log && pnpm dlx wrangler@latest tail core-tail --format pretty | tee -a wrangler.log",
     "dry-run": "WRANGLER_LOG_PATH=wrangler-dry-run.log pnpm dlx wrangler@latest deploy --dry-run",
     "dry-run:tail": "WRANGLER_LOG_PATH=wrangler-dry-run.log pnpm dlx wrangler@latest deploy --dry-run || (echo '\\n--- Wrangler log tail ---' && tail -n 200 wrangler-dry-run.log && exit 1)",
     "db:generate:core": "drizzle-kit generate --config=src/backend/drizzle.config.core.ts",
@@ -62,7 +63,7 @@
     "@cloudflare/ai-chat": "^0.5.1",
     "@cloudflare/codemode": "^0.3.4",
     "@cloudflare/puppeteer": "^1.0.7",
-    "@cloudflare/sandbox": "0.9.0",
+    "@cloudflare/sandbox": "0.9.1",
     "@cloudflare/think": "^0.4.0",
     "@google/jules-mcp": "^0.0.6",
     "@google/jules-sdk": "^0.0.6",
@@ -107,7 +108,7 @@
     "valibot": "^1.3.1",
     "workers-ai-provider": "^3.1.12",
     "yaml": "^2.8.3",
-    "zod": "^3.25.2",
+    "zod": "^4.3.6",
     "zod-to-json-schema": "^3.25.2"
   },
   "devDependencies": {

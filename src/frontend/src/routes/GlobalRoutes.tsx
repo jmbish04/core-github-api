@@ -82,6 +82,7 @@ import { AgentInsightsPage } from "@/views/control/global/jules/AgentInsightsPag
 import AgentWorkshop from "@/views/control/global/AgentWorkshop";
 import { GlobalCommandCenter } from "@/components/workshop/GlobalCommandCenter";
 import { WorkshopTakeover } from "@/components/workshop/WorkshopTakeover";
+import Observability from "@/views/control/global/Observability";
 
 // Jules control views
 import {
@@ -141,8 +142,6 @@ export function GlobalRoutes() {
         {/* ── Tools (global tool catalogue) ───────────────────────── */}
         <Route path="/tools/:tool_name?" element={guard(<ToolsPage />)} />
 
-        {/* ── Jules Chat ────────────────────────────────────────────── */}
-        <Route path="/jules" element={guard(<JulesChatPage />)} />
 
         {/* ── Settings ─────────────────────────────────────────────── */}
         <Route path="/settings" element={<Navigate to="/settings/general" replace />} />
@@ -239,15 +238,11 @@ export function GlobalRoutes() {
         <Route path="/beta/tracker" element={guard(<TrackerBeta />)} />
         <Route path="/beta/tracker/:view" element={guard(<TrackerBeta />)} />
 
-        {/* ── Jules Tasks (global) ──────────────────────────────── */}
-        <Route path="/jules/tasks/new" element={guard(<NewTaskPage />)} />
 
         {/* ── Sentinel Learning Engine (global) ──────────────────────── */}
         <Route path="/sentinel" element={guard(<SentinelDashboard />)} />
         <Route path="/sentinel/kanban" element={guard(<SentinelKanban />)} />
 
-        {/* ── Jules Agent Insights ─────────────────────────────────── */}
-        <Route path="/jules/insights" element={guard(<AgentInsightsPage />)} />
 
         {/* ── Workshop / Agent studio (global) ─────────────────────── */}
         <Route path="/workshop" element={guard(<AgentWorkshop />)} />
@@ -273,6 +268,9 @@ export function GlobalRoutes() {
 
         {/* ── Legacy redirect ──────────────────────────────────────── */}
         <Route path="/control-center" element={guard(<Navigate to="/dashboard" replace />)} />
+
+        {/* ── Observability Dashboard (V8.1) ─────────────────────── */}
+        <Route path="/observability" element={guard(<Observability />)} />
 
         {/* ── Root catch-all ────────────────────────────────────────── */}
         <Route path="*" element={<Navigate to="/" replace />} />

@@ -117,9 +117,9 @@ export class BrowserService {
     }
 
     private async callCloudflare(endpoint: string, requestBody: object, expectsJson: boolean = true) {
-        const { CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_API_TOKEN, CLOUDFLARE_API_BASE_URL } = this.env;
+        const { CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_WRANGLER_API_TOKEN, CLOUDFLARE_API_BASE_URL } = this.env;
 
-        if (!CLOUDFLARE_ACCOUNT_ID || !CLOUDFLARE_API_TOKEN || !CLOUDFLARE_API_BASE_URL) {
+        if (!CLOUDFLARE_ACCOUNT_ID || !CLOUDFLARE_WRANGLER_API_TOKEN || !CLOUDFLARE_API_BASE_URL) {
             throw new Error('Missing Cloudflare environment variables.');
         }
 
@@ -128,7 +128,7 @@ export class BrowserService {
         const fetchOptions: RequestInit = {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${CLOUDFLARE_API_TOKEN}`,
+                'Authorization': `Bearer ${CLOUDFLARE_WRANGLER_API_TOKEN}`,
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify(requestBody),
@@ -186,7 +186,7 @@ export class BrowserService {
 const browserRender = new Hono<{
     Bindings: {
         CLOUDFLARE_ACCOUNT_ID: string;
-        CLOUDFLARE_API_TOKEN: string;
+        CLOUDFLARE_WRANGLER_API_TOKEN: string;
         CLOUDFLARE_API_BASE_URL: string; // e.g., "https://api.cloudflare.com/client/v4/accounts"
     }
 }>();

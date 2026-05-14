@@ -13,6 +13,7 @@ import { type StructuredChatResult, BaseThinkAgent } from "@/ai/providers";
 import * as methods from "./methods";
 import type { WorkshopAgentState } from "./types";
 import type { HealthCheck, HealthMode } from '@/ai/providers/agent-support/health';
+import type { PersistentAgentState } from "@/ai/providers/agent-support/types";
 import { withFullCodeOutputRules } from "@/ai/utils/code-output-rules";
 
 export class WorkshopAgent extends BaseThinkAgent<WorkshopAgentState> {
@@ -36,7 +37,7 @@ export class WorkshopAgent extends BaseThinkAgent<WorkshopAgentState> {
     // stateStore is initialized by BaseThinkAgent.onStart()
   }
 
-  async getSystemPrompt(): Promise<string> {
+  getSystemPrompt(): string {
     return withFullCodeOutputRules(`You are the Workshop Orchestrator, an expert Cloudflare Workers architect.
 Your responsibilities:
 - Analyse user project requirements and decompose them into phased tasks.
@@ -72,10 +73,10 @@ Apply these skills in every response:
   }
 
   @callable()
-  async chat(
+  async customChat(
     message: string,
-    history: unknown[] = [],
-    context?: unknown,
+    history: any[] = [],
+    context?: PersistentAgentState,
     source = "api",
     sessionId = "default",
     requestedModel?: string,
@@ -153,10 +154,10 @@ Apply these skills in every response:
       }>();
       this.logger.info(`[onRequest] Chat request via HTTP`, { source: payload.source, sessionId: payload.sessionId });
       return Response.json(
-        await this.chat(
+        await this.customChat(
           payload.message || "",
           payload.history || [],
-          payload.context,
+          payload.context as PersistentAgentState,
           payload.source || "api",
           payload.sessionId || "default",
           payload.model,

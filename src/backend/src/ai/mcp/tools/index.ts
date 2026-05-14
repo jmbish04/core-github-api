@@ -4,11 +4,7 @@
  */
 
 import { OpenAPIHono } from '@hono/zod-openapi'
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-import { z } from "zod";
 
-// Extend Zod with OpenAPI if not already done globally
-extendZodWithOpenApi(z);
 
 import githubTools, { GITHUB_TOOLS } from './github/index'
 import { ORCHESTRATION_TOOLS } from "./orchestration/index";

@@ -5,6 +5,7 @@ import type { ResearchState, ResearchQuery, ResearchResult, ResearchFinding, Res
 import type { PollResult } from "./methods/polling";
 import type { NewsletterResult } from "./methods/newsletter";
 import { interactiveScrapeImpl } from "./methods/browser-execute";
+import { executeParallelWebQueriesImpl } from "./methods/parallel-queries";
 import { z } from "zod";
 import type { HealthMode, HealthCheck } from '@/ai/providers/agent-support/health/types';
 import type { PeerBindingDescriptor } from '@/ai/providers/agent-support/health';
@@ -368,6 +369,26 @@ export class ResearchAgent extends BaseAgent<ResearchState> {
   async requestDeliberation(hitlRecordId: string) {
     this.logger.info(`[requestDeliberation] Requesting multi-agent deliberation for HITL ${hitlRecordId}`);
     return methods.requestDeliberation(this, hitlRecordId);
+  }
+
+  // ── V8-13: Subagent POC — Parallel Web Queries ────────────────────────
+
+  /**
+   * Fan out multiple web queries to WebQueryWorker subagents in parallel.
+   * Each child runs in its own isolated SQLite facet.
+   *
+   * Cross-specialist invariant: this uses subAgent() for parent-owned
+   * ephemeral children only — NEVER for reaching other specialist agents.
+   *
+   * @see docs/new_agents_sdk/subagents.md
+   * @see V8-13 in TASKS.json
+   */
+  @callable()
+  async executeParallelWebQueries(args: { queries: string[] }) {
+    this.logger.info(`[executeParallelWebQueries] Fanning out ${args.queries.length} queries via WebQueryWorker subagents`);
+    const result = await executeParallelWebQueriesImpl(this, args);
+    this.logger.info(`[executeParallelWebQueries] Complete — ${result.results.length} results in ${result.totalDurationMs}ms`);
+    return result;
   }
 
 }

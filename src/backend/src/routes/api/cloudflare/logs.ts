@@ -75,11 +75,11 @@ router.openapi(
   }),
   async (c) => {
     const { owner, repo, check_run_id } = c.req.valid('param');
-    const { GITHUB_PERSONAL_ACCESS_TOKEN, CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID } = c.env;
+    const { GITHUB_PERSONAL_ACCESS_TOKEN, CLOUDFLARE_WRANGLER_API_TOKEN, CLOUDFLARE_ACCOUNT_ID } = c.env;
 
     const [ghToken, cfToken, cfAccountId] = await Promise.all([
       GITHUB_PERSONAL_ACCESS_TOKEN.get(),
-      CLOUDFLARE_API_TOKEN.get(),
+      CLOUDFLARE_WRANGLER_API_TOKEN.get(),
       CLOUDFLARE_ACCOUNT_ID.get(),
     ]);
 
@@ -89,13 +89,13 @@ router.openapi(
           check_run_id,
           build_id: null,
           logs: null,
-          error: 'Missing required secrets: GITHUB_PERSONAL_ACCESS_TOKEN, CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID',
+          error: 'Missing required secrets: GITHUB_PERSONAL_ACCESS_TOKEN, CLOUDFLARE_WRANGLER_API_TOKEN, CLOUDFLARE_ACCOUNT_ID',
         },
         500,
       );
     }
 
-    const svc = new CILogService({ GITHUB_PERSONAL_ACCESS_TOKEN: ghToken, CLOUDFLARE_API_TOKEN: cfToken, CLOUDFLARE_ACCOUNT_ID: cfAccountId });
+    const svc = new CILogService({ GITHUB_PERSONAL_ACCESS_TOKEN: ghToken, CLOUDFLARE_WRANGLER_API_TOKEN: cfToken, CLOUDFLARE_ACCOUNT_ID: cfAccountId });
     const result = await svc.getLogsForCheckRun(owner, repo, parseInt(check_run_id, 10));
 
     return c.json({
@@ -129,13 +129,13 @@ router.openapi(
   }),
   async (c) => {
     const { owner, repo, pr } = c.req.valid('param');
-    const { GITHUB_PERSONAL_ACCESS_TOKEN, CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID } = c.env;
+    const { GITHUB_PERSONAL_ACCESS_TOKEN, CLOUDFLARE_WRANGLER_API_TOKEN, CLOUDFLARE_ACCOUNT_ID } = c.env;
     const [ghToken, cfToken, cfAccountId] = await Promise.all([
       GITHUB_PERSONAL_ACCESS_TOKEN.get(),
-      CLOUDFLARE_API_TOKEN.get(),
+      CLOUDFLARE_WRANGLER_API_TOKEN.get(),
       CLOUDFLARE_ACCOUNT_ID.get(),
     ]);
-    const svc = new CILogService({ GITHUB_PERSONAL_ACCESS_TOKEN: ghToken, CLOUDFLARE_API_TOKEN: cfToken, CLOUDFLARE_ACCOUNT_ID: cfAccountId });
+    const svc = new CILogService({ GITHUB_PERSONAL_ACCESS_TOKEN: ghToken, CLOUDFLARE_WRANGLER_API_TOKEN: cfToken, CLOUDFLARE_ACCOUNT_ID: cfAccountId });
     const runs = await svc.getCheckRunsForPR(owner, repo, parseInt(pr, 10));
     return c.json(runs);
   },
@@ -166,7 +166,7 @@ router.get("/logs/tail/ws/:owner/:repo", async (c) => {
         const cfToken = await getCloudflareApiToken(c.env);
         const cfAccountId = await getCloudflareAccountId(c.env);
         if (!cfToken || !cfAccountId) {
-            return c.text("Missing CLOUDFLARE_API_TOKEN or CLOUDFLARE_ACCOUNT_ID", 500);
+            return c.text("Missing CLOUDFLARE_WRANGLER_API_TOKEN or CLOUDFLARE_ACCOUNT_ID", 500);
         }
 
         const workerManager = new WorkerManager(cfToken, cfAccountId);

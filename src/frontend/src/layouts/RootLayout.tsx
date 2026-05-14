@@ -5,7 +5,6 @@ import { AppSidebar } from "@/components/layout/AppSidebar";
 import { HealthWidget } from "@/components/health/HealthWidget";
 import { UserNav } from "@/components/layout/UserNav";
 import { AlertBadge } from "@/components/alerts/AlertBadge";
-import { GlobalConsultantModal } from "@/components/reverse-engineering/GlobalConsultantModal";
 import { Menu, X, PanelLeftClose, PanelLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -133,7 +132,6 @@ export default function RootLayout() {
                 <div className="flex-1 h-full overflow-y-auto relative">
                     <Outlet />
                 </div>
-                <GlobalConsultantModal />
             </main>
         </div>
     );

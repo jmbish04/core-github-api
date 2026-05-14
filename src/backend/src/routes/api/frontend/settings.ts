@@ -18,7 +18,7 @@ import { zValidator } from "@hono/zod-validator";
 import { getConfigManager } from "@/config-settings";
 import { getSecretsStoreClient } from "@/utils/cloudflare/secret-store";
 import { sanitizeForAudit } from "@lib/masking";
-import { PostConfigSchema } from "@/types/config-schemas";
+import { PostConfigSchema, PostConfigInput } from "@/types/config-schemas";
 import { CreateSecretSchema } from "@db/schemas/ops/secrets";
 import { isUuid } from "@/utils/common";
 import {
@@ -53,7 +53,7 @@ const GoldenPathConfigPayloadSchema = createInsertSchema(goldenPathConfig, {
   title: (s) => s.trim().min(1),
   description: (s) => s.trim().min(1),
   rule: (s) => s.trim().min(1),
-  scopeId: () => z.coerce.number().int().positive(),
+  scopeId: z.coerce.number().int().positive() as any,
 }).pick({ title: true, description: true, rule: true, scopeId: true });
 
 const GoldenPathScopePayloadSchema = createInsertSchema(goldenPathConfigScopes, {
@@ -228,7 +228,7 @@ settingsApi.get("/golden-path/scopes", async (c) => {
  */
 settingsApi.post("/golden-path/scopes", zValidator("json", GoldenPathScopePayloadSchema), async (c) => {
     const input = c.req.valid("json");
-    const item = await createGoldenPathScope(c.env, input);
+    const item = await createGoldenPathScope(c.env, input as any);
     return c.json({ success: true, item }, 201);
 });
 
@@ -243,7 +243,7 @@ settingsApi.put("/golden-path/scopes/:id", zValidator("json", GoldenPathScopePay
         return c.json({ success: false, error: "Invalid scope id" }, 400);
     }
 
-    await updateGoldenPathScope(c.env, id, input);
+    await updateGoldenPathScope(c.env, id, input as any);
     return c.json({ success: true });
 });
 
@@ -405,8 +405,8 @@ settingsApi.delete("/config/repo-secret-defaults/:secretName", async (c) => {
  * POST /config
  * Creates or updates a configuration entry, with optional Secret Store provisioning.
  */
-settingsApi.post("/config", zValidator("json", PostConfigSchema), async (c) => {
-    const input = c.req.valid("json");
+settingsApi.post("/config", zValidator("json", PostConfigSchema as any), async (c) => {
+    const input = c.req.valid("json") as PostConfigInput;
     const manager = getConfigManager(c);
     const db = getDb(c.env.DB);
     let finalValue = input.value;

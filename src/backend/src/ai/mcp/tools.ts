@@ -281,14 +281,6 @@ export function getToolStats() {
 export const MCPExecuteRequest = z.object({
   tool: z.string().min(1).describe("Tool name to execute"),
   params: z.record(z.string(), z.any()).describe("Tool parameters"),
-}).openapi({
-  example: {
-    tool: "searchRepositories",
-    params: {
-      q: "language:typescript",
-      per_page: 10,
-    },
-  },
 });
 
 export const MCPExecuteResponse = z.object({
@@ -297,17 +289,6 @@ export const MCPExecuteResponse = z.object({
   result: z.any(),
   executedAt: z.string(),
   durationMs: z.number().optional(),
-}).openapi({
-  example: {
-    success: true,
-    tool: "searchRepositories",
-    result: {
-      total_count: 100,
-      items: [],
-    },
-    executedAt: "2024-01-01T00:00:00Z",
-    durationMs: 123,
-  },
 });
 
 export const MCPToolsListResponse = z.object({
@@ -318,16 +299,6 @@ export const MCPToolsListResponse = z.object({
     categories: z.array(z.string()),
     categoryCount: z.number().int(),
   }),
-}).openapi({
-  example: {
-    success: true,
-    tools: [],
-    stats: {
-      totalTools: 7,
-      categories: ["GitHub Search", "GitHub Files", "GitHub Issues"],
-      categoryCount: 3,
-    },
-  },
 });
 
 export type TMCPExecuteRequest = z.infer<typeof MCPExecuteRequest>;

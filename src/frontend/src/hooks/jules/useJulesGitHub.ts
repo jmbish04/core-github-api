@@ -99,7 +99,7 @@ export function useJulesGitHub() {
   const query = useQuery<HistoryResponse>({
     queryKey: ['jules-github-repos'],
     queryFn: async () => {
-      const res = await fetch('/api/julius/history?limit=100');
+      const res = await fetch('/api/jules/history?limit=100');
       if (!res.ok) throw new Error(`Failed to fetch session history: ${res.statusText}`);
       return res.json();
     },

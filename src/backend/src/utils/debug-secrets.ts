@@ -8,7 +8,7 @@ export async function logSecretStatus(env: Env) {
     'GITHUB_PERSONAL_ACCESS_TOKEN',
     'WORKER_API_KEY',
     'AI_GATEWAY_TOKEN',
-    'CLOUDFLARE_API_TOKEN'
+    'CLOUDFLARE_WRANGLER_API_TOKEN'
   ];
 
   for (const key of secretsToCheck) {

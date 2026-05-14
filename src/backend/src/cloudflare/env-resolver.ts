@@ -10,7 +10,7 @@
  *   AI_GATEWAY_TOKEN              → CLOUDFLARE_AI_GATEWAY_TOKEN
  *   CF_BROWSER_RENDER_TOKEN       → CLOUDFLARE_BROWSER_RENDER_TOKEN
  *   CLOUDFLARE_ACCOUNT_ID         → CLOUDFLARE_ACCOUNT_ID
- *   CLOUDFLARE_API_TOKEN          → CLOUDFLARE_API_TOKEN
+ *   CLOUDFLARE_WRANGLER_API_TOKEN          → CLOUDFLARE_WRANGLER_API_TOKEN
  *   CLOUDFLARE_WORKER_ADMIN_TOKEN → CLOUDFLARE_WORKER_ADMIN_TOKEN
  *   CLOUDFLARE_OBSERVABILITY_TOKEN→ CLOUDFLARE_OBSERVABILITY_TOKEN
  *   CLOUDFLARE_AI_SEARCH_TOKEN    → CLOUDFLARE_AI_SEARCH_TOKEN
@@ -25,7 +25,7 @@ export interface ResolvedCloudflareEnv {
     CLOUDFLARE_WORKER_ADMIN_TOKEN: string;
     CLOUDFLARE_OBSERVABILITY_TOKEN: string;
     CLOUDFLARE_AI_SEARCH_TOKEN: string;
-    CLOUDFLARE_API_TOKEN: string;
+    CLOUDFLARE_WRANGLER_API_TOKEN: string;
     CLOUDFLARE_ACCOUNT_TOKEN_ADMIN_TOKEN: string;
     CLOUDFLARE_USER_TOKEN_ADMIN: string;
     CLOUDFLARE_ZONE_DNS_ROUTES_TOKEN: string;
@@ -59,7 +59,7 @@ export async function resolveCfEnv(env: Env): Promise<ResolvedCloudflareEnv> {
         resolve('CLOUDFLARE_WORKER_ADMIN_TOKEN'),
         resolve('CLOUDFLARE_OBSERVABILITY_TOKEN'),
         resolve('CLOUDFLARE_AI_SEARCH_TOKEN'),
-        resolve('CLOUDFLARE_API_TOKEN'),
+        resolve('CLOUDFLARE_WRANGLER_API_TOKEN'),
     ]);
 
     return {
@@ -69,7 +69,7 @@ export async function resolveCfEnv(env: Env): Promise<ResolvedCloudflareEnv> {
         CLOUDFLARE_WORKER_ADMIN_TOKEN: workerAdminToken,
         CLOUDFLARE_OBSERVABILITY_TOKEN: observabilityToken,
         CLOUDFLARE_AI_SEARCH_TOKEN: aiSearchToken,
-        CLOUDFLARE_API_TOKEN: apiToken,
+        CLOUDFLARE_WRANGLER_API_TOKEN: apiToken,
         // These share the same admin token in most setups
         CLOUDFLARE_ACCOUNT_TOKEN_ADMIN_TOKEN: apiToken,
         CLOUDFLARE_USER_TOKEN_ADMIN: apiToken,

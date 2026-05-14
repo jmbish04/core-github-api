@@ -38,9 +38,9 @@ export class CILogService {
   private cfToken: string;
   private cfAccountId: string;
 
-  constructor(env: { GITHUB_PERSONAL_ACCESS_TOKEN?: string; CLOUDFLARE_API_TOKEN: string; CLOUDFLARE_ACCOUNT_ID: string }) {
+  constructor(env: { GITHUB_PERSONAL_ACCESS_TOKEN?: string; CLOUDFLARE_WRANGLER_API_TOKEN: string; CLOUDFLARE_ACCOUNT_ID: string }) {
     this.octokit = new Octokit({ auth: env.GITHUB_PERSONAL_ACCESS_TOKEN });
-    this.cfToken = env.CLOUDFLARE_API_TOKEN;
+    this.cfToken = env.CLOUDFLARE_WRANGLER_API_TOKEN;
     this.cfAccountId = env.CLOUDFLARE_ACCOUNT_ID;
   }
 

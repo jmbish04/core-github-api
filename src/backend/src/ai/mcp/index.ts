@@ -224,6 +224,14 @@ function createOurMcpServer(env: McpEnv) {
     logger.warn('[MCP] Failed to register Sentinel tools');
   });
 
+  // ── Shadcn & Astro Tools ───────────────────────────────────────────────
+  import('./tools/shadcn-tool').then(({ registerShadcnTools }) => {
+    registerShadcnTools(server);
+  }).catch((e) => {
+    const logger = new Logger(env as any, "MCP");
+    logger.warn('[MCP] Failed to register Shadcn tools: ' + e.message);
+  });
+
   return server;
 }
 

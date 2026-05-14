@@ -307,7 +307,7 @@ async function uploadScreenshotToImages(
   snapshotId: string,
 ): Promise<{ imageId: string | null; variants: string[] }> {
   const resolved = await resolveCfEnv(env);
-  if (!resolved.CLOUDFLARE_ACCOUNT_ID || !resolved.CLOUDFLARE_API_TOKEN) {
+  if (!resolved.CLOUDFLARE_ACCOUNT_ID || !resolved.CLOUDFLARE_WRANGLER_API_TOKEN) {
     return { imageId: null, variants: [] };
   }
 
@@ -323,7 +323,7 @@ async function uploadScreenshotToImages(
     {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${resolved.CLOUDFLARE_API_TOKEN}`,
+        Authorization: `Bearer ${resolved.CLOUDFLARE_WRANGLER_API_TOKEN}`,
       },
       body: form,
     },

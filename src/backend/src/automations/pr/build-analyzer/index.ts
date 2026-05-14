@@ -123,8 +123,8 @@ export class BuildAnalyzer extends BaseAutomation<BuildAnalyzerPayload> {
           ? this.env.CLOUDFLARE_ACCOUNT_ID
           : await getCloudflareAccountId(this.env);
       const cfToken =
-        typeof this.env.CLOUDFLARE_API_TOKEN === 'string'
-          ? this.env.CLOUDFLARE_API_TOKEN
+        typeof this.env.CLOUDFLARE_WRANGLER_API_TOKEN === 'string'
+          ? this.env.CLOUDFLARE_WRANGLER_API_TOKEN
           : await getCloudflareApiToken(this.env);
 
       const scriptName =

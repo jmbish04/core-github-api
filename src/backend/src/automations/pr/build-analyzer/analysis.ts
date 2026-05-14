@@ -109,12 +109,12 @@ import { getSecret } from "@utils/secrets";
  *    Endpoint: POST /accounts/{account_id}/workers/scripts/{scriptName}/tails
  *
  * Authentication:
- *   Uses `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` from the
+ *   Uses `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_WRANGLER_API_TOKEN` from the
  *   Worker environment. These may be plain strings or Cloudflare Secrets
  *   (which expose a `.get()` method), so both access patterns are handled.
  *
  * @param env        - The Worker environment bindings (must include
- *                     CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN)
+ *                     CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_WRANGLER_API_TOKEN)
  * @param scriptName - The Cloudflare Worker script name. By convention this
  *                     matches the GitHub repository name (see `inferWorkerName`)
  *
@@ -139,10 +139,10 @@ export async function fetchBuildLogs(
     // ── Resolve credentials ──────────────────────────────────────────────
     // Cloudflare Secrets use a `.get()` accessor; plain env vars are strings.
     const accountId = getSecret(env, "CLOUDFLARE_ACCOUNT_ID");
-    const apiToken = getSecret(env, "CLOUDFLARE_API_TOKEN");
+    const apiToken = getSecret(env, "CLOUDFLARE_WRANGLER_API_TOKEN");
 
     if (!accountId || !apiToken) {
-      const msg = "Missing CLOUDFLARE_ACCOUNT_ID or CLOUDFLARE_API_TOKEN";
+      const msg = "Missing CLOUDFLARE_ACCOUNT_ID or CLOUDFLARE_WRANGLER_API_TOKEN";
       logger.error(`[BuildFailureAnalyzer] ${msg}`);
       return { isSuccess: false, errorMessage: msg, logs: "" };
     }

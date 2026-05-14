@@ -75,7 +75,7 @@ export const TaskForm = () => {
 
   const onSubmit = async (data: FormValues) => {
     try {
-      const response = await fetch("/api/julius/start", {
+      const response = await fetch("/api/jules/start", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

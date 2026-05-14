@@ -13,6 +13,8 @@
  */
 
 import { subscribe } from 'agents/observability';
+import { getDb } from '@db';
+import { observabilityEvents } from '@db/schemas/logs/observability';
 
 // ─── Ring Buffer ─────────────────────────────────────────────────────────────
 
@@ -89,6 +91,40 @@ function logEvent(channel: string, event: Record<string, unknown>): void {
   }
 }
 
+// ─── D1 Persistence ──────────────────────────────────────────────────────────
+
+let _env: Env | null = null;
+
+/**
+ * Inject the Worker env for D1 persistence.
+ * Called once during registerObservability().
+ */
+export function setObservabilityEnv(env: Env): void {
+  _env = env;
+}
+
+/**
+ * Persist an event to the D1 observability_events table.
+ * Non-blocking: errors are swallowed.
+ */
+function persistToD1(channel: string, event: { type: string; agent: string; name: string; payload: Record<string, unknown>; timestamp: number }): void {
+  if (!_env) return;
+  try {
+    const db = getDb(_env.DB);
+    db.insert(observabilityEvents).values({
+      channel,
+      eventType: event.type,
+      agent: event.agent,
+      name: event.name,
+      payload: JSON.stringify(event.payload).slice(0, 8192),
+      eventTimestamp: new Date(event.timestamp).toISOString(),
+      capturedAt: new Date().toISOString(),
+    }).then(() => {}).catch(() => {});
+  } catch {
+    // Non-blocking
+  }
+}
+
 // ─── Channel Subscribers ─────────────────────────────────────────────────────
 
 const unsubscribers: (() => void)[] = [];
@@ -109,6 +145,7 @@ export function registerSubscribers(): void {
     subscribe('rpc', (event) => {
       pushEvent('agents:rpc', event as any);
       logEvent('agents:rpc', event as any);
+      persistToD1('agents:rpc', event as any);
     })
   );
 
@@ -117,6 +154,7 @@ export function registerSubscribers(): void {
     subscribe('state', (event) => {
       pushEvent('agents:state', event as any);
       logEvent('agents:state', event as any);
+      persistToD1('agents:state', event as any);
     })
   );
 
@@ -125,6 +163,7 @@ export function registerSubscribers(): void {
     subscribe('lifecycle', (event) => {
       pushEvent('agents:lifecycle', event as any);
       logEvent('agents:lifecycle', event as any);
+      persistToD1('agents:lifecycle', event as any);
     })
   );
 
@@ -133,6 +172,7 @@ export function registerSubscribers(): void {
     subscribe('schedule', (event) => {
       pushEvent('agents:schedule', event as any);
       logEvent('agents:schedule', event as any);
+      persistToD1('agents:schedule', event as any);
     })
   );
 
@@ -141,6 +181,7 @@ export function registerSubscribers(): void {
     subscribe('mcp', (event) => {
       pushEvent('agents:mcp', event as any);
       logEvent('agents:mcp', event as any);
+      persistToD1('agents:mcp', event as any);
     })
   );
 
@@ -149,6 +190,7 @@ export function registerSubscribers(): void {
     subscribe('message', (event) => {
       pushEvent('agents:message', event as any);
       logEvent('agents:message', event as any);
+      persistToD1('agents:message', event as any);
     })
   );
 }

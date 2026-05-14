@@ -27,7 +27,7 @@ export async function interactiveScrapeImpl(
   try {
     const result = await browserExecuteTool.execute({
       url: args.url,
-      prompt: args.instruction, // Wait, is the parameter `prompt` or `instruction`? I will assume prompt or instruction
+      prompt: prompt,
     }, { toolCallId: 'manual', messages: [] } as any);
 
     return {

@@ -17,7 +17,7 @@ export class CFImages {
         const apiToken = await getSecret(env, "CLOUDFLARE_IMAGES_STREAM_TOKEN");
 
         if (!accountId || !apiToken) {
-            throw new Error("Missing CLOUDFLARE_ACCOUNT_ID or CLOUDFLARE_API_TOKEN for CF Images upload.");
+            throw new Error("Missing CLOUDFLARE_ACCOUNT_ID or CLOUDFLARE_WRANGLER_API_TOKEN for CF Images upload.");
         }
 
         // Strip prefix if exists

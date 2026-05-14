@@ -6,7 +6,7 @@ export const getConfig = (env: Env): any => ({
     transport: {
         type: "streamable-http",
         headers: {
-            "Authorization": `Bearer ${env.CLOUDFLARE_API_TOKEN}`
+            "Authorization": `Bearer ${env.CLOUDFLARE_WRANGLER_API_TOKEN}`
         }
     }
 });

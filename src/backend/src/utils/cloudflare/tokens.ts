@@ -164,8 +164,10 @@ export async function testToken(
         };
     }
 
+    const trimmedToken = token.trim();
+
     const { detectedType, userResult, accountResult } =
-        await detectTokenType(token, accountId, token_name);
+        await detectTokenType(trimmedToken, accountId, token_name);
 
     if (detectedType === "unknown") {
         return {
@@ -222,8 +224,10 @@ export async function testAnyValidToken(
         };
     }
 
+    const trimmedToken = token.trim();
+
     const { detectedType, userResult, accountResult } =
-        await detectTokenType(token, accountId, token_name);
+        await detectTokenType(trimmedToken, accountId, token_name);
 
     if (detectedType === "unknown") {
         return {

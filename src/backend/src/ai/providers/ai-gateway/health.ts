@@ -106,6 +106,40 @@ async function probeGemini(ai: AIProvider): Promise<ProviderResult> {
     }
 }
 
+// ─── Per-probe timeout helper ─────────────────────────────────────────────────
+
+/**
+ * Races a probe against a hard timeout.
+ * Ensures we always return a typed ProviderResult even if the gateway hangs,
+ * so the coordinator never sees a raw exception and replaces `details` with
+ * the generic { errorName, timeout, category } shape.
+ *
+ * Budget: coordinator gives ai_gateway 8 s.  We leave 1.5 s for overhead,
+ * so each probe gets 6.5 s.
+ */
+const PROBE_TIMEOUT_MS = 6_500;
+
+async function withProbeTimeout(
+    probeFn: () => Promise<ProviderResult>,
+    model: string,
+): Promise<ProviderResult> {
+    const t0 = Date.now();
+    return Promise.race([
+        probeFn(),
+        new Promise<ProviderResult>((resolve) =>
+            setTimeout(
+                () => resolve({
+                    status: 'FAILURE',
+                    latency: Date.now() - t0,
+                    model,
+                    error: `Probe timed out after ${PROBE_TIMEOUT_MS}ms`,
+                }),
+                PROBE_TIMEOUT_MS,
+            )
+        ),
+    ]);
+}
+
 // ─── Main Export ──────────────────────────────────────────────────────────────
 
 /**
@@ -113,18 +147,20 @@ async function probeGemini(ai: AIProvider): Promise<ProviderResult> {
  * Workers AI failure is critical (marks overall as failure).
  * Paid provider failures are warnings — the overall check stays success.
  *
- * All probes run in parallel for speed.
+ * All probes run in parallel, each capped at PROBE_TIMEOUT_MS so the
+ * coordinator's outer 8 s wall-clock cannot fire before we return a
+ * structured ProviderResult for every provider.
  */
 export async function checkAIGatewayHealth(env: Env): Promise<HealthStepResult> {
     const start = Date.now();
     const ai = new AIProvider(env);
 
-    // Probe all providers in parallel
+    // Probe all providers in parallel — each is individually time-boxed
     const [workersAi, openai, anthropic, gemini] = await Promise.all([
-        probeWorkersAI(ai),
-        probeOpenAI(ai),
-        probeAnthropic(ai),
-        probeGemini(ai),
+        withProbeTimeout(() => probeWorkersAI(ai), '@cf/meta/llama-3.3-70b-instruct-fp8-fast'),
+        withProbeTimeout(() => probeOpenAI(ai),    'gpt-4o-mini'),
+        withProbeTimeout(() => probeAnthropic(ai), 'claude-3-5-haiku-latest'),
+        withProbeTimeout(() => probeGemini(ai),    'gemini-2.5-flash'),
     ]);
 
     const providers: Record<string, ProviderResult> = { workersAi, openai, anthropic, gemini };
@@ -142,7 +178,7 @@ export async function checkAIGatewayHealth(env: Env): Promise<HealthStepResult> 
 
     if (workersAiFailed) {
         overallStatus = 'failure';
-        message = `Workers AI is unreachable via AIProvider — check AI binding and gateway config. ${paidProviderWarnings > 0 ? `${paidProviderWarnings} paid provider(s) also degraded.` : ''}`;
+        message = `Workers AI unreachable via AIProvider — check AI binding and gateway config. ${paidProviderWarnings > 0 ? `${paidProviderWarnings} paid provider(s) also degraded.` : ''}`;
     } else if (paidProviderWarnings > 0) {
         overallStatus = 'success'; // System is operational; paid providers are non-critical
         const degraded = Object.entries(providers)

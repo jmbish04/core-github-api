@@ -14,11 +14,18 @@ export function TaskTimeline({ sessionId }: { sessionId: string }) {
   const { data: events, isLoading, error } = useQuery<TimelineEvent[]>({
     queryKey: ['jules-history', sessionId],
     queryFn: async () => {
-      const res = await fetch(`/api/julius/history/${sessionId}`);
+      const res = await fetch(`/api/jules/history/${sessionId}`);
       if (!res.ok) {
         throw new Error('Failed to fetch timeline history');
       }
-      return res.json();
+      const data = await res.json();
+      const rawEvents = data.events || [];
+      return rawEvents.map((e: any) => ({
+        id: e.id || e.name || Math.random().toString(),
+        timestamp: e.createTime || e.createdAt,
+        type: e.type === 'sessionFailed' ? 'error' : (e.type === 'sessionCompleted' ? 'success' : 'info'),
+        message: e.summary || e.message || e.type || e.eventType
+      }));
     },
     enabled: !!sessionId,
   });

@@ -101,8 +101,10 @@ export async function checkHealth(env: Env): Promise<HealthStepResult> {
                     { role: 'user', content: 'Reply with exactly: Pong' },
                 ],
                 max_tokens: 10,
+                stream: false,
             });
-            const text = (response as any)?.response || '';
+            const raw = (response as any)?.response;
+            const text = typeof raw === 'string' ? raw : '';
             if (!text || text.trim().length === 0) {
                 throw new Error("Empty response from env.AI.run()");
             }
@@ -117,8 +119,10 @@ export async function checkHealth(env: Env): Promise<HealthStepResult> {
                     { role: 'user', content: 'Generate JSON with message="hello" and number=42' },
                 ],
                 max_tokens: 100,
+                stream: false,
             });
-            const text = (response as any)?.response || '';
+            const raw = (response as any)?.response;
+            const text = typeof raw === 'string' ? raw : '';
             if (!text || text.trim().length === 0) {
                 throw new Error("Empty response from env.AI.run()");
             }

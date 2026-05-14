@@ -64,7 +64,7 @@ actionWorkerWs.get(
             case 'fetch_build_logs': {
               // {"action": "fetch_build_logs", "worker_name": "...", "repo_owner": "...", "repo_name": "..."}
               const accountId = typeof c.env.CLOUDFLARE_ACCOUNT_ID === 'string' ? c.env.CLOUDFLARE_ACCOUNT_ID : await (c.env.CLOUDFLARE_ACCOUNT_ID as any)?.get();
-              const apiToken = typeof c.env.CLOUDFLARE_API_TOKEN === 'string' ? c.env.CLOUDFLARE_API_TOKEN : await (c.env.CLOUDFLARE_API_TOKEN as any)?.get();
+              const apiToken = typeof c.env.CLOUDFLARE_WRANGLER_API_TOKEN === 'string' ? c.env.CLOUDFLARE_WRANGLER_API_TOKEN : await (c.env.CLOUDFLARE_WRANGLER_API_TOKEN as any)?.get();
               
               if (!accountId || !apiToken) {
                  ws.send(JSON.stringify({ error: 'Missing CF credentials', action: 'fetch_build_logs_result' }));

@@ -15,7 +15,8 @@
 import { Logger } from '@/lib/logger';
 import {
   registerSubscribers,
-  setObservabilityLogger
+  setObservabilityLogger,
+  setObservabilityEnv,
 } from './subscribers';
 
 export { peekRecentEvents, getBufferSize, type ObservabilityEvent } from './subscribers';
@@ -37,6 +38,9 @@ export function registerObservability(env: Env): void {
   // Create a dedicated Logger instance for observability events
   const logger = new Logger(env as any, 'Observability');
   setObservabilityLogger(logger);
+
+  // Inject env for D1 persistence
+  setObservabilityEnv(env);
 
   // Attach channel subscribers
   registerSubscribers();

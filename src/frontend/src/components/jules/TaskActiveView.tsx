@@ -9,7 +9,7 @@ export function TaskActiveView({ sessionId, session }: { sessionId: string; sess
 
   useEffect(() => {
     // We only connect to SSE for active sessions
-    const source = new EventSource(`/api/julius/stream/${sessionId}`);
+    const source = new EventSource(`/api/jules/stream/${sessionId}`);
 
     source.onmessage = (event) => {
       setLogs((prev) => [...prev, event.data]);

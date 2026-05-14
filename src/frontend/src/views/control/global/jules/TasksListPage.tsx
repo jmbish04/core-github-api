@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useJulesSessions } from '@/hooks/jules/useJulesSessions';
 import { TaskCard } from '@/components/jules/TaskCard';
+import { NewTaskModal } from '@/components/jules/NewTaskModal';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Search, Plus } from 'lucide-react';
-import { Link, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 
 export interface TasksListPageProps {
   projectId?: string;
@@ -24,6 +25,7 @@ export function TasksListPage(props: TasksListPageProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[] | null>(null);
+  const [newTaskOpen, setNewTaskOpen] = useState(false);
   
   const { sessions, isLoading, error } = useJulesSessions({ projectId });
 
@@ -44,7 +46,7 @@ export function TasksListPage(props: TasksListPageProps) {
       }
       
       try {
-        const url = new URL('/api/julius/search', window.location.origin);
+        const url = new URL('/api/jules/search', window.location.origin);
         url.searchParams.append('q', debouncedSearchQuery);
         if (projectId) {
           url.searchParams.append('projectId', projectId);
@@ -53,7 +55,7 @@ export function TasksListPage(props: TasksListPageProps) {
         const res = await fetch(url.toString());
         if (res.ok) {
           const data = await res.json();
-          setSearchResults(data);
+          setSearchResults(data.sessions ?? data ?? []);
         }
       } catch (err) {
         console.error('Failed to search tasks:', err);
@@ -93,11 +95,9 @@ export function TasksListPage(props: TasksListPageProps) {
       return (
         <div className="text-center py-16 px-4 bg-zinc-900/50 rounded-xl border border-zinc-800/50">
           <p className="text-zinc-400 mb-4">No tasks found matching your criteria.</p>
-          <Button asChild variant="outline" className="border-zinc-700 hover:bg-zinc-800">
-            <Link to={`${baseUrl}/new`}>
-              <Plus className="w-4 h-4 mr-2" />
-              Create a Task
-            </Link>
+          <Button variant="outline" className="border-zinc-700 hover:bg-zinc-800" onClick={() => setNewTaskOpen(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            Create a Task
           </Button>
         </div>
       );
@@ -123,11 +123,9 @@ export function TasksListPage(props: TasksListPageProps) {
           </p>
         </div>
         
-        <Button asChild className="shrink-0 bg-blue-600 hover:bg-blue-700 text-white">
-          <Link to={`${baseUrl}/new`}>
-            <Plus className="w-4 h-4 mr-2" />
-            New Task
-          </Link>
+        <Button className="shrink-0 bg-blue-600 hover:bg-blue-700 text-white" onClick={() => setNewTaskOpen(true)}>
+          <Plus className="w-4 h-4 mr-2" />
+          New Task
         </Button>
       </div>
 
@@ -180,6 +178,9 @@ export function TasksListPage(props: TasksListPageProps) {
           </TabsContent>
         </div>
       </Tabs>
+
+      {/* New Task Modal */}
+      <NewTaskModal open={newTaskOpen} onOpenChange={setNewTaskOpen} />
     </div>
   );
 }

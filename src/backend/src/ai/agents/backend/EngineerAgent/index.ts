@@ -22,7 +22,6 @@ export class EngineerAgent extends BaseThinkAgent<EngineerState> {
   public skills = ['engineering', 'jules-orchestration', 'code-review'];
 
   async agentInit() {
-    await super.agentInit();
 
     // Apply idempotent DDL for DO SQLite state
     (this as any).ctx.blockConcurrencyWhile(async () => {
@@ -83,19 +82,27 @@ export class EngineerAgent extends BaseThinkAgent<EngineerState> {
 
   // ── Session Configuration ─────────────────────────────────────────────
 
-  protected override configureSession(session: any): void {
-    super.configureSession(session);
+  // protected override configureSession(session: any): any {
+  //   const configuredSession = super.configureSession(session);
     
-    // Inject codemode tool if enabled
-    if ((this as any).env.CODEMODE_ENABLED === '1') {
-      import('@/ai/tools/codemode-tool').then(({ createCodeTool }) => {
-        session.tools.push(createCodeTool((this as any).env));
-        this.logger.info(`[configureSession] Injected CodeMode tool`);
-      }).catch(err => {
-        this.logger.error(`[configureSession] Failed to load codemode tool: ${err.message}`);
-      });
-    }
-  }
+  //   // Inject codemode tool if enabled
+  //   if ((this as any).env.CODEMODE_ENABLED === '1') {
+  //     import('@/ai/tools/codemode-tool').then(({ createGatedCodemodeTool }) => {
+  //       // Pushing asynchronously into session.tools is legacy, but preserved for logic
+  //       if (Array.isArray(configuredSession.tools)) {
+  //         configuredSession.tools.push(createGatedCodemodeTool((this as any).env));
+  //       } else if (configuredSession.tools) {
+  //          const codeTool = createGatedCodemodeTool((this as any).env);
+  //          configuredSession.tools[codeTool.name] = codeTool;
+  //       }
+  //       this.logger.info(`[configureSession] Injected CodeMode tool`);
+  //     }).catch(err => {
+  //       this.logger.error(`[configureSession] Failed to load codemode tool: ${err.message}`);
+  //     });
+  //   }
+
+  //   return configuredSession;
+  // }
 
   // ── RPC Methods ─────────────────────────────────────────────────────
 

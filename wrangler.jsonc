@@ -6,6 +6,11 @@
 		"nodejs_compat",
 		"no_handle_cross_request_promise_resolution"
 	],
+	"alias": {
+		"zod/v4": "zod",
+		"zod/v3": "zod",
+		"zod/v4-mini": "zod"
+	},
 	// "minify": true,
 	"workers_dev": true,
 	"dev": {
@@ -89,7 +94,7 @@
 		{ "binding": "CORE_GITHUB_API_GITHUB_APP_PRIVATE_KEY_PT2", "store_id": "8c42fa70938644e0a8a109744467375f", "secret_name": "CORE_GITHUB_API_GITHUB_APP_PRIVATE_KEY_PT2" },
 		{ "binding": "CORE_GITHUB_API_GITHUB_APP_PRIVATE_KEY_PT3", "store_id": "8c42fa70938644e0a8a109744467375f", "secret_name": "CORE_GITHUB_API_GITHUB_APP_PRIVATE_KEY_PT3" },
 		{ "binding": "GITHUB_PERSONAL_ACCESS_TOKEN", "store_id": "8c42fa70938644e0a8a109744467375f", "secret_name": "GH_TOKEN" },
-		{ "binding": "CLOUDFLARE_API_TOKEN", "store_id": "8c42fa70938644e0a8a109744467375f", "secret_name": "CLOUDFLARE_API_TOKEN" },
+		{ "binding": "CLOUDFLARE_WRANGLER_API_TOKEN", "store_id": "8c42fa70938644e0a8a109744467375f", "secret_name": "CLOUDFLARE_WRANGLER_API_TOKEN" },
 		{ "binding": "OPENAI_API_KEY", "store_id": "8c42fa70938644e0a8a109744467375f", "secret_name": "OPENAI_API_KEY" },
 		{ "binding": "CLOUDFLARE_ACCOUNT_ID", "store_id": "8c42fa70938644e0a8a109744467375f", "secret_name": "CLOUDFLARE_ACCOUNT_ID" },
 		{ "binding": "CLOUDFLARE_SECRETS_STORE_TOKEN", "store_id": "8c42fa70938644e0a8a109744467375f", "secret_name": "CLOUDFLARE_SECRETS_STORE_TOKEN" },
@@ -167,6 +172,13 @@
 				"AgentSessionDO",
 				// Low-level generic room entity for robust multiplayer WebSocket bridging
 				"RoomDO"
+			]
+		},
+		{
+			"tag": "v2",
+			"new_sqlite_classes": [
+				// V8-13: Ephemeral subagent for parallel web queries (facet of ResearchAgent)
+				"WebQueryWorker"
 			]
 		}
 	],
@@ -252,6 +264,6 @@
 		{ "name": "core-github-api-edgraph", "binding": "EDGRAPH", "service": "core-github-api-edgraph" }
 	],
 	"tail_consumers": [
-		{ "service": "core-github-api-tail" }
+		{ "service": "core-tail" }
 	]
 }

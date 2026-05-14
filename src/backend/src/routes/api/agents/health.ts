@@ -62,10 +62,7 @@ const deepProbeRoute = createRoute({
   summary: 'Deep health probe of a specific agent (includes AI round-trip)',
   request: {
     params: z.object({
-      agentName: z.string().openapi({
-        description: 'Name of the agent to deep-probe (e.g. GuardrailAgent)',
-        example: 'GuardrailAgent',
-      }),
+      agentName: z.string().describe('Name of the agent to deep-probe (e.g. GuardrailAgent)'),
     }),
   },
   responses: {

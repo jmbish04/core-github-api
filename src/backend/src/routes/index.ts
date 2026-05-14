@@ -42,6 +42,8 @@ import {
   backlogApi,
   continuousLearningApi,
   hitlApi,
+  observabilityApi,
+  chatFrontendApi,
 } from './api';
 
 /**
@@ -73,6 +75,7 @@ export function mountRoutes(app: OpenAPIHono<{ Bindings: Env }>) {
     .route('/api/settings', settingsApi)
     .route('/api/tasks', tasksApi)
     .route('/api/timeline', timelineApi)
+    .route('/api/chat', chatFrontendApi)
     .route('/api/agents', agentsApi)
     .route('/api/health', healthApi)
     .route('/api/ops/workflows', workflowsApi)
@@ -87,5 +90,6 @@ export function mountRoutes(app: OpenAPIHono<{ Bindings: Env }>) {
     .route('/api/sentinel', sentinelInsightsApi)
     .route('/api/backlog', backlogApi)
     .route('/api/continuous-learning', continuousLearningApi)
-    .route('/api/hitl', hitlApi);
+    .route('/api/hitl', hitlApi)
+    .route('/api/observability', observabilityApi);
 }

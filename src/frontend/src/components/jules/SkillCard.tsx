@@ -1,8 +1,8 @@
-import React from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { Zap } from 'lucide-react';
+import { Zap, Trash2 } from 'lucide-react';
 
 export interface Skill {
   id: string;
@@ -16,9 +16,10 @@ export interface Skill {
 interface SkillCardProps {
   skill: Skill;
   onToggle: (id: string) => void;
+  onDelete?: (id: string) => void;
 }
 
-export function SkillCard({ skill, onToggle }: SkillCardProps) {
+export function SkillCard({ skill, onToggle, onDelete }: SkillCardProps) {
   return (
     <Card className={`bg-zinc-950 border-zinc-800 transition-colors ${skill.enabled ? 'hover:border-zinc-700' : 'opacity-60'}`}>
       <CardHeader className="pb-3">
@@ -29,10 +30,22 @@ export function SkillCard({ skill, onToggle }: SkillCardProps) {
               {skill.name}
             </CardTitle>
           </div>
-          <Switch
-            checked={skill.enabled}
-            onCheckedChange={() => onToggle(skill.id)}
-          />
+          <div className="flex items-center gap-2 shrink-0">
+            {onDelete && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 text-zinc-500 hover:text-red-400 hover:bg-red-500/10"
+                onClick={() => onDelete(skill.id)}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            )}
+            <Switch
+              checked={skill.enabled}
+              onCheckedChange={() => onToggle(skill.id)}
+            />
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-3">

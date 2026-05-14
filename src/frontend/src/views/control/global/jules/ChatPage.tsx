@@ -29,7 +29,7 @@ export default function JulesChatPage() {
 
     try {
       // 1. POST prompt to start processing
-      const response = await fetch('/api/julius/start', {
+      const response = await fetch('/api/jules/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: userMessage, sessionId }),
@@ -40,7 +40,7 @@ export default function JulesChatPage() {
       }
 
       // 2. Open EventSource for SSE streaming
-      const eventSource = new EventSource(`/api/julius/stream/${sessionId}`);
+      const eventSource = new EventSource(`/api/jules/stream/${sessionId}`);
       
       let aiResponseContent = '';
 

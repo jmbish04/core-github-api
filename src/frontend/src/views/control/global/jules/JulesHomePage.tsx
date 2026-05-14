@@ -1,4 +1,4 @@
-import React from 'react';
+import { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -14,6 +14,7 @@ import {
   Clock,
   ArrowRight,
 } from 'lucide-react';
+import { NewTaskModal } from '@/components/jules/NewTaskModal';
 
 const statusVariants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   active: 'secondary',
@@ -35,6 +36,7 @@ export function JulesHomePage() {
   const baseUrl = owner && repo ? `/repos/${owner}/${repo}/jules` : '/jules';
   
   const { sessions, isLoading } = useJulesSessions({ limit: 5, projectId });
+  const [newTaskOpen, setNewTaskOpen] = useState(false);
 
   const activeTasks = sessions.filter((s) => s.status === 'active').length;
   const completedToday = sessions.filter((s) => {
@@ -53,6 +55,7 @@ export function JulesHomePage() {
     : 0;
 
   return (
+    <>
     <div className="container max-w-7xl mx-auto py-6 px-4 space-y-8">
       {/* Header */}
       <div>
@@ -113,11 +116,9 @@ export function JulesHomePage() {
 
       {/* Quick actions */}
       <div className="flex flex-wrap gap-3">
-        <Button asChild className="bg-zinc-100 text-zinc-900 hover:bg-zinc-200">
-          <Link to={`${baseUrl}/tasks/new`}>
+        <Button className="bg-zinc-100 text-zinc-900 hover:bg-zinc-200" onClick={() => setNewTaskOpen(true)}>
             <Plus className="w-4 h-4 mr-2" />
             New Task
-          </Link>
         </Button>
         <Button asChild variant="outline" className="border-zinc-700 hover:bg-zinc-800 text-zinc-300">
           <Link to={`${baseUrl}/tasks`}>
@@ -195,6 +196,8 @@ export function JulesHomePage() {
         </CardContent>
       </Card>
     </div>
+    <NewTaskModal open={newTaskOpen} onOpenChange={setNewTaskOpen} />
+    </>
   );
 }
 

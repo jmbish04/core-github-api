@@ -22,6 +22,11 @@ export { OrchestratorAgent } from './backend/OrchestratorAgent';
 export { ResearchAgent } from './backend/ResearchAgent';
 export { CollaborationAgent } from './backend/CollaborationAgent';
 
+// ── Subagent Classes (V8-13) ─────────────────────────────────────────────
+// WebQueryWorker is a subagent facet of ResearchAgent — NOT a top-level DO.
+// The SDK requires the class to be exported from the Worker entry point.
+export { WebQueryWorker } from './backend/ResearchAgent/methods/parallel-queries';
+
 
 // ── Workflows ───────────────────────────────────────────────────────────────
 export { JulesResearchWorkflow } from './workflows/GithubResearch';

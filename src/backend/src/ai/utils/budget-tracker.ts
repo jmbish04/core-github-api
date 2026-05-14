@@ -75,7 +75,7 @@ export class BudgetTracker {
   private async getCloudflare(): Promise<Cloudflare | null> {
     if (this.cf) return this.cf;
 
-    const apiToken = await getSecret(this.env, "CLOUDFLARE_API_TOKEN");
+    const apiToken = await getSecret(this.env, "CLOUDFLARE_WRANGLER_API_TOKEN");
 
     if (apiToken) {
         this.cf = new Cloudflare({

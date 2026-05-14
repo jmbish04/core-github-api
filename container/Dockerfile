@@ -11,11 +11,11 @@
 # =====================================================================================
 
 # Stage 1: Extract OpenCode CLI
-FROM docker.io/cloudflare/sandbox:0.9.0-opencode AS opencode-stage
+FROM docker.io/cloudflare/sandbox:0.9.1-opencode AS opencode-stage
 
 # Stage 2: Use the Python variant as the main base image
 # This completely avoids Python path/module corruption by keeping the native OS environment intact.
-FROM docker.io/cloudflare/sandbox:0.9.0-python
+FROM docker.io/cloudflare/sandbox:0.9.1-python
 
 # --- Install System Dependencies ---
 RUN apt-get update && apt-get install -y --no-install-recommends \

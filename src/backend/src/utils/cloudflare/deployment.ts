@@ -184,7 +184,7 @@ export class WorkerManagementService {
 export default {
 	async fetch(request: Request, env: any) {
 		const baseUrl = env.CLOUDFLARE_API_BASE_URL ? `${env.CLOUDFLARE_API_BASE_URL}/v4` : undefined;
-		const service = new WorkerManagementService(env.CLOUDFLARE_ACCOUNT_ID, env.CLOUDFLARE_API_TOKEN, baseUrl);
+		const service = new WorkerManagementService(env.CLOUDFLARE_ACCOUNT_ID, env.CLOUDFLARE_WRANGLER_API_TOKEN, baseUrl);
 
 		// Example route: Configure CI/CD
 		if (request.method === 'POST' && request.url.includes('/setup-cicd')) {

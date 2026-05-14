@@ -15,6 +15,8 @@
 
 import { createBrowserTools } from 'agents/browser/ai';
 import { Logger } from '@/lib/logger';
+import { getDb } from '@db';
+import { browserToolLogs } from '@db/schemas/logs/observability';
 
 // ─── Rate Limiter ────────────────────────────────────────────────────────────
 
@@ -97,6 +99,20 @@ export function createBrowserToolsForAgent(
     browser: (env as any).BROWSER,
     loader: (env as any).LOADER,
   });
+
+  // ── D1 Audit Log ─────────────────────────────────────────────────
+  try {
+    const db = getDb(env.DB);
+    db.insert(browserToolLogs).values({
+      agentId,
+      toolName: 'browser_tools_created',
+      input: JSON.stringify({ timeout, maxCallsPerMinute }),
+      status: 'success',
+      createdAt: new Date().toISOString(),
+    }).then(() => {}).catch(() => {});
+  } catch {
+    // Non-blocking audit
+  }
 
   return tools;
 }

@@ -19,6 +19,7 @@ export function AppSidebar({ className }: { className?: string }) {
 
   const [isToolboxExpanded, setIsToolboxExpanded] = useState(false);
   const [isDeepResearchExpanded, setIsDeepResearchExpanded] = useState(false);
+  const [isJulesExpanded, setIsJulesExpanded] = useState(false);
   const [expandedRepo, setExpandedRepo] = useState<string | null>(null);
 
   // On mount, fetch favorites from D1
@@ -79,21 +80,29 @@ export function AppSidebar({ className }: { className?: string }) {
 
           {/* Section: Jules */}
           <div className="space-y-1">
-             <h3 className="px-2 text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">
-               Jules
-             </h3>
-             <GlobalNavItem href="/jules" icon={Sparkles} label="Jules Home"  />
-             <GlobalNavItem href="/jules/tasks" icon={ListTodo} label="Tasks"  />
-             <GlobalNavItem href="/jules/tasks/new" icon={Plus} label="New Task"  />
-             <GlobalNavItem href="/jules/activity" icon={Activity} label="Activity"  />
-             <GlobalNavItem href="/jules/backlog" icon={LayoutList} label="Backlog"  />
-             <GlobalNavItem href="/jules/velocity" icon={BarChart3} label="Velocity"  />
-             <GlobalNavItem href="/jules/insights" icon={Cpu} label="Insights"  />
-             <GlobalNavItem href="/jules/design" icon={Palette} label="Design Lab"  />
-             <GlobalNavItem href="/jules/github" icon={GitBranch} label="GitHub"  />
-             <GlobalNavItem href="/jules/skills" icon={Blocks} label="Skills"  />
-             <GlobalNavItem href="/jules/settings" icon={SettingsIcon} label="Settings"  />
-             <GlobalNavItem href="/jules/chat" icon={MessageSquare} label="Chat"  />
+             <button
+               onClick={() => setIsJulesExpanded(v => !v)}
+               className="w-full flex items-center justify-between px-2 text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider hover:text-foreground transition-colors"
+             >
+               <span>Jules</span>
+               {isJulesExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+             </button>
+             {isJulesExpanded && (
+               <div className="space-y-1">
+                 <GlobalNavItem href="/jules" icon={Sparkles} label="Jules Home"  />
+                 <GlobalNavItem href="/jules/tasks" icon={ListTodo} label="Tasks"  />
+                 <GlobalNavItem href="/jules/tasks/new" icon={Plus} label="New Task"  />
+                 <GlobalNavItem href="/jules/activity" icon={Activity} label="Activity"  />
+                 <GlobalNavItem href="/jules/backlog" icon={LayoutList} label="Backlog"  />
+                 <GlobalNavItem href="/jules/velocity" icon={BarChart3} label="Velocity"  />
+                 <GlobalNavItem href="/jules/insights" icon={Cpu} label="Insights"  />
+                 <GlobalNavItem href="/jules/design" icon={Palette} label="Design Lab"  />
+                 <GlobalNavItem href="/jules/github" icon={GitBranch} label="GitHub"  />
+                 <GlobalNavItem href="/jules/skills" icon={Blocks} label="Skills"  />
+                 <GlobalNavItem href="/jules/settings" icon={SettingsIcon} label="Settings"  />
+                 <GlobalNavItem href="/jules/chat" icon={MessageSquare} label="Chat"  />
+               </div>
+             )}
           </div>
 
           <div className="h-px bg-border/50 mx-2" />

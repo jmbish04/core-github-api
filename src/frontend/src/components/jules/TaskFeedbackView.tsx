@@ -12,7 +12,7 @@ export function TaskFeedbackView({ sessionId, session }: { sessionId: string; se
 
   const feedbackMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch('/api/julius/start', {
+      const response = await fetch('/api/jules/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
