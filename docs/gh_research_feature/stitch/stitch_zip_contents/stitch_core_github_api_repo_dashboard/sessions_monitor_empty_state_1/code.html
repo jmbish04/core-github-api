@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Sessions Monitor - Empty State</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;family=JetBrains+Mono:wght@450&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        "colors": {
+                "primary-fixed-dim": "#adc7ff",
+                "on-surface-variant": "#c1c6d6",
+                "error": "#ffb4ab",
+                "tertiary-container": "#c55500",
+                "error-container": "#93000a",
+                "on-error-container": "#ffdad6",
+                "surface-container-low": "#191c23",
+                "surface-container-highest": "#32353c",
+                "on-primary-container": "#ffffff",
+                "on-surface": "#e0e2ec",
+                "secondary": "#c8c6c5",
+                "foreground": "oklch(0.98 0 0)",
+                "on-secondary-fixed-variant": "#474746",
+                "tertiary": "#ffb691",
+                "border": "oklch(0.25 0 0)",
+                "inverse-primary": "#005bc0",
+                "surface-container-high": "#272a31",
+                "on-secondary": "#303030",
+                "tertiary-fixed-dim": "#ffb691",
+                "inverse-surface": "#e0e2ec",
+                "on-error": "#690005",
+                "on-tertiary-fixed": "#341100",
+                "on-tertiary": "#552100",
+                "accent": "oklch(0.55 0.18 264)",
+                "card": "oklch(0.16 0 0)",
+                "on-tertiary-container": "#0e0200",
+                "surface-container": "#1d2027",
+                "inverse-on-surface": "#2d3038",
+                "on-secondary-container": "#b7b5b4",
+                "surface-container-lowest": "#0b0e15",
+                "outline": "#8b909f",
+                "muted-foreground": "oklch(0.6 0 0)",
+                "on-background": "#e0e2ec",
+                "primary-container": "#1a73e8",
+                "on-tertiary-fixed-variant": "#783100",
+                "on-primary": "#002e68",
+                "outline-variant": "#414754",
+                "surface-bright": "#363941",
+                "on-primary-fixed": "#001a41",
+                "primary": "#adc7ff",
+                "on-secondary-fixed": "#1b1b1c",
+                "background": "oklch(0.13 0 0)",
+                "surface-tint": "#adc7ff",
+                "surface-variant": "#32353c",
+                "secondary-fixed-dim": "#c8c6c5",
+                "surface-dim": "#10131a",
+                "tertiary-fixed": "#ffdbcb",
+                "secondary-container": "#474746",
+                "secondary-fixed": "#e5e2e1",
+                "surface": "#10131a",
+                "primary-fixed": "#d8e2ff",
+                "on-primary-fixed-variant": "#004493"
+        },
+        "borderRadius": {
+                "DEFAULT": "0.125rem",
+                "lg": "0.25rem",
+                "xl": "0.5rem",
+                "full": "0.75rem"
+        },
+        "spacing": {
+                "container-max": "1440px",
+                "sidebar-width": "240px",
+                "gutter": "1rem",
+                "margin-mobile": "1rem",
+                "margin-desktop": "2rem"
+        },
+        "fontFamily": {
+                "headline-lg": [
+                        "Inter"
+                ],
+                "code-base": [
+                        "JetBrains Mono"
+                ],
+                "headline-md": [
+                        "Inter"
+                ],
+                "body-sm": [
+                        "Inter"
+                ],
+                "code-sm": [
+                        "JetBrains Mono"
+                ],
+                "body-base": [
+                        "Inter"
+                ]
+        },
+        "fontSize": {
+                "headline-lg": [
+                        "24px",
+                        {
+                                "lineHeight": "32px",
+                                "letterSpacing": "-0.02em",
+                                "fontWeight": "600"
+                        }
+                ],
+                "code-base": [
+                        "13px",
+                        {
+                                "lineHeight": "20px",
+                                "fontWeight": "450"
+                        }
+                ],
+                "headline-md": [
+                        "18px",
+                        {
+                                "lineHeight": "24px",
+                                "letterSpacing": "-0.01em",
+                                "fontWeight": "600"
+                        }
+                ],
+                "body-sm": [
+                        "12px",
+                        {
+                                "lineHeight": "16px",
+                                "fontWeight": "400"
+                        }
+                ],
+                "code-sm": [
+                        "11px",
+                        {
+                                "lineHeight": "16px",
+                                "fontWeight": "450"
+                        }
+                ],
+                "body-base": [
+                        "14px",
+                        {
+                                "lineHeight": "20px",
+                                "fontWeight": "400"
+                        }
+                ]
+        }
+},
+    },
+  }
+</script>
+<style>
+  body {
+    background-color: theme('colors.background');
+    color: theme('colors.foreground');
+  }
+</style>
+</head>
+<body class="flex h-screen overflow-hidden font-body-base text-body-base">
+<!-- SideNavBar -->
+<aside class="hidden md:flex flex-col h-screen w-sidebar-width bg-background dark:bg-background text-primary dark:text-primary ring-1 ring-border/40 py-gutter px-2 z-20">
+<div class="mb-8 px-2 flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-surface-container-high flex items-center justify-center ring-1 ring-border/40">
+<span class="material-symbols-outlined text-foreground text-xl" style="font-variation-settings: 'FILL' 1;">cloud</span>
+</div>
+<div>
+<h1 class="font-headline-md text-headline-md text-foreground">Cloudflare Workers</h1>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Agentic Control</p>
+</div>
+</div>
+<button class="mb-6 w-full flex items-center justify-center gap-2 bg-accent text-on-primary-container font-headline-md text-headline-md py-2 px-4 rounded ring-1 ring-accent/40 hover:bg-accent/90 transition-all duration-200 ease-in-out">
+<span class="material-symbols-outlined text-sm">add</span>
+      New Session
+    </button>
+<nav class="flex-1 flex flex-col gap-1">
+<a class="flex items-center gap-3 px-3 py-2 rounded text-on-surface-variant hover:text-foreground hover:bg-surface-container transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined text-lg">book_2</span>
+<span>Library</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded text-foreground bg-surface-container-high ring-1 ring-accent/40 transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined text-lg">lan</span>
+<span>Sessions</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded text-on-surface-variant hover:text-foreground hover:bg-surface-container transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined text-lg">settings</span>
+<span>Settings</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded text-on-surface-variant hover:text-foreground hover:bg-surface-container transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined text-lg">description</span>
+<span>Docs</span>
+</a>
+</nav>
+<div class="mt-auto pt-4 flex flex-col gap-1">
+<a class="flex items-center gap-3 px-3 py-2 rounded text-on-surface-variant hover:text-foreground hover:bg-surface-container transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined text-lg">dns</span>
+<span>System Status</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Area -->
+<div class="flex-1 flex flex-col min-w-0">
+<!-- TopNavBar -->
+<header class="w-full h-16 bg-background dark:bg-background border-b border-border/40 flex justify-between items-center px-margin-desktop z-10">
+<div class="flex items-center gap-6">
+<div class="font-headline-lg text-headline-lg font-bold text-foreground">Agentic Sessions</div>
+<nav class="hidden md:flex items-center gap-6">
+<a class="font-headline-md text-headline-md text-on-surface-variant hover:text-foreground transition-colors duration-200" href="#">Monitoring</a>
+<a class="font-headline-md text-headline-md text-on-surface-variant hover:text-foreground transition-colors duration-200" href="#">Deployment</a>
+<a class="font-headline-md text-headline-md text-on-surface-variant hover:text-foreground transition-colors duration-200" href="#">Security</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative hidden md:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm">search</span>
+<input class="bg-surface-container-low border-none ring-1 ring-border/40 rounded py-1.5 pl-9 pr-3 text-sm text-foreground focus:ring-accent/40 focus:outline-none w-64 placeholder-on-surface-variant" placeholder="Search..." type="text"/>
+</div>
+<div class="flex items-center gap-2 text-on-surface-variant">
+<button class="w-8 h-8 flex items-center justify-center rounded hover:bg-surface-container hover:text-foreground transition-colors duration-200">
+<span class="material-symbols-outlined text-xl">refresh</span>
+</button>
+<button class="w-8 h-8 flex items-center justify-center rounded hover:bg-surface-container hover:text-foreground transition-colors duration-200">
+<span class="material-symbols-outlined text-xl">notifications</span>
+</button>
+</div>
+<button class="hidden md:flex items-center justify-center bg-surface-container-high text-foreground font-headline-md text-headline-md py-1.5 px-4 rounded ring-1 ring-border/40 hover:bg-surface-container-highest transition-all duration-200 ease-in-out">
+          Deploy Agent
+        </button>
+<div class="w-8 h-8 rounded-full bg-surface-container-highest ring-1 ring-border/40 overflow-hidden ml-2 flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined">person</span>
+</div>
+</div>
+</header>
+<!-- Canvas -->
+<main class="flex-1 overflow-auto bg-surface flex items-center justify-center p-gutter">
+<div class="max-w-md w-full flex flex-col items-center justify-center text-center space-y-6 bg-card ring-1 ring-border/40 rounded-lg p-12 relative overflow-hidden group hover:ring-ring/40 transition-all duration-200">
+<!-- Empty State Illustration -->
+<div class="w-full h-32 flex items-center justify-center opacity-70 mb-4">
+<img alt="Subtle wireframe illustration of stacked server racks or session blocks in a muted dark stroke for an empty state." class="w-full h-full object-contain filter grayscale invert opacity-50 dark:invert-0 dark:opacity-40" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAADwCAYAAAAq7LU2AAAAWUlEQVR4AezSMQrAQAgEwFXSGGzykfz/H3lIGhECV2QPrro3rAgu2g06VikQQghCoABbn7AjnFwcHhE3w+Vm9mUmvLufqnqn2OBpzMAJKJBBCEKgAFufAOAHAAD//w5gUBcAAAAGSURBVAMAzjEM4X7h4B4AAAAASUVORK5CYII="/>
+</div>
+<div class="space-y-2 relative z-10">
+<h2 class="font-headline-lg text-headline-lg text-foreground tracking-tight">No sessions yet</h2>
+<p class="font-body-base text-body-base text-muted-foreground max-w-sm mx-auto">
+            Start a research or development session to see agentic activity here.
+          </p>
+</div>
+<button class="mt-8 bg-accent hover:bg-accent/90 text-on-primary-container font-headline-md text-headline-md py-2.5 px-6 rounded ring-1 ring-accent/40 transition-all duration-200 ease-in-out flex items-center gap-2 relative z-10">
+<span class="material-symbols-outlined text-sm">play_arrow</span>
+          Start research
+        </button>
+<!-- Subtle background grid pattern to emphasize technical nature -->
+<div class="absolute inset-0 pointer-events-none opacity-5" style="background-image: linear-gradient(theme('colors.border') 1px, transparent 1px), linear-gradient(90deg, theme('colors.border') 1px, transparent 1px); background-size: 20px 20px;"></div>
+</div>
+</main>
+</div>
+</body></html>

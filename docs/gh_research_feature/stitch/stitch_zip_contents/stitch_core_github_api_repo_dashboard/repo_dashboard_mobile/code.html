@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Manrope:wght@700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#4edea3",
+                        "surface-container-highest": "#25252b",
+                        "tertiary-container": "#8f60fa",
+                        "outline": "#75757c",
+                        "on-secondary-fixed": "#2622b7",
+                        "on-tertiary": "#280067",
+                        "inverse-primary": "#006d4a",
+                        "error": "#ee7d77",
+                        "on-primary-fixed-variant": "#006947",
+                        "primary-fixed": "#6ffbbe",
+                        "on-secondary": "#080079",
+                        "secondary-fixed": "#e1e0ff",
+                        "on-primary": "#004a31",
+                        "tertiary-fixed-dim": "#8252ec",
+                        "surface-container-lowest": "#000000",
+                        "on-surface": "#e7e4ec",
+                        "on-tertiary-fixed": "#ffffff",
+                        "on-background": "#e7e4ec",
+                        "secondary-container": "#201cb4",
+                        "inverse-on-surface": "#565457",
+                        "on-primary-fixed": "#004930",
+                        "outline-variant": "#47474e",
+                        "on-secondary-container": "#b8b9ff",
+                        "surface-container": "#19191d",
+                        "surface": "#0e0e10",
+                        "secondary-fixed-dim": "#d1d0ff",
+                        "primary-container": "#005236",
+                        "tertiary-fixed": "#8f60fa",
+                        "surface-variant": "#25252b",
+                        "on-error-container": "#ff9993",
+                        "on-tertiary-fixed-variant": "#fdf6ff",
+                        "primary-fixed-dim": "#5fedb0",
+                        "primary-dim": "#3cd096",
+                        "inverse-surface": "#fcf8fb",
+                        "tertiary": "#ac8aff",
+                        "on-error": "#490106",
+                        "tertiary-dim": "#8455ef",
+                        "on-secondary-fixed-variant": "#4647d3",
+                        "on-tertiary-container": "#000000",
+                        "secondary": "#9093ff",
+                        "surface-container-low": "#131316",
+                        "error-container": "#7f2927",
+                        "error-dim": "#bb5551",
+                        "on-primary-container": "#5ae9ac",
+                        "secondary-dim": "#9093ff",
+                        "surface-dim": "#0e0e10",
+                        "surface-container-high": "#1f1f24",
+                        "surface-bright": "#2b2c32",
+                        "surface-tint": "#4edea3",
+                        "on-surface-variant": "#acaab1",
+                        "background": "#0e0e10"
+                    },
+                    fontFamily: {
+                        "headline": ["Manrope"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        body {
+            background-color: #09090b;
+            color: #fafafa;
+            -webkit-font-smoothing: antialiased;
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="font-body selection:bg-primary/30 selection:text-primary">
+<!-- TopAppBar Shell -->
+<header class="fixed top-0 w-full z-50 bg-[#0e0e10]/50 backdrop-blur-xl flex justify-between items-center px-6 h-16 w-full">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full overflow-hidden border border-outline-variant/30">
+<img alt="user profile picture" class="w-full h-full object-cover" data-alt="close-up portrait of a modern software engineer with neutral expression and soft studio lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBMh51vQX-TKjvXy7zCI3YxV91-LpX7bX5pLrv7grPdOZ3fTSibZISawlLhwAq8ZKEdlbriu2DerabXB4vaG7qcqIeYkaR7lXXviZ1DxqMQeRuJiA7EyaFqDD7rY-tvEng2eMQw6MEgaHSIV1M95AW30odaORXTroEllLaZ8_FEmbFiFcDrY1NwEM5ZftY0XIorjK0hZU2JX285izD6EQX8bVp1XJZkwgDSJs3So9OggHKtdejUAib3nerazsHK-E0Xh_ryNsolgbbc"/>
+</div>
+<span class="font-manrope font-bold text-xl text-emerald-400 tracking-tight">Repo Command</span>
+</div>
+<button class="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-zinc-800/50 transition-colors active:duration-100 active:scale-95 text-zinc-400">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+</header>
+<!-- Main Content Canvas -->
+<main class="pt-20 pb-24 px-4 space-y-4 max-w-[375px] mx-auto min-h-screen">
+<!-- SECTION 1: Stat Strip -->
+<section class="grid grid-cols-2 gap-3">
+<div class="p-3 rounded-lg border border-outline-variant/20 bg-surface-container-low/50 backdrop-blur-sm">
+<p class="text-[10px] font-semibold text-on-surface-variant uppercase tracking-wider mb-1">Repo Health</p>
+<div class="flex items-center gap-2">
+<span class="text-xl font-headline font-bold text-on-surface">94%</span>
+<span class="w-2 h-2 rounded-full bg-primary shadow-[0_0_8px_rgba(78,222,163,0.5)]"></span>
+</div>
+</div>
+<div class="p-3 rounded-lg border border-outline-variant/20 bg-surface-container-low/50 backdrop-blur-sm">
+<p class="text-[10px] font-semibold text-on-surface-variant uppercase tracking-wider mb-1">Open Issues</p>
+<div class="flex items-center gap-2">
+<span class="text-xl font-headline font-bold text-on-surface">12</span>
+<span class="material-symbols-outlined text-error text-sm" data-icon="trending_up">trending_up</span>
+</div>
+</div>
+<div class="p-3 rounded-lg border border-outline-variant/20 bg-surface-container-low/50 backdrop-blur-sm">
+<p class="text-[10px] font-semibold text-on-surface-variant uppercase tracking-wider mb-1">PRs Merged</p>
+<div class="flex items-center gap-2">
+<span class="text-xl font-headline font-bold text-on-surface">7</span>
+<span class="material-symbols-outlined text-primary text-sm" data-icon="trending_up">trending_up</span>
+</div>
+</div>
+<div class="p-3 rounded-lg border border-outline-variant/20 bg-surface-container-low/50 backdrop-blur-sm">
+<p class="text-[10px] font-semibold text-on-surface-variant uppercase tracking-wider mb-1">Deploy Status</p>
+<div class="flex flex-col">
+<div class="flex items-center gap-1.5">
+<span class="text-xs font-bold text-primary px-1.5 py-0.5 rounded bg-primary/10">Live</span>
+<span class="text-[10px] text-on-surface-variant">2h ago</span>
+</div>
+</div>
+</div>
+</section>
+<!-- SECTION 2: Quick Actions -->
+<section class="rounded-lg border border-outline-variant/20 bg-surface-container-low/50 overflow-hidden">
+<div class="px-4 py-3 border-b border-outline-variant/10">
+<h3 class="text-sm font-bold text-on-surface font-headline uppercase tracking-wide">Quick Actions</h3>
+</div>
+<div class="flex flex-col">
+<button class="w-full flex items-center gap-3 px-4 py-3 text-sm text-on-surface hover:bg-surface-bright/50 transition-colors border-b border-outline-variant/10 min-h-[44px] active:bg-surface-bright">
+<span class="material-symbols-outlined text-primary" data-icon="add_circle">add_circle</span>
+<span>Create New Branch</span>
+</button>
+<button class="w-full flex items-center gap-3 px-4 py-3 text-sm text-on-surface hover:bg-surface-bright/50 transition-colors border-b border-outline-variant/10 min-h-[44px] active:bg-surface-bright">
+<span class="material-symbols-outlined text-secondary" data-icon="merge">merge</span>
+<span>Merge Main to Dev</span>
+</button>
+<button class="w-full flex items-center gap-3 px-4 py-3 text-sm text-on-surface hover:bg-surface-bright/50 transition-colors border-b border-outline-variant/10 min-h-[44px] active:bg-surface-bright">
+<span class="material-symbols-outlined text-tertiary" data-icon="upload_file">upload_file</span>
+<span>Upload Build Assets</span>
+</button>
+<button class="w-full flex items-center gap-3 px-4 py-3 text-sm text-on-surface hover:bg-surface-bright/50 transition-colors border-b border-outline-variant/10 min-h-[44px] active:bg-surface-bright">
+<span class="material-symbols-outlined text-error" data-icon="dangerous">dangerous</span>
+<span>Freeze Production</span>
+</button>
+<button class="w-full flex items-center gap-3 px-4 py-3 text-sm text-on-surface hover:bg-surface-bright/50 transition-colors min-h-[44px] active:bg-surface-bright">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="sync">sync</span>
+<span>Sync Fork</span>
+</button>
+</div>
+</section>
+<!-- SECTION 3: Activity Feed -->
+<section class="rounded-lg border border-outline-variant/20 bg-surface-container-low/50 overflow-hidden">
+<div class="px-4 py-3 border-b border-outline-variant/10 flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary text-lg" data-icon="reorder">reorder</span>
+<h3 class="text-sm font-bold text-on-surface font-headline uppercase tracking-wide">Recent Activity</h3>
+</div>
+<span class="text-[10px] font-bold text-secondary uppercase">View all</span>
+</div>
+<div class="max-h-[300px] overflow-y-auto px-2 py-2 space-y-1 hide-scrollbar">
+<!-- Activity Items -->
+<div class="flex items-start gap-3 p-2.5 rounded-md hover:bg-surface-bright/30 transition-colors">
+<div class="mt-1 w-2 h-2 rounded-full bg-primary shrink-0"></div>
+<div>
+<p class="text-xs text-on-surface"><span class="font-bold">@alex_dev</span> pushed 3 commits to <span class="text-primary">feat/auth</span></p>
+<p class="text-[10px] text-on-surface-variant mt-0.5">12m ago • ui-updates</p>
+</div>
+</div>
+<div class="flex items-start gap-3 p-2.5 rounded-md hover:bg-surface-bright/30 transition-colors">
+<div class="mt-1 w-2 h-2 rounded-full bg-tertiary shrink-0"></div>
+<div>
+<p class="text-xs text-on-surface"><span class="font-bold">@sarah_m</span> commented on <span class="text-tertiary">#442</span></p>
+<p class="text-[10px] text-on-surface-variant mt-0.5">45m ago • PR Review</p>
+</div>
+</div>
+<div class="flex items-start gap-3 p-2.5 rounded-md hover:bg-surface-bright/30 transition-colors">
+<div class="mt-1 w-2 h-2 rounded-full bg-error shrink-0"></div>
+<div>
+<p class="text-xs text-on-surface">Build failed on <span class="text-error">hotfix/api</span></p>
+<p class="text-[10px] text-on-surface-variant mt-0.5">1h ago • workflow-ci</p>
+</div>
+</div>
+<div class="flex items-start gap-3 p-2.5 rounded-md hover:bg-surface-bright/30 transition-colors">
+<div class="mt-1 w-2 h-2 rounded-full bg-primary shrink-0"></div>
+<div>
+<p class="text-xs text-on-surface"><span class="font-bold">@mike_j</span> merged <span class="text-primary">#439</span> into main</p>
+<p class="text-[10px] text-on-surface-variant mt-0.5">3h ago • deployment</p>
+</div>
+</div>
+<div class="flex items-start gap-3 p-2.5 rounded-md hover:bg-surface-bright/30 transition-colors">
+<div class="mt-1 w-2 h-2 rounded-full bg-on-surface-variant shrink-0"></div>
+<div>
+<p class="text-xs text-on-surface">New release tag <span class="font-bold text-on-surface">v2.1.0</span></p>
+<p class="text-[10px] text-on-surface-variant mt-0.5">5h ago • automated</p>
+</div>
+</div>
+<div class="flex items-start gap-3 p-2.5 rounded-md hover:bg-surface-bright/30 transition-colors">
+<div class="mt-1 w-2 h-2 rounded-full bg-primary shrink-0"></div>
+<div>
+<p class="text-xs text-on-surface"><span class="font-bold">@lina_k</span> created <span class="text-primary">feat/checkout-api</span></p>
+<p class="text-[10px] text-on-surface-variant mt-0.5">8h ago • backend</p>
+</div>
+</div>
+</div>
+</section>
+<!-- SECTION 4: Pending PRs -->
+<section class="rounded-lg border border-outline-variant/20 bg-surface-container-low/50 overflow-hidden">
+<div class="px-4 py-3 border-b border-outline-variant/10 flex items-center justify-between">
+<h3 class="text-sm font-bold text-on-surface font-headline uppercase tracking-wide">Pending PRs</h3>
+<span class="bg-primary/20 text-primary text-[10px] font-bold px-2 py-0.5 rounded-full">3</span>
+</div>
+<div class="p-2 space-y-2">
+<!-- PR Row 1 -->
+<div class="flex items-center justify-between p-3 rounded-md bg-surface-container/30 border border-outline-variant/5">
+<div class="flex flex-col max-w-[180px]">
+<span class="text-[10px] text-on-surface-variant font-mono">#1402</span>
+<span class="text-xs font-medium text-on-surface truncate">Update payment gateway integration...</span>
+</div>
+<button class="bg-primary text-on-primary text-[10px] font-bold px-3 py-1.5 rounded-md shadow-lg shadow-primary/20 active:scale-95 transition-transform">Review</button>
+</div>
+<!-- PR Row 2 -->
+<div class="flex items-center justify-between p-3 rounded-md bg-surface-container/30 border border-outline-variant/5">
+<div class="flex flex-col max-w-[180px]">
+<span class="text-[10px] text-on-surface-variant font-mono">#1398</span>
+<span class="text-xs font-medium text-on-surface truncate">Fix header z-index on mobile</span>
+</div>
+<button class="bg-primary text-on-primary text-[10px] font-bold px-3 py-1.5 rounded-md shadow-lg shadow-primary/20 active:scale-95 transition-transform">Review</button>
+</div>
+<!-- PR Row 3 -->
+<div class="flex items-center justify-between p-3 rounded-md bg-surface-container/30 border border-outline-variant/5">
+<div class="flex flex-col max-w-[180px]">
+<span class="text-[10px] text-on-surface-variant font-mono">#1395</span>
+<span class="text-xs font-medium text-on-surface truncate">Database migration for user settings</span>
+</div>
+<button class="bg-primary text-on-primary text-[10px] font-bold px-3 py-1.5 rounded-md shadow-lg shadow-primary/20 active:scale-95 transition-transform">Review</button>
+</div>
+</div>
+</section>
+<!-- SECTION 5: Task Breakdown -->
+<section class="rounded-lg border border-outline-variant/20 bg-surface-container-low/50 p-4">
+<h3 class="text-sm font-bold text-on-surface font-headline uppercase tracking-wide mb-4">Task Breakdown</h3>
+<!-- Segmented Bar -->
+<div class="h-4 w-full flex rounded-full overflow-hidden mb-4">
+<div class="h-full bg-primary" style="width: 45%;"></div>
+<div class="h-full bg-secondary" style="width: 25%;"></div>
+<div class="h-full bg-tertiary" style="width: 20%;"></div>
+<div class="h-full bg-outline-variant" style="width: 10%;"></div>
+</div>
+<!-- Legend Wraps -->
+<div class="flex flex-wrap gap-x-4 gap-y-2">
+<div class="flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-primary"></span>
+<span class="text-[10px] text-on-surface-variant font-medium">Features (45%)</span>
+</div>
+<div class="flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-secondary"></span>
+<span class="text-[10px] text-on-surface-variant font-medium">Refactor (25%)</span>
+</div>
+<div class="flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-tertiary"></span>
+<span class="text-[10px] text-on-surface-variant font-medium">Bugs (20%)</span>
+</div>
+<div class="flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-outline-variant"></span>
+<span class="text-[10px] text-on-surface-variant font-medium">Other (10%)</span>
+</div>
+</div>
+</section>
+</main>
+<!-- BottomNavBar Shell -->
+<nav class="fixed bottom-0 w-full z-50 pb-safe bg-[#0e0e10]/80 backdrop-blur-2xl shadow-[0_-10px_30px_rgba(0,0,0,0.5)] flex justify-around items-center h-20 px-4 w-full">
+<a class="flex flex-col items-center justify-center text-emerald-400 bg-emerald-500/10 rounded-xl px-4 py-1 active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="dashboard">dashboard</span>
+<span class="font-manrope font-semibold text-[10px] uppercase tracking-wider">Dashboard</span>
+</a>
+<a class="flex flex-col items-center justify-center text-zinc-500 hover:text-zinc-200 active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="folder_special">folder_special</span>
+<span class="font-manrope font-semibold text-[10px] uppercase tracking-wider">Repos</span>
+</a>
+<a class="flex flex-col items-center justify-center text-zinc-500 hover:text-zinc-200 active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="merge_type">merge_type</span>
+<span class="font-manrope font-semibold text-[10px] uppercase tracking-wider">Pull Requests</span>
+</a>
+<a class="flex flex-col items-center justify-center text-zinc-500 hover:text-zinc-200 active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="rule">rule</span>
+<span class="font-manrope font-semibold text-[10px] uppercase tracking-wider">Issues</span>
+</a>
+</nav>
+</body></html>

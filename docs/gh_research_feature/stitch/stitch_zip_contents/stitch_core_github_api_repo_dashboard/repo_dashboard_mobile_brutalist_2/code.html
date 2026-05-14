@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Command Center — Repository Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "secondary-fixed": "#e4e2e4",
+              "surface-container-highest": "#25252b",
+              "on-tertiary": "#605e61",
+              "surface-container-low": "#131316",
+              "tertiary-fixed-dim": "#e8e4e7",
+              "primary-container": "#454747",
+              "on-surface-variant": "#abaab1",
+              "on-primary-fixed-variant": "#5a5c5c",
+              "surface-variant": "#25252b",
+              "secondary": "#9f9da0",
+              "primary-fixed": "#e2e2e2",
+              "inverse-surface": "#fcf8fb",
+              "surface-container": "#19191d",
+              "surface-tint": "#c6c6c7",
+              "tertiary-dim": "#eeeaec",
+              "secondary-fixed-dim": "#d6d4d6",
+              "on-secondary": "#202022",
+              "secondary-dim": "#9f9da0",
+              "tertiary": "#fdf8fb",
+              "inverse-primary": "#5e5f60",
+              "surface-dim": "#0e0e10",
+              "error": "#ec7c8a",
+              "surface": "#0e0e10",
+              "outline": "#75757b",
+              "on-tertiary-fixed-variant": "#686568",
+              "tertiary-fixed": "#f7f2f5",
+              "on-error": "#490013",
+              "on-tertiary-container": "#585658",
+              "surface-bright": "#2b2c32",
+              "on-background": "#e6e4ec",
+              "primary-dim": "#b8b9b9",
+              "on-secondary-fixed": "#3f3f41",
+              "on-primary-fixed": "#3e4040",
+              "surface-container-lowest": "#000000",
+              "surface-container-high": "#1f1f24",
+              "tertiary-container": "#eeeaec",
+              "inverse-on-surface": "#555557",
+              "primary": "#c6c6c7",
+              "on-primary": "#3f4041",
+              "on-primary-container": "#d0d0d0",
+              "error-container": "#7f2737",
+              "on-secondary-container": "#c1bec1",
+              "on-error-container": "#ff97a3",
+              "error-dim": "#b95463",
+              "background": "#0e0e10",
+              "on-surface": "#e6e4ec",
+              "on-tertiary-fixed": "#4b494b",
+              "outline-variant": "#47474d",
+              "on-secondary-fixed-variant": "#5c5b5d",
+              "primary-fixed-dim": "#d4d4d4",
+              "secondary-container": "#3b3b3d"
+            },
+            fontFamily: {
+              "headline": ["Inter"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        body {
+            background-color: #0e0e10;
+            color: #e6e4ec;
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+            font-size: 20px;
+        }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="flex flex-col items-center min-h-screen">
+<!-- TopAppBar -->
+<header class="bg-zinc-950 dark:bg-zinc-950 sticky top-0 z-50 w-full h-16 flex items-center">
+<div class="flex items-center justify-between px-6 w-full max-w-screen-xl mx-auto">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-emerald-500 dark:text-emerald-400" data-icon="terminal">terminal</span>
+<h1 class="font-['Inter'] tracking-[-0.05em] uppercase text-white text-lg font-bold">Command Center</h1>
+</div>
+<button class="text-zinc-500 hover:bg-zinc-800 transition-none p-2 rounded active:scale-95 duration-0">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="w-full max-w-[390px] px-4 pt-6 pb-24 flex flex-col gap-6">
+<!-- Section 1: Stat Cards -->
+<section class="grid grid-cols-2 gap-3">
+<!-- Health Score -->
+<div class="bg-surface-container-low p-4 rounded-lg flex flex-col justify-between h-28">
+<span class="text-[10px] uppercase tracking-widest text-on-surface-variant font-semibold">Health Score</span>
+<div>
+<div class="flex items-center gap-2">
+<span class="text-2xl font-extrabold text-white tracking-tighter">94%</span>
+<div class="w-2 h-2 rounded-full bg-emerald-500"></div>
+</div>
+<span class="text-[10px] uppercase text-on-surface-variant font-medium">healthy</span>
+</div>
+</div>
+<!-- Open Issues -->
+<div class="bg-surface-container-low p-4 rounded-lg flex flex-col justify-between h-28">
+<span class="text-[10px] uppercase tracking-widest text-on-surface-variant font-semibold">Open Issues</span>
+<div>
+<span class="text-2xl font-extrabold text-white tracking-tighter">12</span>
+<p class="text-[10px] uppercase text-on-surface-variant font-medium">active tickets</p>
+</div>
+</div>
+<!-- PRs Merged -->
+<div class="bg-surface-container-low p-4 rounded-lg flex flex-col justify-between h-28">
+<span class="text-[10px] uppercase tracking-widest text-on-surface-variant font-semibold">PRs Merged</span>
+<div>
+<div class="flex items-center gap-1">
+<span class="text-2xl font-extrabold text-white tracking-tighter">7</span>
+<span class="material-symbols-outlined text-emerald-500 text-sm" data-icon="trending_up">trending_up</span>
+</div>
+<span class="text-[10px] uppercase text-on-surface-variant font-medium">this week</span>
+</div>
+</div>
+<!-- Deploy Status -->
+<div class="bg-surface-container-low p-4 rounded-lg flex flex-col justify-between h-28">
+<span class="text-[10px] uppercase tracking-widest text-on-surface-variant font-semibold">Deploy Status</span>
+<div>
+<span class="text-2xl font-extrabold text-emerald-500 tracking-tighter">Live</span>
+<p class="text-[10px] uppercase text-on-surface-variant font-medium">2m ago</p>
+</div>
+</div>
+</section>
+<!-- Section 2: Quick Actions -->
+<section class="bg-surface-container-low p-4 rounded-lg flex flex-col gap-4">
+<h2 class="text-xl font-extrabold text-white tracking-tighter">Quick Actions</h2>
+<div class="flex flex-col gap-3">
+<button class="bg-surface-container-highest text-white flex items-center px-4 h-11 rounded hover:opacity-90 active:scale-95 transition-all">
+<span class="material-symbols-outlined mr-3 text-emerald-400" data-icon="auto_fix_high">auto_fix_high</span>
+<span class="text-sm font-medium">Auto-Fix Repo</span>
+</button>
+<button class="bg-surface-container-highest text-white flex items-center px-4 h-11 rounded hover:opacity-90 active:scale-95 transition-all">
+<span class="material-symbols-outlined mr-3 text-emerald-400" data-icon="description">description</span>
+<span class="text-sm font-medium">Generate Summary</span>
+</button>
+<button class="bg-surface-container-highest text-white flex items-center px-4 h-11 rounded hover:opacity-90 active:scale-95 transition-all">
+<span class="material-symbols-outlined mr-3 text-emerald-400" data-icon="send">send</span>
+<span class="text-sm font-medium">Dispatch to Jules</span>
+</button>
+<button class="bg-surface-container-highest text-white flex items-center px-4 h-11 rounded hover:opacity-90 active:scale-95 transition-all">
+<span class="material-symbols-outlined mr-3 text-emerald-400" data-icon="explore">explore</span>
+<span class="text-sm font-medium">View Explorer</span>
+</button>
+<button class="bg-surface-container-highest text-white flex items-center px-4 h-11 rounded hover:opacity-90 active:scale-95 transition-all">
+<span class="material-symbols-outlined mr-3 text-emerald-400" data-icon="rule">rule</span>
+<span class="text-sm font-medium">Run Standardization</span>
+</button>
+</div>
+</section>
+<!-- Section 3: Activity Feed -->
+<section class="bg-surface-container-low p-4 rounded-lg flex flex-col gap-5">
+<h2 class="text-xl font-extrabold text-white tracking-tighter">Activity Feed</h2>
+<div class="flex flex-col gap-6">
+<!-- Item 1 -->
+<div class="flex items-start justify-between">
+<div class="flex items-start gap-3">
+<div class="w-8 h-8 bg-surface-container rounded flex items-center justify-center">
+<span class="material-symbols-outlined text-emerald-400 text-lg" data-icon="merge_type">merge_type</span>
+</div>
+<div class="flex flex-col">
+<span class="text-sm font-bold text-white leading-tight">PR #402 Merged</span>
+<span class="text-xs text-on-surface-variant">Update core build scripts</span>
+</div>
+</div>
+<span class="text-[10px] text-on-surface-variant font-medium mt-1">12M</span>
+</div>
+<!-- Item 2 -->
+<div class="flex items-start justify-between">
+<div class="flex items-start gap-3">
+<div class="w-8 h-8 bg-surface-container rounded flex items-center justify-center">
+<span class="material-symbols-outlined text-emerald-400 text-lg" data-icon="commit">commit</span>
+</div>
+<div class="flex flex-col">
+<span class="text-sm font-bold text-white leading-tight">Commit c8a4d2</span>
+<span class="text-xs text-on-surface-variant">Hotfix: API auth latency</span>
+</div>
+</div>
+<span class="text-[10px] text-on-surface-variant font-medium mt-1">1H</span>
+</div>
+<!-- Item 3 -->
+<div class="flex items-start justify-between">
+<div class="flex items-start gap-3">
+<div class="w-8 h-8 bg-surface-container rounded flex items-center justify-center">
+<span class="material-symbols-outlined text-emerald-400 text-lg" data-icon="bug_report">bug_report</span>
+</div>
+<div class="flex flex-col">
+<span class="text-sm font-bold text-white leading-tight">Issue #398 Opened</span>
+<span class="text-xs text-on-surface-variant">Reported by: Security Audit</span>
+</div>
+</div>
+<span class="text-[10px] text-on-surface-variant font-medium mt-1">4H</span>
+</div>
+<!-- Item 4 -->
+<div class="flex items-start justify-between">
+<div class="flex items-start gap-3">
+<div class="w-8 h-8 bg-surface-container rounded flex items-center justify-center">
+<span class="material-symbols-outlined text-emerald-400 text-lg" data-icon="rocket_launch">rocket_launch</span>
+</div>
+<div class="flex flex-col">
+<span class="text-sm font-bold text-white leading-tight">Production Deploy</span>
+<span class="text-xs text-on-surface-variant">v2.4.1-stable successful</span>
+</div>
+</div>
+<span class="text-[10px] text-on-surface-variant font-medium mt-1">6H</span>
+</div>
+</div>
+</section>
+<!-- Section 4: Pending PRs -->
+<section class="bg-surface-container-low p-4 rounded-lg flex flex-col gap-5">
+<h2 class="text-xl font-extrabold text-white tracking-tighter">Pending PRs</h2>
+<div class="flex flex-col gap-4">
+<div class="flex items-center justify-between">
+<div class="flex flex-col max-w-[70%]">
+<span class="text-[10px] font-bold text-on-surface-variant">#405</span>
+<span class="text-sm font-medium text-white truncate">Refactor: Navigation component</span>
+</div>
+<a class="text-[11px] font-extrabold uppercase text-emerald-500 tracking-widest" href="#">Review</a>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex flex-col max-w-[70%]">
+<span class="text-[10px] font-bold text-on-surface-variant">#408</span>
+<span class="text-sm font-medium text-white truncate">Feature: Dark mode toggle</span>
+</div>
+<a class="text-[11px] font-extrabold uppercase text-emerald-500 tracking-widest" href="#">Review</a>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex flex-col max-w-[70%]">
+<span class="text-[10px] font-bold text-on-surface-variant">#412</span>
+<span class="text-sm font-medium text-white truncate">Fix: Memory leak in worker</span>
+</div>
+<a class="text-[11px] font-extrabold uppercase text-emerald-500 tracking-widest" href="#">Review</a>
+</div>
+</div>
+</section>
+<!-- Section 5: Task Breakdown -->
+<section class="bg-surface-container-low p-4 rounded-lg flex flex-col gap-6">
+<h2 class="text-xl font-extrabold text-white tracking-tighter">Task Breakdown</h2>
+<div class="w-full">
+<!-- Segmented Bar -->
+<div class="w-full h-3 rounded flex overflow-hidden mb-6">
+<div class="h-full bg-emerald-500" style="width: 45%;"></div>
+<div class="h-full bg-zinc-500" style="width: 25%;"></div>
+<div class="h-full bg-zinc-700" style="width: 15%;"></div>
+<div class="h-full bg-error" style="width: 15%;"></div>
+</div>
+<!-- Legend Grid -->
+<div class="grid grid-cols-3 gap-y-4">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 bg-emerald-500 rounded-sm"></div>
+<span class="text-[10px] uppercase tracking-tighter font-bold text-white">45 Done</span>
+</div>
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 bg-zinc-500 rounded-sm"></div>
+<span class="text-[10px] uppercase tracking-tighter font-bold text-white">22 Active</span>
+</div>
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 bg-zinc-700 rounded-sm"></div>
+<span class="text-[10px] uppercase tracking-tighter font-bold text-white">12 Backlog</span>
+</div>
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 bg-error rounded-sm"></div>
+<span class="text-[10px] uppercase tracking-tighter font-bold text-white">8 Bugs</span>
+</div>
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 bg-zinc-400 rounded-sm"></div>
+<span class="text-[10px] uppercase tracking-tighter font-bold text-white">5 Review</span>
+</div>
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 bg-zinc-800 rounded-sm"></div>
+<span class="text-[10px] uppercase tracking-tighter font-bold text-white">14 Misc</span>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full flex justify-around items-center px-4 pb-safe bg-zinc-900/90 dark:bg-zinc-900/90 backdrop-blur-3xl z-50 rounded-t-lg shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
+<!-- Dashboard (Active) -->
+<a class="flex flex-col items-center justify-center text-emerald-500 font-bold border-t-2 border-emerald-500 pt-3 pb-2 transition-none" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="dashboard">dashboard</span>
+<span class="font-['Inter'] text-[10px] uppercase tracking-[0.05em] font-medium">Dashboard</span>
+</a>
+<!-- Repos -->
+<a class="flex flex-col items-center justify-center text-zinc-500 pt-3 pb-2 hover:text-white transition-none" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="folder">folder</span>
+<span class="font-['Inter'] text-[10px] uppercase tracking-[0.05em] font-medium">Repos</span>
+</a>
+<!-- Pull Requests -->
+<a class="flex flex-col items-center justify-center text-zinc-500 pt-3 pb-2 hover:text-white transition-none" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="merge_type">merge_type</span>
+<span class="font-['Inter'] text-[10px] uppercase tracking-[0.05em] font-medium">Pull Requests</span>
+</a>
+<!-- Issues -->
+<a class="flex flex-col items-center justify-center text-zinc-500 pt-3 pb-2 hover:text-white transition-none" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="error_outline">error_outline</span>
+<span class="font-['Inter'] text-[10px] uppercase tracking-[0.05em] font-medium">Issues</span>
+</a>
+</nav>
+</body></html>

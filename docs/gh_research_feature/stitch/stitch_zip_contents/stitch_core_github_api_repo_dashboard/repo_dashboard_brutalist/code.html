@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>MONOLITH | Repo Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "inverse-surface": "#fcf8fb",
+                        "primary-fixed-dim": "#d4d4d4",
+                        "primary-fixed": "#e2e2e2",
+                        "surface-container-low": "#131316",
+                        "surface-container-high": "#1f1f24",
+                        "on-primary-container": "#d0d0d0",
+                        "on-primary-fixed": "#3e4040",
+                        "surface-container": "#19191d",
+                        "on-secondary-fixed": "#3f3f41",
+                        "surface-bright": "#2b2c32",
+                        "on-background": "#e6e4ec",
+                        "on-secondary-fixed-variant": "#5c5b5d",
+                        "on-primary-fixed-variant": "#5a5c5c",
+                        "surface": "#0e0e10",
+                        "outline-variant": "#47474d",
+                        "tertiary-container": "#eeeaec",
+                        "secondary-dim": "#9f9da0",
+                        "inverse-on-surface": "#555557",
+                        "primary-container": "#454747",
+                        "secondary-fixed": "#e4e2e4",
+                        "background": "#0e0e10",
+                        "tertiary-fixed-dim": "#e8e4e7",
+                        "on-surface-variant": "#abaab1",
+                        "surface-container-highest": "#25252b",
+                        "error-container": "#7f2737",
+                        "surface-variant": "#25252b",
+                        "on-tertiary-container": "#585658",
+                        "on-secondary": "#202022",
+                        "tertiary": "#fdf8fb",
+                        "surface-dim": "#0e0e10",
+                        "error-dim": "#b95463",
+                        "outline": "#75757b",
+                        "on-tertiary": "#605e61",
+                        "on-tertiary-fixed-variant": "#686568",
+                        "surface-tint": "#c6c6c7",
+                        "secondary-container": "#3b3b3d",
+                        "on-surface": "#e6e4ec",
+                        "error": "#ec7c8a",
+                        "primary": "#c6c6c7",
+                        "on-secondary-container": "#c1bec1",
+                        "on-tertiary-fixed": "#4b494b",
+                        "on-primary": "#3f4041",
+                        "tertiary-fixed": "#f7f2f5",
+                        "secondary-fixed-dim": "#d6d4d6",
+                        "secondary": "#9f9da0",
+                        "primary-dim": "#b8b9b9",
+                        "inverse-primary": "#5e5f60",
+                        "on-error-container": "#ff97a3",
+                        "tertiary-dim": "#eeeaec",
+                        "on-error": "#490013",
+                        "surface-container-lowest": "#000000"
+                    },
+                    fontFamily: {
+                        "headline": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            background-color: #0e0e10;
+            color: #e6e4ec;
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .tracking-tight-extreme {
+            letter-spacing: -0.05em;
+        }
+        /* Custom scrollbar for brutalist look */
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #131316;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #2a2a2c;
+        }
+    </style>
+</head>
+<body class="bg-surface overflow-x-hidden">
+<!-- TopNavBar (Shared Component JSON Mapping) -->
+<header class="fixed top-0 w-full z-50 flex justify-between items-center px-8 h-16 bg-[#1c1b1d] text-zinc-100 font-['Inter'] antialiased tracking-tighter text-sm">
+<div class="text-xl font-black tracking-[-0.05em] text-white uppercase">MONOLITH</div>
+<nav class="hidden md:flex items-center space-x-8">
+<a class="text-white font-bold border-b border-white/20 pb-1" href="#">Repositories</a>
+<a class="text-zinc-500 font-medium hover:text-zinc-300 transition-none" href="#">Activity</a>
+<a class="text-zinc-500 font-medium hover:text-zinc-300 transition-none" href="#">Settings</a>
+</nav>
+<div class="flex items-center space-x-6">
+<button class="material-symbols-outlined text-zinc-500 hover:text-white transition-none">notifications</button>
+<button class="material-symbols-outlined text-zinc-500 hover:text-white transition-none">account_circle</button>
+</div>
+</header>
+<!-- SideNavBar (Shared Component JSON Mapping) -->
+<aside class="fixed left-0 top-16 h-[calc(100vh-4rem)] w-64 flex flex-col p-4 space-y-4 bg-[#1c1b1d] z-40">
+<div class="mb-8 px-2">
+<h2 class="text-white font-black tracking-[-0.05em] text-lg uppercase">RepoManager</h2>
+<p class="text-zinc-500 text-[0.6875rem] tracking-wider uppercase">v1.0.4-alpha</p>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center space-x-3 p-3 bg-[#2a2a2c] text-white rounded-sm scale-100 active:scale-98 transition-transform" href="#">
+<span class="material-symbols-outlined text-sm" data-icon="dashboard">dashboard</span>
+<span class="font-['Inter'] tracking-tighter uppercase text-[0.6875rem]">Overview</span>
+</a>
+<a class="flex items-center space-x-3 p-3 text-zinc-500 hover:text-zinc-300 hover:bg-[#201f22] scale-100 active:scale-98 transition-transform" href="#">
+<span class="material-symbols-outlined text-sm" data-icon="folder_open">folder_open</span>
+<span class="font-['Inter'] tracking-tighter uppercase text-[0.6875rem]">Explorer</span>
+</a>
+<a class="flex items-center space-x-3 p-3 text-zinc-500 hover:text-zinc-300 hover:bg-[#201f22] scale-100 active:scale-98 transition-transform" href="#">
+<span class="material-symbols-outlined text-sm" data-icon="shield">shield</span>
+<span class="font-['Inter'] tracking-tighter uppercase text-[0.6875rem]">Security</span>
+</a>
+<a class="flex items-center space-x-3 p-3 text-zinc-500 hover:text-zinc-300 hover:bg-[#201f22] scale-100 active:scale-98 transition-transform" href="#">
+<span class="material-symbols-outlined text-sm" data-icon="rocket_launch">rocket_launch</span>
+<span class="font-['Inter'] tracking-tighter uppercase text-[0.6875rem]">Deployments</span>
+</a>
+<a class="flex items-center space-x-3 p-3 text-zinc-500 hover:text-zinc-300 hover:bg-[#201f22] scale-100 active:scale-98 transition-transform" href="#">
+<span class="material-symbols-outlined text-sm" data-icon="settings">settings</span>
+<span class="font-['Inter'] tracking-tighter uppercase text-[0.6875rem]">Settings</span>
+</a>
+</nav>
+<button class="w-full bg-white text-black font-bold py-3 text-[0.6875rem] uppercase tracking-widest rounded-sm hover:bg-primary-dim transition-none mt-auto">
+            New Branch
+        </button>
+</aside>
+<!-- Main Content Area -->
+<main class="ml-64 mt-16 p-12 min-h-screen">
+<!-- Top Strip — 4 Metric Cards -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-12">
+<!-- Health Score -->
+<div class="bg-surface-container-low p-8 flex flex-col justify-between min-h-[160px]">
+<div class="flex items-start justify-between">
+<span class="text-[3.5rem] font-black leading-none text-white tracking-tight-extreme">94%</span>
+<div class="w-3 h-3 bg-primary rounded-[0.175rem]"></div>
+</div>
+<p class="text-[0.6875rem] uppercase tracking-[0.05em] text-on-surface-variant font-medium">Health Score</p>
+</div>
+<!-- Open Issues -->
+<div class="bg-surface-container-low p-8 flex flex-col justify-between min-h-[160px]">
+<div class="flex items-start justify-between">
+<span class="text-[3.5rem] font-black leading-none text-white tracking-tight-extreme">12</span>
+</div>
+<p class="text-[0.6875rem] uppercase tracking-[0.05em] text-on-surface-variant font-medium">Open Issues</p>
+</div>
+<!-- PRs Merged -->
+<div class="bg-surface-container-low p-8 flex flex-col justify-between min-h-[160px]">
+<div class="flex items-start justify-between">
+<span class="text-[3.5rem] font-black leading-none text-white tracking-tight-extreme">7</span>
+<span class="material-symbols-outlined text-primary" style="font-size: 32px;">trending_up</span>
+</div>
+<p class="text-[0.6875rem] uppercase tracking-[0.05em] text-on-surface-variant font-medium">PRs Merged (7d)</p>
+</div>
+<!-- Deploy Status -->
+<div class="bg-surface-container-low p-8 flex flex-col justify-between min-h-[160px]">
+<div class="flex items-start justify-between">
+<span class="text-[3.5rem] font-black leading-none text-primary tracking-tight-extreme uppercase">Live</span>
+</div>
+<p class="text-[0.6875rem] uppercase tracking-[0.05em] text-on-surface-variant font-medium">Last deployed 14m ago</p>
+</div>
+</div>
+<!-- Body — 3-Column Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+<!-- Left: Quick Actions -->
+<section class="bg-surface-container-low p-8 space-y-8">
+<h3 class="text-[1.5rem] font-bold text-white tracking-tight-extreme">Quick Actions</h3>
+<div class="flex flex-col space-y-4">
+<button class="flex items-center space-x-4 bg-surface-container-highest text-white p-4 rounded-[0.25rem] hover:bg-zinc-700 transition-none group">
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-white" data-icon="auto_fix">magic_button</span>
+<span class="text-[0.6875rem] uppercase tracking-widest font-bold">Run Auto-Fix</span>
+</button>
+<button class="flex items-center space-x-4 bg-surface-container-highest text-white p-4 rounded-[0.25rem] hover:bg-zinc-700 transition-none group">
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-white" data-icon="sparkles">auto_awesome</span>
+<span class="text-[0.6875rem] uppercase tracking-widest font-bold">Generate Summary</span>
+</button>
+<button class="flex items-center space-x-4 bg-surface-container-highest text-white p-4 rounded-[0.25rem] hover:bg-zinc-700 transition-none group">
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-white" data-icon="bot">smart_toy</span>
+<span class="text-[0.6875rem] uppercase tracking-widest font-bold">Dispatch Bot</span>
+</button>
+<button class="flex items-center space-x-4 bg-surface-container-highest text-white p-4 rounded-[0.25rem] hover:bg-zinc-700 transition-none group">
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-white" data-icon="eye">visibility</span>
+<span class="text-[0.6875rem] uppercase tracking-widest font-bold">Open Explorer</span>
+</button>
+<button class="flex items-center space-x-4 bg-surface-container-highest text-white p-4 rounded-[0.25rem] hover:bg-zinc-700 transition-none group">
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-white" data-icon="shield">security</span>
+<span class="text-[0.6875rem] uppercase tracking-widest font-bold">Standardization</span>
+</button>
+</div>
+</section>
+<!-- Middle: Activity Feed -->
+<section class="bg-surface-container-low p-8 flex flex-col h-full max-h-[600px]">
+<h3 class="text-[1.5rem] font-bold text-white tracking-tight-extreme mb-8">Activity Feed</h3>
+<div class="overflow-y-auto space-y-6 pr-4">
+<!-- Item 1 -->
+<div class="flex items-start space-x-4">
+<div class="w-10 h-10 bg-surface-container-high flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-sm" data-icon="commit">commit</span>
+</div>
+<div>
+<p class="text-[0.875rem] text-white font-medium">Merged 4 commits into <span class="text-primary">main</span></p>
+<p class="text-[0.6875rem] text-on-surface-variant uppercase tracking-wider mt-1">2 hours ago</p>
+</div>
+</div>
+<!-- Item 2 -->
+<div class="flex items-start space-x-4">
+<div class="w-10 h-10 bg-surface-container-high flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-sm" data-icon="rocket">rocket_launch</span>
+</div>
+<div>
+<p class="text-[0.875rem] text-white font-medium">Production deployment successful</p>
+<p class="text-[0.6875rem] text-on-surface-variant uppercase tracking-wider mt-1">4 hours ago</p>
+</div>
+</div>
+<!-- Item 3 -->
+<div class="flex items-start space-x-4">
+<div class="w-10 h-10 bg-surface-container-high flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-sm" data-icon="error">error</span>
+</div>
+<div>
+<p class="text-[0.875rem] text-white font-medium">Security vulnerability detected in <span class="text-error">lodash</span></p>
+<p class="text-[0.6875rem] text-on-surface-variant uppercase tracking-wider mt-1">6 hours ago</p>
+</div>
+</div>
+<!-- Item 4 -->
+<div class="flex items-start space-x-4">
+<div class="w-10 h-10 bg-surface-container-high flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-sm" data-icon="person">person</span>
+</div>
+<div>
+<p class="text-[0.875rem] text-white font-medium">New contributor added: <span class="text-primary">@dev_zero</span></p>
+<p class="text-[0.6875rem] text-on-surface-variant uppercase tracking-wider mt-1">yesterday</p>
+</div>
+</div>
+<!-- Item 5 -->
+<div class="flex items-start space-x-4">
+<div class="w-10 h-10 bg-surface-container-high flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-sm" data-icon="folder">folder</span>
+</div>
+<div>
+<p class="text-[0.875rem] text-white font-medium">Refactored <span class="text-primary">/src/components</span></p>
+<p class="text-[0.6875rem] text-on-surface-variant uppercase tracking-wider mt-1">2 days ago</p>
+</div>
+</div>
+<!-- Item 6 -->
+<div class="flex items-start space-x-4">
+<div class="w-10 h-10 bg-surface-container-high flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-sm" data-icon="star">star</span>
+</div>
+<div>
+<p class="text-[0.875rem] text-white font-medium">Repo starred by 14 users</p>
+<p class="text-[0.6875rem] text-on-surface-variant uppercase tracking-wider mt-1">3 days ago</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Right: PRs & Task Breakdown -->
+<div class="space-y-8">
+<!-- Pending PRs -->
+<section class="bg-surface-container-low p-8">
+<h3 class="text-[1.5rem] font-bold text-white tracking-tight-extreme mb-6">Pending PRs</h3>
+<div class="space-y-4">
+<div class="flex items-center justify-between group">
+<div>
+<p class="text-[0.875rem] text-white font-medium">#142 Fix hydration mismatch</p>
+<p class="text-[0.6875rem] text-on-surface-variant uppercase tracking-widest">Modified 4 files</p>
+</div>
+<a class="text-[0.6875rem] font-bold uppercase tracking-widest text-primary hover:text-white" href="#">Review</a>
+</div>
+<div class="flex items-center justify-between group">
+<div>
+<p class="text-[0.875rem] text-white font-medium">#139 Feature: Dark mode logic</p>
+<p class="text-[0.6875rem] text-on-surface-variant uppercase tracking-widest">Modified 12 files</p>
+</div>
+<a class="text-[0.6875rem] font-bold uppercase tracking-widest text-primary hover:text-white" href="#">Review</a>
+</div>
+<div class="flex items-center justify-between group">
+<div>
+<p class="text-[0.875rem] text-white font-medium">#138 CI: Add linting hook</p>
+<p class="text-[0.6875rem] text-on-surface-variant uppercase tracking-widest">Modified 1 file</p>
+</div>
+<a class="text-[0.6875rem] font-bold uppercase tracking-widest text-primary hover:text-white" href="#">Review</a>
+</div>
+</div>
+</section>
+<!-- Task Breakdown -->
+<section class="bg-surface-container-low p-8">
+<h3 class="text-[1.5rem] font-bold text-white tracking-tight-extreme mb-6">Task Breakdown</h3>
+<!-- Segmented Progress Bar -->
+<div class="flex h-3 w-full rounded-[0.25rem] overflow-hidden mb-8">
+<div class="h-full bg-zinc-600" style="width: 20%" title="Backlog"></div>
+<div class="h-full bg-blue-500" style="width: 15%" title="Todo"></div>
+<div class="h-full bg-amber-500" style="width: 30%" title="In Progress"></div>
+<div class="h-full bg-violet-500" style="width: 10%" title="Review"></div>
+<div class="h-full bg-emerald-500" style="width: 25%" title="Done"></div>
+</div>
+<!-- Legend -->
+<div class="grid grid-cols-2 gap-y-4">
+<div class="flex items-center space-x-3">
+<div class="w-2 h-2 bg-zinc-600 rounded-sm"></div>
+<span class="text-[0.6875rem] uppercase tracking-widest font-bold text-on-surface-variant">Backlog (14)</span>
+</div>
+<div class="flex items-center space-x-3">
+<div class="w-2 h-2 bg-blue-500 rounded-sm"></div>
+<span class="text-[0.6875rem] uppercase tracking-widest font-bold text-on-surface-variant">Todo (8)</span>
+</div>
+<div class="flex items-center space-x-3">
+<div class="w-2 h-2 bg-amber-500 rounded-sm"></div>
+<span class="text-[0.6875rem] uppercase tracking-widest font-bold text-on-surface-variant">In Progress (22)</span>
+</div>
+<div class="flex items-center space-x-3">
+<div class="w-2 h-2 bg-violet-500 rounded-sm"></div>
+<span class="text-[0.6875rem] uppercase tracking-widest font-bold text-on-surface-variant">Review (4)</span>
+</div>
+<div class="flex items-center space-x-3">
+<div class="w-2 h-2 bg-emerald-500 rounded-sm"></div>
+<span class="text-[0.6875rem] uppercase tracking-widest font-bold text-on-surface-variant">Done (41)</span>
+</div>
+</div>
+</section>
+</div>
+</div>
+<!-- Visual Anchor (Purely Aesthetic Monolith) -->
+<div class="mt-20 opacity-10">
+<h1 class="text-[12rem] font-black leading-none tracking-[-0.08em] select-none text-white pointer-events-none">MONOLITH</h1>
+</div>
+</main>
+</body></html>

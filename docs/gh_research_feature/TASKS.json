@@ -389,10 +389,86 @@
       ]
     },
     {
+      "id": "EPIC-16",
+      "title": "GitHub Action + R2 ingest pipeline",
+      "wave": 4,
+      "depends_on": ["EPIC-1"],
+      "summary": "Add .github/workflows/weekly-research.yml + scanner script + R2 bucket binding + notify webhook handler. Implements the 'broad scan' substrate from PRD §4.5.3. Bound to: new R2 binding RESEARCH_INGEST_BUCKET; new D1 tables gh_research_ingest_batches + gh_research_ingest_files.",
+      "agent": "jules",
+      "branch": "feat/gh-research/epic-16-action-r2",
+      "tasks": [
+        { "id": "S16-T1", "title": "Create .github/workflows/weekly-research.yml with schedule (Monday 8am UTC) + workflow_dispatch trigger", "agent": "jules" },
+        { "id": "S16-T2", "title": "Scanner script (Python or Node) that reads config/weekly-research.json, queries GitHub, fetches READMEs, builds JSON", "agent": "jules" },
+        { "id": "S16-T3", "title": "Upload step writes to R2 keyed by weekly/{date}/{repo-slug}.json or on-demand/{job-id}/...", "agent": "jules" },
+        { "id": "S16-T4", "title": "Worker notify webhook POST /api/research/gh/ingest/notify + auth via WORKER_NOTIFY_API_KEY", "agent": "jules" },
+        { "id": "S16-T5", "title": "Drizzle schemas + D1 migration for gh_research_ingest_batches + gh_research_ingest_files", "agent": "jules" },
+        { "id": "S16-T6", "title": "config/weekly-research.json initial committed defaults (CF Workers, Agents SDK, shadcn, AutoRAG topics)", "agent": "jules" }
+      ]
+    },
+    {
+      "id": "EPIC-17",
+      "title": "AutoRAG activation against R2 ingest bucket",
+      "wave": 4,
+      "depends_on": ["EPIC-16"],
+      "summary": "Switch the AutoRAG MCP from idle to active; configure AutoRAG instance pointing at RESEARCH_INGEST_BUCKET; expose query tool to ResearchAgent. PRD §4.5.7.",
+      "agent": "current-agent",
+      "branch": "feat/gh-research/epic-17-autorag",
+      "tasks": [
+        { "id": "S17-T1", "title": "Create AutoRAG instance in Cloudflare dashboard pointed at RESEARCH_INGEST_BUCKET; record id + name", "agent": "current-agent" },
+        { "id": "S17-T2", "title": "Set CLOUDFLARE_AI_SEARCH_TOKEN and AUTO_RAG_NAME wrangler vars", "agent": "current-agent" },
+        { "id": "S17-T3", "title": "Add @callable queryAutoRAG(query, topK) method to ResearchAgent using existing MCP tool wiring", "agent": "jules" },
+        { "id": "S17-T4", "title": "Health-suite check: query AutoRAG with a known indexed term, assert non-empty result", "agent": "jules" }
+      ]
+    },
+    {
+      "id": "EPIC-18",
+      "title": "Chat-iterate-criteria flow for weekly research",
+      "wave": 5,
+      "depends_on": ["EPIC-2", "EPIC-16"],
+      "summary": "Chat panel UI on /research/gh/weekly/configure: agent samples queries in Sandbox, presents results, iterates with user, opens PR against config/weekly-research.json + workflow yaml. PRD §4.5.4.",
+      "agent": "jules",
+      "depends_on_stitch": true,
+      "branch": "feat/gh-research/epic-18-chat-criteria",
+      "tasks": [
+        { "id": "S18-T1", "title": "Backend: ResearchAgent.sampleQueries(queries[], breadthLimit) — small synchronous sandbox-search, returns top-K per query", "agent": "jules" },
+        { "id": "S18-T2", "title": "Frontend: chat panel embedded in /research/gh/weekly/configure using existing chat infrastructure", "agent": "jules" },
+        { "id": "S18-T3", "title": "ResearchAgent.proposeWeeklyConfigPr(criteria, transcript, sampledResults) — opens PR with diff to config/weekly-research.json", "agent": "jules" },
+        { "id": "S18-T4", "title": "PR body template: conversation transcript + diff summary + sampled-results links", "agent": "jules" }
+      ]
+    },
+    {
+      "id": "EPIC-19",
+      "title": "On-demand workflow_dispatch path",
+      "wave": 5,
+      "depends_on": ["EPIC-16"],
+      "summary": "POST /api/research/gh/jobs with useGitHubAction=true dispatches the workflow via Actions API; webhook handler for workflow_run.completed; AutoRAG re-index trigger. PRD §4.5.5.",
+      "agent": "jules",
+      "branch": "feat/gh-research/epic-19-on-demand-dispatch",
+      "tasks": [
+        { "id": "S19-T1", "title": "ResearchAgent.dispatchActionJob(prompt, options) — calls POST /repos/.../actions/workflows/weekly-research.yml/dispatches", "agent": "jules" },
+        { "id": "S19-T2", "title": "Webhook handler /api/webhooks/github/workflow-run for workflow_run.completed events", "agent": "jules" },
+        { "id": "S19-T3", "title": "On run completion: list R2 files for batch, kick AutoRAG re-index, emit session event system.ingest.complete", "agent": "jules" }
+      ]
+    },
+    {
+      "id": "EPIC-20",
+      "title": "Unified query — merge AutoRAG + RESEARCH_INDEX",
+      "wave": 5,
+      "depends_on": ["EPIC-13", "EPIC-17"],
+      "summary": "When the library or agent queries for findings, merge results from AutoRAG (broad/community content) and RESEARCH_INDEX (deep/own inspections), dedup by (repo, path). PRD §4.5.2.",
+      "agent": "jules",
+      "branch": "feat/gh-research/epic-20-unified-query",
+      "tasks": [
+        { "id": "S20-T1", "title": "ResearchAgent.queryUnified(query, topK, weights) — parallel AutoRAG + RESEARCH_INDEX, normalized scores, dedup, return merged ranking", "agent": "jules" },
+        { "id": "S20-T2", "title": "Library frontend uses queryUnified for the Library tab search/filter", "agent": "jules" },
+        { "id": "S20-T3", "title": "Source attribution in result cards: small chip showing which index a result came from", "agent": "jules" }
+      ]
+    },
+    {
       "id": "EPIC-15",
       "title": "End-to-end verification",
       "wave": 6,
-      "depends_on": ["EPIC-0", "EPIC-1", "EPIC-2", "EPIC-3", "EPIC-4", "EPIC-5", "EPIC-6", "EPIC-7", "EPIC-8", "EPIC-9", "EPIC-10", "EPIC-11", "EPIC-12", "EPIC-13", "EPIC-14"],
+      "depends_on": ["EPIC-0", "EPIC-1", "EPIC-2", "EPIC-3", "EPIC-4", "EPIC-5", "EPIC-6", "EPIC-7", "EPIC-8", "EPIC-9", "EPIC-10", "EPIC-11", "EPIC-12", "EPIC-13", "EPIC-14", "EPIC-16", "EPIC-17", "EPIC-18", "EPIC-19", "EPIC-20"],
       "agent": "current-agent",
       "branch": "feat/gh-research/epic-15-verification",
       "tasks": [

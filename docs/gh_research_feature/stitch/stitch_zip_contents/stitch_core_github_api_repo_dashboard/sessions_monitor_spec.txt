@@ -1,0 +1,11 @@
+# Sessions Monitor Requirements
+- **Page Title**: Sessions
+- **Subtitle**: All agentic sessions across the worker
+- **Session Kinds**: gh-research, jules, sprint, hitl-deliberation, generic.
+- **Sections**:
+  - Active (3) - Expanded
+  - Complete (last 20) - Collapsed
+  - Failed (last 5) - Collapsed
+- **Card Content**: Kind badge, Title (Bold), Metadata (time ago, status detail, N participants), Pulsing dot for Active.
+- **Empty State**: Subtle illustration, "No sessions yet", body text, "Start research" CTA.
+- **Mobile**: 375px, Hamburger, sticky filter toolbar.

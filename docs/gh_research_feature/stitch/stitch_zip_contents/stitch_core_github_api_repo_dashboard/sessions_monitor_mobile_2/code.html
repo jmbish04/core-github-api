@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Sessions Monitor - Mobile</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        body {
+            background-color: oklch(0.13 0 0);
+            color: #e5e2e1;
+            font-family: 'Inter', sans-serif;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "error-container": "#93000a",
+                        "surface-tint": "#abc7ff",
+                        "surface-container-high": "#2a2a2a",
+                        "on-tertiary-container": "#471e00",
+                        "on-error": "#690005",
+                        "primary-container": "#438fff",
+                        "on-secondary-fixed-variant": "#474746",
+                        "inverse-surface": "#e5e2e1",
+                        "outline": "#8b919f",
+                        "on-primary": "#002f65",
+                        "inverse-primary": "#005cbb",
+                        "tertiary-fixed-dim": "#ffb688",
+                        "tertiary-container": "#e2710a",
+                        "on-secondary-container": "#b7b5b4",
+                        "surface-container-low": "#1c1b1b",
+                        "outline-variant": "#414754",
+                        "on-primary-fixed-variant": "#00458f",
+                        "surface-variant": "#353534",
+                        "on-background": "#e5e2e1",
+                        "on-primary-container": "#002959",
+                        "secondary-container": "#474746",
+                        "secondary-fixed-dim": "#c8c6c5",
+                        "primary-fixed": "#d7e3ff",
+                        "surface-container-highest": "#353534",
+                        "primary": "#abc7ff",
+                        "secondary-fixed": "#e5e2e1",
+                        "surface-container-lowest": "#0e0e0e",
+                        "on-secondary-fixed": "#1c1b1b",
+                        "on-secondary": "#313030",
+                        "on-surface-variant": "#c1c6d6",
+                        "inverse-on-surface": "#313030",
+                        "error": "#ffb4ab",
+                        "primary-fixed-dim": "#abc7ff",
+                        "surface-dim": "#131313",
+                        "on-error-container": "#ffdad6",
+                        "surface": "#131313",
+                        "on-tertiary-fixed-variant": "#733600",
+                        "surface-bright": "#393939",
+                        "background": "#131313",
+                        "on-surface": "#e5e2e1",
+                        "secondary": "#c8c6c5",
+                        "tertiary": "#ffb688",
+                        "on-primary-fixed": "#001b3f",
+                        "tertiary-fixed": "#ffdbc7",
+                        "surface-container": "#201f1f",
+                        "on-tertiary": "#512400",
+                        "on-tertiary-fixed": "#311300"
+                    },
+                    "fontFamily": {
+                        "code-md": ["JetBrains Mono"],
+                        "headline-lg": ["Inter"],
+                        "code-sm": ["JetBrains Mono"],
+                        "body-sm": ["Inter"],
+                        "body-md": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "label-caps": ["JetBrains Mono"]
+                    },
+                    "fontSize": {
+                        "code-md": ["13px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "headline-lg": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                        "headline-lg-mobile": ["20px", {"lineHeight": "28px", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                        "code-sm": ["11px", {"lineHeight": "16px", "fontWeight": "500"}],
+                        "body-sm": ["13px", {"lineHeight": "18px", "fontWeight": "400"}],
+                        "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "headline-md": ["18px", {"lineHeight": "24px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                        "label-caps": ["10px", {"lineHeight": "12px", "letterSpacing": "0.05em", "fontWeight": "700"}]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface">
+<!-- TopNavBar -->
+<header class="w-full h-16 sticky top-0 z-40 bg-surface border-b border-white/10 flex items-center justify-between px-4">
+<div class="flex items-center gap-4">
+<button class="p-2 -ml-2 active:scale-95 duration-100">
+<span class="material-symbols-outlined text-on-surface" data-icon="menu">menu</span>
+</button>
+<h1 class="font-headline-md text-headline-md text-on-surface">Sessions</h1>
+</div>
+<div class="flex items-center gap-2">
+<button class="p-2 active:scale-95 duration-100">
+<span class="material-symbols-outlined text-on-surface" data-icon="notifications">notifications</span>
+</button>
+<div class="w-8 h-8 rounded-full bg-surface-container-high ring-1 ring-white/10 flex items-center justify-center overflow-hidden">
+<img alt="User Profile" class="w-full h-full object-cover" data-alt="A high-quality close-up portrait of a professional software engineer with a neutral expression. The image is captured in a tech-focused studio with soft, cool-toned rim lighting that emphasizes clean lines. The background is a dark, out-of-focus server room atmosphere with subtle blue and gray tones, maintaining a methodical and technical aesthetic consistent with a premium UI profile section." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDqt7PlGOukD_-vmfP26iMk7bGLFnT5CDHXrzQPJb2U-q47qJTajFpbjH2Z7WDS1GgEkcLPEGH9CWpUh58AnEGQ7ChpAYEQuZdSEextGEVARvM0_Owh5ALw3WTn5w-ioR4ygqCDPwyVi9g7_5Ivk5-B9Mn9AScf8M4G5cDvm_427N3C0OsQ5sZQYMRGkcK_v03KXc-8WaYVnWt59aqabeMi7YBxSo3pO_-EwZaLuQ0jLTE3Ek4vPYtZ7__6-pMC4lQwTL6iBXlL0lXl"/>
+</div>
+</div>
+</header>
+<!-- Sticky Filter Toolbar -->
+<section class="sticky top-16 z-30 bg-surface/95 backdrop-blur-sm border-b border-white/10 px-4 py-3 flex flex-col gap-3">
+<div class="relative w-full">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-sm" data-icon="search">search</span>
+<input class="w-full h-10 bg-background ring-1 ring-white/10 rounded-lg pl-10 pr-4 font-body-sm text-body-sm focus:ring-primary focus:outline-none placeholder:text-outline-variant" placeholder="Search sessions..." type="text"/>
+</div>
+<div class="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
+<button class="flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 ring-1 ring-primary/30 rounded-full">
+<span class="font-label-caps text-label-caps text-primary">STATUS: ALL</span>
+<span class="material-symbols-outlined text-[14px] text-primary" data-icon="expand_more">expand_more</span>
+</button>
+<button class="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 ring-1 ring-white/10 rounded-full">
+<span class="font-label-caps text-label-caps text-on-surface-variant">REGION</span>
+</button>
+<button class="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 ring-1 ring-white/10 rounded-full">
+<span class="font-label-caps text-label-caps text-on-surface-variant">PROTOCOL</span>
+</button>
+</div>
+</section>
+<!-- Content Canvas -->
+<main class="flex-1 pb-24 px-4 space-y-6 mt-4">
+<!-- Active Sessions Section -->
+<section class="space-y-3">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="font-label-caps text-label-caps text-primary tracking-widest">ACTIVE SESSIONS</span>
+<span class="px-1.5 py-0.5 bg-primary/20 text-primary font-code-sm text-code-sm rounded">3</span>
+</div>
+<span class="material-symbols-outlined text-outline text-lg" data-icon="keyboard_arrow_down">keyboard_arrow_down</span>
+</div>
+<!-- Session Card 1 -->
+<div class="bg-surface ring-1 ring-white/10 rounded-xl p-4 space-y-3">
+<div class="flex justify-between items-start">
+<div class="space-y-0.5">
+<div class="font-code-md text-code-md text-primary">sess_8f2a99c4</div>
+<div class="font-body-sm text-body-sm text-on-surface-variant">worker-agent-v2.prod</div>
+</div>
+<div class="flex items-center gap-1.5">
+<div class="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
+<span class="font-label-caps text-label-caps text-primary">RUNNING</span>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4 py-3 border-y border-white/5">
+<div>
+<div class="font-label-caps text-label-caps text-outline-variant mb-1">UPTIME</div>
+<div class="font-code-md text-code-md">00:42:15</div>
+</div>
+<div>
+<div class="font-label-caps text-label-caps text-outline-variant mb-1">LATENCY</div>
+<div class="font-code-md text-code-md">24ms</div>
+</div>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex gap-2">
+<span class="px-2 py-0.5 bg-white/5 rounded font-code-sm text-code-sm text-on-surface-variant">TCP</span>
+<span class="px-2 py-0.5 bg-white/5 rounded font-code-sm text-code-sm text-on-surface-variant">TLS-1.3</span>
+</div>
+<button class="text-primary font-label-caps text-label-caps">VIEW LOGS</button>
+</div>
+</div>
+<!-- Session Card 2 -->
+<div class="bg-surface ring-1 ring-white/10 rounded-xl p-4 space-y-3 opacity-90">
+<div class="flex justify-between items-start">
+<div class="space-y-0.5">
+<div class="font-code-md text-code-md text-primary">sess_3d1f0e21</div>
+<div class="font-body-sm text-body-sm text-on-surface-variant">auth-gateway.edge</div>
+</div>
+<div class="flex items-center gap-1.5">
+<div class="w-2 h-2 rounded-full bg-primary/60"></div>
+<span class="font-label-caps text-label-caps text-primary/80">RUNNING</span>
+</div>
+</div>
+<div class="flex items-center justify-between text-outline-variant">
+<span class="font-code-sm text-code-sm">FRA-1 · 128MB RAM</span>
+<span class="material-symbols-outlined text-sm" data-icon="chevron_right">chevron_right</span>
+</div>
+</div>
+<!-- Session Card 3 -->
+<div class="bg-surface ring-1 ring-white/10 rounded-xl p-4 space-y-3 opacity-90">
+<div class="flex justify-between items-start">
+<div class="space-y-0.5">
+<div class="font-code-md text-code-md text-primary">sess_b7c8d2a1</div>
+<div class="font-body-sm text-body-sm text-on-surface-variant">stream-processor.sys</div>
+</div>
+<div class="flex items-center gap-1.5">
+<div class="w-2 h-2 rounded-full bg-primary/60"></div>
+<span class="font-label-caps text-label-caps text-primary/80">RUNNING</span>
+</div>
+</div>
+<div class="flex items-center justify-between text-outline-variant">
+<span class="font-code-sm text-code-sm">SJC-4 · 256MB RAM</span>
+<span class="material-symbols-outlined text-sm" data-icon="chevron_right">chevron_right</span>
+</div>
+</div>
+</section>
+<!-- Completed Sessions Section -->
+<section class="space-y-3">
+<div class="flex items-center justify-between py-2 border-t border-white/5">
+<div class="flex items-center gap-2">
+<span class="font-label-caps text-label-caps text-on-surface-variant tracking-widest">COMPLETE</span>
+<span class="px-1.5 py-0.5 bg-white/5 text-outline font-code-sm text-code-sm rounded">20</span>
+</div>
+<span class="material-symbols-outlined text-outline text-lg" data-icon="keyboard_arrow_right">keyboard_arrow_right</span>
+</div>
+</section>
+<!-- Failed Sessions Section -->
+<section class="space-y-3">
+<div class="flex items-center justify-between py-2 border-t border-white/5">
+<div class="flex items-center gap-2">
+<span class="font-label-caps text-label-caps text-error tracking-widest">FAILED</span>
+<span class="px-1.5 py-0.5 bg-error-container/20 text-error font-code-sm text-code-sm rounded">5</span>
+</div>
+<span class="material-symbols-outlined text-outline text-lg" data-icon="keyboard_arrow_right">keyboard_arrow_right</span>
+</div>
+</section>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 w-full h-16 md:hidden bg-surface-container-lowest border-t border-white/10 flex justify-around items-center z-50">
+<button class="flex flex-col items-center justify-center text-on-surface-variant p-2 hover:bg-white/5">
+<span class="material-symbols-outlined" data-icon="book_2">book_2</span>
+<span class="font-label-caps text-label-caps mt-1">Library</span>
+</button>
+<button class="flex flex-col items-center justify-center text-primary bg-primary-container/20 rounded-xl p-2 active:scale-90 transition-transform">
+<span class="material-symbols-outlined" data-icon="dynamic_feed" data-weight="fill">dynamic_feed</span>
+<span class="font-label-caps text-label-caps mt-1">Sessions</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant p-2 hover:bg-white/5">
+<span class="material-symbols-outlined" data-icon="description">description</span>
+<span class="font-label-caps text-label-caps mt-1">Docs</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant p-2 hover:bg-white/5">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="font-label-caps text-label-caps mt-1">Settings</span>
+</button>
+</nav>
+<!-- FAB (Suppressed based on context: Details/Transactional, but enabled for Home/Dashboard) -->
+<button class="fixed right-6 bottom-20 w-12 h-12 bg-primary text-on-primary rounded-full shadow-lg flex items-center justify-center active:scale-95 transition-transform z-40">
+<span class="material-symbols-outlined" data-icon="add">add</span>
+</button>
+</body></html>

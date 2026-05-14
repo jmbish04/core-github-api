@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Command Center | Repo Health Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "error-container": "#7f2927",
+              "surface-container-low": "#131316",
+              "error-dim": "#bb5551",
+              "on-primary-container": "#5ae9ac",
+              "surface-dim": "#0e0e10",
+              "secondary-dim": "#9093ff",
+              "surface-bright": "#2b2c32",
+              "surface-container-high": "#1f1f24",
+              "background": "#0e0e10",
+              "on-surface-variant": "#acaab1",
+              "surface-tint": "#4edea3",
+              "surface-variant": "#25252b",
+              "tertiary-fixed": "#8f60fa",
+              "primary-container": "#005236",
+              "on-error-container": "#ff9993",
+              "primary-dim": "#3cd096",
+              "primary-fixed-dim": "#5fedb0",
+              "inverse-surface": "#fcf8fb",
+              "on-tertiary-fixed-variant": "#fdf6ff",
+              "on-error": "#490106",
+              "tertiary": "#ac8aff",
+              "tertiary-dim": "#8455ef",
+              "on-secondary-fixed-variant": "#4647d3",
+              "on-tertiary-container": "#000000",
+              "secondary": "#9093ff",
+              "on-primary": "#004a31",
+              "secondary-fixed": "#e1e0ff",
+              "on-secondary": "#080079",
+              "surface-container-lowest": "#000000",
+              "tertiary-fixed-dim": "#8252ec",
+              "on-tertiary-fixed": "#ffffff",
+              "on-surface": "#e7e4ec",
+              "secondary-container": "#201cb4",
+              "on-background": "#e7e4ec",
+              "on-primary-fixed": "#004930",
+              "inverse-on-surface": "#565457",
+              "surface-container": "#19191d",
+              "on-secondary-container": "#b8b9ff",
+              "outline-variant": "#47474e",
+              "surface": "#0e0e10",
+              "secondary-fixed-dim": "#d1d0ff",
+              "primary": "#4edea3",
+              "surface-container-highest": "#25252b",
+              "outline": "#75757c",
+              "tertiary-container": "#8f60fa",
+              "inverse-primary": "#006d4a",
+              "on-tertiary": "#280067",
+              "on-secondary-fixed": "#2622b7",
+              "error": "#ee7d77",
+              "primary-fixed": "#6ffbbe",
+              "on-primary-fixed-variant": "#006947"
+            },
+            fontFamily: {
+              "headline": ["Manrope"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+      body { font-family: 'Inter', sans-serif; }
+      .font-manrope { font-family: 'Manrope', sans-serif; }
+      .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+      ::-webkit-scrollbar { width: 6px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-background text-on-surface min-h-screen">
+<!-- TopNavBar -->
+<nav class="fixed top-0 w-full z-50 bg-zinc-950/50 backdrop-blur-xl shadow-[0_20px_40px_rgba(0,0,0,0.4)] flex items-center justify-between px-6 py-3 w-full max-w-[1920px] mx-auto">
+<div class="flex items-center gap-8">
+<span class="text-xl font-bold tracking-tighter text-emerald-400 font-manrope">Command Center</span>
+<div class="hidden md:flex gap-6">
+<a class="font-manrope text-sm font-medium tracking-tight text-emerald-400 border-b-2 border-emerald-400 pb-1" href="#">Repositories</a>
+<a class="font-manrope text-sm font-medium tracking-tight text-zinc-400 hover:text-zinc-100 transition-colors" href="#">Pull Requests</a>
+<a class="font-manrope text-sm font-medium tracking-tight text-zinc-400 hover:text-zinc-100 transition-colors" href="#">Issues</a>
+<a class="font-manrope text-sm font-medium tracking-tight text-zinc-400 hover:text-zinc-100 transition-colors" href="#">Marketplace</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 text-zinc-400 hover:bg-zinc-800/50 rounded-lg transition-all active:scale-95">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 text-zinc-400 hover:bg-zinc-800/50 rounded-lg transition-all active:scale-95">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="h-8 w-8 rounded-full overflow-hidden border border-outline-variant/20">
+<img alt="User profile avatar" data-alt="close-up portrait of a professional developer in a dimly lit studio with soft blue ambient light" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBXh4xJDbp-bPesTYVWs01GLGasm2n0JovBVVWs2cbkQEAuIu2_vFPL7CHgZToxNhn0C6R0RdOHh4jfBET9muOvW_rPejRdI1W3N9UWdmWXHvB5YxY0-JSeY-n1Hf7FGKFeqGnBK8-rlqLTyAy0G3P1wiRcC3D22_bHTvHSXVWZ6scugELms4kRUv5hedOLVNAadcCVAxItA_MoDlzVvrhFVygLfliZyYF_ov3eaXaUPxb6ewul4Xxpv38OktF_nTF5XrTatbsWtDt7"/>
+</div>
+</div>
+</nav>
+<!-- SideNavBar -->
+<aside class="hidden lg:flex flex-col h-screen w-64 fixed left-0 top-0 border-r border-zinc-800/20 bg-zinc-950 py-8 gap-4 z-40 mt-14">
+<div class="px-6 mb-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded bg-primary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-primary">terminal</span>
+</div>
+<div>
+<h2 class="text-lg font-black text-emerald-500 font-manrope">Acme Corp</h2>
+<p class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold">Engineering</p>
+</div>
+</div>
+</div>
+<nav class="flex-1 px-0">
+<div class="space-y-1">
+<a class="flex items-center gap-3 px-6 py-3 bg-emerald-500/10 text-emerald-400 border-r-4 border-emerald-500 font-manrope text-xs uppercase tracking-widest font-semibold active:translate-x-1 transition-transform" href="#">
+<span class="material-symbols-outlined">dashboard</span> Dashboard
+                </a>
+<a class="flex items-center gap-3 px-6 py-3 text-zinc-500 hover:bg-zinc-900 hover:text-zinc-300 font-manrope text-xs uppercase tracking-widest font-semibold transition-all duration-300" href="#">
+<span class="material-symbols-outlined">insights</span> Insights
+                </a>
+<a class="flex items-center gap-3 px-6 py-3 text-zinc-500 hover:bg-zinc-900 hover:text-zinc-300 font-manrope text-xs uppercase tracking-widest font-semibold transition-all duration-300" href="#">
+<span class="material-symbols-outlined">settings_input_component</span> Workflows
+                </a>
+<a class="flex items-center gap-3 px-6 py-3 text-zinc-500 hover:bg-zinc-900 hover:text-zinc-300 font-manrope text-xs uppercase tracking-widest font-semibold transition-all duration-300" href="#">
+<span class="material-symbols-outlined">security</span> Security
+                </a>
+<a class="flex items-center gap-3 px-6 py-3 text-zinc-500 hover:bg-zinc-900 hover:text-zinc-300 font-manrope text-xs uppercase tracking-widest font-semibold transition-all duration-300" href="#">
+<span class="material-symbols-outlined">settings</span> Settings
+                </a>
+</div>
+<div class="mt-8 px-6">
+<button class="w-full py-2.5 bg-primary text-on-primary rounded-lg font-bold text-sm shadow-lg shadow-primary/10 hover:opacity-90 transition-opacity">
+                    New Repository
+                </button>
+</div>
+</nav>
+<div class="px-6 space-y-2 pt-4 border-t border-zinc-800/20">
+<a class="flex items-center gap-3 py-2 text-zinc-500 hover:text-zinc-300 transition-colors font-manrope text-xs uppercase tracking-widest font-semibold" href="#">
+<span class="material-symbols-outlined">description</span> Docs
+            </a>
+<a class="flex items-center gap-3 py-2 text-zinc-500 hover:text-zinc-300 transition-colors font-manrope text-xs uppercase tracking-widest font-semibold" href="#">
+<span class="material-symbols-outlined">help_outline</span> Support
+            </a>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="lg:ml-64 pt-24 pb-12 px-6 lg:px-10 max-w-[1600px]">
+<!-- ROW 1 — Stat Strip -->
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-10">
+<!-- Repo Health -->
+<div class="rounded-lg border border-zinc-800 bg-zinc-900/50 p-5 group hover:border-emerald-500/30 transition-all">
+<div class="flex justify-between items-start mb-3">
+<span class="text-zinc-400 text-sm font-medium">Repo Health</span>
+<span class="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]"></span>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="text-2xl font-bold text-zinc-100 font-manrope">94%</span>
+<span class="text-[10px] text-emerald-400 font-semibold tracking-wider">EXCELLENT</span>
+</div>
+</div>
+<!-- Open Issues -->
+<div class="rounded-lg border border-zinc-800 bg-zinc-900/50 p-5 hover:border-zinc-700 transition-all">
+<div class="flex justify-between items-start mb-3">
+<span class="text-zinc-400 text-sm font-medium">Open Issues</span>
+<span class="material-symbols-outlined text-rose-400 text-lg">trending_up</span>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="text-2xl font-bold text-zinc-100 font-manrope">12</span>
+<span class="text-[10px] text-rose-400 font-semibold">+8% this week</span>
+</div>
+</div>
+<!-- PRs Merged -->
+<div class="rounded-lg border border-zinc-800 bg-zinc-900/50 p-5 hover:border-zinc-700 transition-all">
+<div class="flex justify-between items-start mb-3">
+<span class="text-zinc-400 text-sm font-medium">PRs Merged This Week</span>
+<span class="material-symbols-outlined text-emerald-400 text-lg">trending_up</span>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="text-2xl font-bold text-zinc-100 font-manrope">7</span>
+<span class="text-[10px] text-emerald-400 font-semibold">+3 from last week</span>
+</div>
+</div>
+<!-- Deploy Status -->
+<div class="rounded-lg border border-zinc-800 bg-zinc-900/50 p-5 hover:border-zinc-700 transition-all">
+<div class="flex justify-between items-start mb-3">
+<span class="text-zinc-400 text-sm font-medium">Deploy Status</span>
+<span class="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-[10px] font-bold tracking-tight">LIVE</span>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="text-lg font-bold text-zinc-100 font-manrope">Production v2.4.0</span>
+<span class="text-[10px] text-zinc-500">2h ago</span>
+</div>
+</div>
+</div>
+<!-- ROW 2 — Main Content Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+<!-- COLUMN 1: Quick Actions -->
+<div class="flex flex-col gap-8">
+<section class="rounded-lg border border-zinc-800 bg-zinc-900/50 flex flex-col h-full">
+<header class="py-3 px-4 border-b border-zinc-800/50 flex items-center gap-2">
+<span class="material-symbols-outlined text-emerald-400 text-sm">bolt</span>
+<h3 class="text-sm font-medium text-zinc-100">Quick Actions</h3>
+</header>
+<div class="p-4 flex flex-col gap-3">
+<button class="w-full flex items-center gap-3 px-4 py-3 border border-zinc-800 rounded-lg text-zinc-300 text-sm hover:bg-zinc-800/50 transition-all active:scale-[0.98]">
+<span class="material-symbols-outlined text-lg">magic_button</span>
+                            Auto-Fix Repo
+                        </button>
+<button class="w-full flex items-center gap-3 px-4 py-3 border border-zinc-800 rounded-lg text-zinc-300 text-sm hover:bg-zinc-800/50 transition-all active:scale-[0.98]">
+<span class="material-symbols-outlined text-lg">auto_awesome</span>
+                            Generate Summary
+                        </button>
+<button class="w-full flex items-center gap-3 px-4 py-3 border border-zinc-800 rounded-lg text-zinc-300 text-sm hover:bg-zinc-800/50 transition-all active:scale-[0.98]">
+<span class="material-symbols-outlined text-lg">smart_toy</span>
+                            Dispatch to Jules
+                        </button>
+<button class="w-full flex items-center gap-3 px-4 py-3 border border-zinc-800 rounded-lg text-zinc-300 text-sm hover:bg-zinc-800/50 transition-all active:scale-[0.98]">
+<span class="material-symbols-outlined text-lg">account_tree</span>
+                            View Explorer
+                        </button>
+<button class="w-full flex items-center gap-3 px-4 py-3 border border-zinc-800 rounded-lg text-zinc-300 text-sm hover:bg-zinc-800/50 transition-all active:scale-[0.98]">
+<span class="material-symbols-outlined text-lg">shield</span>
+                            Run Standardization
+                        </button>
+</div>
+</section>
+</div>
+<!-- COLUMN 2: Activity Feed -->
+<div class="flex flex-col gap-8">
+<section class="rounded-lg border border-zinc-800 bg-zinc-900/50 flex flex-col max-h-[600px]">
+<header class="py-3 px-4 border-b border-zinc-800/50 flex items-center gap-2 sticky top-0 bg-zinc-900/90 backdrop-blur-sm z-10">
+<span class="material-symbols-outlined text-secondary text-sm">pulse_alert</span>
+<h3 class="text-sm font-medium text-zinc-100">Activity Feed</h3>
+</header>
+<div class="flex-1 overflow-y-auto">
+<div class="divide-y divide-zinc-800/50">
+<!-- Feed Items -->
+<div class="px-4 py-4 flex gap-3 hover:bg-zinc-800/20 transition-colors">
+<div class="w-8 h-8 rounded bg-indigo-500/20 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-indigo-400 text-sm" style="font-variation-settings: 'FILL' 1;">smart_toy</span>
+</div>
+<div class="flex flex-col">
+<p class="text-sm font-medium text-zinc-200">System Bot</p>
+<p class="text-xs text-zinc-400">Merged PR #141 into main branch</p>
+<span class="text-[10px] text-zinc-500 mt-1">2 mins ago</span>
+</div>
+</div>
+<div class="px-4 py-4 flex gap-3 hover:bg-zinc-800/20 transition-colors">
+<div class="w-8 h-8 rounded bg-zinc-800 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-zinc-400 text-sm">person</span>
+</div>
+<div class="flex flex-col">
+<p class="text-sm font-medium text-zinc-200">Alex Rivera</p>
+<p class="text-xs text-zinc-400">Pushed 3 commits to feature/analytics</p>
+<span class="text-[10px] text-zinc-500 mt-1">14 mins ago</span>
+</div>
+</div>
+<div class="px-4 py-4 flex gap-3 hover:bg-zinc-800/20 transition-colors">
+<div class="w-8 h-8 rounded bg-indigo-500/20 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-indigo-400 text-sm">auto_fix</span>
+</div>
+<div class="flex flex-col">
+<p class="text-sm font-medium text-zinc-200">Lint Master</p>
+<p class="text-xs text-zinc-400">Automatically resolved 12 formatting issues</p>
+<span class="text-[10px] text-zinc-500 mt-1">45 mins ago</span>
+</div>
+</div>
+<div class="px-4 py-4 flex gap-3 hover:bg-zinc-800/20 transition-colors">
+<div class="w-8 h-8 rounded bg-zinc-800 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-zinc-400 text-sm">person</span>
+</div>
+<div class="flex flex-col">
+<p class="text-sm font-medium text-zinc-200">Sarah Chen</p>
+<p class="text-xs text-zinc-400">Commented on PR #142: "Looks good to me!"</p>
+<span class="text-[10px] text-zinc-500 mt-1">1 hour ago</span>
+</div>
+</div>
+<!-- Repeat items for scrolling effect -->
+<div class="px-4 py-4 flex gap-3 hover:bg-zinc-800/20 transition-colors">
+<div class="w-8 h-8 rounded bg-zinc-800 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-zinc-400 text-sm">person</span>
+</div>
+<div class="flex flex-col">
+<p class="text-sm font-medium text-zinc-200">Mike Ross</p>
+<p class="text-xs text-zinc-400">Created issue: "API endpoint latency increased"</p>
+<span class="text-[10px] text-zinc-500 mt-1">3 hours ago</span>
+</div>
+</div>
+<div class="px-4 py-4 flex gap-3 hover:bg-zinc-800/20 transition-colors">
+<div class="w-8 h-8 rounded bg-indigo-500/20 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-indigo-400 text-sm">rocket_launch</span>
+</div>
+<div class="flex flex-col">
+<p class="text-sm font-medium text-zinc-200">Deployment Bot</p>
+<p class="text-xs text-zinc-400">Successful deploy to staging-us-east</p>
+<span class="text-[10px] text-zinc-500 mt-1">5 hours ago</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+</div>
+<!-- COLUMN 3: Pending PRs & Task Breakdown -->
+<div class="flex flex-col gap-8">
+<!-- Pending PRs -->
+<section class="rounded-lg border border-zinc-800 bg-zinc-900/50 flex flex-col">
+<header class="py-3 px-4 border-b border-zinc-800/50 flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary text-sm">account_tree</span>
+<h3 class="text-sm font-medium text-zinc-100">Pending PRs</h3>
+</div>
+<span class="px-1.5 py-0.5 rounded bg-secondary/20 text-secondary text-[10px] font-bold">3</span>
+</header>
+<div class="p-4 space-y-4">
+<!-- PR Item -->
+<div class="flex items-center justify-between group">
+<div class="flex items-center gap-3">
+<div class="h-8 w-8 rounded-full border border-zinc-800 overflow-hidden shrink-0">
+<img alt="User avatar" data-alt="professional headshot of a developer in a dark grey turtleneck against a neutral grey background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDblUKo02GY_ZhhlUShI616D6WKevt81No6qDrwBodFhtW-39ZvDETPy50Sh2iLbIJ3MYzN52fFtgog4CBDkKG84EFSlc9WSMcoPIkxotIAjvZmtHcHF3Z-cEF3qjEPrJl53ok75V846xYCFyNnMEwL63S2UCkit1Js_xzwalFJVBHPyK6rdxUCHvYgY3FG1AEwjFmWzHfkaGSR0HgvlrXoyt7Ou3p6uFF345w1wX9bsyZ6b0pU-nHo4HsLY84jFKqu1E_VR-w6Musa"/>
+</div>
+<div class="flex flex-col">
+<span class="text-[10px] font-bold text-secondary tracking-tighter">#142</span>
+<p class="text-xs font-medium text-zinc-200 truncate w-32">Feat: Add multi-region support</p>
+</div>
+</div>
+<button class="px-3 py-1.5 rounded border border-zinc-800 text-zinc-400 text-[10px] font-bold hover:bg-zinc-800 hover:text-zinc-100 transition-all">Review</button>
+</div>
+<div class="flex items-center justify-between group">
+<div class="flex items-center gap-3">
+<div class="h-8 w-8 rounded-full border border-zinc-800 overflow-hidden shrink-0">
+<img alt="User avatar" data-alt="close-up of a smiling software engineer with glasses in a modern office environment" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBtR4J9kJGmos_9E9CGPvi9RFJqWPzAOQg78giMpet4BHvM1ake7MNCOVCek6pZG8p07PaRxC8qBgtIClBepaKfsReJHTPIVPkkKRbC0dXPoppbGTuImUlpzcT9uyazyk1sWkjPY875UZC6VwlrF-1WRyxLT5mUg7eGIw4ZGdpJ_sf_CdKTUy_X3mPKvfuD49K0VPYq555-m1RF73m08zlm0WkMQQ2fUw0DKPBRpmTuZ1IKP-UWgb_V03xkSUDuGbRCzxxYNN9ErSCq"/>
+</div>
+<div class="flex flex-col">
+<span class="text-[10px] font-bold text-secondary tracking-tighter">#145</span>
+<p class="text-xs font-medium text-zinc-200 truncate w-32">Fix: Security vulnerability in auth</p>
+</div>
+</div>
+<button class="px-3 py-1.5 rounded border border-zinc-800 text-zinc-400 text-[10px] font-bold hover:bg-zinc-800 hover:text-zinc-100 transition-all">Review</button>
+</div>
+<div class="flex items-center justify-between group">
+<div class="flex items-center gap-3">
+<div class="h-8 w-8 rounded-full border border-zinc-800 overflow-hidden shrink-0">
+<img alt="User avatar" data-alt="side profile of a concentrated tech professional working in a dark workspace with neon accents" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCqESfvuh4rbr3tpXYAfIyyESHErQkdZ9Ol2Z24EM3v-5T-fpecZkAp-kMC3sH5LwTpaeWt0ZQ8eC08NTcKUPPQPjpAsbuVTPEXQGMo-GJ2dUkpBIcFVVvtmqlPu-K2pgo5meofCqDWrY_uVcmnh6zSTc49FNOrd0jpHUV9Whnm-lkOLAXfVAcy6Q83x4OefOsQgbKeOo_oail-rN1v-lh52o22NFm0mVMN0x19PHHv50SVpUBeL_Wap6UEdSpRbrkMPiIxgR_cRX_F"/>
+</div>
+<div class="flex flex-col">
+<span class="text-[10px] font-bold text-secondary tracking-tighter">#146</span>
+<p class="text-xs font-medium text-zinc-200 truncate w-32">Refactor: Clean up legacy DB ops</p>
+</div>
+</div>
+<button class="px-3 py-1.5 rounded border border-zinc-800 text-zinc-400 text-[10px] font-bold hover:bg-zinc-800 hover:text-zinc-100 transition-all">Review</button>
+</div>
+</div>
+</section>
+<!-- Task Breakdown -->
+<section class="rounded-lg border border-zinc-800 bg-zinc-900/50 flex flex-col">
+<header class="py-3 px-4 border-b border-zinc-800/50 flex items-center gap-2">
+<span class="material-symbols-outlined text-zinc-400 text-sm">bar_chart_4_bars</span>
+<h3 class="text-sm font-medium text-zinc-100">Task Breakdown</h3>
+</header>
+<div class="p-5">
+<div class="w-full h-3 rounded-full flex overflow-hidden mb-6 bg-zinc-800">
+<div class="h-full bg-zinc-500" style="width: 15%"></div>
+<div class="h-full bg-blue-500" style="width: 25%"></div>
+<div class="h-full bg-amber-500" style="width: 20%"></div>
+<div class="h-full bg-violet-500" style="width: 15%"></div>
+<div class="h-full bg-emerald-500" style="width: 25%"></div>
+</div>
+<div class="grid grid-cols-2 gap-y-3 gap-x-4">
+<div class="flex items-center gap-2">
+<span class="h-2 w-2 rounded-full bg-zinc-500"></span>
+<span class="text-[10px] text-zinc-400 font-medium">Backlog</span>
+<span class="text-[10px] text-zinc-100 ml-auto font-bold">12</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="h-2 w-2 rounded-full bg-blue-500"></span>
+<span class="text-[10px] text-zinc-400 font-medium">Todo</span>
+<span class="text-[10px] text-zinc-100 ml-auto font-bold">18</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="h-2 w-2 rounded-full bg-amber-500"></span>
+<span class="text-[10px] text-zinc-400 font-medium">In Progress</span>
+<span class="text-[10px] text-zinc-100 ml-auto font-bold">14</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="h-2 w-2 rounded-full bg-violet-500"></span>
+<span class="text-[10px] text-zinc-400 font-medium">Review</span>
+<span class="text-[10px] text-zinc-100 ml-auto font-bold">9</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="h-2 w-2 rounded-full bg-emerald-500"></span>
+<span class="text-[10px] text-zinc-400 font-medium">Done</span>
+<span class="text-[10px] text-zinc-100 ml-auto font-bold">22</span>
+</div>
+</div>
+</div>
+</section>
+</div>
+</div>
+<!-- Activity Pulse Chart (Design System Signature) -->
+<div class="mt-8 rounded-lg border border-zinc-800 bg-zinc-900/50 p-6">
+<div class="flex items-center justify-between mb-6">
+<div class="flex flex-col">
+<h3 class="text-sm font-semibold text-zinc-100 font-manrope">Repository Pulse</h3>
+<p class="text-[10px] text-zinc-500 uppercase tracking-widest">Commit Velocity (30 Days)</p>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2">
+<span class="h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
+<span class="text-[10px] text-zinc-400 font-medium">Main</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="h-1.5 w-1.5 rounded-full bg-secondary"></span>
+<span class="text-[10px] text-zinc-400 font-medium">Staging</span>
+</div>
+</div>
+</div>
+<div class="h-32 flex items-end gap-1">
+<!-- Simple visual representation of a sparkline graph -->
+<div class="flex-1 bg-emerald-500/10 rounded-t h-1/2 border-t border-emerald-500/30"></div>
+<div class="flex-1 bg-emerald-500/10 rounded-t h-2/3 border-t border-emerald-500/30"></div>
+<div class="flex-1 bg-emerald-500/10 rounded-t h-1/3 border-t border-emerald-500/30"></div>
+<div class="flex-1 bg-emerald-500/10 rounded-t h-3/4 border-t border-emerald-500/30"></div>
+<div class="flex-1 bg-emerald-500/10 rounded-t h-2/3 border-t border-emerald-500/30"></div>
+<div class="flex-1 bg-emerald-500/10 rounded-t h-full border-t border-emerald-500/30"></div>
+<div class="flex-1 bg-emerald-500/10 rounded-t h-5/6 border-t border-emerald-500/30"></div>
+<div class="flex-1 bg-emerald-500/10 rounded-t h-2/3 border-t border-emerald-500/30"></div>
+<div class="flex-1 bg-emerald-500/10 rounded-t h-1/2 border-t border-emerald-500/30"></div>
+<div class="flex-1 bg-emerald-500/10 rounded-t h-4/5 border-t border-emerald-500/30"></div>
+<div class="flex-1 bg-secondary/10 rounded-t h-1/3 border-t border-secondary/30"></div>
+<div class="flex-1 bg-secondary/10 rounded-t h-1/2 border-t border-secondary/30"></div>
+<div class="flex-1 bg-secondary/10 rounded-t h-2/3 border-t border-secondary/30"></div>
+<div class="flex-1 bg-secondary/10 rounded-t h-1/4 border-t border-secondary/30"></div>
+</div>
+</div>
+</main>
+</body></html>

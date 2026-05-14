@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Sessions - Cloudflare Workers</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;family=JetBrains+Mono:wght@450&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary-fixed-dim": "#adc7ff",
+                        "on-surface-variant": "#c1c6d6",
+                        "error": "#ffb4ab",
+                        "tertiary-container": "#c55500",
+                        "error-container": "#93000a",
+                        "on-error-container": "#ffdad6",
+                        "surface-container-low": "#191c23",
+                        "surface-container-highest": "#32353c",
+                        "on-primary-container": "#ffffff",
+                        "on-surface": "#e0e2ec",
+                        "secondary": "#c8c6c5",
+                        "foreground": "oklch(0.98 0 0)",
+                        "on-secondary-fixed-variant": "#474746",
+                        "tertiary": "#ffb691",
+                        "border": "oklch(0.25 0 0)",
+                        "inverse-primary": "#005bc0",
+                        "surface-container-high": "#272a31",
+                        "on-secondary": "#303030",
+                        "tertiary-fixed-dim": "#ffb691",
+                        "inverse-surface": "#e0e2ec",
+                        "on-error": "#690005",
+                        "on-tertiary-fixed": "#341100",
+                        "on-tertiary": "#552100",
+                        "accent": "oklch(0.55 0.18 264)",
+                        "card": "oklch(0.16 0 0)",
+                        "on-tertiary-container": "#0e0200",
+                        "surface-container": "#1d2027",
+                        "inverse-on-surface": "#2d3038",
+                        "on-secondary-container": "#b7b5b4",
+                        "surface-container-lowest": "#0b0e15",
+                        "outline": "#8b909f",
+                        "muted-foreground": "oklch(0.6 0 0)",
+                        "on-background": "#e0e2ec",
+                        "primary-container": "#1a73e8",
+                        "on-tertiary-fixed-variant": "#783100",
+                        "on-primary": "#002e68",
+                        "outline-variant": "#414754",
+                        "surface-bright": "#363941",
+                        "on-primary-fixed": "#001a41",
+                        "primary": "#adc7ff",
+                        "on-secondary-fixed": "#1b1b1c",
+                        "background": "oklch(0.13 0 0)",
+                        "surface-tint": "#adc7ff",
+                        "surface-variant": "#32353c",
+                        "secondary-fixed-dim": "#c8c6c5",
+                        "surface-dim": "#10131a",
+                        "tertiary-fixed": "#ffdbcb",
+                        "secondary-container": "#474746",
+                        "secondary-fixed": "#e5e2e1",
+                        "surface": "#10131a",
+                        "primary-fixed": "#d8e2ff",
+                        "on-primary-fixed-variant": "#004493"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "container-max": "1440px",
+                        "sidebar-width": "240px",
+                        "gutter": "1rem",
+                        "margin-mobile": "1rem",
+                        "margin-desktop": "2rem"
+                    },
+                    "fontFamily": {
+                        "headline-lg": ["Inter"],
+                        "code-base": ["JetBrains Mono"],
+                        "headline-md": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "code-sm": ["JetBrains Mono"],
+                        "body-base": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-lg": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "600" }],
+                        "code-base": ["13px", { "lineHeight": "20px", "fontWeight": "450" }],
+                        "headline-md": ["18px", { "lineHeight": "24px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "body-sm": ["12px", { "lineHeight": "16px", "fontWeight": "400" }],
+                        "code-sm": ["11px", { "lineHeight": "16px", "fontWeight": "450" }],
+                        "body-base": ["14px", { "lineHeight": "20px", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-background text-foreground font-body-base text-body-base antialiased min-h-screen flex">
+<!-- SideNavBar -->
+<nav class="hidden md:flex flex-col h-screen w-sidebar-width bg-background py-gutter px-2 fixed top-0 left-0 ring-1 ring-border/40 z-20">
+<div class="mb-8 px-2">
+<h1 class="font-headline-md text-headline-md text-foreground mb-1">Cloudflare Workers</h1>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Agentic Control</p>
+</div>
+<div class="mb-6 px-2">
+<button class="w-full bg-accent text-on-primary font-headline-md text-headline-md rounded py-2 ring-1 ring-border/40 hover:bg-accent/90 transition-colors duration-200">
+                New Session
+            </button>
+</div>
+<div class="flex-1 flex flex-col gap-1">
+<a class="flex items-center gap-3 px-3 py-2 rounded text-on-surface-variant hover:text-foreground hover:bg-surface-container transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined text-xl" data-icon="book_2">book_2</span>
+<span class="font-headline-md text-headline-md">Library</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded text-foreground bg-surface-container-high ring-1 ring-accent/40 transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined text-xl" data-icon="lan">lan</span>
+<span class="font-headline-md text-headline-md">Sessions</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded text-on-surface-variant hover:text-foreground hover:bg-surface-container transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined text-xl" data-icon="settings">settings</span>
+<span class="font-headline-md text-headline-md">Settings</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded text-on-surface-variant hover:text-foreground hover:bg-surface-container transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined text-xl" data-icon="description">description</span>
+<span class="font-headline-md text-headline-md">Docs</span>
+</a>
+</div>
+<div class="mt-auto pt-4 border-t border-border/40">
+<a class="flex items-center gap-3 px-3 py-2 rounded text-on-surface-variant hover:text-foreground hover:bg-surface-container transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined text-xl" data-icon="dns">dns</span>
+<span class="font-headline-md text-headline-md">System Status</span>
+</a>
+</div>
+</nav>
+<!-- Main Content Area -->
+<div class="flex-1 md:ml-sidebar-width flex flex-col min-h-screen">
+<!-- TopNavBar -->
+<header class="w-full h-16 bg-background border-b border-border/40 flex justify-between items-center px-margin-mobile md:px-margin-desktop sticky top-0 z-10">
+<div class="flex items-center gap-4 hidden md:flex">
+<span class="font-headline-lg text-headline-lg font-bold text-foreground">Agentic Sessions</span>
+</div>
+<div class="flex items-center gap-6 flex-1 md:flex-none justify-end">
+<nav class="hidden lg:flex items-center gap-6 mr-6">
+<a class="font-headline-md text-headline-md text-on-surface-variant hover:text-foreground transition-colors duration-200" href="#">Monitoring</a>
+<a class="font-headline-md text-headline-md text-on-surface-variant hover:text-foreground transition-colors duration-200" href="#">Deployment</a>
+<a class="font-headline-md text-headline-md text-on-surface-variant hover:text-foreground transition-colors duration-200" href="#">Security</a>
+</nav>
+<div class="flex items-center gap-4">
+<button class="hidden md:block bg-surface-container-high text-primary ring-1 ring-border/40 px-4 py-1.5 rounded font-headline-md text-headline-md hover:bg-surface-container transition-colors duration-200">
+                        Deploy Agent
+                    </button>
+<button class="text-on-surface-variant hover:text-foreground transition-colors duration-200">
+<span class="material-symbols-outlined" data-icon="refresh">refresh</span>
+</button>
+<button class="text-on-surface-variant hover:text-foreground transition-colors duration-200">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<div class="w-8 h-8 rounded-full bg-surface-container-highest ring-1 ring-border/40 overflow-hidden ml-2">
+<img alt="User profile" class="w-full h-full object-cover" data-alt="Close up portrait of a young professional woman with dark hair in a sleek, dimly lit server room environment. The lighting is moody and cool, emphasizing a high-tech, brutalist aesthetic consistent with a technical dashboard interface. The color palette features deep blacks, dark greys, and subtle blue technical accents." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBMV1dl4Fiq2hYhPjf0N-zlxYsxKdXDdn0UAeR9OIAKApxDNRpxG4unczZhC-QhLlHNwiubj063ro1Je3DCiLnmUjbs4AodL1AsuoPYKCvxxClNC4eTf1lXkSy48QMTsyCyWRAuJhlGdfevLTCvjOU-yCzf2k8E3eYj1lJhnZoxTImZ7HnchJwKC2b6gVnRJjnnbTV_HwXNH0pvz6xr5T2ypFUI0VL1rYue8HFvgg29_0mc_nFSA3ONyTXNzk6sZWgUP4x7svmfxoTe"/>
+</div>
+</div>
+</div>
+</header>
+<!-- Page Content -->
+<main class="flex-1 p-margin-mobile md:p-margin-desktop overflow-auto">
+<div class="mb-8">
+<h2 class="font-headline-lg text-headline-lg text-foreground mb-1">Sessions</h2>
+<p class="font-body-base text-body-base text-on-surface-variant">All agentic sessions across the worker</p>
+</div>
+<!-- Filter Row -->
+<div class="flex flex-col sm:flex-row gap-4 mb-8">
+<div class="relative flex-1 max-w-md">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" data-icon="search">search</span>
+<input class="w-full bg-surface-container text-foreground pl-10 pr-4 py-2 rounded ring-1 ring-border/40 focus:ring-accent/60 outline-none font-body-base text-body-base placeholder:text-on-surface-variant" placeholder="Search sessions..." type="text"/>
+</div>
+<div class="flex gap-4">
+<select class="bg-surface-container text-foreground px-4 py-2 rounded ring-1 ring-border/40 outline-none font-body-base text-body-base appearance-none cursor-pointer">
+<option>Status: All</option>
+<option>Active</option>
+<option>Complete</option>
+<option>Failed</option>
+</select>
+<select class="bg-surface-container text-foreground px-4 py-2 rounded ring-1 ring-border/40 outline-none font-body-base text-body-base appearance-none cursor-pointer">
+<option>Kind: All</option>
+<option>Research</option>
+<option>Deployment</option>
+<option>Refactor</option>
+</select>
+<button class="bg-surface-container text-on-surface-variant p-2 rounded ring-1 ring-border/40 hover:text-foreground transition-colors duration-200 flex items-center justify-center">
+<span class="material-symbols-outlined" data-icon="refresh">refresh</span>
+</button>
+</div>
+</div>
+<!-- Accordion Sections -->
+<div class="space-y-4">
+<!-- Active Section (Expanded) -->
+<div class="border-b border-border/40 pb-6">
+<button class="flex items-center gap-2 w-full text-left mb-4 group">
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-foreground transition-colors" data-icon="expand_more">expand_more</span>
+<h3 class="font-headline-md text-headline-md text-foreground">Active (3)</h3>
+</button>
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+<!-- Card 1 -->
+<div class="bg-card p-4 rounded ring-1 ring-border/40 hover:ring-accent/40 transition-all duration-200 flex flex-col gap-3 group">
+<div class="flex justify-between items-start">
+<span class="bg-surface-container-high text-on-surface px-2 py-0.5 rounded font-code-sm text-code-sm uppercase tracking-wider">gh-research</span>
+<div class="w-2 h-2 rounded-full bg-accent"></div>
+</div>
+<h4 class="font-headline-md text-headline-md text-foreground group-hover:text-primary transition-colors">Dependency Audit v2.4.0</h4>
+<div class="mt-auto pt-2">
+<p class="font-code-sm text-code-sm text-on-surface-variant">12m ago · round 2/3 · 3 participants</p>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="bg-card p-4 rounded ring-1 ring-border/40 hover:ring-accent/40 transition-all duration-200 flex flex-col gap-3 group">
+<div class="flex justify-between items-start">
+<span class="bg-surface-container-high text-on-surface px-2 py-0.5 rounded font-code-sm text-code-sm uppercase tracking-wider">jules</span>
+<div class="w-2 h-2 rounded-full bg-accent"></div>
+</div>
+<h4 class="font-headline-md text-headline-md text-foreground group-hover:text-primary transition-colors">Drafting Deployment Specs</h4>
+<div class="mt-auto pt-2">
+<p class="font-code-sm text-code-sm text-on-surface-variant">45m ago · ready_for_pr · 2 participants</p>
+</div>
+</div>
+<!-- Card 3 -->
+<div class="bg-card p-4 rounded ring-1 ring-border/40 hover:ring-accent/40 transition-all duration-200 flex flex-col gap-3 group">
+<div class="flex justify-between items-start">
+<span class="bg-surface-container-high text-on-surface px-2 py-0.5 rounded font-code-sm text-code-sm uppercase tracking-wider">sprint</span>
+<div class="w-2 h-2 rounded-full bg-accent"></div>
+</div>
+<h4 class="font-headline-md text-headline-md text-foreground group-hover:text-primary transition-colors">Backend Auth Refactor</h4>
+<div class="mt-auto pt-2">
+<p class="font-code-sm text-code-sm text-on-surface-variant">1h ago · logic_review · 5 participants</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Complete Section (Collapsed) -->
+<div class="border-b border-border/40 py-2">
+<button class="flex items-center gap-2 w-full text-left group">
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-foreground transition-colors" data-icon="chevron_right">chevron_right</span>
+<h3 class="font-headline-md text-headline-md text-foreground">Complete (last 20)</h3>
+</button>
+</div>
+<!-- Failed Section (Collapsed) -->
+<div class="border-b border-border/40 py-2">
+<button class="flex items-center gap-2 w-full text-left group">
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-foreground transition-colors" data-icon="chevron_right">chevron_right</span>
+<h3 class="font-headline-md text-headline-md text-foreground">Failed (last 5)</h3>
+</button>
+</div>
+</div>
+</main>
+</div>
+</body></html>

@@ -181,6 +181,156 @@ const { events, status, participants, publish } = useAgenticSession(sessionId, {
 
 ---
 
+## 4.5 Architecture pivot: GitHub Action + R2 + AutoRAG (added 2026-05-14)
+
+Audit of existing infrastructure revealed **95% of an Action→R2→AutoRAG pipeline is already in place** — adding it to the architecture is mostly wiring, not greenfield. The pattern is modeled on [miantiao-me/github-stars](https://github.com/miantiao-me/github-stars).
+
+### 4.5.1 What already exists
+
+| Primitive | Where | Status |
+|---|---|---|
+| `daily-trends.yml` GitHub Action | `.github/workflows/daily-trends.yml` | Operational — runs daily 8am UTC, fetches trending repos via PyGithub, curates via LiteLLM, POSTs to worker endpoint. **Does NOT push to R2 yet.** |
+| `ResearchOrchestrator` workflow | `src/backend/src/workflows/research/orchestrator.ts` | Operational — 5-stage pipeline (explore → store → HITL → deep-dive → judge → vectorize). Embeds analyses to `RESEARCH_INDEX` with `@cf/baai/bge-large-en-v1.5`. |
+| AutoRAG MCP tool | `src/backend/src/ai/mcp/tools/cloudflare/autorag/index.ts` | Wired but idle — points at `autorag.mcp.cloudflare.com/mcp` with `CLOUDFLARE_WRANGLER_API_TOKEN`. No active index yet. |
+| `RESEARCH_INDEX` Vectorize | `wrangler.jsonc:225` | Operational — `core-github-api-research` index. Used by `custom_semantic_search_research_index` MCP tool. |
+| Vectorize helpers | `src/backend/src/lib/vectorize/{index,health}.ts` | Operational — `generateEmbeddings`, `chunkCode`, `upsertChunks` (batch 100, bge-large). Health check exercises full embed→upsert→query→delete loop. |
+| R2 buckets | `wrangler.jsonc:207–209` — `PLAN_ARTIFACTS`, `ARTIFACT_STORE`, `SANDBOX_BUCKET` | Operational; **no R2→Vectorize ingestion pipeline yet.** |
+| 4 other Vectorize indexes | `VECTORIZE`, `VECTORIZE_LOGS`, `PLAN_EMBEDDINGS`, `FILE_EMBEDDINGS` | Operational. |
+
+### 4.5.2 The pivot — two complementary research substrates
+
+Old PRD assumed **one** path: Sandbox clones → grep → inspect → vectorize. The pivot keeps that path for deep code inspection AND adds a parallel **Action-driven** path for breadth:
+
+```
+                   ┌─────────────────────────────────────────────┐
+                   │ WEEKLY AWARENESS / BROAD SCAN               │
+ GitHub Action ───►│ ① Action runs on cron or workflow_dispatch  │
+ (.github/         │ ② Fetches READMEs + metadata in bulk        │
+  workflows/       │ ③ Uploads JSON+text to R2 bucket            │
+  weekly-          │ ④ AutoRAG auto-indexes R2 contents          │
+  research.yml)    │ ⑤ Worker agent queries AutoRAG for digest   │
+                   └─────────────────────────────────────────────┘
+                   ┌─────────────────────────────────────────────┐
+                   │ ON-DEMAND / PRE-PLANNING / DEEP DIVE        │
+ ResearchAgent ───►│ ① Worker dispatches Sandbox container       │
+  (existing)       │ ② Sandbox clones top-K candidate repos      │
+                   │ ③ rg + readFile + structured inspection     │
+                   │ ④ Embed inspections → RESEARCH_INDEX        │
+                   │ ⑤ Optional: Jules synthesis on corpus       │
+                   └─────────────────────────────────────────────┘
+
+                   ┌─────────────────────────────────────────────┐
+                   │ UNIFIED QUERY                               │
+ Library UI ───────►│ Agent queries BOTH AutoRAG + RESEARCH_INDEX │
+ / agent tools     │ Merges + dedups results by (repo, path)     │
+                   │ Presents in the library / live viewer       │
+                   └─────────────────────────────────────────────┘
+```
+
+### 4.5.3 Action pipeline detail
+
+**New file**: `.github/workflows/weekly-research.yml` (or extend existing `daily-trends.yml`).
+
+Triggers:
+- `schedule:` cron `0 8 * * 1` (Monday 8am UTC, weekly mode)
+- `workflow_dispatch:` with inputs (mode, queries, breadth, categories) — for on-demand jobs invoked from the worker
+
+Job steps:
+1. Checkout
+2. Set up Python (PyGithub) or Node
+3. Run scanner script (sources from `config/weekly-research.json` committed in repo — this is what the agent edits via PR)
+4. For each result: fetch README, parse front matter, build structured JSON `{repo, stars, topics, readme_excerpt, scanned_at}`
+5. Upload to R2 bucket (new binding `RESEARCH_INGEST_BUCKET` → `core-github-api-research-ingest`) keyed by `weekly/{date}/{repo-slug}.json`
+6. Notify worker via webhook with the batch run id (`POST /api/research/gh/ingest/notify`)
+7. (Worker side) the notify endpoint enqueues an indexing job → AutoRAG rebuild → publishes a session event `system.ingest.complete` so subscribed agents wake up
+
+**Secrets needed** (already mostly present):
+- `GH_TOKEN` — existing
+- `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` — new
+- `WORKER_NOTIFY_WEBHOOK_URL`, `WORKER_NOTIFY_API_KEY` — existing pattern from daily-trends
+
+### 4.5.4 Chat-iterate-criteria flow
+
+New page `/research/gh/weekly/configure` (replaces/wraps the existing config panel in `/research/gh/weekly`):
+
+1. User opens chat panel with the `ResearchAgent`. Agent reads current `config/weekly-research.json` from the repo as the starting point.
+2. User describes a refinement ("more focus on Workers AI examples, less on infrastructure-as-code").
+3. Agent generates 3–5 candidate search queries, runs them **synchronously inside the Sandbox** (small breadth, 60s budget), shows the user the top 5 repos returned per query as cards in the chat.
+4. User thumbs-up / thumbs-down / "add this query" / "this is the right vibe".
+5. Iterate until the user clicks "Save criteria".
+6. Agent opens a PR against the repo modifying `config/weekly-research.json` + (if needed) `.github/workflows/weekly-research.yml`. PR body includes a diff summary, the conversation transcript reference, and the sampled results.
+7. User reviews and merges. Next Monday's cron picks up the new config automatically.
+
+This is the killer flow: the **configuration of the recurring scanner is itself a chat-driven, PR-gated workflow** — no settings UI complexity, no schema drift between the form and the workflow file. The YAML is the source of truth.
+
+### 4.5.5 On-demand workflow_dispatch path
+
+`POST /api/research/gh/jobs` with `mode='on-demand'` can now dispatch a GitHub workflow run via the Actions API instead of (or in addition to) running locally:
+
+- `useGitHubAction=true` flag in the request body
+- Worker calls `POST /repos/jmbish04/core-github-api/actions/workflows/weekly-research.yml/dispatches` with the user's prompt encoded as workflow inputs
+- The Action runs, dumps to R2 under `on-demand/{job-id}/...`
+- Worker polls the run id (or listens for `workflow_run.completed` webhook) and triggers AutoRAG re-index
+- Agent then queries AutoRAG for the new content; from there it can decide to deep-dive specific repos with the Sandbox
+
+This means: on-demand jobs can run **without occupying a Sandbox slot** (Sandbox cap is 5 instances; Actions can run 20+ concurrent without paid increase). Sandboxes become the *follow-up* tool for deep code reading, not the primary scanner.
+
+### 4.5.6 New tables / D1 additions
+
+```sql
+-- Track ingest batches from GitHub Actions
+CREATE TABLE gh_research_ingest_batches (
+  id TEXT PRIMARY KEY,
+  source TEXT NOT NULL,                 -- weekly-cron | on-demand-dispatch | manual
+  trigger_ref TEXT,                     -- workflow_run.id | job_id
+  r2_prefix TEXT NOT NULL,              -- e.g. "weekly/2026-05-19/" or "on-demand/{job-id}/"
+  file_count INTEGER,
+  status TEXT NOT NULL,                 -- queued | uploading | indexing | complete | failed
+  autorag_index_version TEXT,
+  started_at INTEGER,
+  completed_at INTEGER,
+  created_at INTEGER NOT NULL DEFAULT (unixepoch())
+);
+CREATE INDEX idx_ingest_batches_status ON gh_research_ingest_batches(status, created_at);
+
+-- The R2 file index (mirrors what's in R2 for fast metadata queries without listing R2)
+CREATE TABLE gh_research_ingest_files (
+  id TEXT PRIMARY KEY,
+  batch_id TEXT NOT NULL,
+  r2_key TEXT NOT NULL,
+  repo_full_name TEXT,
+  readme_excerpt_chars INTEGER,
+  topics TEXT,                          -- JSON array
+  stars INTEGER,
+  scanned_at INTEGER,
+  autorag_indexed INTEGER DEFAULT 0,
+  vector_id TEXT,                       -- nullable: if also embedded to RESEARCH_INDEX
+  created_at INTEGER NOT NULL DEFAULT (unixepoch())
+);
+CREATE INDEX idx_ingest_files_batch ON gh_research_ingest_files(batch_id);
+CREATE INDEX idx_ingest_files_repo ON gh_research_ingest_files(repo_full_name);
+```
+
+### 4.5.7 New EPICs (added to TASKS.json)
+
+- `EPIC-16: action-r2-pipeline` — `.github/workflows/weekly-research.yml`, scanner script, R2 bucket binding, notify webhook handler, ingest batch tracking
+- `EPIC-17: autorag-activation` — switch the AutoRAG MCP from idle to active; configure AutoRAG instance pointing at the new R2 bucket; expose query tool to agents
+- `EPIC-18: chat-iterate-criteria` — chat panel UI on `/research/gh/weekly/configure`, sample-and-iterate flow, PR generation against `config/weekly-research.json`
+- `EPIC-19: on-demand-dispatch` — `workflow_dispatch` integration for on-demand jobs, run-id tracking, workflow_run webhook handler
+- `EPIC-20: unified-query` — merge AutoRAG + RESEARCH_INDEX query results, dedup by (repo, path), present uniformly in library UI
+
+These are appended; existing EPICs 0–15 are unchanged. Sequence: EPIC-16 + 17 land first (foundation), then 18 + 19 (UX surfaces), 20 last (unified query polish).
+
+### 4.5.8 What stays the same
+
+- AgenticSession service (EPIC-0) is unchanged — the ingest pipeline events publish into AgenticSession just like everything else
+- The library UX (EPIC-7) is unchanged — it just now sources findings from two indexes instead of one
+- The Sandbox + iterative-refine + Jules-synthesis paths (EPICs 2–5) remain valid for **deep-dive** and **pre-planning** modes
+- The Send-to-Planning and Promote-to-Rules pipelines (EPIC-8) are unchanged
+- The on-demand health suite (EPIC-10) adds checks for: R2 ingest bucket reachability, AutoRAG index status, `workflow_dispatch` API auth, GitHub Action run completion
+
+---
+
 ## 5. GitHub research feature
 
 ### 5.1 Workflow lifecycle (`GhResearchWorkflow`)
