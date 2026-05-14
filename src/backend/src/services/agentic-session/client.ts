@@ -35,8 +35,8 @@ export class SessionClient {
    * @param event - SessionEvent to publish
    */
   async publish(event: Omit<SessionEvent, 'sessionId' | 'sequenceNum' | 'timestamp'>): Promise<void> {
-    const doId = this.env.AGENTIC_SESSION_DO.idFromName(this.sessionId);
-    const doStub = this.env.AGENTIC_SESSION_DO.get(doId);
+    const doId = (this.env.AGENTIC_SESSION_DO as any).idFromName(this.sessionId);
+    const doStub = (this.env.AGENTIC_SESSION_DO as any).get(doId);
 
     const response = await doStub.fetch('http://internal/publish', {
       method: 'POST',
@@ -63,8 +63,8 @@ export class SessionClient {
     permissions: Permission[],
     expiresIn?: number
   ): Promise<void> {
-    const doId = this.env.AGENTIC_SESSION_DO.idFromName(this.sessionId);
-    const doStub = this.env.AGENTIC_SESSION_DO.get(doId);
+    const doId = (this.env.AGENTIC_SESSION_DO as any).idFromName(this.sessionId);
+    const doStub = (this.env.AGENTIC_SESSION_DO as any).get(doId);
 
     const response = await doStub.fetch('http://internal/grant', {
       method: 'POST',
@@ -88,8 +88,9 @@ export class SessionClient {
    */
   async subscribeAgent(permissions: Permission[] = ['read']): Promise<WebSocket> {
     // Issue token
+    const secret = this.env.SESSION_TOKEN_SECRET as unknown as string;
     const token = await issueSessionToken(
-      this.env.SESSION_TOKEN_SECRET,
+      secret,
       {
         sub: this.subjectId,
         sessionId: this.sessionId,
@@ -99,8 +100,8 @@ export class SessionClient {
     );
 
     // Connect to DO WebSocket
-    const doId = this.env.AGENTIC_SESSION_DO.idFromName(this.sessionId);
-    const doStub = this.env.AGENTIC_SESSION_DO.get(doId);
+    const doId = (this.env.AGENTIC_SESSION_DO as any).idFromName(this.sessionId);
+    const doStub = (this.env.AGENTIC_SESSION_DO as any).get(doId);
 
     const wsUrl = `http://internal/ws?token=${encodeURIComponent(token)}`;
     const response = await doStub.fetch(wsUrl, {
@@ -130,8 +131,8 @@ export class SessionClient {
    * @returns Array of SessionEvents
    */
   async listEvents(limit: number = 100, offset: number = 0): Promise<SessionEvent[]> {
-    const doId = this.env.AGENTIC_SESSION_DO.idFromName(this.sessionId);
-    const doStub = this.env.AGENTIC_SESSION_DO.get(doId);
+    const doId = (this.env.AGENTIC_SESSION_DO as any).idFromName(this.sessionId);
+    const doStub = (this.env.AGENTIC_SESSION_DO as any).get(doId);
 
     const url = `http://internal/events?limit=${limit}&offset=${offset}`;
     const response = await doStub.fetch(url);
@@ -149,8 +150,8 @@ export class SessionClient {
    * @returns Array of subscriber metadata
    */
   async listSubscribers(): Promise<Array<{ subscriberId: string; subscriberType: string; connectedAt: number }>> {
-    const doId = this.env.AGENTIC_SESSION_DO.idFromName(this.sessionId);
-    const doStub = this.env.AGENTIC_SESSION_DO.get(doId);
+    const doId = (this.env.AGENTIC_SESSION_DO as any).idFromName(this.sessionId);
+    const doStub = (this.env.AGENTIC_SESSION_DO as any).get(doId);
 
     const response = await doStub.fetch('http://internal/subscribers');
 

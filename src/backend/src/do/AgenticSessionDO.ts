@@ -106,7 +106,8 @@ export class AgenticSessionDO extends DurableObject<Env> {
     // Verify JWT
     let claims;
     try {
-      claims = await verifySessionToken(this.env.SESSION_TOKEN_SECRET, token);
+      const secret = this.env.SESSION_TOKEN_SECRET as unknown as string;
+      claims = await verifySessionToken(secret, token);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Token verification failed';
       await this.logger.error('WebSocket auth failed', { error: message });
@@ -196,7 +197,7 @@ export class AgenticSessionDO extends DurableObject<Env> {
 
     // Build full event
     const fullEvent = {
-      ...eventData,
+      ...(eventData as Record<string, unknown>),
       sessionId,
       sequenceNum: this.sequenceCounter,
       timestamp: Math.floor(Date.now() / 1000),
@@ -266,7 +267,9 @@ export class AgenticSessionDO extends DurableObject<Env> {
       return new Response('Invalid JSON', { status: 400 });
     }
 
-    const { granteeId, permissions, expiresIn } = grantData;
+    const granteeId = (grantData as any).granteeId as string;
+    const permissions = (grantData as any).permissions as string[];
+    const expiresIn = (grantData as any).expiresIn as number | undefined;
 
     if (!granteeId || !permissions || !Array.isArray(permissions)) {
       return new Response('Missing granteeId or permissions', { status: 400 });
