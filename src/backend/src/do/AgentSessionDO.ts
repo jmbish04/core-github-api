@@ -1,6 +1,9 @@
 /**
  * @file src/do/AgentSessionDO.ts
  * @description Hibernatable WebSocket DO for multi-agent synchronization
+ * @deprecated Use AgenticSession service instead (see @/services/agentic-session).
+ *   This DO's schema is strictly superseded by the AgenticSession tables.
+ *   Migrate to the new service for real-time agent collaboration and transparency.
  */
 
 import { DurableObject } from "cloudflare:workers";
