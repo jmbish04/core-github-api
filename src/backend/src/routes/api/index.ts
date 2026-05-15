@@ -69,3 +69,4 @@ export { default as sandboxApi } from './sandbox';
 export { default as sandboxProxyApi } from './sandbox/proxy';
 export { default as sentinelApi } from './projects/sentinel/index';
 export { default as sentinelInsightsApi } from './sentinel/index';
+export { default as sessionsApi } from './sessions/index';
