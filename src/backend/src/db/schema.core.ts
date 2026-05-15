@@ -34,3 +34,7 @@ export * from './schemas/projects';
 // webhook_configs and automations.ts are excluded here
 export * from './schemas/workflows';
 export * from './schemas/workshop';
+
+// EPIC-0: AgenticSession service schemas (sessions / session_events / session_subscribers / session_grants)
+// Schemas live in services/agentic-session/schemas/ alongside the service module itself, not under db/schemas/.
+export * from '../services/agentic-session/schemas';

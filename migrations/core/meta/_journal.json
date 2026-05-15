@@ -85,6 +85,13 @@
       "when": 1777122223418,
       "tag": "0011_fresh_betty_ross",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1778849719174,
+      "tag": "0012_exotic_warbird",
+      "breakpoints": true
     }
   ]
 }

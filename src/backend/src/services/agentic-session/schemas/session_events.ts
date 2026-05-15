@@ -6,7 +6,7 @@
 
 import { sqliteTable, text, integer, index } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
-import { sessions } from './sessions';
+import { agenticSessions } from './sessions';
 
 /**
  * Session Events table - Append-only log of all events in a session
@@ -14,16 +14,16 @@ import { sessions } from './sessions';
  *              agent.action, agent.result, hitl.request, hitl.response,
  *              jules.status, jules.event, user.message
  */
-export const sessionEvents = sqliteTable('session_events', {
+export const sessionEvents = sqliteTable('agentic_session_events', {
   id: text('id').primaryKey(), // UUID
-  sessionId: text('session_id').notNull().references(() => sessions.id, { onDelete: 'cascade' }),
+  sessionId: text('session_id').notNull().references(() => agenticSessions.id, { onDelete: 'cascade' }),
   type: text('type').notNull(), // Discriminated union type (e.g., "agent.thought")
   payload: text('payload').notNull(), // JSON string containing event-specific data
   timestamp: integer('timestamp', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
   sequenceNum: integer('sequence_num').notNull(), // Sequential ordering within session
 }, (table) => ({
-  sessionIdx: index('session_events_session_idx').on(table.sessionId),
-  typeIdx: index('session_events_type_idx').on(table.type),
-  timestampIdx: index('session_events_timestamp_idx').on(table.timestamp),
-  sequenceIdx: index('session_events_sequence_idx').on(table.sessionId, table.sequenceNum),
+  sessionIdx: index('agentic_session_events_session_idx').on(table.sessionId),
+  typeIdx: index('agentic_session_events_type_idx').on(table.type),
+  timestampIdx: index('agentic_session_events_timestamp_idx').on(table.timestamp),
+  sequenceIdx: index('agentic_session_events_sequence_idx').on(table.sessionId, table.sequenceNum),
 }));

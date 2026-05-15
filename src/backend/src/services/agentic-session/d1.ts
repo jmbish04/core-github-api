@@ -7,7 +7,7 @@
 import { getDb } from '@db';
 import { eq, and, desc, gte, lte, isNull } from 'drizzle-orm';
 import {
-  sessions,
+  agenticSessions as sessions,
   sessionEvents,
   sessionSubscribers,
   sessionGrants,

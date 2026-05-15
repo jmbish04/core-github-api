@@ -6,13 +6,13 @@
 
 import { sqliteTable, text, integer, index, primaryKey } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
-import { sessions } from './sessions';
+import { agenticSessions } from './sessions';
 
 /**
  * Session Subscribers table - Tracks active WebSocket connections to sessions
  */
-export const sessionSubscribers = sqliteTable('session_subscribers', {
-  sessionId: text('session_id').notNull().references(() => sessions.id, { onDelete: 'cascade' }),
+export const sessionSubscribers = sqliteTable('agentic_session_subscribers', {
+  sessionId: text('session_id').notNull().references(() => agenticSessions.id, { onDelete: 'cascade' }),
   subscriberId: text('subscriber_id').notNull(), // Agent ID, user ID, or client identifier
   subscriberType: text('subscriber_type', { enum: ['agent', 'user', 'system'] }).notNull(),
   connectedAt: integer('connected_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
@@ -20,7 +20,7 @@ export const sessionSubscribers = sqliteTable('session_subscribers', {
   lastHeartbeat: integer('last_heartbeat', { mode: 'timestamp' }),
 }, (table) => ({
   pk: primaryKey({ columns: [table.sessionId, table.subscriberId] }),
-  sessionIdx: index('session_subscribers_session_idx').on(table.sessionId),
-  subscriberIdx: index('session_subscribers_subscriber_idx').on(table.subscriberId),
-  connectedAtIdx: index('session_subscribers_connected_at_idx').on(table.connectedAt),
+  sessionIdx: index('agentic_session_subscribers_session_idx').on(table.sessionId),
+  subscriberIdx: index('agentic_session_subscribers_subscriber_idx').on(table.subscriberId),
+  connectedAtIdx: index('agentic_session_subscribers_connected_at_idx').on(table.connectedAt),
 }));

@@ -112,7 +112,10 @@
 		{ "binding": "ANTHROPIC_API_KEY", "store_id": "8c42fa70938644e0a8a109744467375f", "secret_name": "ANTHROPIC_API_KEY" },
 		{ "binding": "DISCORD_TOKEN", "store_id": "8c42fa70938644e0a8a109744467375f", "secret_name": "DISCORD_TOKEN" },
 		{ "binding": "GOOGLE_CREDS_SA_PRIVATE_KEY_PT_1", "store_id": "8c42fa70938644e0a8a109744467375f", "secret_name": "GOOGLE_CREDS_SA_PRIVATE_KEY_PT_1" },
-		{ "binding": "GOOGLE_CREDS_SA_PRIVATE_KEY_PT_2", "store_id": "8c42fa70938644e0a8a109744467375f", "secret_name": "GOOGLE_CREDS_SA_PRIVATE_KEY_PT_2" }
+		{ "binding": "GOOGLE_CREDS_SA_PRIVATE_KEY_PT_2", "store_id": "8c42fa70938644e0a8a109744467375f", "secret_name": "GOOGLE_CREDS_SA_PRIVATE_KEY_PT_2" },
+		// EPIC-0: HMAC-SHA256 secret used to sign/verify short-lived JWTs for AgenticSession websockets.
+		// USER ACTION REQUIRED: create the secret value in your Cloudflare Secrets Store under name SESSION_TOKEN_SECRET before deploy.
+		{ "binding": "SESSION_TOKEN_SECRET", "store_id": "8c42fa70938644e0a8a109744467375f", "secret_name": "SESSION_TOKEN_SECRET" }
 	],
 	"durable_objects": {
 		"bindings": [
@@ -133,7 +136,9 @@
 			{ "name": "PLANNING_MONITOR", "class_name": "PlanningMonitor" },
 			{ "name": "REVERSE_ENGINEERING_MONITOR", "class_name": "ReverseEngineeringMonitor" },
 			{ "name": "AGENT_SESSION_DO", "class_name": "AgentSessionDO" },
-			{ "name": "ROOM_DO", "class_name": "RoomDO" }
+			{ "name": "ROOM_DO", "class_name": "RoomDO" },
+			// AgenticSession service — reusable pub/sub websocket DO for session-id-scoped real-time transparency. EPIC-0.
+			{ "name": "AGENTIC_SESSION_DO", "class_name": "AgenticSessionDO" }
 		]
 	},
 	"migrations": [
@@ -179,6 +184,13 @@
 			"new_sqlite_classes": [
 				// V8-13: Ephemeral subagent for parallel web queries (facet of ResearchAgent)
 				"WebQueryWorker"
+			]
+		},
+		{
+			"tag": "v3",
+			"new_sqlite_classes": [
+				// EPIC-0: Reusable pub/sub websocket DO for session-id-scoped real-time transparency
+				"AgenticSessionDO"
 			]
 		}
 	],
