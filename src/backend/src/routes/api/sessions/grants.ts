@@ -75,7 +75,7 @@ grantsApi.openapi(issueGrantRoute, async (c) => {
 
   try {
     await client.grant(subject, permissions, expiresIn);
-    return c.json({ success: true });
+    return c.json({ success: true }, 200);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Failed to issue grant';
 
@@ -130,6 +130,16 @@ const revokeGrantRoute = createRoute({
         },
       },
     },
+    500: {
+      description: 'Internal server error',
+      content: {
+        'application/json': {
+          schema: z.object({
+            error: z.string(),
+          }),
+        },
+      },
+    },
   },
 });
 
@@ -160,7 +170,7 @@ grantsApi.openapi(revokeGrantRoute, async (c) => {
       return c.json({ error: errorText }, 500);
     }
 
-    return c.json({ success: true });
+    return c.json({ success: true }, 200);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Failed to revoke grant';
     return c.json({ error: message }, 500);

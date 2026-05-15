@@ -48,7 +48,7 @@ CREATE TABLE `agentic_session_grants` (
 	`granted_by` text,
 	`created_at` integer DEFAULT (unixepoch()) NOT NULL,
 	`expires_at` integer,
-	`revoked` integer DEFAULT 0 NOT NULL,
+	`revoked` integer DEFAULT false NOT NULL,
 	FOREIGN KEY (`session_id`) REFERENCES `agentic_sessions`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint

@@ -20,7 +20,7 @@ export const sessionGrants = sqliteTable('agentic_session_grants', {
   grantedBy: text('granted_by'), // Who issued the grant
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
   expiresAt: integer('expires_at', { mode: 'timestamp' }), // Optional expiration
-  revoked: integer('revoked', { mode: 'boolean' }).notNull().default(0),
+  revoked: integer('revoked', { mode: 'boolean' }).notNull().default(false),
 }, (table) => ({
   sessionIdx: index('agentic_session_grants_session_idx').on(table.sessionId),
   granteeIdx: index('agentic_session_grants_grantee_idx').on(table.granteeId),

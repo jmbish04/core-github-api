@@ -21,7 +21,7 @@ export const SystemStartEvent = z.object({
   payload: z.object({
     sessionName: z.string().optional(),
     initiatedBy: z.string().optional(),
-    context: z.record(z.unknown()).optional(),
+    context: z.record(z.string(), z.unknown()).optional(),
   }),
 }).merge(BaseEventMetadata);
 
@@ -63,7 +63,7 @@ export const AgentActionEvent = z.object({
     agentName: z.string().optional(),
     action: z.string(),
     tool: z.string().optional(),
-    parameters: z.record(z.unknown()).optional(),
+    parameters: z.record(z.string(), z.unknown()).optional(),
   }),
 }).merge(BaseEventMetadata);
 
@@ -116,7 +116,7 @@ export const JulesEventEvent = z.object({
   type: z.literal('jules.event'),
   payload: z.object({
     eventType: z.string(),
-    data: z.record(z.unknown()),
+    data: z.record(z.string(), z.unknown()),
   }),
 }).merge(BaseEventMetadata);
 

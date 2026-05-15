@@ -46,6 +46,16 @@ const route = createRoute({
         },
       },
     },
+    500: {
+      description: 'Internal server error',
+      content: {
+        'application/json': {
+          schema: z.object({
+            error: z.string(),
+          }),
+        },
+      },
+    },
   },
 });
 
@@ -56,7 +66,7 @@ subscribersApi.openapi(route, async (c) => {
 
   try {
     const subscribers = await client.listSubscribers();
-    return c.json({ subscribers });
+    return c.json({ subscribers }, 200);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Failed to list subscribers';
     return c.json({ error: message }, 500);

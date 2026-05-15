@@ -48,6 +48,16 @@ const listEventsRoute = createRoute({
         },
       },
     },
+    500: {
+      description: 'Internal server error',
+      content: {
+        'application/json': {
+          schema: z.object({
+            error: z.string(),
+          }),
+        },
+      },
+    },
   },
 });
 
@@ -61,7 +71,7 @@ eventsApi.openapi(listEventsRoute, async (c) => {
     const events = await client.listEvents(limit, afterSeq || 0);
     const nextSeq = events.length > 0 ? events[events.length - 1].sequenceNum + 1 : undefined;
 
-    return c.json({ events, nextSeq });
+    return c.json({ events, nextSeq }, 200);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Failed to list events';
     return c.json({ error: message }, 500);
@@ -82,7 +92,7 @@ const publishEventRoute = createRoute({
         'application/json': {
           schema: z.object({
             type: z.string(),
-            payload: z.record(z.unknown()),
+            payload: z.record(z.string(), z.unknown()),
           }),
         },
       },

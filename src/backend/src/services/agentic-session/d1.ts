@@ -5,14 +5,14 @@
  */
 
 import { getDb } from '@db';
-import { eq, and, desc, gte, lte, isNull } from 'drizzle-orm';
+import { eq, and, desc, gte, lt, isNull, type SQL } from 'drizzle-orm';
 import {
   agenticSessions as sessions,
   sessionEvents,
   sessionSubscribers,
   sessionGrants,
 } from './schemas';
-import type { SessionEvent, SessionStatus, SubscriberType, GranteeType, Permission } from './types';
+import type { SessionStatus, SubscriberType, GranteeType, Permission } from './types';
 
 // ── Session Operations ───────────────────────────────────────────────────
 
@@ -46,9 +46,9 @@ export async function updateSessionStatus(
   sessionId: string,
   status: SessionStatus
 ): Promise<void> {
-  const updates: Record<string, unknown> = { status };
+  const updates: { status: SessionStatus; completedAt?: Date } = { status };
   if (status === 'completed' || status === 'error') {
-    updates.completedAt = Math.floor(Date.now() / 1000);
+    updates.completedAt = new Date();
   }
 
   await db.update(sessions)
@@ -96,16 +96,25 @@ export async function getEvents(
 ) {
   const { limit = 100, offset = 0, afterSeq } = options;
 
-  let query = db.select()
+  // Build the where clause up-front — Drizzle's query builder does not allow
+  // .where() to be called after .orderBy(), so conditions must be composed
+  // before the terminal chain.
+  const whereClause: SQL =
+    afterSeq !== undefined
+      ? and(
+          eq(sessionEvents.sessionId, sessionId),
+          gte(sessionEvents.sequenceNum, afterSeq)
+        )!
+      : eq(sessionEvents.sessionId, sessionId);
+
+  return db
+    .select()
     .from(sessionEvents)
-    .where(eq(sessionEvents.sessionId, sessionId))
-    .orderBy(sessionEvents.sequenceNum);
-
-  if (afterSeq !== undefined) {
-    query = query.where(gte(sessionEvents.sequenceNum, afterSeq));
-  }
-
-  return query.limit(limit).offset(offset).all();
+    .where(whereClause)
+    .orderBy(sessionEvents.sequenceNum)
+    .limit(limit)
+    .offset(offset)
+    .all();
 }
 
 export async function getLatestSequenceNum(
@@ -136,12 +145,12 @@ export async function addSubscriber(
     sessionId: data.sessionId,
     subscriberId: data.subscriberId,
     subscriberType: data.subscriberType,
-    connectedAt: Math.floor(Date.now() / 1000),
+    connectedAt: new Date(),
   }).onConflictDoUpdate({
     target: [sessionSubscribers.sessionId, sessionSubscribers.subscriberId],
     set: {
       disconnectedAt: null,
-      connectedAt: Math.floor(Date.now() / 1000),
+      connectedAt: new Date(),
     },
   });
 }
@@ -152,7 +161,7 @@ export async function removeSubscriber(
   subscriberId: string
 ): Promise<void> {
   await db.update(sessionSubscribers)
-    .set({ disconnectedAt: Math.floor(Date.now() / 1000) })
+    .set({ disconnectedAt: new Date() })
     .where(
       and(
         eq(sessionSubscribers.sessionId, sessionId),
@@ -167,7 +176,7 @@ export async function updateHeartbeat(
   subscriberId: string
 ): Promise<void> {
   await db.update(sessionSubscribers)
-    .set({ lastHeartbeat: Math.floor(Date.now() / 1000) })
+    .set({ lastHeartbeat: new Date() })
     .where(
       and(
         eq(sessionSubscribers.sessionId, sessionId),
@@ -202,6 +211,7 @@ export async function createGrant(
     granteeType: GranteeType;
     permissions: Permission[];
     grantedBy?: string;
+    /** Optional expiration, in unix seconds. */
     expiresAt?: number;
   }
 ): Promise<void> {
@@ -212,8 +222,8 @@ export async function createGrant(
     granteeType: data.granteeType,
     permissions: JSON.stringify(data.permissions),
     grantedBy: data.grantedBy,
-    expiresAt: data.expiresAt,
-    revoked: 0,
+    expiresAt: data.expiresAt !== undefined ? new Date(data.expiresAt * 1000) : undefined,
+    revoked: false,
   });
 }
 
@@ -222,7 +232,7 @@ export async function revokeGrant(
   grantId: string
 ): Promise<void> {
   await db.update(sessionGrants)
-    .set({ revoked: 1 })
+    .set({ revoked: true })
     .where(eq(sessionGrants.id, grantId));
 }
 
@@ -232,7 +242,7 @@ export async function checkGrant(
   granteeId: string,
   requiredPermission: Permission
 ): Promise<boolean> {
-  const now = Math.floor(Date.now() / 1000);
+  const now = new Date();
 
   const grant = await db.select()
     .from(sessionGrants)
@@ -240,7 +250,7 @@ export async function checkGrant(
       and(
         eq(sessionGrants.sessionId, sessionId),
         eq(sessionGrants.granteeId, granteeId),
-        eq(sessionGrants.revoked, 0)
+        eq(sessionGrants.revoked, false)
       )
     )
     .get();
@@ -253,7 +263,7 @@ export async function checkGrant(
         and(
           eq(sessionGrants.sessionId, sessionId),
           eq(sessionGrants.granteeId, '*'),
-          eq(sessionGrants.revoked, 0)
+          eq(sessionGrants.revoked, false)
         )
       )
       .get();
@@ -261,7 +271,7 @@ export async function checkGrant(
     if (!wildcardGrant) return false;
 
     // Check expiry
-    if (wildcardGrant.expiresAt && wildcardGrant.expiresAt < now) {
+    if (wildcardGrant.expiresAt && wildcardGrant.expiresAt.getTime() < now.getTime()) {
       return false;
     }
 
@@ -270,7 +280,7 @@ export async function checkGrant(
   }
 
   // Check expiry
-  if (grant.expiresAt && grant.expiresAt < now) {
+  if (grant.expiresAt && grant.expiresAt.getTime() < now.getTime()) {
     return false;
   }
 
@@ -287,8 +297,27 @@ export async function listGrants(
     .where(
       and(
         eq(sessionGrants.sessionId, sessionId),
-        eq(sessionGrants.revoked, 0)
+        eq(sessionGrants.revoked, false)
       )
     )
     .all();
+}
+
+// ── Expiry queries (exported for cleanup tasks) ──────────────────────────
+
+/**
+ * Returns grants whose `expiresAt` is in the past (and not yet revoked).
+ * Useful for periodic cleanup.
+ */
+export async function listExpiredGrants(
+  db: ReturnType<typeof getDb>,
+  sessionId?: string
+) {
+  const now = new Date();
+  const expiredCondition = lt(sessionGrants.expiresAt, now);
+  const whereClause: SQL = sessionId
+    ? and(eq(sessionGrants.sessionId, sessionId), expiredCondition)!
+    : expiredCondition;
+
+  return db.select().from(sessionGrants).where(whereClause).all();
 }
