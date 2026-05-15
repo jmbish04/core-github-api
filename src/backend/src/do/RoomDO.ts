@@ -2,6 +2,8 @@
  * @file src/do/RoomDO.ts
  * @description Hibernatable WebSocket Durable Object for real-time collaboration
  * @owner AI-Builder
+ * @deprecated Use AgenticSession service instead (see @/services/agentic-session).
+ *   This DO will be removed in a future release after all consumers migrate.
  */
 
 import { DurableObject } from "cloudflare:workers";
