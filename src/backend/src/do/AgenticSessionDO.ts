@@ -50,7 +50,8 @@ type Attachment = {
  */
 export class AgenticSessionDO extends DurableObject<Env> {
   private logger: Logger;
-  private sequenceCounter: number = 0;
+  private sequenceCounter: number | null = null;
+  private seqInitPromise: Promise<void> | null = null;
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -180,17 +181,20 @@ export class AgenticSessionDO extends DurableObject<Env> {
       return new Response('Invalid JSON', { status: 400 });
     }
 
-    // Ensure session exists
-    let session = await getSession(db, sessionId);
-    if (!session) {
-      await createSession(db, { id: sessionId });
-      session = await getSession(db, sessionId);
-    }
+    // Ensure session exists (INSERT OR IGNORE pattern)
+    await createSession(db, { id: sessionId }).catch(() => {
+      // Ignore unique constraint errors - session already exists
+    });
 
-    // Get next sequence number
-    if (this.sequenceCounter === 0) {
-      const latestSeq = await getLatestSequenceNum(db, sessionId);
-      this.sequenceCounter = latestSeq + 1;
+    // Initialize sequence counter with promise gate to prevent race conditions
+    if (this.sequenceCounter === null) {
+      if (!this.seqInitPromise) {
+        this.seqInitPromise = (async () => {
+          const latestSeq = await getLatestSequenceNum(db, sessionId);
+          this.sequenceCounter = latestSeq + 1;
+        })();
+      }
+      await this.seqInitPromise;
     } else {
       this.sequenceCounter++;
     }
@@ -267,13 +271,22 @@ export class AgenticSessionDO extends DurableObject<Env> {
       return new Response('Invalid JSON', { status: 400 });
     }
 
-    const granteeId = (grantData as any).granteeId as string;
-    const permissions = (grantData as any).permissions as string[];
-    const expiresIn = (grantData as any).expiresIn as number | undefined;
+    // Validate grant data with Zod
+    const grantSchema = z.object({
+      granteeId: z.string(),
+      permissions: z.array(z.enum(['read', 'write', 'admin'])),
+      expiresIn: z.number().optional(),
+    });
 
-    if (!granteeId || !permissions || !Array.isArray(permissions)) {
-      return new Response('Missing granteeId or permissions', { status: 400 });
+    const result = grantSchema.safeParse(grantData);
+    if (!result.success) {
+      return new Response(JSON.stringify({
+        error: 'Invalid grant data',
+        details: result.error.issues
+      }), { status: 400, headers: { 'Content-Type': 'application/json' } });
     }
+
+    const { granteeId, permissions, expiresIn } = result.data;
 
     const granteeType = granteeId === '*' ? 'wildcard'
       : granteeId.startsWith('agent:') ? 'agent'
