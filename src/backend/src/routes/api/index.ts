@@ -38,3 +38,4 @@ export { default as sandboxApi } from './sandbox';
 export { default as researchProjectsApi } from './frontend/research/one-time';
 export { default as sentinelApi } from './projects/sentinel/index';
 export { default as sentinelInsightsApi } from './sentinel/index';
+export { default as sessionsApi } from './sessions/index';
