@@ -39,15 +39,12 @@ import {
   researchProjectsApi,
   sentinelApi,
   sentinelInsightsApi,
-<<<<<<< HEAD
   backlogApi,
   continuousLearningApi,
   hitlApi,
   observabilityApi,
   chatFrontendApi,
-=======
   sessionsApi,
->>>>>>> f6ec53b (feat(agentic-session): add Hono routes and public API surface)
 } from './api';
 
 /**
@@ -92,12 +89,9 @@ export function mountRoutes(app: OpenAPIHono<{ Bindings: Env }>) {
     .route('/api/research', researchProjectsApi)
     .route('/api/projects/sentinel', sentinelApi)
     .route('/api/sentinel', sentinelInsightsApi)
-<<<<<<< HEAD
     .route('/api/backlog', backlogApi)
     .route('/api/continuous-learning', continuousLearningApi)
     .route('/api/hitl', hitlApi)
-    .route('/api/observability', observabilityApi);
-=======
+    .route('/api/observability', observabilityApi)
     .route('/api/sessions', sessionsApi);
->>>>>>> f6ec53b (feat(agentic-session): add Hono routes and public API surface)
 }
