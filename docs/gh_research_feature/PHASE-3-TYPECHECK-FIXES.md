@@ -1,8 +1,13 @@
 # Phase 3 — Typecheck fixes needed in Phase 2 code
 
-After merging Phase 2 (PR #466) and wiring the orchestrator pieces (binding + migration + `wrangler types` regen + schema-name collision fix), `pnpm run check` surfaces a set of latent type errors in the Phase 2 Copilot code. These didn't show up in Copilot's session because the binding wasn't on `Env` yet and the schema-collision rename forced Drizzle to retypify the tables.
+> **STATUS: RESOLVED in commit `30d2df9` on `feat/v8.1-migration`.**
+> `pnpm run check` is clean; `pnpm run db:generate:core` reports
+> "No schema changes, nothing to migrate". This document is retained
+> as a historical record of what shifted between Phase 2 and Phase 3.
 
-All errors below are in code merged to `feat/v8.1-migration` and should be fixed in the next Copilot session (or by hand). Listed in order of estimated fix effort.
+After merging Phase 2 (PR #466) and wiring the orchestrator pieces (binding + migration + `wrangler types` regen + schema-name collision fix), `pnpm run check` surfaced a set of latent type errors in the Phase 2 Copilot code. These didn't show up in Copilot's session because the binding wasn't on `Env` yet and the schema-collision rename forced Drizzle to retypify the tables.
+
+All errors below were fixed directly in commit `30d2df9`. Listed in original order of estimated fix effort.
 
 ## Trivial (1-line each)
 
@@ -61,7 +66,28 @@ pnpm run check  # should be clean
 pnpm run db:generate:core  # should produce "No schema changes" (idempotent)
 ```
 
-## Out of scope for Phase 3
+## Out of scope for the typecheck cleanup (deferred behavioral items)
 
-- `factory.ts:createSession` calls `doStub.fetch('http://internal/create', ...)` which has no handler on the Phase 1 DO — runtime 404, not a typecheck error. Fix separately.
+These are NOT typecheck errors — `pnpm run check` is clean. They are
+real runtime / coverage gaps still owed against the AgenticSession spec
+and tracked separately:
+
+- `factory.ts:createSession` calls `doStub.fetch('http://internal/create', ...)` which has no handler on the Phase 1 DO — runtime 404. Fix in a follow-up.
 - The residual narrow sequence-counter race noted in PR #463.
+- **S0-T15** — refactor `JulesWebhookBroadcaster` to delegate to AgenticSession (publish `jules.*` events into the session).
+- **S0-T16** — refactor `JulesLiveProvider` context to wrap `useAgenticSession` filtered by `type: 'jules.*'`.
+
+## Resolution notes
+
+Migration 0013 was collapsed back into 0012 (changing the `revoked`
+column DEFAULT from `0` to `false` in both the SQL and the snapshot).
+0012 has not been applied to production — the SESSION_TOKEN_SECRET
+hasn't been issued yet and no deploy has happened — so editing the
+unreleased migration in place is safe and produces a cleaner history
+than carrying a no-op table-rebuild as 0013.
+
+`d1.ts` was the largest change: every consumer that fed unix-second
+integers or `0`/`1` booleans was rewritten to feed `Date` and
+`true`/`false` literals, matching the Drizzle `mode: 'timestamp'` and
+`mode: 'boolean'` declarations. A new `listExpiredGrants` helper using
+`lt(expiresAt, new Date())` was added at the same time.
