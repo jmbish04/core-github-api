@@ -44,6 +44,7 @@ import {
   hitlApi,
   observabilityApi,
   chatFrontendApi,
+  sessionsApi,
 } from './api';
 
 /**
@@ -91,5 +92,6 @@ export function mountRoutes(app: OpenAPIHono<{ Bindings: Env }>) {
     .route('/api/backlog', backlogApi)
     .route('/api/continuous-learning', continuousLearningApi)
     .route('/api/hitl', hitlApi)
-    .route('/api/observability', observabilityApi);
+    .route('/api/observability', observabilityApi)
+    .route('/api/sessions', sessionsApi);
 }
