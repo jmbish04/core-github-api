@@ -118,12 +118,11 @@ function base64urlEncode(input: string | ArrayBuffer): string {
     ? new TextEncoder().encode(input)
     : new Uint8Array(input);
 
-  let binary = '';
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
+  // Use btoa with proper binary string conversion
+  // Note: btoa expects a binary string where each character is a byte value
+  const binaryString = Array.from(bytes, byte => String.fromCharCode(byte)).join('');
 
-  return btoa(binary)
+  return btoa(binaryString)
     .replace(/\+/g, '-')
     .replace(/\//g, '_')
     .replace(/=/g, '');
