@@ -163,7 +163,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ apiKey, agentId, r
             <div className="w-80 border-r bg-muted/10 flex flex-col">
                 <div className="p-4 border-b flex items-center justify-between bg-background/50 backdrop-blur">
                     <span className="font-semibold text-sm">Discussions</span>
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleCreateThread}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleCreateThread} aria-label="New discussion" title="New discussion">
                         <Plus className="h-4 w-4" />
                     </Button>
                 </div>

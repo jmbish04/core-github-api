@@ -186,7 +186,7 @@ export function LiveOpsConsole({ operationId }: LiveOpsConsoleProps) {
                             placeholder="Ask Supervisor..."
                             className="h-8 text-xs bg-zinc-950 border-zinc-700"
                         />
-                        <Button type="submit" size="icon" className="h-8 w-8">
+                        <Button type="submit" size="icon" className="h-8 w-8" aria-label="Send message" title="Send message" disabled={!input.trim()}>
                             <Send className="w-3 h-3" />
                         </Button>
                     </form>
