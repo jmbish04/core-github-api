@@ -17,15 +17,15 @@ Depending on your task, load **ONLY** the relevant rule file(s):
 
 | Domain | Target File | Handles |
 |--------|-------------|---------|
-| **AI Integration** | `.agent/rules/ai-rules.md` | `@google/genai` SDK, Structured Output, Provider Fallback & Routing |
-| **Agent / DO State** | `.agent/rules/02-do-abstraction.md` | Official Agents SDK, WebSocket endpoints, SQLite configurations |
-| **Pnpm / Infra** | `.agent/rules/workspace-awareness.md` | Monorepo sync, `pnpm dlx` commands, root installs |
-| **Cloudflare** | `.agent/rules/cloudflare-standards.md` | Sandbox size limits, Bindings patch logic, OpenAPI setups |
-| **Error / Logging** | `.agent/rules/traceability-logging.md` | D1 JSON mirror, 'Glass Box' principle, untruncated logs |
-| **Drizzle ORM** | `.agent/rules/d1-drizzle-governance.md` | `DB_WEBHOOKS` vs `DB`, migration execution, health checks |
-| **Webhooks** | `.agent/rules/github-webhooks.md` | Canonical Webhook URL logic, routing logic guarantees |
-| **UI / Frontend** | `.agent/rules/03-responsive-design.md` | Mobile-first containers, sticky headers, standard icons |
-| **Completion** | `.agent/rules/exit-criteria.md` | Verification bounds before task closure (`bun run dry-run`) |
+| **AI Integration** | `.agent_archive/rules/ai-rules.md` | @google/genai SDK, Structured Output, Provider Fallback & Routing |
+| **Agent / DO State** | `.agent_archive/rules/02-do-abstraction.md` | Official Agents SDK, WebSocket endpoints, SQLite configurations |
+| **Pnpm / Infra** | `.agent_archive/rules/workspace-awareness.md` | Monorepo sync, pnpm dlx commands, root installs |
+| **Cloudflare** | `.agent_archive/rules/cloudflare-standards.md` | Sandbox size limits, Bindings patch logic, OpenAPI setups |
+| **Error / Logging** | `.agent_archive/rules/traceability-logging.md` | D1 JSON mirror, 'Glass Box' principle, untruncated logs |
+| **Drizzle ORM** | `.agent_archive/rules/d1-drizzle-governance.md` | DB_WEBHOOKS vs DB, migration execution, health checks |
+| **Webhooks** | `.agent_archive/rules/github-webhooks.md` | Canonical Webhook URL logic, routing logic guarantees |
+| **UI / Frontend** | `.agent_archive/rules/03-responsive-design.md` | Mobile-first containers, sticky headers, standard icons |
+| **Completion** | `.agent_archive/rules/exit-criteria.md` | Verification bounds before task closure (bun run dry-run) |
 | **Agent Delegation** | `.agent/rules/agent-specialist-delegation.md` | Specialist domain ownership (MCP → CloudflareAgent, Octokit → GithubAgent), CoordinatorAgent router contract |
 
 *(For global commands, tool integration, and foundational context, refer to `000-bootstrap.md` or native user system instructions).*
