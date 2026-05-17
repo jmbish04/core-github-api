@@ -74,8 +74,9 @@ wsApi.openapi(route, async (c) => {
     return c.json({ error: 'No read permission for this session' }, 403);
   }
 
-  // Forward to DO
-  const doId = (c.env.AGENTIC_SESSION_DO as any).idFromString(sessionId);
+  // Forward to DO — derive a stable DO ID from the session UUID via
+  // `idFromName`. `idFromString` would only accept a 64-char hex blob.
+  const doId = (c.env.AGENTIC_SESSION_DO as any).idFromName(sessionId);
   const doStub = (c.env.AGENTIC_SESSION_DO as any).get(doId);
 
   const wsUrl = `http://internal/ws?token=${encodeURIComponent(token)}`;

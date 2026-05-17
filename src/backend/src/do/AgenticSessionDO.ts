@@ -35,6 +35,7 @@ import {
   createGrant,
   checkGrant,
   listGrants,
+  revokeGrantsForSubject,
 } from '@/services/agentic-session/d1';
 import { verifySessionToken } from '@/services/agentic-session/auth';
 import { Logger } from '@/lib/logger';
@@ -79,6 +80,11 @@ export class AgenticSessionDO extends DurableObject<Env> {
     // Grant endpoint
     if (url.pathname === '/grant' && request.method === 'POST') {
       return this.handleGrant(request);
+    }
+
+    // Revoke endpoint
+    if (url.pathname === '/revoke' && request.method === 'DELETE') {
+      return this.handleRevoke(request);
     }
 
     // List events endpoint
@@ -186,24 +192,35 @@ export class AgenticSessionDO extends DurableObject<Env> {
       // Ignore unique constraint errors - session already exists
     });
 
-    // Initialize sequence counter with promise gate to prevent race conditions
+    // Initialize sequence counter with a promise gate. The init stores the
+    // LATEST observed sequence — every caller then post-increments below.
+    // This is the fix for the residual race noted in PR #463: previously the
+    // init stored `latestSeq + 1`, so two concurrent callers awaiting the
+    // same init promise both read the same value and emitted duplicate
+    // sequence numbers. By always post-incrementing on the single-threaded
+    // DO isolate, each caller now reserves a distinct seq atomically
+    // (read-then-write happens before the next `await` yield point).
     if (this.sequenceCounter === null) {
       if (!this.seqInitPromise) {
         this.seqInitPromise = (async () => {
           const latestSeq = await getLatestSequenceNum(db, sessionId);
-          this.sequenceCounter = latestSeq + 1;
+          this.sequenceCounter = latestSeq;
         })();
       }
       await this.seqInitPromise;
-    } else {
-      this.sequenceCounter++;
     }
 
-    // Build full event
+    // Atomic post-increment — no `await` between read and write. Each
+    // concurrent caller gets a unique sequence number.
+    this.sequenceCounter = (this.sequenceCounter ?? -1) + 1;
+    const seqNum = this.sequenceCounter;
+
+    // Build full event — capture seqNum locally so a later `await` cannot
+    // resurface a stale counter value.
     const fullEvent = {
       ...(eventData as Record<string, unknown>),
       sessionId,
-      sequenceNum: this.sequenceCounter,
+      sequenceNum: seqNum,
       timestamp: Math.floor(Date.now() / 1000),
     };
 
@@ -309,6 +326,50 @@ export class AgenticSessionDO extends DurableObject<Env> {
     await this.logger.flush();
 
     return new Response(JSON.stringify({ ok: true }), {
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  // ── Revoke Grant ─────────────────────────────────────────────────────
+
+  private async handleRevoke(request: Request): Promise<Response> {
+    const db = getDb(this.env.DB);
+    const sessionId = this.ctx.id.toString();
+
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return new Response('Invalid JSON', { status: 400 });
+    }
+
+    const schema = z.object({
+      subject: z.string().min(1),
+      permission: z.enum(['read', 'write', 'admin']).optional(),
+    });
+
+    const result = schema.safeParse(body);
+    if (!result.success) {
+      return new Response(JSON.stringify({
+        error: 'Invalid revoke payload',
+        details: result.error.issues
+      }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+    }
+
+    const { subject } = result.data;
+
+    const revokedCount = await revokeGrantsForSubject(db, sessionId, subject);
+
+    if (revokedCount === 0) {
+      return new Response(JSON.stringify({
+        error: `No active grant found for subject ${subject}`,
+      }), { status: 404, headers: { 'Content-Type': 'application/json' } });
+    }
+
+    await this.logger.info('Grant(s) revoked', { sessionId, subject, revokedCount });
+    await this.logger.flush();
+
+    return new Response(JSON.stringify({ ok: true, revokedCount }), {
       headers: { 'Content-Type': 'application/json' },
     });
   }

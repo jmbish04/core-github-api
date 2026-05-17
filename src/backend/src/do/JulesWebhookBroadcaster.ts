@@ -2,6 +2,15 @@
  * @file backend/src/do/JulesWebhookBroadcaster.ts
  * @description Cloudflare Agents SDK — WebSocket fan-out hub for Jules events.
  *
+ * @deprecated Migrate to the **AgenticSession** service (`@/services/agentic-session`).
+ * Every Jules webhook is now also published as a `jules.status` / `jules.event`
+ * SessionEvent into a per-session AgenticSession DO; per-session viewers should
+ * use `useAgenticSession(sessionId, { filter: { types: ['jules.status', 'jules.event'] } })`
+ * on the frontend. This DO is retained for one release cycle to keep the global
+ * `<JulesLiveProvider>` toast feed working without a breaking UX change.
+ *
+ * See [docs/gh_research_feature/PHASE-3-TYPECHECK-FIXES.md] for the migration plan.
+ *
  * `JulesWebhookBroadcaster` is a singleton Agent that:
  *
  * 1. **Accepts WebSocket connections** from the frontend at

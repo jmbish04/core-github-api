@@ -146,7 +146,8 @@ const revokeGrantRoute = createRoute({
 grantsApi.openapi(revokeGrantRoute, async (c) => {
   const { sessionId, subject, permission } = c.req.valid('param');
 
-  const doId = (c.env.AGENTIC_SESSION_DO as any).idFromString(sessionId);
+  // Use `idFromName` (not `idFromString`) — sessionIds are UUIDs, not hex blobs.
+  const doId = (c.env.AGENTIC_SESSION_DO as any).idFromName(sessionId);
   const doStub = (c.env.AGENTIC_SESSION_DO as any).get(doId);
 
   try {

@@ -3,26 +3,49 @@
  * @description React context providing a real-time WebSocket feed of Jules
  * AI coding agent events and progress updates.
  *
+ * @deprecated Use `useAgenticSession(sessionId, { filter: { types: ['jules.status', 'jules.event'] } })`
+ * from `@/hooks/useAgenticSession` for new per-session views. Every Jules
+ * webhook is now also published as a typed `jules.status` / `jules.event`
+ * SessionEvent into the corresponding AgenticSession DO (derived
+ * deterministically from the Jules session id via UUIDv5 on the backend —
+ * see `src/backend/src/routes/api/webhooks/jules.ts:julesIdToAgenticSessionId`).
+ *
+ * The global `<JulesLiveProvider>` wired into `App.tsx` is retained for one
+ * release cycle so the existing toast firehose keeps working without a
+ * breaking UX change. New code should NOT add `useJulesLive()` consumers
+ * — use `useAgenticSession` against a specific Jules session id instead.
+ *
  * `JulesLiveProvider` opens a WebSocket connection to `GET /api/webhooks/jules/ws`
- * (backed by the `JulesWebhookBroadcaster` Durable Object) and broadcasts
- * all received events as:
+ * (backed by the legacy `JulesWebhookBroadcaster` Durable Object) and
+ * broadcasts all received events as:
  *   - Sonner toast notifications (surfaced immediately to the user)
  *   - A capped `events[]` array for dashboard display
  *
- * ## Usage
+ * ## Migration path
  *
- * Wrap your app with `<JulesLiveProvider>` inside `<AlertsProvider>`:
+ * Per-session viewers — read the unified AgenticSession stream:
+ *
+ * ```tsx
+ * import { useAgenticSession } from '@/hooks/useAgenticSession';
+ *
+ * function JulesSessionPanel({ julesSessionId, apiKey }) {
+ *   // Derive the AgenticSession id with the same UUIDv5 mapping the
+ *   // backend uses — see julesIdToAgenticSessionId in the webhook route.
+ *   const agenticSessionId = uuidv5(julesSessionId, JULES_AGENTIC_NAMESPACE);
+ *   const { events, status, publish } = useAgenticSession(agenticSessionId, {
+ *     apiKey,
+ *     filter: { types: ['jules.status', 'jules.event'] },
+ *   });
+ *   // ...render events
+ * }
+ * ```
+ *
+ * Legacy global firehose (still works today, will be removed):
  *
  * ```tsx
  * <JulesLiveProvider>
  *   <YourApp />
  * </JulesLiveProvider>
- * ```
- *
- * Consume from any component:
- *
- * ```tsx
- * const { events, isConnected, clearEvents } = useJulesLive();
  * ```
  *
  * @module Context/JulesLive
@@ -125,6 +148,9 @@ function fireToastForEvent(
  *
  * Manages the WebSocket lifecycle including auto-reconnect with exponential
  * backoff. Unmounts cleanly when the component is removed.
+ *
+ * @deprecated Prefer `useAgenticSession` with a `jules.*` type filter for
+ * new per-session viewers. See the module JSDoc for the migration path.
  *
  * @param children - Child components that consume `useJulesLive()`.
  */
@@ -244,6 +270,9 @@ export function JulesLiveProvider({
  * Hook to consume the Jules live-feed context.
  *
  * Must be used inside `<JulesLiveProvider>`.
+ *
+ * @deprecated Use `useAgenticSession(sessionId, { filter: { types: ['jules.status', 'jules.event'] } })`
+ * for per-session viewers. See the module JSDoc for the migration path.
  *
  * @returns `{ events, isConnected, clearEvents }`
  *

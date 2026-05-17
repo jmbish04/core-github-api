@@ -35,8 +35,23 @@ import { createAlert } from "@alerts";
 import type { JulesEventType, JulesLiveMessage } from "@/services/jules/types";
 import { getAgentByName } from "agents";
 import { getSecret } from "@/utils/secrets";
+import { getSession as getAgenticSession } from "@/services/agentic-session";
+import { v5 as uuidv5 } from "uuid";
 
 const app = new Hono<{ Bindings: Env }>();
+
+/**
+ * Stable UUID namespace used to derive AgenticSession IDs from external
+ * Jules session IDs. The DNS namespace is a well-known constant from RFC
+ * 4122 — using it here means a given Jules session ID always maps to the
+ * same AgenticSession UUID, so re-runs / replays land on the same DO and
+ * the same event stream.
+ */
+const JULES_AGENTIC_NAMESPACE = "6ba7b810-9dad-11d1-80b4-00c04fd430c8";
+
+function julesIdToAgenticSessionId(julesSessionId: string): string {
+  return uuidv5(julesSessionId, JULES_AGENTIC_NAMESPACE);
+}
 
 // ─── Zod Schemas ──────────────────────────────────────────────────────────────
 
@@ -84,18 +99,67 @@ const statusPayloadSchema = z.object({
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /**
- * Broadcasts a `JulesLiveMessage` to all connected WebSocket clients via the
- * `JulesWebhookBroadcaster` Durable Object singleton.
+ * Broadcasts a `JulesLiveMessage` to:
+ *   1. The legacy `JulesWebhookBroadcaster` DO singleton (back-compat for
+ *      the global `<JulesLiveProvider>` feed on the frontend).
+ *   2. The corresponding per-session `AgenticSession` DO — every Jules
+ *      webhook becomes a `jules.status` or `jules.event` SessionEvent so
+ *      future per-session viewers (`useAgenticSession` filtered by
+ *      `type: 'jules.*'`) get the same payloads without going through the
+ *      legacy global firehose.
+ *
+ * The AgenticSession ID is derived deterministically from the Jules
+ * session ID via UUIDv5 — no extra D1 column needed for the mapping.
+ *
+ * Both publish paths are best-effort and failures are isolated so one
+ * broken sink cannot block the other.
  *
  * @param env - Cloudflare Worker environment (for DO binding access).
  * @param message - The structured message to broadcast.
  */
 async function broadcast(env: Env, message: JulesLiveMessage): Promise<void> {
+  // 1. Legacy broadcaster — preserved for back-compat with the global
+  //    JulesLiveProvider until per-session viewers fully replace it.
   try {
     const agent = await getAgentByName(env.JULES_WEBHOOK_BROADCASTER as any, "jules-broadcaster");
     await (agent as any).broadcastEvent(message);
   } catch (err) {
-    console.error("[JulesWebhook] Failed to broadcast to Agent:", err);
+    console.error("[JulesWebhook] Failed to broadcast to legacy Agent:", err);
+  }
+
+  // 2. AgenticSession dual-publish — derives a stable session UUID from
+  //    the Jules session id and publishes a typed SessionEvent.
+  try {
+    const agenticSessionId = julesIdToAgenticSessionId(message.sessionId);
+    const session = getAgenticSession(env, agenticSessionId, undefined, `jules:${message.sessionId}`);
+
+    if (message.eventType === "progress") {
+      await session.publish({
+        type: "jules.status",
+        payload: {
+          status: "acting",
+          message: message.message,
+          ...(message.progressPct !== undefined ? { progress: message.progressPct } : {}),
+        },
+      });
+    } else {
+      await session.publish({
+        type: "jules.event",
+        payload: {
+          eventType: message.eventType,
+          data: {
+            sessionId: message.sessionId,
+            title: message.title,
+            message: message.message,
+            originalTask: message.originalTask,
+            stepName: message.stepName,
+            ts: message.ts,
+          },
+        },
+      });
+    }
+  } catch (err) {
+    console.error("[JulesWebhook] Failed to publish to AgenticSession:", err);
   }
 }
 

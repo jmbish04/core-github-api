@@ -1,9 +1,16 @@
 /**
  * @file services/agentic-session/factory.ts
  * @description Factory functions for creating and retrieving SessionClient instances.
+ *
+ * Sessions are addressed by UUID. The DO instance is resolved via
+ * `idFromName(sessionId)` — `idFromString` would only accept a 64-char hex
+ * blob, not a UUID. The DO lazily creates the D1 row on first publish via
+ * `INSERT OR IGNORE` semantics, so there is no explicit `/create` round-trip:
+ * `createSession` issues a no-op `system.start` event which doubles as the
+ * row-creation handshake.
  */
 
-import { SessionClient, SessionClientOptions } from './client';
+import { SessionClient } from './client';
 import { v4 as uuidv4 } from 'uuid';
 
 /**
@@ -30,6 +37,13 @@ export function getSession(
 
 /**
  * Create a new session and return a SessionClient instance.
+ *
+ * The DO is contacted via an initial `system.start` publish, which triggers
+ * the lazy `INSERT OR IGNORE` createSession in the DO's `handlePublish`
+ * branch. The owner is auto-granted `admin` permission so the rest of the
+ * client surface (subsequent publishes, grants, WebSocket subscribe) can
+ * run without an unauthorized response.
+ *
  * @param env - Worker environment bindings
  * @param init - Session initialization data
  * @returns SessionClient instance for the new session
@@ -47,27 +61,6 @@ export async function createSession(
   const sessionId = uuidv4();
   const ownerId = init.ownerUserId || init.ownerAgentId || 'system';
 
-  // Create the session in the DO
-  const doId = (env.AGENTIC_SESSION_DO as any).idFromString(sessionId);
-  const doStub = (env.AGENTIC_SESSION_DO as any).get(doId);
-
-  const response = await doStub.fetch('http://internal/create', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      sessionId,
-      kind: init.kind,
-      title: init.title,
-      ownerUserId: init.ownerUserId,
-      metadata: init.metadata,
-    }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Failed to create session: ${response.status} ${errorText}`);
-  }
-
   // Create client instance
   const client = new SessionClient({
     sessionId,
@@ -76,8 +69,24 @@ export async function createSession(
     agentId: init.ownerAgentId,
   });
 
-  // Auto-grant admin to owner
+  // Auto-grant admin to owner BEFORE publishing the first event so the
+  // grant exists by the time the WebSocket layer is subscribed to.
   await client.grant(ownerId, ['admin']);
+
+  // Initial system.start event — doubles as the lazy createSession handshake
+  // for the DO (it issues INSERT OR IGNORE on the agentic_sessions row
+  // before persisting the event).
+  await client.publish({
+    type: 'system.start',
+    payload: {
+      sessionName: init.title,
+      initiatedBy: ownerId,
+      context: {
+        kind: init.kind,
+        ...(init.metadata ?? {}),
+      },
+    },
+  });
 
   return client;
 }

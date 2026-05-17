@@ -8,9 +8,19 @@ import { z } from 'zod';
 
 // ── Base Event Metadata ──────────────────────────────────────────────────
 
+/**
+ * Base metadata stamped onto every event by the DO at publish time.
+ *
+ * `sessionId` is NOT validated as a UUID here because the DO uses
+ * `this.ctx.id.toString()` — the 64-char hex representation of the DO ID
+ * derived via `idFromName(uuid)` — as the canonical session id on the
+ * persisted event row. The UUID-form sessionId is only used at the
+ * API/client surface (URL params, JWT claims) where the route layer's
+ * own zod schemas enforce `.uuid()`.
+ */
 const BaseEventMetadata = z.object({
   timestamp: z.number().int().positive(),
-  sessionId: z.string().uuid(),
+  sessionId: z.string().min(1),
   sequenceNum: z.number().int().nonnegative(),
 });
 

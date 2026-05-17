@@ -236,6 +236,43 @@ export async function revokeGrant(
     .where(eq(sessionGrants.id, grantId));
 }
 
+/**
+ * Revoke every (non-revoked) grant for a `(sessionId, granteeId)` pair.
+ * Returns the number of rows that were flipped from `revoked=false` to
+ * `revoked=true` so callers can distinguish "found and revoked" from
+ * "no matching grant" for 404 semantics.
+ */
+export async function revokeGrantsForSubject(
+  db: ReturnType<typeof getDb>,
+  sessionId: string,
+  granteeId: string
+): Promise<number> {
+  const matched = await db.select({ id: sessionGrants.id })
+    .from(sessionGrants)
+    .where(
+      and(
+        eq(sessionGrants.sessionId, sessionId),
+        eq(sessionGrants.granteeId, granteeId),
+        eq(sessionGrants.revoked, false)
+      )
+    )
+    .all();
+
+  if (matched.length === 0) return 0;
+
+  await db.update(sessionGrants)
+    .set({ revoked: true })
+    .where(
+      and(
+        eq(sessionGrants.sessionId, sessionId),
+        eq(sessionGrants.granteeId, granteeId),
+        eq(sessionGrants.revoked, false)
+      )
+    );
+
+  return matched.length;
+}
+
 export async function checkGrant(
   db: ReturnType<typeof getDb>,
   sessionId: string,

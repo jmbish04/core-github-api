@@ -35,7 +35,9 @@ export class SessionClient {
    * @param event - SessionEvent to publish
    */
   async publish(event: Omit<SessionEvent, 'sessionId' | 'sequenceNum' | 'timestamp'>): Promise<void> {
-    const doId = (this.env.AGENTIC_SESSION_DO as any).idFromString(this.sessionId);
+    // `idFromName` derives a stable DO ID from the UUID string. `idFromString`
+    // would only accept a 64-char hex blob and would throw on a UUID.
+    const doId = (this.env.AGENTIC_SESSION_DO as any).idFromName(this.sessionId);
     const doStub = (this.env.AGENTIC_SESSION_DO as any).get(doId);
 
     const response = await doStub.fetch('http://internal/publish', {
@@ -63,7 +65,9 @@ export class SessionClient {
     permissions: Permission[],
     expiresIn?: number
   ): Promise<void> {
-    const doId = (this.env.AGENTIC_SESSION_DO as any).idFromString(this.sessionId);
+    // `idFromName` derives a stable DO ID from the UUID string. `idFromString`
+    // would only accept a 64-char hex blob and would throw on a UUID.
+    const doId = (this.env.AGENTIC_SESSION_DO as any).idFromName(this.sessionId);
     const doStub = (this.env.AGENTIC_SESSION_DO as any).get(doId);
 
     const response = await doStub.fetch('http://internal/grant', {
@@ -100,7 +104,9 @@ export class SessionClient {
     );
 
     // Connect to DO WebSocket
-    const doId = (this.env.AGENTIC_SESSION_DO as any).idFromString(this.sessionId);
+    // `idFromName` derives a stable DO ID from the UUID string. `idFromString`
+    // would only accept a 64-char hex blob and would throw on a UUID.
+    const doId = (this.env.AGENTIC_SESSION_DO as any).idFromName(this.sessionId);
     const doStub = (this.env.AGENTIC_SESSION_DO as any).get(doId);
 
     const wsUrl = `http://internal/ws?token=${encodeURIComponent(token)}`;
@@ -131,7 +137,9 @@ export class SessionClient {
    * @returns Array of SessionEvents
    */
   async listEvents(limit: number = 100, offset: number = 0): Promise<SessionEvent[]> {
-    const doId = (this.env.AGENTIC_SESSION_DO as any).idFromString(this.sessionId);
+    // `idFromName` derives a stable DO ID from the UUID string. `idFromString`
+    // would only accept a 64-char hex blob and would throw on a UUID.
+    const doId = (this.env.AGENTIC_SESSION_DO as any).idFromName(this.sessionId);
     const doStub = (this.env.AGENTIC_SESSION_DO as any).get(doId);
 
     const url = `http://internal/events?limit=${limit}&offset=${offset}`;
@@ -150,7 +158,9 @@ export class SessionClient {
    * @returns Array of subscriber metadata
    */
   async listSubscribers(): Promise<Array<{ subscriberId: string; subscriberType: string; connectedAt: number }>> {
-    const doId = (this.env.AGENTIC_SESSION_DO as any).idFromString(this.sessionId);
+    // `idFromName` derives a stable DO ID from the UUID string. `idFromString`
+    // would only accept a 64-char hex blob and would throw on a UUID.
+    const doId = (this.env.AGENTIC_SESSION_DO as any).idFromName(this.sessionId);
     const doStub = (this.env.AGENTIC_SESSION_DO as any).get(doId);
 
     const response = await doStub.fetch('http://internal/subscribers');

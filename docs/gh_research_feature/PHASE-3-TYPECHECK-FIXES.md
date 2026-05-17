@@ -4,6 +4,15 @@
 > `pnpm run check` is clean; `pnpm run db:generate:core` reports
 > "No schema changes, nothing to migrate". This document is retained
 > as a historical record of what shifted between Phase 2 and Phase 3.
+>
+> **Phase 3 deferred behavioral items also resolved on `feat/v8.1-migration`:**
+> - `idFromString` → `idFromName` across factory/client/ws/grants (sessionIds are UUIDs)
+> - `/create` factory endpoint replaced with a `system.start` publish (the DO lazily creates the row)
+> - `/revoke` handler added to AgenticSessionDO + `revokeGrantsForSubject` helper in d1.ts
+> - Sequence-counter race fixed: init now stores the latest seq (not +1), all callers post-increment atomically
+> - `BaseEventMetadata.sessionId` relaxed from `.uuid()` to `.min(1)` (the DO stamps a 64-char hex from `this.ctx.id.toString()`, not a UUID)
+> - **S0-T15**: Jules webhook routes now dual-publish to both the legacy broadcaster AND a per-session AgenticSession (UUIDv5 of Jules id under a fixed namespace). `JulesWebhookBroadcaster` is `@deprecated`.
+> - **S0-T16**: `JulesLiveProvider` + `useJulesLive` are `@deprecated`; module JSDoc + migration example point at `useAgenticSession` with a `type: 'jules.*'` filter.
 
 After merging Phase 2 (PR #466) and wiring the orchestrator pieces (binding + migration + `wrangler types` regen + schema-name collision fix), `pnpm run check` surfaced a set of latent type errors in the Phase 2 Copilot code. These didn't show up in Copilot's session because the binding wasn't on `Env` yet and the schema-collision rename forced Drizzle to retypify the tables.
 
