@@ -12,10 +12,42 @@ def process_file(filepath):
 
     orig_content = content
     
-    # Remove any import of SandboxDeps
-    content = re.sub(r'import\s+.*?SandboxDeps.*?\n', '', content)
-    # Remove any export of SandboxDeps
-    content = re.sub(r'export\s+type\s*\{\s*SandboxDeps\s*\}.*?\n', '', content)
+    def _strip_named_list(match):
+        names = match.group("names")
+        if "SandboxDeps" not in names:
+            return match.group(0)
+
+        filtered = []
+        for raw_name in names.split(","):
+            name = raw_name.strip()
+            if not name:
+                continue
+            base_name = re.sub(r"\s+as\s+.*$", "", name).strip()
+            if base_name != "SandboxDeps":
+                filtered.append(name)
+
+        if not filtered:
+            prefix = match.group("prefix")
+            if prefix.lstrip().startswith("import") and "," in prefix:
+                return f"{re.sub(r',\\s*$', '', prefix)}{match.group('suffix')}"
+            return ""
+
+        return f"{match.group('prefix')}{{ {', '.join(filtered)} }}{match.group('suffix')}"
+
+    import_named = re.compile(
+        r"(?P<prefix>\bimport(?:\s+type)?\s*(?:[^{};\n]*?,\s*)?)"
+        r"\{(?P<names>[^}]*)\}"
+        r"(?P<suffix>\s*from\s*[\"'][^\"']+[\"']\s*;?)",
+        re.MULTILINE | re.DOTALL,
+    )
+    export_named_type = re.compile(
+        r"(?P<prefix>\bexport\s+type\s*)"
+        r"\{(?P<names>[^}]*)\}"
+        r"(?P<suffix>\s*;?)",
+        re.MULTILINE | re.DOTALL,
+    )
+    content = import_named.sub(_strip_named_list, content)
+    content = export_named_type.sub(_strip_named_list, content)
     # If the file is only an export of SandboxDeps, it might be empty now, but that's fine.
 
     if content != orig_content:
@@ -31,4 +63,3 @@ for target in targets:
             for file in files:
                 if file.endswith('.ts'):
                     process_file(os.path.join(root, file))
-

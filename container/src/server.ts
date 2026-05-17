@@ -379,13 +379,29 @@ async function proxyToWorker(subPath: string, body: unknown): Promise<{ status: 
   if (!WORKER_URL || !WORKER_API_KEY) {
     return { status: 503, data: { error: "Worker proxy not configured (missing COLBY_WORKER_URL or COLBY_WORKER_API_KEY)" } };
   }
-  const res = await fetch(`${WORKER_URL}/api/sandbox/proxy/${subPath}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Worker-Api-Key": WORKER_API_KEY },
-    body: JSON.stringify(body),
-  });
-  const data = await res.json();
-  return { status: res.status, data };
+  try {
+    const res = await fetch(`${WORKER_URL}/api/sandbox/proxy/${subPath}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Worker-Api-Key": WORKER_API_KEY },
+      body: JSON.stringify(body),
+    });
+
+    const contentType = res.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) {
+      try {
+        const data = await res.json();
+        return { status: res.status, data };
+      } catch {
+        return { status: res.status, data: { error: "Invalid JSON response from worker proxy" } };
+      }
+    }
+
+    const text = await res.text();
+    return { status: res.status, data: { error: text || "Worker proxy returned a non-JSON response" } };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return { status: 502, data: { error: `Worker proxy request failed: ${message}` } };
+  }
 }
 
 app.post("/api/proxy/d1", async (c) => {
