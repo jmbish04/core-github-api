@@ -22,14 +22,15 @@ def process_file(filepath):
             name = raw_name.strip()
             if not name:
                 continue
-            base_name = re.sub(r"\s+as\s+.*$", "", name).strip()
+            base_name = re.sub(r"\s+as\s+\w+$", "", name).strip()
             if base_name != "SandboxDeps":
                 filtered.append(name)
 
         if not filtered:
             prefix = match.group("prefix")
-            if prefix.lstrip().startswith("import") and "," in prefix:
-                return f"{re.sub(r',\\s*$', '', prefix)}{match.group('suffix')}"
+            has_mixed_import_prefix = prefix.lstrip().startswith("import") and "," in prefix
+            if has_mixed_import_prefix:
+                return f"{re.sub(r',\s*$', '', prefix)}{match.group('suffix')}"
             return ""
 
         return f"{match.group('prefix')}{{ {', '.join(filtered)} }}{match.group('suffix')}"

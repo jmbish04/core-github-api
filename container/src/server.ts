@@ -391,13 +391,17 @@ async function proxyToWorker(subPath: string, body: unknown): Promise<{ status: 
       try {
         const data = await res.json();
         return { status: res.status, data };
-      } catch {
-        return { status: res.status, data: { error: "Invalid JSON response from worker proxy" } };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return { status: res.status, data: { error: `Invalid JSON response from worker proxy: ${message}` } };
       }
     }
 
     const text = await res.text();
-    return { status: res.status, data: { error: text || "Worker proxy returned a non-JSON response" } };
+    return {
+      status: res.status,
+      data: { error: text || `Unexpected non-JSON response from worker proxy (status ${res.status})` },
+    };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return { status: 502, data: { error: `Worker proxy request failed: ${message}` } };
