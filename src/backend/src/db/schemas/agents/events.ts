@@ -75,3 +75,5 @@ export const agentActivities = sqliteTable(
         statusCheck: check("status_check", sql`${table.status} IN ('pending','active','completed','failed')`)
     })
 );
+
+// env.DB_WEBHOOKS env.DB

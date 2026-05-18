@@ -25,3 +25,4 @@ export const containerLogs = sqliteTable('container_logs', {
     output: text('output'),
     createdAt: text('created_at')
 });
+// env.DB_WEBHOOKS env.DB

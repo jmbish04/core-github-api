@@ -33,3 +33,5 @@ export const repoDrafts = sqliteTable("repo_drafts", {
     createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`),
     updatedAt: text("updated_at").default(sql`CURRENT_TIMESTAMP`),
 });
+
+// env.DB_WEBHOOKS env.DB

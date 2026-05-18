@@ -10,3 +10,5 @@ export const learningTagMapping = sqliteTable('learning_tag_mapping', {
 
 export type LearningTagMappingRecord = typeof learningTagMapping.$inferSelect;
 export type InsertLearningTagMapping = typeof learningTagMapping.$inferInsert;
+
+// env.DB_WEBHOOKS env.DB

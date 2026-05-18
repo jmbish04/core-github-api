@@ -11,3 +11,5 @@ export const learningTags = sqliteTable('learning_tags', {
 
 export type LearningTag = typeof learningTags.$inferSelect;
 export type InsertLearningTag = typeof learningTags.$inferInsert;
+
+// env.DB_WEBHOOKS env.DB

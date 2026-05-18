@@ -24,3 +24,5 @@ export const auditLogs = sqliteTable('audit_logs', {
 
 export type SelectAuditLog = typeof auditLogs.$inferSelect;
 export type InsertAuditLog = typeof auditLogs.$inferInsert;
+
+// env.DB_WEBHOOKS env.DB

@@ -55,3 +55,4 @@ export const CreateSecretSchema = createInsertSchema(secretsConfig, {
 
 export type InsertSecretConfig = typeof secretsConfig.$inferInsert;
 export type SelectSecretConfig = typeof secretsConfig.$inferSelect;
+// env.DB_WEBHOOKS env.DB

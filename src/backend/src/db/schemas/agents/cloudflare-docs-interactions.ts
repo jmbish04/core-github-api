@@ -44,3 +44,5 @@ export const cloudflareDoscInteractions = sqliteTable("cloudflare_docs_interacti
   /** ISO8601 timestamp */
   createdAt: text("created_at").notNull(),
 });
+
+// env.DB_WEBHOOKS env.DB

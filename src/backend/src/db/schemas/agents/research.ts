@@ -132,3 +132,4 @@ export const researchFiles = sqliteTable('research_files', {
 
 export type SelectResearchFile = typeof researchFiles.$inferSelect;
 export type InsertResearchFile = typeof researchFiles.$inferInsert;
+// env.DB_WEBHOOKS env.DB

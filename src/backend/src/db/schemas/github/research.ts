@@ -140,3 +140,5 @@ export const discordScanWatermarks = sqliteTable('discord_scan_watermarks', {
   lastMessageTimestamp: text('last_message_timestamp'),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).default(sql`(strftime('%s', 'now'))`),
 });
+
+// env.DB_WEBHOOKS env.DB

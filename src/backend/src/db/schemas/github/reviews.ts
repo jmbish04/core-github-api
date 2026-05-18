@@ -168,3 +168,5 @@ export const codeReviewCommentEnrichments = sqliteTable(
         sourceIdx: index("idx_enrichments_source").on(table.source)
     })
 );
+
+// env.DB_WEBHOOKS env.DB

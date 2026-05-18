@@ -11,22 +11,32 @@
 - alerts
 - analysis_artifacts
 - applications
+- audit_logs
 - automation_logs
 - automation_rules
 - automation_runner_policies
+- automation_runs
 - budget_events
 - chat_messages
+- chat_tags
 - chat_threads
 - cloudflare_changelog
+- cloudflare_docs_interactions
+- code_review_comment_enrichments
+- code_review_comments
+- code_review_runs
 - config_audit_logs
+- container_logs
 - corkboard_labels
 - daily_research_docs
 - daily_trends
 - discord_messages
 - discord_research_configs
 - discord_scan_log
+- discord_scan_watermarks
 - docs_agents
 - epics
+- events
 - golden_path_config
 - golden_path_config_scopes
 - golden_path_config_tag_definitions
@@ -38,14 +48,19 @@
 - jules_sessions
 - jules_webhook_events
 - learning_ai_insight_messages
+- learning_ai_insight_pr_mapping
 - learning_ai_insight_prs
 - learning_ai_insights
 - learning_ai_pr_reflections
 - learning_enrichment
 - learning_messages
 - learning_sessions
+- learning_tag_mapping
+- learning_tags
 - learning_threads
 - newsletter_repos
+- operation_logs
+- organization_settings
 - plan_responses
 - planning_request_artifacts
 - planning_request_events
@@ -59,17 +74,23 @@
 - project_favorites
 - prompt_revisions
 - pull_requests
+- repo_ai_context
 - repo_analysis
+- repo_drafts
+- repo_infra
 - repo_metrics
 - repo_scores
 - repo_stats
 - repo_sync_configs
+- repo_tags
+- repo_tech_stack
 - repositories
 - repository_secret_defaults
 - request_logs
 - research_briefs
 - research_candidates
 - research_execution_logs
+- research_files
 - research_findings
 - research_judge_logs
 - research_judgments
@@ -83,6 +104,7 @@
 - reverse_eng_snapshots
 - reverse_eng_ux
 - searches
+- secrets_config
 - sessions
 - standardization_items
 - standardization_rules
@@ -116,46 +138,61 @@
 - workshop_ux_task_logs
 
 ### env.DB_WEBHOOKS
+- agent_activities
 - analysis_artifacts
+- audit_logs
 - automation_logs
 - automation_rules
-- daily_trends
-- pr_overviews
-- repo_analysis
-- repo_scores
-- repositories
-- research_judge_logs
-- research_sessions
-- searches
-- tags
-- trending_repos
-- webhook_configs
-- webhook_deliveries
-
-### Unmapped / Orphaned Schema Tables
-*(Suspicious AI Slop: Defined in code but no CRUD operations with a known D1 env var detected)*
-- audit_logs
 - automation_runs
+- chat_messages
 - chat_tags
+- chat_threads
 - cloudflare_docs_interactions
 - code_review_comment_enrichments
 - code_review_comments
 - code_review_runs
 - container_logs
+- daily_trends
+- discord_research_configs
 - discord_scan_watermarks
 - events
 - learning_ai_insight_pr_mapping
+- learning_ai_insight_prs
+- learning_ai_insights
+- learning_messages
 - learning_tag_mapping
 - learning_tags
 - operation_logs
 - organization_settings
+- pr_overviews
 - repo_ai_context
+- repo_analysis
 - repo_drafts
 - repo_infra
+- repo_metrics
+- repo_scores
+- repo_stats
 - repo_tags
 - repo_tech_stack
+- repositories
+- research_briefs
+- research_candidates
+- research_execution_logs
 - research_files
+- research_judge_logs
+- research_plans
+- research_projects
+- research_recommendations
+- research_reports
+- research_sessions
+- searches
 - secrets_config
+- sessions
+- tags
+- trending_repos
+- user_settings
+- webhook_configs
+- webhook_deliveries
 
 ---
 
@@ -1268,29 +1305,39 @@
 | Table Name | Short File Paths |
 |---|---|
 | **action_logs** | `src/backend/src/routes/api/actions.ts`, `src/backend/src/routes/api/webhooks/action-callback.ts` |
-| **agent_activities** | `src/backend/src/routes/api/frontend/planner/timeline.ts` |
+| **agent_activities** | `src/backend/src/db/schemas/agents/events.ts`, `src/backend/src/routes/api/frontend/planner/timeline.ts` |
 | **agent_sessions** | `src/backend/src/do/AgentSessionDO.ts` |
 | **agent_skills** | `src/backend/src/routes/api/skills.ts` |
 | **ai_cost_logs** | `src/backend/src/ai/utils/budget-tracker.ts` |
 | **alerts** | `src/backend/src/ai/agents/JulesOverseer.ts`, `src/backend/src/alerts/index.ts`, `src/backend/src/automations/security/leak-plumber/workflow.ts`, `src/backend/src/routes/api/frontend/alerts.ts`, `src/backend/src/routes/api/webhooks/jules.ts` |
-| **analysis_artifacts** | `src/backend/src/workflows/research/orchestrator.ts` |
+| **analysis_artifacts** | `src/backend/src/db/schemas/agents/research.ts`, `src/backend/src/workflows/research/orchestrator.ts` |
 | **applications** | `src/backend/src/ai/agents/workshop/WorkshopAgent.ts`, `src/backend/src/routes/api/docs/agents.ts`, `src/backend/src/routes/api/frontend/repos/appstore.ts`, `src/backend/src/routes/api/services/cloudflare.ts` |
+| **audit_logs** | `src/backend/src/db/schemas/logs/audit.ts` |
 | **automation_logs** | `src/backend/src/automations/core/BaseAutomation.ts`, `src/backend/src/db/schemas/logs/automation.ts`, `src/backend/src/routes/api/ops/workflows.ts` |
 | **automation_rules** | `src/backend/src/routes/api/ops/workflows.ts` |
 | **automation_runner_policies** | `src/backend/src/automations/push/runner-policies.ts` |
+| **automation_runs** | `src/backend/src/db/schemas/agents/events.ts` |
 | **budget_events** | `src/backend/src/ai/utils/budget-tracker.ts` |
-| **chat_messages** | `src/backend/src/routes/api/frontend/ai/chat.ts` |
-| **chat_threads** | `src/backend/src/routes/api/frontend/ai/chat.ts` |
+| **chat_messages** | `src/backend/src/db/schemas/agents/chat.ts`, `src/backend/src/routes/api/frontend/ai/chat.ts` |
+| **chat_tags** | `src/backend/src/db/schemas/agents/chat.ts` |
+| **chat_threads** | `src/backend/src/db/schemas/agents/chat.ts`, `src/backend/src/routes/api/frontend/ai/chat.ts` |
 | **cloudflare_changelog** | `src/backend/src/utils/email/send/repo-discovery.ts`, `src/backend/src/workflows/research/cloudflare-changelog.ts` |
+| **cloudflare_docs_interactions** | `src/backend/src/db/schemas/agents/cloudflare-docs-interactions.ts` |
+| **code_review_comment_enrichments** | `src/backend/src/db/schemas/github/reviews.ts` |
+| **code_review_comments** | `src/backend/src/db/schemas/github/reviews.ts` |
+| **code_review_runs** | `src/backend/src/db/schemas/github/reviews.ts` |
 | **config_audit_logs** | `src/backend/src/routes/api/frontend/settings.ts` |
+| **container_logs** | `src/backend/src/db/schemas/containers/index.ts` |
 | **corkboard_labels** | `src/backend/src/routes/api/frontend/planner/todos.ts` |
 | **daily_research_docs** | `src/backend/src/routes/api/frontend/research/daily/ingest.ts` |
 | **daily_trends** | `src/backend/src/routes/api/frontend/research/daily/trends.ts`, `src/backend/src/workflows/research/topic.ts` |
 | **discord_messages** | `src/backend/src/workflows/discord.ts` |
-| **discord_research_configs** | `src/backend/src/routes/api/services/discord.ts` |
+| **discord_research_configs** | `src/backend/src/db/schemas/github/research.ts`, `src/backend/src/routes/api/services/discord.ts` |
 | **discord_scan_log** | `src/backend/src/workflows/discord.ts` |
+| **discord_scan_watermarks** | `src/backend/src/db/schemas/github/research.ts` |
 | **docs_agents** | `src/backend/src/routes/api/docs/agents.ts` |
 | **epics** | `src/backend/src/routes/api/frontend/repos/hierarchy.ts`, `src/backend/src/routes/api/frontend/repos/planner.ts`, `src/backend/src/routes/api/projects/sentinel/available.ts`, `src/backend/src/routes/api/projects/sentinel/mcp.ts`, `src/backend/src/routes/api/projects/sentinel/task.ts`, `src/backend/src/services/planning/honi-babysitter.ts`, `src/backend/src/services/reverse-engineering/store.ts` |
+| **events** | `src/backend/src/db/schemas/agents/events.ts` |
 | **golden_path_config** | `src/backend/src/routes/api/ws/action-worker.ts`, `src/backend/src/services/golden-path-config.ts` |
 | **golden_path_config_scopes** | `src/backend/src/services/golden-path-config.ts` |
 | **golden_path_config_tag_definitions** | `src/backend/src/services/golden-path-config.ts` |
@@ -1302,14 +1349,19 @@
 | **jules_sessions** | `src/backend/src/ai/agents/JulesOverseer.ts`, `src/backend/src/routes/api/jules/index.ts`, `src/backend/src/routes/api/webhooks/jules.ts`, `src/backend/src/services/jules/service.ts` |
 | **jules_webhook_events** | `src/backend/src/routes/api/jules/index.ts`, `src/backend/src/routes/api/webhooks/jules.ts` |
 | **learning_ai_insight_messages** | `src/backend/src/routes/api/learning/index.ts` |
-| **learning_ai_insight_prs** | `src/backend/src/ai/agents/LearningAgent.ts`, `src/backend/src/automations/pr/SentinelPostMerge.ts`, `src/backend/src/automations/pr/sentinel-handler.ts` |
-| **learning_ai_insights** | `src/backend/src/ai/agents/LearningAgent.ts`, `src/backend/src/automations/pr/SentinelInterceptor.ts`, `src/backend/src/automations/pr/sentinel-handler.ts`, `src/backend/src/routes/api/learning/index.ts`, `src/backend/src/routes/api/sentinel/health.ts`, `src/backend/src/routes/api/sentinel/insights.ts`, `src/backend/src/services/sentinel/ingestor.ts` |
+| **learning_ai_insight_pr_mapping** | `src/backend/src/db/schemas/github/learning/aiInsightPrMapping.ts` |
+| **learning_ai_insight_prs** | `src/backend/src/ai/agents/LearningAgent.ts`, `src/backend/src/automations/pr/SentinelPostMerge.ts`, `src/backend/src/automations/pr/sentinel-handler.ts`, `src/backend/src/db/schemas/github/learning/aiInsightPrMapping.ts` |
+| **learning_ai_insights** | `src/backend/src/ai/agents/LearningAgent.ts`, `src/backend/src/automations/pr/SentinelInterceptor.ts`, `src/backend/src/automations/pr/sentinel-handler.ts`, `src/backend/src/db/schemas/github/learning/aiInsightPrMapping.ts`, `src/backend/src/routes/api/learning/index.ts`, `src/backend/src/routes/api/sentinel/health.ts`, `src/backend/src/routes/api/sentinel/insights.ts`, `src/backend/src/services/sentinel/ingestor.ts` |
 | **learning_ai_pr_reflections** | `src/backend/src/ai/agents/LearningAgent.ts` |
 | **learning_enrichment** | `src/backend/src/ai/agents/LearningAgent.ts` |
-| **learning_messages** | `src/backend/src/ai/agents/LearningAgent.ts`, `src/backend/src/routes/api/learning/index.ts`, `src/backend/src/workflows/learning/LearningWorkflow.ts` |
+| **learning_messages** | `src/backend/src/ai/agents/LearningAgent.ts`, `src/backend/src/db/schemas/github/learning/tagMapping.ts`, `src/backend/src/routes/api/learning/index.ts`, `src/backend/src/workflows/learning/LearningWorkflow.ts` |
 | **learning_sessions** | `src/backend/src/ai/agents/LearningAgent.ts`, `src/backend/src/routes/api/learning/index.ts`, `src/backend/src/routes/api/sentinel/health.ts`, `src/backend/src/services/sentinel/ingestor.ts`, `src/backend/src/workflows/learning/LearningWorkflow.ts` |
+| **learning_tag_mapping** | `src/backend/src/db/schemas/github/learning/learningTagMapping.ts`, `src/backend/src/db/schemas/github/learning/tagMapping.ts` |
+| **learning_tags** | `src/backend/src/db/schemas/github/learning/learningTags.ts` |
 | **learning_threads** | `src/backend/src/ai/agents/LearningAgent.ts` |
 | **newsletter_repos** | `src/backend/src/routes/api/research-orchestration.ts` |
+| **operation_logs** | `src/backend/src/db/schemas/github/repos.ts` |
+| **organization_settings** | `src/backend/src/db/schemas/app/settings.ts` |
 | **plan_responses** | `src/backend/src/ai/providers/jules.ts`, `src/backend/src/routes/api/agent-planning.ts` |
 | **planning_request_artifacts** | `src/backend/src/services/planning/store.ts` |
 | **planning_request_events** | `src/backend/src/services/planning/store.ts` |
@@ -1323,31 +1375,38 @@
 | **project_favorites** | `src/backend/src/routes/api/frontend/repos/favorites.ts` |
 | **prompt_revisions** | `src/backend/src/routes/api/cloudflare/docs/prompt.ts`, `src/backend/src/routes/api/cloudflare/docs/revisions.ts` |
 | **pull_requests** | `src/backend/src/services/github/pr-ingestion.ts`, `src/backend/src/services/jules/service.ts`, `src/backend/src/services/planning/honi-babysitter.ts` |
+| **repo_ai_context** | `src/backend/src/db/schemas/github/repos.ts` |
 | **repo_analysis** | `src/backend/src/ai/providers/jules.ts`, `src/backend/src/workflows/search.ts` |
-| **repo_metrics** | `src/backend/src/routes/api/frontend/repos/stars.ts` |
-| **repo_scores** | `src/backend/src/lib/email-reports.ts`, `src/backend/src/workflows/research/orchestrator.ts` |
-| **repo_stats** | `src/backend/src/automations/repository/stats-update.ts`, `src/backend/src/routes/api/frontend/stats.ts`, `src/backend/src/services/stats-updater.ts` |
+| **repo_drafts** | `src/backend/src/db/schemas/github/drafts.ts` |
+| **repo_infra** | `src/backend/src/db/schemas/github/repos.ts` |
+| **repo_metrics** | `src/backend/src/db/schemas/github/repos.ts`, `src/backend/src/routes/api/frontend/repos/stars.ts` |
+| **repo_scores** | `src/backend/src/db/schemas/agents/research.ts`, `src/backend/src/lib/email-reports.ts`, `src/backend/src/workflows/research/orchestrator.ts` |
+| **repo_stats** | `src/backend/src/automations/repository/stats-update.ts`, `src/backend/src/db/schemas/github/repos.ts`, `src/backend/src/routes/api/frontend/stats.ts`, `src/backend/src/services/stats-updater.ts` |
 | **repo_sync_configs** | `src/backend/src/automations/push/orchestration/sync/index.ts`, `src/backend/src/routes/api/standardization.ts` |
-| **repositories** | `src/backend/src/ai/agents/Research.ts`, `src/backend/src/ai/mcp/tools/github/github.ts`, `src/backend/src/automations/push/orchestration/index.ts`, `src/backend/src/automations/push/standards-check.ts`, `src/backend/src/lib/email-reports.ts`, `src/backend/src/routes/api/docs/agents.ts`, `src/backend/src/routes/api/frontend/repos/base.ts`, `src/backend/src/routes/api/frontend/repos/favorites.ts`, `src/backend/src/routes/api/frontend/repos/hierarchy.ts`, `src/backend/src/routes/api/frontend/repos/planner.ts`, `src/backend/src/routes/api/frontend/repos/stars.ts`, `src/backend/src/routes/api/frontend/stats.ts`, `src/backend/src/routes/api/research-orchestration.ts`, `src/backend/src/routes/api/skills.ts`, `src/backend/src/routes/api/standardization.ts`, `src/backend/src/services/repository-sync.ts`, `src/backend/src/workflows/research/deep.ts`, `src/backend/src/workflows/research/orchestrator.ts`, `src/backend/src/workflows/search.ts` |
+| **repo_tags** | `src/backend/src/db/schemas/github/repos.ts` |
+| **repo_tech_stack** | `src/backend/src/db/schemas/github/repos.ts` |
+| **repositories** | `src/backend/src/ai/agents/Research.ts`, `src/backend/src/ai/mcp/tools/github/github.ts`, `src/backend/src/automations/push/orchestration/index.ts`, `src/backend/src/automations/push/standards-check.ts`, `src/backend/src/db/schemas/agents/chat.ts`, `src/backend/src/db/schemas/github/drafts.ts`, `src/backend/src/db/schemas/github/repos.ts`, `src/backend/src/lib/email-reports.ts`, `src/backend/src/routes/api/docs/agents.ts`, `src/backend/src/routes/api/frontend/repos/base.ts`, `src/backend/src/routes/api/frontend/repos/favorites.ts`, `src/backend/src/routes/api/frontend/repos/hierarchy.ts`, `src/backend/src/routes/api/frontend/repos/planner.ts`, `src/backend/src/routes/api/frontend/repos/stars.ts`, `src/backend/src/routes/api/frontend/stats.ts`, `src/backend/src/routes/api/research-orchestration.ts`, `src/backend/src/routes/api/skills.ts`, `src/backend/src/routes/api/standardization.ts`, `src/backend/src/services/repository-sync.ts`, `src/backend/src/workflows/research/deep.ts`, `src/backend/src/workflows/research/orchestrator.ts`, `src/backend/src/workflows/search.ts` |
 | **repository_secret_defaults** | `src/backend/src/services/repository-secret-defaults.ts` |
 | **request_logs** | `src/backend/src/ai/fallbackLogger.ts` |
-| **research_briefs** | `src/backend/src/ai/agents/TopicOrchestrator.ts`, `src/backend/src/routes/api/frontend/research/research.ts`, `src/backend/src/workflows/discord.ts`, `src/backend/src/workflows/research/topic.ts` |
-| **research_candidates** | `src/backend/src/routes/api/frontend/research/research.ts`, `src/backend/src/workflows/discord.ts`, `src/backend/src/workflows/research/topic.ts` |
-| **research_execution_logs** | `src/backend/src/routes/api/frontend/research/research.ts` |
+| **research_briefs** | `src/backend/src/ai/agents/TopicOrchestrator.ts`, `src/backend/src/db/schemas/github/research.ts`, `src/backend/src/routes/api/frontend/research/research.ts`, `src/backend/src/workflows/discord.ts`, `src/backend/src/workflows/research/topic.ts` |
+| **research_candidates** | `src/backend/src/db/schemas/github/research.ts`, `src/backend/src/routes/api/frontend/research/research.ts`, `src/backend/src/workflows/discord.ts`, `src/backend/src/workflows/research/topic.ts` |
+| **research_execution_logs** | `src/backend/src/db/schemas/github/research.ts`, `src/backend/src/routes/api/frontend/research/research.ts` |
+| **research_files** | `src/backend/src/db/schemas/agents/research.ts` |
 | **research_findings** | `src/backend/src/do/AgentSessionDO.ts` |
 | **research_judge_logs** | `src/backend/src/routes/api/services/github/gh-actions.ts` |
 | **research_judgments** | `src/backend/src/routes/api/webhooks/research-judge.ts` |
-| **research_plans** | `src/backend/src/ai/agents/TopicOrchestrator.ts` |
-| **research_projects** | `src/backend/src/ai/agents/Research.ts`, `src/backend/src/routes/api/frontend/research/one-time.ts` |
-| **research_recommendations** | `src/backend/src/routes/api/frontend/research/daily/index.ts`, `src/backend/src/workflows/research/deep.ts`, `src/backend/src/workflows/research/health.ts` |
-| **research_reports** | `src/backend/src/ai/agents/Research.ts`, `src/backend/src/routes/api/frontend/research/one-time.ts` |
-| **research_sessions** | `src/backend/src/lib/email-reports.ts`, `src/backend/src/workflows/research/orchestrator.ts` |
+| **research_plans** | `src/backend/src/ai/agents/TopicOrchestrator.ts`, `src/backend/src/db/schemas/github/research.ts` |
+| **research_projects** | `src/backend/src/ai/agents/Research.ts`, `src/backend/src/db/schemas/github/research.ts`, `src/backend/src/routes/api/frontend/research/one-time.ts` |
+| **research_recommendations** | `src/backend/src/db/schemas/github/research.ts`, `src/backend/src/routes/api/frontend/research/daily/index.ts`, `src/backend/src/workflows/research/deep.ts`, `src/backend/src/workflows/research/health.ts` |
+| **research_reports** | `src/backend/src/ai/agents/Research.ts`, `src/backend/src/db/schemas/github/research.ts`, `src/backend/src/routes/api/frontend/research/one-time.ts` |
+| **research_sessions** | `src/backend/src/db/schemas/agents/research.ts`, `src/backend/src/lib/email-reports.ts`, `src/backend/src/workflows/research/orchestrator.ts` |
 | **reverse_eng_backend** | `src/backend/src/services/reverse-engineering/store.ts` |
 | **reverse_eng_events** | `src/backend/src/services/reverse-engineering/store.ts` |
 | **reverse_eng_snapshots** | `src/backend/src/services/reverse-engineering/store.ts` |
 | **reverse_eng_ux** | `src/backend/src/services/reverse-engineering/store.ts` |
 | **searches** | `src/backend/src/workflows/search.ts` |
-| **sessions** | `src/backend/src/ai/agents/JulesOverseer.ts`, `src/backend/src/ai/agents/workshop/UxResearcher.ts`, `src/backend/src/ai/utils/budget-tracker.ts`, `src/backend/src/routes/api/docs/agents.ts`, `src/backend/src/routes/api/jules/index.ts`, `src/backend/src/routes/api/learning/index.ts`, `src/backend/src/routes/api/sentinel/health.ts`, `src/backend/src/services/jules/service.ts` |
+| **secrets_config** | `src/backend/src/db/schemas/ops/secrets.ts` |
+| **sessions** | `src/backend/src/ai/agents/JulesOverseer.ts`, `src/backend/src/ai/agents/workshop/UxResearcher.ts`, `src/backend/src/ai/utils/budget-tracker.ts`, `src/backend/src/db/schemas/agents/research.ts`, `src/backend/src/routes/api/docs/agents.ts`, `src/backend/src/routes/api/jules/index.ts`, `src/backend/src/routes/api/learning/index.ts`, `src/backend/src/routes/api/sentinel/health.ts`, `src/backend/src/services/jules/service.ts` |
 | **standardization_items** | `src/backend/src/routes/api/ops/standards.ts` |
 | **standardization_rules** | `src/backend/src/automations/repository/standardization/rules.ts`, `src/backend/src/routes/api/ops/standards.ts` |
 | **standardization_tag_definitions** | `src/backend/src/routes/api/ops/standards.ts` |
@@ -1357,7 +1416,7 @@
 | **system_config_definitions** | `src/backend/src/routes/api/frontend/settings.ts` |
 | **system_logs** | `src/backend/src/health/checks/log-staleness.ts`, `src/backend/src/lib/logger.ts` |
 | **tag_application_mapping** | `src/backend/src/routes/api/frontend/repos/appstore.ts` |
-| **tags** | `src/backend/src/ai/providers/jules.ts`, `src/backend/src/automations/repository/standardization/rules.ts`, `src/backend/src/lib/email-reports.ts`, `src/backend/src/routes/api/docs/agents.ts`, `src/backend/src/routes/api/frontend/planner/todos.ts`, `src/backend/src/routes/api/frontend/repos/appstore.ts`, `src/backend/src/routes/api/frontend/repos/base.ts`, `src/backend/src/routes/api/frontend/settings.ts`, `src/backend/src/routes/api/ops/standards.ts`, `src/backend/src/routes/api/sentinel/health.ts`, `src/backend/src/routes/api/sentinel/insights.ts`, `src/backend/src/routes/api/sentinel/tasks.ts`, `src/backend/src/services/golden-path-config.ts`, `src/backend/src/services/todoInsights.ts`, `src/backend/src/utils/email/send/repo-discovery.ts` |
+| **tags** | `src/backend/src/ai/providers/jules.ts`, `src/backend/src/automations/repository/standardization/rules.ts`, `src/backend/src/db/schemas/github/learning/tagMapping.ts`, `src/backend/src/db/schemas/github/reviews.ts`, `src/backend/src/lib/email-reports.ts`, `src/backend/src/routes/api/docs/agents.ts`, `src/backend/src/routes/api/frontend/planner/todos.ts`, `src/backend/src/routes/api/frontend/repos/appstore.ts`, `src/backend/src/routes/api/frontend/repos/base.ts`, `src/backend/src/routes/api/frontend/settings.ts`, `src/backend/src/routes/api/ops/standards.ts`, `src/backend/src/routes/api/sentinel/health.ts`, `src/backend/src/routes/api/sentinel/insights.ts`, `src/backend/src/routes/api/sentinel/tasks.ts`, `src/backend/src/services/golden-path-config.ts`, `src/backend/src/services/todoInsights.ts`, `src/backend/src/utils/email/send/repo-discovery.ts` |
 | **task_comments** | `src/backend/src/routes/api/frontend/planner/tasks.ts` |
 | **task_events** | `src/backend/src/routes/api/frontend/planner/tasks.ts`, `src/backend/src/routes/api/projects/sentinel/claim.ts`, `src/backend/src/routes/api/projects/sentinel/ingest.ts`, `src/backend/src/routes/api/projects/sentinel/mcp.ts`, `src/backend/src/routes/api/projects/sentinel/status.ts`, `src/backend/src/routes/api/projects/sentinel/submit.ts`, `src/backend/src/routes/api/projects/sentinel/update.ts`, `src/backend/src/routes/api/sentinel/tasks.ts` |
 | **tasks** | `src/backend/src/ai/agents/HealthDiagnostician.ts`, `src/backend/src/ai/agents/LandingPageAgent.ts`, `src/backend/src/ai/agents/workshop/WorkshopAgent.ts`, `src/backend/src/automations/issues/health.ts`, `src/backend/src/automations/issues/task-sync.ts`, `src/backend/src/routes/api/agent-planning.ts`, `src/backend/src/routes/api/docs/agents.ts`, `src/backend/src/routes/api/frontend/planner/tasks.ts`, `src/backend/src/routes/api/frontend/repos/actions.ts`, `src/backend/src/routes/api/frontend/repos/hierarchy.ts`, `src/backend/src/routes/api/frontend/repos/planner.ts`, `src/backend/src/routes/api/frontend/workshop.ts`, `src/backend/src/routes/api/projects/sentinel/available.ts`, `src/backend/src/routes/api/projects/sentinel/claim.ts`, `src/backend/src/routes/api/projects/sentinel/health.ts`, `src/backend/src/routes/api/projects/sentinel/ingest.ts`, `src/backend/src/routes/api/projects/sentinel/mcp.ts`, `src/backend/src/routes/api/projects/sentinel/status.ts`, `src/backend/src/routes/api/projects/sentinel/submit.ts`, `src/backend/src/routes/api/projects/sentinel/task.ts`, `src/backend/src/routes/api/projects/sentinel/update.ts`, `src/backend/src/routes/api/projects/tasks.ts`, `src/backend/src/routes/api/sentinel/tasks.ts`, `src/backend/src/services/jules/service.ts`, `src/backend/src/services/planning/honi-babysitter.ts` |
@@ -1368,7 +1427,7 @@
 | **todos** | `src/backend/src/routes/api/frontend/planner/todos.ts`, `src/backend/src/services/todoInsights.ts` |
 | **trending_repos** | `src/backend/src/routes/api/services/github/trending-repos.ts` |
 | **unified_action_logs** | `src/backend/src/routes/api/ws/action-worker.ts`, `src/backend/src/services/github/unified-action-worker/dispatcher.ts` |
-| **user_settings** | `src/backend/src/routes/api/frontend/settings.ts` |
+| **user_settings** | `src/backend/src/db/schemas/app/settings.ts`, `src/backend/src/routes/api/frontend/settings.ts` |
 | **webhook_configs** | `src/backend/src/automations/core/AutomationRegistry.ts`, `src/backend/src/automations/core/health.ts`, `src/backend/src/automations/pr/ingest/health.ts`, `src/backend/src/automations/pr/review-extraction/health.ts`, `src/backend/src/routes/api/ops/workflows.ts` |
 | **webhook_deliveries** | `src/backend/src/ai/mcp/tools/github/health.ts`, `src/backend/src/health/checks/webhook-staleness.ts`, `src/backend/src/routes/api/services/github/pr-overview.ts`, `src/backend/src/routes/api/webhooks/index.ts`, `src/backend/src/workflows/health.ts` |
 | **workshop_agent_memory** | `src/backend/src/routes/api/frontend/workshop.ts` |
@@ -1382,18 +1441,58 @@
 ## env.DB_WEBHOOKS d1 db
 | Table Name | Short File Paths |
 |---|---|
-| **analysis_artifacts** | `src/backend/src/workflows/research/orchestrator.ts` |
+| **agent_activities** | `src/backend/src/db/schemas/agents/events.ts` |
+| **analysis_artifacts** | `src/backend/src/db/schemas/agents/research.ts`, `src/backend/src/workflows/research/orchestrator.ts` |
+| **audit_logs** | `src/backend/src/db/schemas/logs/audit.ts` |
 | **automation_logs** | `src/backend/src/routes/api/ops/workflows.ts` |
 | **automation_rules** | `src/backend/src/routes/api/ops/workflows.ts` |
+| **automation_runs** | `src/backend/src/db/schemas/agents/events.ts` |
+| **chat_messages** | `src/backend/src/db/schemas/agents/chat.ts` |
+| **chat_tags** | `src/backend/src/db/schemas/agents/chat.ts` |
+| **chat_threads** | `src/backend/src/db/schemas/agents/chat.ts` |
+| **cloudflare_docs_interactions** | `src/backend/src/db/schemas/agents/cloudflare-docs-interactions.ts` |
+| **code_review_comment_enrichments** | `src/backend/src/db/schemas/github/reviews.ts` |
+| **code_review_comments** | `src/backend/src/db/schemas/github/reviews.ts` |
+| **code_review_runs** | `src/backend/src/db/schemas/github/reviews.ts` |
+| **container_logs** | `src/backend/src/db/schemas/containers/index.ts` |
 | **daily_trends** | `src/backend/src/routes/api/frontend/research/daily/trends.ts` |
+| **discord_research_configs** | `src/backend/src/db/schemas/github/research.ts` |
+| **discord_scan_watermarks** | `src/backend/src/db/schemas/github/research.ts` |
+| **events** | `src/backend/src/db/schemas/agents/events.ts` |
+| **learning_ai_insight_pr_mapping** | `src/backend/src/db/schemas/github/learning/aiInsightPrMapping.ts` |
+| **learning_ai_insight_prs** | `src/backend/src/db/schemas/github/learning/aiInsightPrMapping.ts` |
+| **learning_ai_insights** | `src/backend/src/db/schemas/github/learning/aiInsightPrMapping.ts` |
+| **learning_messages** | `src/backend/src/db/schemas/github/learning/tagMapping.ts` |
+| **learning_tag_mapping** | `src/backend/src/db/schemas/github/learning/learningTagMapping.ts`, `src/backend/src/db/schemas/github/learning/tagMapping.ts` |
+| **learning_tags** | `src/backend/src/db/schemas/github/learning/learningTags.ts` |
+| **operation_logs** | `src/backend/src/db/schemas/github/repos.ts` |
+| **organization_settings** | `src/backend/src/db/schemas/app/settings.ts` |
 | **pr_overviews** | `src/backend/src/routes/api/services/github/pr-overview.ts` |
+| **repo_ai_context** | `src/backend/src/db/schemas/github/repos.ts` |
 | **repo_analysis** | `src/backend/src/workflows/search.ts` |
-| **repo_scores** | `src/backend/src/lib/email-reports.ts`, `src/backend/src/workflows/research/orchestrator.ts` |
-| **repositories** | `src/backend/src/lib/email-reports.ts`, `src/backend/src/workflows/research/orchestrator.ts`, `src/backend/src/workflows/search.ts` |
+| **repo_drafts** | `src/backend/src/db/schemas/github/drafts.ts` |
+| **repo_infra** | `src/backend/src/db/schemas/github/repos.ts` |
+| **repo_metrics** | `src/backend/src/db/schemas/github/repos.ts` |
+| **repo_scores** | `src/backend/src/db/schemas/agents/research.ts`, `src/backend/src/lib/email-reports.ts`, `src/backend/src/workflows/research/orchestrator.ts` |
+| **repo_stats** | `src/backend/src/db/schemas/github/repos.ts` |
+| **repo_tags** | `src/backend/src/db/schemas/github/repos.ts` |
+| **repo_tech_stack** | `src/backend/src/db/schemas/github/repos.ts` |
+| **repositories** | `src/backend/src/db/schemas/agents/chat.ts`, `src/backend/src/db/schemas/github/drafts.ts`, `src/backend/src/db/schemas/github/repos.ts`, `src/backend/src/lib/email-reports.ts`, `src/backend/src/workflows/research/orchestrator.ts`, `src/backend/src/workflows/search.ts` |
+| **research_briefs** | `src/backend/src/db/schemas/github/research.ts` |
+| **research_candidates** | `src/backend/src/db/schemas/github/research.ts` |
+| **research_execution_logs** | `src/backend/src/db/schemas/github/research.ts` |
+| **research_files** | `src/backend/src/db/schemas/agents/research.ts` |
 | **research_judge_logs** | `src/backend/src/routes/api/services/github/gh-actions.ts` |
-| **research_sessions** | `src/backend/src/lib/email-reports.ts`, `src/backend/src/workflows/research/orchestrator.ts` |
+| **research_plans** | `src/backend/src/db/schemas/github/research.ts` |
+| **research_projects** | `src/backend/src/db/schemas/github/research.ts` |
+| **research_recommendations** | `src/backend/src/db/schemas/github/research.ts` |
+| **research_reports** | `src/backend/src/db/schemas/github/research.ts` |
+| **research_sessions** | `src/backend/src/db/schemas/agents/research.ts`, `src/backend/src/lib/email-reports.ts`, `src/backend/src/workflows/research/orchestrator.ts` |
 | **searches** | `src/backend/src/workflows/search.ts` |
-| **tags** | `src/backend/src/lib/email-reports.ts` |
+| **secrets_config** | `src/backend/src/db/schemas/ops/secrets.ts` |
+| **sessions** | `src/backend/src/db/schemas/agents/research.ts` |
+| **tags** | `src/backend/src/db/schemas/github/learning/tagMapping.ts`, `src/backend/src/db/schemas/github/reviews.ts`, `src/backend/src/lib/email-reports.ts` |
 | **trending_repos** | `src/backend/src/routes/api/services/github/trending-repos.ts` |
+| **user_settings** | `src/backend/src/db/schemas/app/settings.ts` |
 | **webhook_configs** | `src/backend/src/automations/core/AutomationRegistry.ts`, `src/backend/src/automations/core/health.ts`, `src/backend/src/automations/pr/ingest/health.ts`, `src/backend/src/automations/pr/review-extraction/health.ts`, `src/backend/src/routes/api/ops/workflows.ts` |
 | **webhook_deliveries** | `src/backend/src/ai/mcp/tools/github/health.ts`, `src/backend/src/health/checks/webhook-staleness.ts`, `src/backend/src/routes/api/services/github/pr-overview.ts`, `src/backend/src/routes/api/webhooks/index.ts`, `src/backend/src/workflows/health.ts` |

@@ -28,3 +28,5 @@ export const chatTags = sqliteTable("chat_tags", {
 }, (table) => ({
     pk: primaryKey({ columns: [table.threadId, table.chatId, table.tag] })
 }));
+
+// env.DB_WEBHOOKS env.DB

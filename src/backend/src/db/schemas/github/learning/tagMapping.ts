@@ -12,3 +12,5 @@ export const learningTagMapping = sqliteTable("learning_tag_mapping", {
 
 export const selectLearningTagMappingSchema = createSelectSchema(learningTagMapping);
 export const insertLearningTagMappingSchema = createInsertSchema(learningTagMapping);
+
+// env.DB_WEBHOOKS env.DB

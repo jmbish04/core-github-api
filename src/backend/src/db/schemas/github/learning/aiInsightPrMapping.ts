@@ -17,3 +17,5 @@ export const learningAiInsightPrMapping = sqliteTable(
 
 export const selectLearningAiInsightPrMappingSchema = createSelectSchema(learningAiInsightPrMapping);
 export const insertLearningAiInsightPrMappingSchema = createInsertSchema(learningAiInsightPrMapping);
+
+// env.DB_WEBHOOKS env.DB
