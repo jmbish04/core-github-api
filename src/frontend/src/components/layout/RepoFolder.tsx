@@ -92,6 +92,7 @@ export function RepoFolder({ repo }: RepoFolderProps) {
             onClick={() => isFav ? removeFavorite(repo) : addFavorite(repo)}
             className="p-1 hover:bg-background rounded-sm"
             title={isFav ? "Unfavorite" : "Favorite"}
+            aria-label={isFav ? "Unfavorite" : "Favorite"}
           >
             <Star className={cn("w-3.5 h-3.5", isFav ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground")} />
           </button>
@@ -100,6 +101,7 @@ export function RepoFolder({ repo }: RepoFolderProps) {
               onClick={() => removeFavorite(repo)}
               className="p-1 hover:bg-background rounded-sm text-muted-foreground hover:text-red-400"
               title="Close"
+              aria-label="Close"
             >
               <X className="w-3.5 h-3.5" />
             </button>
