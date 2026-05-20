@@ -114,6 +114,8 @@ const DraggableRow = ({ row }: any) => {
                 ref={setActivatorNodeRef}
                 {...listeners}
                 {...attributes}
+                aria-label="Drag item"
+                title="Drag item"
                 className="mr-2 cursor-grab text-muted-foreground hover:text-foreground active:cursor-grabbing"
               >
                 <GripVertical size={16} />
@@ -144,7 +146,12 @@ export function HierarchyTable() {
           return (
             <div style={{ paddingLeft: `${row.depth * 24}px` }} className="flex items-center gap-2 group">
               {row.getCanExpand() ? (
-                <button onClick={row.getToggleExpandedHandler()} className="cursor-pointer text-muted-foreground hover:text-foreground">
+                <button
+                  onClick={row.getToggleExpandedHandler()}
+                  aria-label={row.getIsExpanded() ? "Collapse item" : "Expand item"}
+                  title={row.getIsExpanded() ? "Collapse item" : "Expand item"}
+                  className="cursor-pointer text-muted-foreground hover:text-foreground"
+                >
                   {row.getIsExpanded() ? <ChevronDown size={16}/> : <ChevronRight size={16}/>}
                 </button>
               ) : <span className="w-4" />}
@@ -172,6 +179,8 @@ export function HierarchyTable() {
                   )}
                   {type !== 'project' && (
                       <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:bg-destructive/10" 
+                        aria-label="Delete item"
+                        title="Delete item"
                         onClick={() => deleteItem(type, row.original.id)}>
                         <Trash2 size={12}/>
                       </Button>
