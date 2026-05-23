@@ -170,7 +170,11 @@ export function BlueprintEditor() {
                         </div>
 
                         {/* Floating action button for AI Assist */}
-                        <button className="absolute bottom-6 right-6 w-12 h-12 rounded-full bg-amber-500 text-zinc-950 shadow-lg shadow-amber-500/20 flex items-center justify-center hover:scale-105 transition-transform z-10">
+                        <button
+                            aria-label="AI Assist"
+                            title="AI Assist"
+                            className="absolute bottom-6 right-6 w-12 h-12 rounded-full bg-amber-500 text-zinc-950 shadow-lg shadow-amber-500/20 flex items-center justify-center hover:scale-105 transition-transform z-10"
+                        >
                             <Sparkles className="w-5 h-5 fill-current" />
                         </button>
                     </div>
@@ -192,7 +196,11 @@ export function BlueprintEditor() {
                             <Wrench className="text-cyan-500 w-5 h-5" />
                             <h3 className="text-base font-bold text-zinc-900 dark:text-white">Toolbox</h3>
                         </div>
-                        <button className="text-zinc-500 dark:text-[#bab29c] hover:text-zinc-900 dark:hover:text-white transition-colors">
+                        <button
+                            aria-label="Add tool"
+                            title="Add tool"
+                            className="text-zinc-500 dark:text-[#bab29c] hover:text-zinc-900 dark:hover:text-white transition-colors"
+                        >
                             <Plus className="w-5 h-5" />
                         </button>
                     </div>
@@ -221,7 +229,11 @@ export function BlueprintEditor() {
                                     <Code className="text-cyan-600 dark:text-cyan-500 w-5 h-5" />
                                     <span className="text-sm font-bold text-zinc-900 dark:text-white">GitHub Writer</span>
                                 </div>
-                                <button className="opacity-0 group-hover:opacity-100 text-zinc-400 dark:text-[#bab29c] hover:text-red-500 dark:hover:text-red-400 transition-all">
+                                <button
+                                    aria-label="Remove tool"
+                                    title="Remove tool"
+                                    className="opacity-0 group-hover:opacity-100 text-zinc-400 dark:text-[#bab29c] hover:text-red-500 dark:hover:text-red-400 transition-all"
+                                >
                                     <X className="w-4 h-4" />
                                 </button>
                             </div>
@@ -236,7 +248,11 @@ export function BlueprintEditor() {
                                     <Database className="text-cyan-600 dark:text-cyan-500 w-5 h-5" />
                                     <span className="text-sm font-bold text-zinc-900 dark:text-white">D1 Querying</span>
                                 </div>
-                                <button className="opacity-0 group-hover:opacity-100 text-zinc-400 dark:text-[#bab29c] hover:text-red-500 dark:hover:text-red-400 transition-all">
+                                <button
+                                    aria-label="Remove tool"
+                                    title="Remove tool"
+                                    className="opacity-0 group-hover:opacity-100 text-zinc-400 dark:text-[#bab29c] hover:text-red-500 dark:hover:text-red-400 transition-all"
+                                >
                                     <X className="w-4 h-4" />
                                 </button>
                             </div>
