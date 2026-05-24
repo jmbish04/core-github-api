@@ -232,6 +232,8 @@ function TaskCard({
         <button
           {...dragListeners}
           className="mt-0.5 cursor-grab active:cursor-grabbing shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+          aria-label={`Drag task: ${task.title}`}
+          title={`Drag task: ${task.title}`}
         >
           <GripVertical className="w-3.5 h-3.5 text-muted-foreground" />
         </button>

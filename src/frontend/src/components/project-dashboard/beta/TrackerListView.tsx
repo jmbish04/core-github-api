@@ -143,7 +143,12 @@ export function TrackerListView({ tasks, isLoading, onTaskUpdate, onTaskDelete }
       {/* Header Row */}
       <div className="sticky top-0 z-10 bg-background border-b">
         <div className="flex items-center gap-3 px-4 py-2 text-xs text-muted-foreground">
-          <button onClick={toggleSelectAll} className="shrink-0">
+          <button
+            onClick={toggleSelectAll}
+            className="shrink-0"
+            aria-label="Select all tasks"
+            title="Select all tasks"
+          >
             {selectedIds.size === tasks.length && tasks.length > 0 ? (
               <CheckSquare className="w-4 h-4 text-primary" />
             ) : (
@@ -196,7 +201,12 @@ export function TrackerListView({ tasks, isLoading, onTaskUpdate, onTaskDelete }
                         selectedIds.has(task.id) && 'bg-accent/10'
                       )}
                     >
-                      <button onClick={() => toggleSelect(task.id)} className="shrink-0">
+                      <button
+                        onClick={() => toggleSelect(task.id)}
+                        className="shrink-0"
+                        aria-label={`Select task: ${task.title}`}
+                        title={`Select task: ${task.title}`}
+                      >
                         {selectedIds.has(task.id) ? (
                           <CheckSquare className="w-4 h-4 text-primary" />
                         ) : (
@@ -255,6 +265,8 @@ export function TrackerListView({ tasks, isLoading, onTaskUpdate, onTaskDelete }
                             <button
                               onClick={() => setEditingTag(task.id)}
                               className="opacity-0 group-hover:opacity-100 transition-opacity"
+                              aria-label="Add tag"
+                              title="Add tag"
                             >
                               <Tag className="w-3 h-3 text-muted-foreground hover:text-foreground" />
                             </button>
