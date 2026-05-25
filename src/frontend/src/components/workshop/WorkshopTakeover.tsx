@@ -41,14 +41,26 @@ export function WorkshopTakeover() {
                                 Create Agent
                             </button>
                             <div className="flex items-center gap-2 border-l border-zinc-200 dark:border-zinc-800 pl-4 ml-2">
-                                <button className="flex items-center justify-center rounded-full w-9 h-9 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 dark:hover:text-zinc-50 transition-colors">
+                                <button
+                                    className="flex items-center justify-center rounded-full w-9 h-9 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 dark:hover:text-zinc-50 transition-colors"
+                                    aria-label="View documentation"
+                                    title="View documentation"
+                                >
                                     <FileText className="w-5 h-5" />
                                 </button>
-                                <button className="relative flex items-center justify-center rounded-full w-9 h-9 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 dark:hover:text-zinc-50 transition-colors">
+                                <button
+                                    className="relative flex items-center justify-center rounded-full w-9 h-9 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 dark:hover:text-zinc-50 transition-colors"
+                                    aria-label="View notifications"
+                                    title="View notifications"
+                                >
                                     <Bell className="w-5 h-5" />
                                     <span className="absolute top-1 right-1 block w-2 h-2 rounded-full bg-amber-500 ring-2 ring-zinc-900"></span>
                                 </button>
-                                <button className="ml-2 flex items-center justify-center rounded-full overflow-hidden border-2 border-transparent hover:border-blue-500 transition-colors">
+                                <button
+                                    className="ml-2 flex items-center justify-center rounded-full overflow-hidden border-2 border-transparent hover:border-blue-500 transition-colors"
+                                    aria-label="User profile menu"
+                                    title="User profile menu"
+                                >
                                     <div className="w-8 h-8 rounded-full bg-zinc-800"></div>
                                 </button>
                             </div>

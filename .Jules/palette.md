@@ -1,0 +1,3 @@
+## 2025-01-20 - Icon-Only Navigation Buttons Missing Context
+**Learning:** Found several top-level navigation action buttons (like documentation, notifications, user profile) that relied solely on generic icons (`FileText`, `Bell`, empty div for avatar) without any accessible labels or tooltips. This is a common pattern in the app's components, causing screen readers to read nothing useful and sighted users to have to guess the action, especially for less standard icons.
+**Action:** Ensure that all icon-only buttons globally implement both `aria-label` for screen reader accessibility and `title` attributes for sighted user tooltips, particularly in global navigation headers.
