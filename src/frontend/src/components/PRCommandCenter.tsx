@@ -246,7 +246,7 @@ export function PRCommandCenter({ repoOwner, repoName, initialPrs }: PRCommandCe
         <div className="h-[calc(100vh-100px)] flex flex-col gap-4">
             <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                    <Button variant="ghost" size="icon" onClick={() => setSelectedPrNumber(null)}>
+                    <Button variant="ghost" size="icon" onClick={() => setSelectedPrNumber(null)} aria-label="Back" title="Back">
                         <ArrowLeft className="w-4 h-4" />
                     </Button>
                     <div>

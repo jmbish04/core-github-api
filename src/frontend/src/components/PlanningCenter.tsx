@@ -225,7 +225,7 @@ function PlanningRoom({ requestId, onBack }: { requestId: string; onBack: () => 
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-[#1f2937] bg-black/20 backdrop-blur-md">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={onBack} className="md:hidden">
+          <Button variant="ghost" size="icon" onClick={onBack} className="md:hidden" aria-label="Back to requests" title="Back to requests">
             <ChevronRight className="w-5 h-5 rotate-180" />
           </Button>
           <div className="flex flex-col">
