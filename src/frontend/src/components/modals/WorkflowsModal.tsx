@@ -39,7 +39,13 @@ export function WorkflowsModal({ workflowCount = 8 }: { workflowCount?: number }
                                         </div>
                                         <div className="font-medium text-sm">{wf}</div>
                                     </div>
-                                    <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-zinc-800">
+                                    <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        className="h-8 w-8 hover:bg-zinc-800"
+                                        aria-label={`Run ${wf} workflow`}
+                                        title={`Run ${wf} workflow`}
+                                    >
                                         <Play className="w-4 h-4 text-zinc-400" />
                                     </Button>
                                 </CardContent>
