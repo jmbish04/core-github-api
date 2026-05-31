@@ -86,6 +86,7 @@ export default function RootLayout() {
                             className="shrink-0"
                             onClick={() => setIsSidebarOpen((v) => !v)}
                             aria-label={isSidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
+                            title={isSidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
                         >
                             {isSidebarOpen ? (
                                 <PanelLeftClose className="h-5 w-5" />
