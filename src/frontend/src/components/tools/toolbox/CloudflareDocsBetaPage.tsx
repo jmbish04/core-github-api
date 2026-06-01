@@ -513,6 +513,7 @@ function BetaThreadSidebar({
                                         onClick={e => { e.stopPropagation(); setConfirmId(t.id); }}
                                         className="absolute top-2 right-2 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 text-muted-foreground/40 hover:text-red-400 hover:bg-red-500/10 transition-all"
                                         aria-label="Delete thread"
+                                        title="Delete thread"
                                     >
                                         <Trash2 className="w-3 h-3" />
                                     </button>
@@ -937,6 +938,7 @@ function BetaChatPanel({
                                     }}
                                     className="p-2 rounded-xl text-red-400 hover:bg-red-500/10 shrink-0 transition-colors"
                                     title="Stop generating"
+                                    aria-label="Stop generating"
                                 >
                                     <Square className="w-4 h-4" />
                                 </button>
@@ -945,6 +947,8 @@ function BetaChatPanel({
                                     onClick={() => sendMessage()}
                                     disabled={!input.trim() || wsStatus !== "open"}
                                     className="p-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white disabled:opacity-30 disabled:cursor-not-allowed shrink-0 transition-colors shadow-md shadow-orange-500/20"
+                                    title="Send message"
+                                    aria-label="Send message"
                                 >
                                     <Send className="w-4 h-4" />
                                 </button>
