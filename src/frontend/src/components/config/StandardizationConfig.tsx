@@ -229,7 +229,7 @@ export function StandardizationConfig() {
                     <td className="px-4 py-3 font-mono text-xs">{config.targetRepoPattern}</td>
                     <td className="px-4 py-3 text-xs text-muted-foreground">{config.triggerEvents}</td>
                     <td className="px-4 py-3">
-                      <Button variant="ghost" size="icon" onClick={() => handleDeleteConfig(config.id)} className="h-8 w-8 text-destructive hover:bg-destructive/10">
+                      <Button aria-label="Delete config" title="Delete config" variant="ghost" size="icon" onClick={() => handleDeleteConfig(config.id)} className="h-8 w-8 text-destructive hover:bg-destructive/10">
                         <Trash2 className="w-4 h-4" />
                       </Button>
                     </td>
