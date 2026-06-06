@@ -91,6 +91,8 @@ export const NumericKeypad: React.FC<NumericKeypadProps> = ({ onComplete }) => {
                     </button>
                     <button
                         onClick={handleDelete}
+                        aria-label="Delete"
+                        title="Delete"
                         className="h-16 w-16 rounded-full bg-destructive/10 hover:bg-destructive/20 text-destructive flex items-center justify-center transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                     >
                         <Delete className="h-6 w-6" />
