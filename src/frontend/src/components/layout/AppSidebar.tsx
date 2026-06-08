@@ -169,9 +169,10 @@ function CollapsibleNavGroup({
     <div>
       <button
         onClick={onToggle}
+        aria-expanded={isExpanded}
         className={cn(
           "w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-md text-sm font-medium transition-colors",
-          "text-muted-foreground hover:text-foreground hover:bg-accent"
+          "text-muted-foreground hover:text-foreground hover:bg-accent focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
         )}
       >
         <span className="flex items-center gap-3">
