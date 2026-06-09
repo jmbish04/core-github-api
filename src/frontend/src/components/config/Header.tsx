@@ -29,7 +29,14 @@ export function ConfigHeader({
       </div>
       
       <div className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={onRefresh} disabled={isRefreshing}>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onRefresh}
+          disabled={isRefreshing}
+          aria-label="Refresh configuration"
+          title="Refresh configuration"
+        >
            <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
         </Button>
         <Button variant="ghost" size="sm" asChild>
