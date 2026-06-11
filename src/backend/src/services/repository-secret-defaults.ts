@@ -189,6 +189,10 @@ export async function buildRepositorySyncSecretPlan(env: Env): Promise<SecretDef
   return plan.secrets;
 }
 
+/**
+ * Builds the default repository secret synchronization plan with diagnostics.
+ * Includes both resolved secret definitions and the active defaults that were missing Worker values.
+ */
 export async function buildRepositorySyncSecretPlanReport(
   env: Env,
 ): Promise<RepositorySyncSecretPlanReport> {

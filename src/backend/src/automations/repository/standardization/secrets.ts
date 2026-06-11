@@ -9,6 +9,10 @@ export interface SecretProvisioningResult {
 }
 
 export class SecretSync {
+  /**
+   * Auto-provisions repository secrets from active defaults.
+   * Returns a diagnostic result that explains whether secrets were synced or skipped.
+   */
   static async autoProvisionSecrets(
     env: Env,
     owner: string,

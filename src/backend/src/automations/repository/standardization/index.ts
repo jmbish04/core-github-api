@@ -35,12 +35,12 @@ type RepoStandardizationPayload = z.infer<typeof RepoStandardizationPayloadSchem
 type InstallationRepositoriesPayload = z.infer<typeof InstallationRepositoriesPayloadSchema>;
 
 function parseRepositoryFullName(fullName: string): { owner: string; name: string } | null {
-  const [owner, name] = fullName.split('/');
-  if (!owner || !name) {
+  const parts = fullName.split('/');
+  if (parts.length !== 2 || !parts[0] || !parts[1]) {
     return null;
   }
 
-  return { owner, name };
+  return { owner: parts[0], name: parts[1] };
 }
 
 function isRepositoryEventPayload(payload: unknown): payload is RepoStandardizationPayload {
@@ -140,7 +140,7 @@ export class RepoStandardization extends BaseAutomation<
 
       if (this.eventName === 'installation_repositories') {
         const payload = InstallationRepositoriesPayloadSchema.parse(this.payload);
-        const results = await Promise.all(
+        const results = await Promise.allSettled(
           payload.repositories_added.map(async (repository) => {
             const parsed = parseRepositoryFullName(repository.full_name);
             if (!parsed) {
@@ -162,7 +162,21 @@ export class RepoStandardization extends BaseAutomation<
           }),
         );
 
-        provisioningSummaries.push(...results);
+        const failures: string[] = [];
+        for (const result of results) {
+          if (result.status === 'fulfilled') {
+            provisioningSummaries.push(result.value);
+            continue;
+          }
+
+          failures.push(result.reason instanceof Error ? result.reason.message : String(result.reason));
+        }
+
+        if (failures.length > 0) {
+          throw new Error(
+            `Standardization failed for ${failures.length} added repositories: ${failures.join(' | ')}`,
+          );
+        }
       }
 
       await this.logExecution(
