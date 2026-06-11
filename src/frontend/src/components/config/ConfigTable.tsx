@@ -132,15 +132,35 @@ export function ConfigTable({ data, fields, onSave }: ConfigTableProps) {
                 <TableCell className="text-right">
                   {isEditing ? (
                     <div className="flex justify-end gap-2">
-                      <Button size="icon" variant="ghost" onClick={() => handleSave(field.key, field.type)} disabled={isSaving}>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => handleSave(field.key, field.type)}
+                        disabled={isSaving}
+                        aria-label={`Save ${field.label}`}
+                        title={`Save ${field.label}`}
+                      >
                         <Check className="h-4 w-4 text-green-500" />
                       </Button>
-                      <Button size="icon" variant="ghost" onClick={handleCancel} disabled={isSaving}>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={handleCancel}
+                        disabled={isSaving}
+                        aria-label={`Cancel editing ${field.label}`}
+                        title={`Cancel editing ${field.label}`}
+                      >
                         <X className="h-4 w-4 text-red-500" />
                       </Button>
                     </div>
                   ) : (
-                    <Button size="icon" variant="ghost" onClick={() => handleEdit(field.key, currentValue)}>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => handleEdit(field.key, currentValue)}
+                      aria-label={`Edit ${field.label}`}
+                      title={`Edit ${field.label}`}
+                    >
                       <Pencil className="h-4 w-4" />
                     </Button>
                   )}

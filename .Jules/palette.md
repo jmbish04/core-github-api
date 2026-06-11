@@ -1,0 +1,3 @@
+## 2024-06-11 - Add Accessible Names to Icon-only Buttons
+**Learning:** Found a common pattern of missing `aria-label` and `title` attributes on `Button size="icon"` elements across the app. This is a critical accessibility issue, as screen readers announce these buttons simply as "button" with no context about their function. This also hurts usability for sighted users who don't get tooltip hints when hovering over icons (like pencil/edit or check/save).
+**Action:** When adding icon-only buttons, always ensure they include both an `aria-label` for screen readers and a `title` attribute to provide a hover tooltip for sighted users.
