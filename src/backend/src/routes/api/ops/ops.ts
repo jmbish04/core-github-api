@@ -1,7 +1,7 @@
 import { OpenAPIHono, createRoute } from "@hono/zod-openapi";
 import { z } from "zod";
 import { OpsVerificationService } from "@services/verification/ops";
-import { buildRepositorySyncSecretPlan } from "@/services/repository-secret-defaults";
+import { buildRepositorySyncSecretPlanReport } from "@/services/repository-secret-defaults";
 import { syncRepoSecrets } from "@services/github/secrets-manager";
 import { HoniClient } from '@utils/honi-client';
 
@@ -66,17 +66,24 @@ opsApi.openapi(createRoute({
 }), async (c) => {
   const { owner, repo, secrets } = c.req.valid("json");
   let secretsToSync = secrets || [];
+  let missingSecretNames: string[] = [];
 
   if (!secrets || secrets.length === 0) {
         try {
-          secretsToSync = await buildRepositorySyncSecretPlan(c.env);
+          const plan = await buildRepositorySyncSecretPlanReport(c.env);
+          secretsToSync = plan.secrets;
+          missingSecretNames = plan.missingSecretNames;
         } catch (err: any) {
           return c.json({ success: false, error: "Failed to fetch default secrets: " + err.message }, 500);
         }
     }
 
     if (secretsToSync.length === 0) {
-        return c.json({ success: false, error: "No secrets provided and no defaults found." }, 400);
+        return c.json({
+          success: false,
+          error: "No secrets provided and no defaults found.",
+          missingDefaultSecrets: missingSecretNames,
+        }, 400);
     }
 
     try {

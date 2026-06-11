@@ -17,6 +17,11 @@ const BOOTSTRAP_DEFAULT_SECRET_NAMES = [
 ];
 
 export type RepositorySecretDefaultRecord = typeof repositorySecretDefaults.$inferSelect;
+export interface RepositorySyncSecretPlanReport {
+  secrets: SecretDefinition[];
+  activeSecretNames: string[];
+  missingSecretNames: string[];
+}
 
 function normalizeSecretName(secretName: string): string {
   return secretName.trim().toUpperCase();
@@ -180,17 +185,30 @@ export async function deactivateRepositorySecretDefault(
 }
 
 export async function buildRepositorySyncSecretPlan(env: Env): Promise<SecretDefinition[]> {
-  const secretNames = await listActiveRepositorySecretNames(env);
-  const secrets: SecretDefinition[] = [];
+  const plan = await buildRepositorySyncSecretPlanReport(env);
+  return plan.secrets;
+}
 
-  for (const secretName of secretNames) {
+export async function buildRepositorySyncSecretPlanReport(
+  env: Env,
+): Promise<RepositorySyncSecretPlanReport> {
+  const activeSecretNames = await listActiveRepositorySecretNames(env);
+  const secrets: SecretDefinition[] = [];
+  const missingSecretNames: string[] = [];
+
+  for (const secretName of activeSecretNames) {
     const value = await getSecret(env, secretName);
     if (!value) {
+      missingSecretNames.push(secretName);
       continue;
     }
 
     secrets.push({ name: secretName, value });
   }
 
-  return secrets;
+  return {
+    secrets,
+    activeSecretNames,
+    missingSecretNames,
+  };
 }

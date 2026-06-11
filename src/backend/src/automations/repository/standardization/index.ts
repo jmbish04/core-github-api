@@ -3,7 +3,7 @@ import { BaseAutomation, type AutomationMetadata } from '@/automations/core/Base
 import { applySyncManifestToBranch, buildSyncManifest } from '@/automations/push/orchestration/sync';
 import { McpSync } from './mcp';
 import { RulesStandardization } from './rules';
-import { SecretSync } from './secrets';
+import { SecretSync, type SecretProvisioningResult } from './secrets';
 import { ensureRepositorySpecialist } from './specialist';
 
 const RepoStandardizationPayloadSchema = z.object({
@@ -18,17 +18,44 @@ const RepoStandardizationPayloadSchema = z.object({
   }),
 });
 
+const InstallationRepositoriesPayloadSchema = z.object({
+  action: z.string().optional(),
+  repositories_added: z
+    .array(
+      z.object({
+        name: z.string(),
+        full_name: z.string(),
+      }),
+    )
+    .optional()
+    .default([]),
+});
+
 type RepoStandardizationPayload = z.infer<typeof RepoStandardizationPayloadSchema>;
+type InstallationRepositoriesPayload = z.infer<typeof InstallationRepositoriesPayloadSchema>;
+
+function parseRepositoryFullName(fullName: string): { owner: string; name: string } | null {
+  const [owner, name] = fullName.split('/');
+  if (!owner || !name) {
+    return null;
+  }
+
+  return { owner, name };
+}
+
+function isRepositoryEventPayload(payload: unknown): payload is RepoStandardizationPayload {
+  return RepoStandardizationPayloadSchema.safeParse(payload).success;
+}
 
 export async function enforceRepositoryStandardization(
   env: Env,
   repository: { owner: { login: string }; name: string; default_branch?: string },
   octokit: any,
-): Promise<void> {
+): Promise<SecretProvisioningResult> {
   await RulesStandardization.enforce(env, repository, octokit);
   await ensureRepositorySpecialist(env, repository.owner.login, repository.name, octokit);
   await McpSync.syncMcpConfig(env, repository.owner.login, repository.name, octokit);
-  await SecretSync.autoProvisionSecrets(env, repository.owner.login, repository.name, octokit);
+  return SecretSync.autoProvisionSecrets(env, repository.owner.login, repository.name, octokit);
 }
 
 async function bootstrapSyncAssets(
@@ -54,43 +81,94 @@ async function bootstrapSyncAssets(
   );
 }
 
-export class RepoStandardization extends BaseAutomation<RepoStandardizationPayload> {
+export class RepoStandardization extends BaseAutomation<
+  RepoStandardizationPayload | InstallationRepositoriesPayload
+> {
   static readonly metadata: AutomationMetadata = {
     key: 'repo-standardization',
     domain: 'repository',
     description: 'Bootstraps and enforces repository-wide standardization artifacts.',
-    events: ['repository'],
+    events: ['repository', 'installation_repositories'],
     alwaysOn: false,
     authPolicy: 'app',
   };
 
   async shouldRun(): Promise<boolean> {
-    return (
-      this.eventName === 'repository' &&
-      RepoStandardizationPayloadSchema.safeParse(this.payload).success
-    );
+    if (this.eventName === 'repository') {
+      return isRepositoryEventPayload(this.payload);
+    }
+
+    if (this.eventName === 'installation_repositories') {
+      const parseResult = InstallationRepositoriesPayloadSchema.safeParse(this.payload);
+      return (
+        this.action === 'added' &&
+        parseResult.success &&
+        parseResult.data.repositories_added.length > 0
+      );
+    }
+
+    return false;
   }
 
   async run(): Promise<void> {
-    const payload = RepoStandardizationPayloadSchema.parse(this.payload);
-
     try {
       const octokit = await this.getGitHubClient();
-      await enforceRepositoryStandardization(
-        this.env,
-        {
-          owner: { login: payload.repository.owner.login },
-          name: payload.repository.name,
-          default_branch: payload.repository.default_branch,
-        },
-        octokit,
-      );
+      const provisioningSummaries: string[] = [];
 
-      if (this.action === 'created') {
-        await bootstrapSyncAssets(this.env, octokit, payload);
+      if (this.eventName === 'repository') {
+        const payload = RepoStandardizationPayloadSchema.parse(this.payload);
+        const secretProvisioning = await enforceRepositoryStandardization(
+          this.env,
+          {
+            owner: { login: payload.repository.owner.login },
+            name: payload.repository.name,
+            default_branch: payload.repository.default_branch,
+          },
+          octokit,
+        );
+
+        provisioningSummaries.push(
+          `${payload.repository.owner.login}/${payload.repository.name}: ${secretProvisioning.status}${
+            secretProvisioning.reason ? ` (${secretProvisioning.reason})` : ''
+          }`,
+        );
+
+        if (this.action === 'created') {
+          await bootstrapSyncAssets(this.env, octokit, payload);
+        }
       }
 
-      await this.logExecution('success', 'Repository standardization completed.');
+      if (this.eventName === 'installation_repositories') {
+        const payload = InstallationRepositoriesPayloadSchema.parse(this.payload);
+        const results = await Promise.all(
+          payload.repositories_added.map(async (repository) => {
+            const parsed = parseRepositoryFullName(repository.full_name);
+            if (!parsed) {
+              return `skipped:${repository.full_name}:invalid_full_name`;
+            }
+
+            const secretProvisioning = await enforceRepositoryStandardization(
+              this.env,
+              {
+                owner: { login: parsed.owner },
+                name: parsed.name,
+              },
+              octokit,
+            );
+
+            return `${repository.full_name}:${secretProvisioning.status}${
+              secretProvisioning.reason ? ` (${secretProvisioning.reason})` : ''
+            }`;
+          }),
+        );
+
+        provisioningSummaries.push(...results);
+      }
+
+      await this.logExecution(
+        'success',
+        `Repository standardization completed. ${provisioningSummaries.join(' | ')}`,
+      );
     } catch (error) {
       await this.logExecution(
         'failure',
