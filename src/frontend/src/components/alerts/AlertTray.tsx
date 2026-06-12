@@ -79,25 +79,25 @@ function AlertRow({ alert, onDismiss }: { alert: Alert; onDismiss: () => void })
   return (
     <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg hover:bg-muted/30 transition-colors group">
       {alert.link_url ? (
-        <Link to={alert.link_url} className="flex-1 min-w-0">
+        <Link to={alert.link_url} className="flex-1 min-w-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-md">
           <div className="flex items-center gap-2">
             {content}
-            <ExternalLink className="w-3 h-3 text-muted-foreground/50 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+            <ExternalLink className="w-3 h-3 text-muted-foreground/50 shrink-0 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity" />
           </div>
         </Link>
       ) : content}
-      <div className="flex items-center shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+      <div className="flex items-center shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
         <button
           onClick={handleCopy}
           aria-label="Copy alert"
-          className="p-0.5 rounded text-muted-foreground/50 hover:text-foreground hover:bg-muted transition-colors"
+          className="p-0.5 rounded text-muted-foreground/50 hover:text-foreground hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
           <Copy className="w-3.5 h-3.5" />
         </button>
         <button
           onClick={onDismiss}
           aria-label="Dismiss alert"
-          className="p-0.5 rounded text-muted-foreground/50 hover:text-foreground hover:bg-muted transition-colors ml-0.5"
+          className="p-0.5 rounded text-muted-foreground/50 hover:text-foreground hover:bg-muted transition-colors ml-0.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
           <X className="w-3.5 h-3.5" />
         </button>
