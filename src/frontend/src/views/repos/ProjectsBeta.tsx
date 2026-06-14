@@ -586,8 +586,8 @@ export default function RepoProjectsTracker() {
                </button>
             </div>
             
-            <div className="w-6 flex justify-end">
-               <Button variant="ghost" size="icon" className="h-6 w-6 text-zinc-500 opacity-0 group-hover:opacity-100 hover:text-zinc-200">
+            <div className="w-6 flex justify-end opacity-0 group-hover:opacity-100 focus-within:opacity-100">
+               <Button variant="ghost" size="icon" className="h-6 w-6 text-zinc-500 hover:text-zinc-200 focus-visible:ring-1" aria-label="More options" title="More options">
                  <MoreHorizontal className="w-4 h-4" />
                </Button>
             </div>

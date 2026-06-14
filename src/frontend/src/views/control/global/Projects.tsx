@@ -186,7 +186,7 @@ export default function Projects() {
                         onChange={e => setSearchQuery(e.target.value)}
                     />
                 </div>
-                <Button variant="outline" size="icon">
+                <Button variant="outline" size="icon" aria-label="Filter projects" title="Filter projects">
                     <Filter className="w-4 h-4" />
                 </Button>
             </div>
