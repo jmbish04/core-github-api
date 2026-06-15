@@ -87,19 +87,21 @@ export function RepoFolder({ repo }: RepoFolderProps) {
         </CollapsibleTrigger>
         
         {/* Quick Actions (Hover Only) */}
-        <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="flex items-center opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
           <button 
             onClick={() => isFav ? removeFavorite(repo) : addFavorite(repo)}
-            className="p-1 hover:bg-background rounded-sm"
+            className="p-1 hover:bg-background rounded-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             title={isFav ? "Unfavorite" : "Favorite"}
+            aria-label={isFav ? "Unfavorite" : "Favorite"}
           >
             <Star className={cn("w-3.5 h-3.5", isFav ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground")} />
           </button>
           {!isFav && (
             <button 
               onClick={() => removeFavorite(repo)}
-              className="p-1 hover:bg-background rounded-sm text-muted-foreground hover:text-red-400"
+              className="p-1 hover:bg-background rounded-sm text-muted-foreground hover:text-red-400 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               title="Close"
+              aria-label="Close"
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -124,8 +126,9 @@ export function RepoFolder({ repo }: RepoFolderProps) {
         <div>
           <button
             onClick={() => setIsToolsOpen(v => !v)}
+            aria-expanded={isToolsOpen}
             className={cn(
-              "w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-md text-sm font-medium transition-colors",
+              "w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
               "text-muted-foreground hover:text-foreground hover:bg-accent/60"
             )}
           >
