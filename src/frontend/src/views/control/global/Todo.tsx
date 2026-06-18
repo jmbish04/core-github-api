@@ -200,6 +200,8 @@ function PostItCard({
         {/* Mark as done */}
         <button
           onClick={() => onMarkDone(note.id)}
+          className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black rounded"
+          aria-label="Mark note as done"
           style={{ position: "absolute", top: 6, left: 6, background: "transparent", border: "none", cursor: "pointer", opacity: 0.6, padding: 2, color: "#1a1a1a" }}
           title="Mark done"
         >
@@ -209,6 +211,8 @@ function PostItCard({
         {/* Edit */}
         <button
           onClick={() => onEdit(note.id)}
+          className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black rounded"
+          aria-label="Edit note"
           style={{ position: "absolute", top: 6, right: 30, background: "transparent", border: "none", cursor: "pointer", opacity: 0.6, padding: 2, color: "#1a1a1a" }}
           title="Edit note"
         >
@@ -218,6 +222,8 @@ function PostItCard({
         {/* Delete */}
         <button
           onClick={() => onDelete(note.id)}
+          className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black rounded"
+          aria-label="Delete note"
           style={{ position: "absolute", top: 6, right: 6, background: "transparent", border: "none", cursor: "pointer", opacity: 0.6, padding: 2, color: "#1a1a1a" }}
           title="Remove note"
         >
@@ -271,6 +277,8 @@ function TornLabel({
         </div>
         <button
           onClick={() => onEdit(label.id)}
+          className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black"
+          aria-label="Edit label"
           style={{ position: "absolute", top: -4, right: 20, background: "#333", border: "none", borderRadius: "50%", width: 18, height: 18, color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", opacity: 0.8, zIndex: 10 }}
           title="Edit label"
         >
@@ -278,6 +286,8 @@ function TornLabel({
         </button>
         <button
           onClick={() => onDelete(label.id)}
+          className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black"
+          aria-label="Delete label"
           style={{ position: "absolute", top: -4, right: -4, background: "#333", border: "none", borderRadius: "50%", width: 18, height: 18, color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", opacity: 0.8, zIndex: 10 }}
           title="Remove label"
         >
@@ -582,7 +592,14 @@ export default function TodoPage() {
               <Label style={{ marginBottom: 6, display: "block", fontSize: 12 }}>Color</Label>
               <div style={{ display: "flex", gap: 8 }}>
                 {NOTE_COLORS.map(c => (
-                  <button key={c} onClick={() => setNewColor(c)} style={{ width: 28, height: 28, borderRadius: 4, background: c, border: c === newColor ? "3px solid #fff" : "2px solid transparent", cursor: "pointer", boxShadow: c === newColor ? "0 0 0 1px #888" : "none" }} />
+                  <button
+                    key={c}
+                    onClick={() => setNewColor(c)}
+                    className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+                    aria-label={`Select color ${c}`}
+                    title={`Select color ${c}`}
+                    style={{ width: 28, height: 28, borderRadius: 4, background: c, border: c === newColor ? "3px solid #fff" : "2px solid transparent", cursor: "pointer", boxShadow: c === newColor ? "0 0 0 1px #888" : "none" }}
+                  />
                 ))}
               </div>
             </div>
