@@ -1,0 +1,3 @@
+## 2024-05-18 - Missing Accessibility Attributes in `@assistant-ui/react` primitives
+**Learning:** The `@assistant-ui/react` composer primitive components (e.g., `ComposerPrimitive.Dictate`, `ComposerPrimitive.StopDictation`, `ComposerPrimitive.Send`) do not automatically generate `aria-label` or `title` attributes, despite acting as primary action buttons in the chat interface. When used as icon-only buttons, they present an accessibility barrier.
+**Action:** Explicitly provide `aria-label`, `title` (for hover tooltips), and explicit focus styles (`focus-visible:ring-2`) to all interactive `ComposerPrimitive` components, especially when rendering them as icon-only controls.
