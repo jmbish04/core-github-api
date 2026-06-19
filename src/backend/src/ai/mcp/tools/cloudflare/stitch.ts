@@ -51,7 +51,7 @@ export function registerStitchTools(server: McpServer, env: Env): void {
     { title: z.string().optional().describe('Optional project title') },
     async ({ title }, _extra) => {
       const svc = await stitch();
-      const result = await svc.createProject(title);
+      const result = await svc.createProject({ name: title || 'Untitled Project' });
       return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
     },
   );
@@ -78,7 +78,7 @@ export function registerStitchTools(server: McpServer, env: Env): void {
     },
     async ({ projectId, screenId }, _extra) => {
       const svc = await stitch();
-      const result = await svc.getScreen(projectId, screenId);
+      const result = await svc.getScreen({ projectId, screenId });
       return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
     },
   );
@@ -94,7 +94,14 @@ export function registerStitchTools(server: McpServer, env: Env): void {
     },
     async ({ projectId, prompt, deviceType, modelId }, _extra) => {
       const svc = await stitch();
-      const result = await svc.generateScreen(projectId, prompt, deviceType, modelId);
+      let mappedDevice: 'DESKTOP' | 'MOBILE' | 'TABLET' = 'DESKTOP';
+      if (deviceType === 'MOBILE') mappedDevice = 'MOBILE';
+      if (deviceType === 'TABLET') mappedDevice = 'TABLET';
+      const result = await svc.generateScreen({
+        projectId,
+        prompt,
+        deviceType: mappedDevice,
+      });
       return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
     },
   );
@@ -111,7 +118,11 @@ export function registerStitchTools(server: McpServer, env: Env): void {
     },
     async ({ projectId, selectedScreenIds, prompt, deviceType, modelId }, _extra) => {
       const svc = await stitch();
-      const result = await svc.editScreen(projectId, selectedScreenIds, prompt, deviceType, modelId);
+      const result = await svc.editScreens({
+        projectId,
+        screenIds: selectedScreenIds,
+        editPrompt: prompt,
+      });
       return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
     },
   );
@@ -129,17 +140,8 @@ export function registerStitchTools(server: McpServer, env: Env): void {
       deviceType: z.enum(['DEVICE_TYPE_UNSPECIFIED', 'MOBILE', 'DESKTOP', 'TABLET', 'AGNOSTIC']).optional(),
       modelId: z.enum(['MODEL_ID_UNSPECIFIED', 'GEMINI_3_PRO', 'GEMINI_3_FLASH']).optional(),
     },
-    async ({ projectId, selectedScreenIds, prompt, variantOptions = {}, deviceType, modelId }, _extra) => {
-      const svc = await stitch();
-      const result = await svc.generateVariants(
-        projectId,
-        selectedScreenIds,
-        prompt,
-        variantOptions as Record<string, any>,
-        deviceType,
-        modelId,
-      );
-      return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
+    async (_args, _extra) => {
+      return { content: [{ type: 'text' as const, text: JSON.stringify({ error: "generateVariants is not supported by StitchService." }, null, 2) }] };
     },
   );
 
@@ -150,9 +152,7 @@ export function registerStitchTools(server: McpServer, env: Env): void {
     'List all available Stitch MCP tools and their parameter schemas.',
     {},
     async (_args, _extra) => {
-      const svc = await stitch();
-      const result = await svc.listTools();
-      return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
+      return { content: [{ type: 'text' as const, text: JSON.stringify({ error: "listTools is not supported by StitchService." }, null, 2) }] };
     },
   );
 }

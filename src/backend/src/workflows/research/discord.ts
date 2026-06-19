@@ -28,7 +28,7 @@ const BaseDiscordResearchWorkflow = workflow<Env, DiscordResearchPayload>({
         name: 'collect-discord-corpus',
         retries: { limit: 3, backoff: 'exponential' },
       },
-      async (input, workflowStep) => {
+      async (input: DiscordResearchPayload, workflowStep: any) => {
         const env = activeEnv;
         if (!env) {
           throw new Error('DiscordResearchWorkflow env is not initialized');
@@ -42,7 +42,7 @@ const BaseDiscordResearchWorkflow = workflow<Env, DiscordResearchPayload>({
         name: 'analyze-discord-corpus',
         timeout: '60 seconds',
       },
-      async (corpus, workflowStep) => {
+      async (corpus: DiscordResearchCorpus, workflowStep: any) => {
         const env = activeEnv;
         if (!env) {
           throw new Error('DiscordResearchWorkflow env is not initialized');
@@ -51,7 +51,7 @@ const BaseDiscordResearchWorkflow = workflow<Env, DiscordResearchPayload>({
         return workflowStep.do('analyze-discord-results', async () => {
           const matches = corpus.matches
             .slice(0, 40)
-            .map((match, index) => {
+            .map((match: any, index: number) => {
               return [
                 `Match ${index + 1}`,
                 `Guild: ${match.guildName || match.guildId || 'unknown'}`,
@@ -91,7 +91,7 @@ const BaseDiscordResearchWorkflow = workflow<Env, DiscordResearchPayload>({
       {
         name: 'summarize-discord-research',
       },
-      async (analysis, workflowStep) => {
+      async (analysis: DiscordResearchAnalysis, workflowStep: any) => {
         return workflowStep.do('create-discord-summary', async () => ({
           themes: analysis.themes,
           risks: analysis.risks,
@@ -102,10 +102,10 @@ const BaseDiscordResearchWorkflow = workflow<Env, DiscordResearchPayload>({
       },
     ),
   ],
-  onComplete: async (result) => {
+  onComplete: async (result: any) => {
     console.log('Discord research complete:', result.summary);
   },
-  onError: async (error) => {
+  onError: async (error: any) => {
     console.error('Discord research failed:', error.message);
   },
 });

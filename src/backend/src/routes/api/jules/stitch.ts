@@ -54,7 +54,7 @@ app.post(
     const { title } = c.req.valid('json');
     try {
       const svc = await StitchService.getInstance(c.env);
-      const project = await svc.createProject(title);
+      const project = await svc.createProject({ name: title || 'Untitled Project' });
       return c.json({ success: true, project });
     } catch (e) {
       return err(c, e);
@@ -104,7 +104,14 @@ app.post(
     const { prompt, deviceType, modelId } = c.req.valid('json');
     try {
       const svc = await StitchService.getInstance(c.env);
-      const screen = await svc.generateScreen(projectId, prompt, deviceType, modelId);
+      let mappedDevice: 'DESKTOP' | 'MOBILE' | 'TABLET' = 'DESKTOP';
+      if (deviceType === 'MOBILE') mappedDevice = 'MOBILE';
+      if (deviceType === 'TABLET') mappedDevice = 'TABLET';
+      const screen = await svc.generateScreen({
+        projectId,
+        prompt,
+        deviceType: mappedDevice,
+      });
       return c.json({ success: true, screen });
     } catch (e) {
       return err(c, e);
@@ -117,7 +124,7 @@ app.get('/projects/:projectId/screens/:screenId', async (c) => {
   const { projectId, screenId } = c.req.param();
   try {
     const svc = await StitchService.getInstance(c.env);
-    const screen = await svc.getScreen(projectId, screenId);
+    const screen = await svc.getScreen({ projectId, screenId });
     return c.json({ success: true, screen });
   } catch (e) {
     return err(c, e);
@@ -141,13 +148,11 @@ app.patch(
     const { prompt, selectedScreenIds, deviceType, modelId } = c.req.valid('json');
     try {
       const svc = await StitchService.getInstance(c.env);
-      const result = await svc.editScreen(
+      const result = await svc.editScreens({
         projectId,
-        selectedScreenIds ?? [screenId],
-        prompt,
-        deviceType,
-        modelId,
-      );
+        screenIds: selectedScreenIds ?? [screenId],
+        editPrompt: prompt,
+      });
       return c.json({ success: true, result });
     } catch (e) {
       return err(c, e);
@@ -172,15 +177,7 @@ app.post(
     const { prompt, variantOptions, deviceType, modelId } = c.req.valid('json');
     try {
       const svc = await StitchService.getInstance(c.env);
-      const variants = await svc.generateVariants(
-        projectId,
-        [screenId],
-        prompt,
-        (variantOptions ?? {}) as Record<string, any>,
-        deviceType,
-        modelId,
-      );
-      return c.json({ success: true, variants });
+      return c.json({ success: false, error: 'generateVariants is not supported by StitchService.' }, 400);
     } catch (e) {
       return err(c, e);
     }
@@ -192,9 +189,7 @@ app.post(
 /** GET /tools */
 app.get('/tools', async (c) => {
   try {
-    const svc = await StitchService.getInstance(c.env);
-    const tools = await svc.listTools();
-    return c.json({ success: true, tools });
+      return c.json({ success: false, error: 'listTools is not supported by StitchService.' }, 400);
   } catch (e) {
     return err(c, e);
   }
@@ -225,7 +220,7 @@ app.post(
       // Build Stitch context by listing the relevant screens
       const svc = await StitchService.getInstance(c.env);
       const screens = screenIds?.length
-        ? await Promise.all(screenIds.map((id) => svc.getScreen(projectId, id)))
+        ? await Promise.all(screenIds.map((id) => svc.getScreen({ projectId, screenId: id })))
         : await svc.listScreens(projectId);
 
       const stitchContext = `\n\n## Stitch Design Context\n\nProject: ${projectId}\nScreens:\n${JSON.stringify(screens, null, 2)}`;
