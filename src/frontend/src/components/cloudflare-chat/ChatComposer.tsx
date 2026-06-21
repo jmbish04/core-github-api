@@ -68,15 +68,21 @@ export function ChatComposer({
 
           <ComposerPrimitive.If dictation={false}>
             <ComposerPrimitive.Dictate
-              className="p-2 hover:bg-muted rounded-md transition-colors cursor-pointer text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:pointer-events-none"
+              className="p-2 hover:bg-muted rounded-md transition-colors cursor-pointer text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               disabled={disabled || isRunning}
+              aria-label="Start dictation"
+              title="Start dictation"
             >
               <MicIcon size={20} className="w-4 h-4" />
             </ComposerPrimitive.Dictate>
           </ComposerPrimitive.If>
 
           <ComposerPrimitive.If dictation>
-            <ComposerPrimitive.StopDictation className="p-2 bg-destructive/10 text-destructive hover:bg-destructive/20 rounded-md transition-colors cursor-pointer">
+            <ComposerPrimitive.StopDictation
+              className="p-2 bg-destructive/10 text-destructive hover:bg-destructive/20 rounded-md transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              aria-label="Stop dictation"
+              title="Stop dictation"
+            >
               <SquareIcon size={20} className="w-4 h-4 animate-pulse" />
             </ComposerPrimitive.StopDictation>
           </ComposerPrimitive.If>
@@ -86,9 +92,10 @@ export function ChatComposer({
               type="button"
               size="icon"
               variant="ghost"
-              className="h-8 w-8 shrink-0 text-red-400 hover:bg-red-500/10"
+              className="h-8 w-8 shrink-0 text-red-400 hover:bg-red-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               onClick={onCancel}
               aria-label="Stop generation"
+              title="Stop generation"
             >
               <Square className="w-3.5 h-3.5" />
             </Button>
@@ -96,9 +103,10 @@ export function ChatComposer({
             <ComposerPrimitive.Send 
               className={cn(
                 "flex items-center justify-center h-8 w-8 shrink-0 rounded-md transition-colors",
-                "bg-orange-500 hover:bg-orange-600 text-white cursor-pointer data-[disabled]:opacity-30 data-[disabled]:pointer-events-none"
+                "bg-orange-500 hover:bg-orange-600 text-white cursor-pointer data-[disabled]:opacity-30 data-[disabled]:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               )}
               aria-label="Send message"
+              title="Send message"
             >
               <Send className="w-3.5 h-3.5" />
             </ComposerPrimitive.Send>
