@@ -1,0 +1,3 @@
+## 2026-06-22 - [Add missing ARIA labels and titles to ConfigTable icon buttons]
+**Learning:** Icon-only buttons using generic components like `<Button size="icon">` lack accessibility descriptions by default and must explicitly be provided `aria-label` and `title` properties. This not only makes them screen reader accessible, but also provides a necessary tooltip on hover to clarify functionality.
+**Action:** When adding or auditing icon-only buttons, always ensure they have a clear `aria-label` and `title` set.
