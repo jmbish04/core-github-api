@@ -6,7 +6,7 @@
 import { OpenAPIHono, createRoute } from "@hono/zod-openapi";
 import { z } from "zod";
 import { generateUuid } from "@/utils/common";
-import { HoniClient } from '@utils/honi-client';
+import { getAgentByName } from 'agents';
 
 const workshopChatApi = new OpenAPIHono<{ Bindings: Env }>({
   defaultHook: (result, c) => {
@@ -58,7 +58,7 @@ const route = createRoute({
   path: "/workshop-chat",
   operationId: "chatWithWorkshopAgent",
   tags: ["Agents"],
-  summary: "Chat with the Honi workshop agent",
+  summary: "Chat with the CF Agents SDK workshop agent",
   request: {
     body: {
       content: { "application/json": { schema: WorkshopChatRequestSchema } },
@@ -94,7 +94,7 @@ workshopChatApi.openapi(route, async (c) => {
       c.req.valid("json");
 
     const sessionId = providedSessionId || generateUuid();
-    const stub = HoniClient.getStub(c.env.WORKSHOP_AGENT as unknown as DurableObjectNamespace, sessionId);
+    const stub = await getAgentByName(c.env.WORKSHOP_AGENT as any, sessionId);
 
     interface ChatResult {
       blocks?: Array<{ type: string; text: string; language?: string }>;

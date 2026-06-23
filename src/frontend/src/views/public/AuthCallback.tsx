@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/context/auth-context';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
+import { handleGlobalError } from '@/lib/error-handler';
 
 export default function AuthCallback() {
   const [searchParams] = useSearchParams();
@@ -19,7 +19,7 @@ export default function AuthCallback() {
     const error = searchParams.get('error');
 
     if (error) {
-      toast.error(`Authentication failed: ${error}`);
+      handleGlobalError(`Authentication failed: ${error}`);
       navigate('/login', { replace: true });
       return;
     }

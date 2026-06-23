@@ -7,7 +7,7 @@
  * 
  * @module AI/Utils/LogVectorizer
  */
-import { generateEmbeddings } from "@/ai/providers";
+import { AIProvider } from "@/ai/providers";
 
 /**
  * Batches log content, generates embeddings, and inserts them into the Vectorize index.
@@ -27,11 +27,13 @@ export async function vectorizeAndStoreLogs(env: Env, runId: string, rawLogs: an
   
   let insertedCount = 0;
 
+  const ai = new AIProvider(env);
+
   for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
     const batch = chunks.slice(i, i + BATCH_SIZE);
-    
+
     // Generate embeddings using our provider wrapper
-    const embeddings = await generateEmbeddings(env, batch);
+    const embeddings = await ai.generateEmbeddings(batch);
 
     // Format for Vectorize
     const vectors = embeddings.map((embedding: number[], index: number) => ({

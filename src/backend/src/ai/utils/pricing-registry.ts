@@ -8,6 +8,7 @@
  * @module AI/Utils/Pricing
  */
 import { z } from 'zod';
+import { Logger } from '@/lib/logger';
 
 // ============================================================================
 // 1. CONFIGURATION & GUARDRAILS
@@ -241,11 +242,14 @@ export function guardCheck(modelId: string, model: ModelPricing, isLongContext: 
  * @param params - Input/Output token counts and attribution.
  * @returns Object containing total cost (USD) and breakdown.
  */
-export function calculateAndVerifyCost(params: CostCalculationParams) {
+export function calculateAndVerifyCost(env: Env, params: CostCalculationParams) {
+  const logger = new Logger(env, "PricingRegistry");
+  const logPrefix = "[PricingRegistry - calculateAndVerifyCost] ";
+  
   const model = PRICING_CATALOG[params.modelId];
   
   if (!model) {
-    console.warn(`[Pricing] Unknown model '${params.modelId}'. Skipping guardrails.`);
+    logger.error(`${logPrefix} Model not found: ${params.modelId}`);
     return { total: 0, currency: 'USD' };
   }
 
@@ -279,8 +283,8 @@ export function calculateAndVerifyCost(params: CostCalculationParams) {
       : (model.cache_write_5m || 0);
     cacheCost += (params.cacheWriteTokens / 1_000_000) * writeRate;
   }
-
-  return {
+  
+  const result = {
     total: inputCost + outputCost + cacheCost,
     currency: 'USD',
     breakdown: {
@@ -289,4 +293,6 @@ export function calculateAndVerifyCost(params: CostCalculationParams) {
       cache: cacheCost
     }
   };
+  logger.info(`${logPrefix} Result: ${JSON.stringify(result)}`);
+  return result;
 }

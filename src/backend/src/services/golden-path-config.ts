@@ -378,19 +378,22 @@ export async function updateGoldenPathTag(
     name: string;
     description: string;
     hexColor: string;
-    isActive: boolean;
+    isActive?: boolean;
   },
 ): Promise<void> {
   const db = getDb(env.DB);
+  const setClause: Record<string, unknown> = {
+    name: input.name.trim(),
+    description: input.description.trim(),
+    hexColor: input.hexColor.trim(),
+    updatedAt: new Date().toISOString(),
+  };
+  if (input.isActive !== undefined) {
+    setClause.isActive = input.isActive;
+  }
   await db
     .update(goldenPathConfigTagDefinitions)
-    .set({
-      name: input.name.trim(),
-      description: input.description.trim(),
-      hexColor: input.hexColor.trim(),
-      isActive: input.isActive,
-      updatedAt: new Date().toISOString(),
-    })
+    .set(setClause)
     .where(eq(goldenPathConfigTagDefinitions.id, id))
     .run();
 }

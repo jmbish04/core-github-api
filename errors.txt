@@ -1,0 +1,24 @@
+src/backend/src/ai/agents/runtime/openai.ts(70,7): error TS2554: Expected 4-6 arguments, but got 7.
+src/backend/src/ai/agents/runtime/openai.ts(83,7): error TS2554: Expected 3-5 arguments, but got 6.
+src/backend/src/ai/agents/support/inference.ts(61,5): error TS2554: Expected 2-4 arguments, but got 5.
+src/backend/src/ai/agents/support/inference.ts(95,5): error TS2554: Expected 3-5 arguments, but got 6.
+src/backend/src/ai/agents/support/structured-chat.ts(98,7): error TS2554: Expected 3-5 arguments, but got 6.
+src/backend/src/ai/agents/workshop/UxResearcher.ts(353,7): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+src/backend/src/ai/health.ts(201,128): error TS2554: Expected 2-4 arguments, but got 5.
+src/backend/src/ai/health.ts(266,123): error TS2554: Expected 2-4 arguments, but got 5.
+src/backend/src/ai/providers/jules.ts(189,193): error TS2554: Expected 3-5 arguments, but got 6.
+src/backend/src/ai/services/colby-implementer.ts(81,9): error TS2554: Expected 3-5 arguments, but got 6.
+src/backend/src/ai/services/repository-specialist-builder.ts(114,9): error TS2554: Expected 2-4 arguments, but got 5.
+src/backend/src/ai/services/software-engineer.ts(9,3): error TS2305: Module '"@/ai/agents/support/agent-ai"' has no exported member 'resolveDefaultAiModel'.
+src/backend/src/ai/services/software-engineer.ts(10,3): error TS2305: Module '"@/ai/agents/support/agent-ai"' has no exported member 'resolveDefaultAiProvider'.
+src/backend/src/ai/services/software-engineer.ts(86,9): error TS2554: Expected 3-5 arguments, but got 6.
+src/backend/src/automations/pr/doc-string-generator/service.ts(50,5): error TS2554: Expected 2-4 arguments, but got 5.
+src/backend/src/automations/push/standards-dispatcher.ts(137,5): error TS2554: Expected 2-4 arguments, but got 5.
+src/backend/src/routes/api/cloudflare/docs/ai-edit.ts(86,7): error TS2554: Expected 2-4 arguments, but got 5.
+src/backend/src/routes/api/frontend/tools/shadcn-registry.ts(38,9): error TS2554: Expected 2-4 arguments, but got 5.
+src/backend/src/routes/api/frontend/tools/shadcn-registry.ts(76,9): error TS2554: Expected 2-4 arguments, but got 5.
+src/backend/src/routes/api/frontend/tools/shadcn-registry.ts(104,9): error TS2554: Expected 2-4 arguments, but got 5.
+src/backend/src/routes/api/frontend/tools/shadcn-registry.ts(141,9): error TS2554: Expected 2-4 arguments, but got 5.
+src/backend/src/routes/api/learning/index.ts(25,30): error TS2307: Cannot find module '@services/jules' or its corresponding type declarations.
+src/backend/src/routes/api/sentinel/orchestrate.ts(61,31): error TS2345: Argument of type '(c: Context<{ Bindings: Env; }, "/orchestrate-ui", { in: { json: { prompt: string; repoOwner: string; repoName: string; pageId: string; branch?: string | undefined; routeType?: "repo" | "global" | undefined; stitchProjectId?: string | undefined; structure?: string[] | undefined; }; }; out: { ...; }; }>) => Promise<....' is not assignable to parameter of type 'Handler<{ Bindings: Env; }, "/orchestrate-ui", { in: { json: { prompt: string; repoOwner: string; repoName: string; pageId: string; branch?: string | undefined; routeType?: "repo" | "global" | undefined; stitchProjectId?: string | undefined; structure?: string[] | undefined; }; }; out: { ...; }; }, MaybePromise<...>>'.
+src/backend/src/routes/api/sentinel/tasks.ts(41,29): error TS2345: Argument of type '(c: Context<{ Bindings: Env; }, "/tasks/available", {}>) => Promise<JSONRespondReturn<{ tasks: { id: string; repoId: string; parentId: string | null; title: string; description: string | null; ... 9 more ...; updatedAt: string | null; }[]; }, 200>>' is not assignable to parameter of type 'Handler<{ Bindings: Env; }, "/tasks/available", {}, MaybePromise<TypedResponse<never, 200, "json">>>'.

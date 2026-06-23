@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Lightbulb, X } from 'lucide-react';
 import { api } from '@/lib/api-client';
+import { handleGlobalError } from '@/lib/error-handler';
 
 interface IdeaSparkModalProps {
   isOpen: boolean;
@@ -33,8 +34,9 @@ export const IdeaSparkModal = ({ isOpen, onClose, registryTitle }: IdeaSparkModa
       } else {
         throw new Error('Failed to spark an idea.');
       }
-    } catch {
+    } catch (e: any) {
       setIdea("Failed to spark an idea. Try again!");
+      handleGlobalError(e instanceof Error ? e : new Error(`[IdeaSparkModal] Failed to spark an idea: ${e}`));
     } finally {
       setLoading(false);
     }

@@ -17,7 +17,7 @@ import {
   Brain, Server, Shield, X, ArrowRight,
   Bell, ExternalLink, Copy,
 } from 'lucide-react';
-import { toast } from 'sonner';
+import { handleGlobalSuccess } from '@/lib/success-handler';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
@@ -55,7 +55,7 @@ function AlertRow({ alert, onDismiss }: { alert: Alert; onDismiss: () => void })
     e.preventDefault();
     e.stopPropagation();
     navigator.clipboard.writeText(`${alert.title}\n${alert.description}${alert.link_url ? '\n' + alert.link_url : ''}`);
-    toast.success('Alert copied to clipboard');
+    handleGlobalSuccess('Copied', 'Alert copied to clipboard');
   };
 
   const content = (

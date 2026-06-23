@@ -18,15 +18,15 @@ app.post("/create", async (c) => {
   
   if (!title || !requirements) return c.json({ error: "Missing title or requirements" }, 400);
 
-  // We invoke the TopicOrchestratorAgent to handle the creation and initial planning
+  // We invoke the OrchestratorAgent to handle the creation and initial planning
   // We need a unique ID for the agent, or we use a standard "Dispatcher" pattern?
-  // The plan says TopicOrchestratorAgent manages the brief. 
-  // Let's create a new brief ID and use that for the agent ID to keep it 1:1 stateful.
-  const id = c.env.TOPIC_ORCHESTRATOR.newUniqueId();
-  const stub = c.env.TOPIC_ORCHESTRATOR.get(id) as any; // Use newUniqueId for a fresh agent
+  // Use getAgentByName with a unique ID for a fresh agent
+  const { getAgentByName } = await import("agents");
+  const id = crypto.randomUUID();
+  const agent = await getAgentByName(c.env.ORCHESTRATOR_AGENT as any, id);
   
   // Create brief via RPC
-  const brief = await (stub as any).submitBrief(userId || "anon", title, requirements);
+  const brief = await (agent as any).submitBrief(userId || "anon", title, requirements);
   
   return c.json({ brief, agentId: id.toString() });
 });

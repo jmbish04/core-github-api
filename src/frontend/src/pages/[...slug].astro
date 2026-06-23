@@ -1,0 +1,27 @@
+---
+/**
+ * SPA Catch-All Route
+ *
+ * Any URL that doesn't match a specific Astro page (e.g. /repos/*, /control/*)
+ * falls through to this catch-all, which renders the React SPA shell.
+ * React Router then handles its own client-side routing for the current URL.
+ *
+ * Without this, refreshing a deep link like /repos/owner/repo/projects/board
+ * results in an Astro 404 because no matching .astro page exists at that path.
+ */
+import ClientApp from "@/components/client-app";
+---
+
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="shortcut icon" href="/favicon.svg" />
+    <title>Core GitHub API</title>
+  </head>
+  <body>
+    <ClientApp client:only="react" />
+  </body>
+</html>

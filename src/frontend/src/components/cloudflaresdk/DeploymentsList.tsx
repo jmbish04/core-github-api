@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import ReactMarkdown from "react-markdown";
+import { handleGlobalError } from "@/lib/error-handler";
 
 interface DeploymentsListProps {
   repoOwner: string;
@@ -44,7 +45,8 @@ export function DeploymentsList({ repoOwner, repoName, deployments = [] }: Deplo
       if (!res.ok) throw new Error(data?.error || "Failed to analyze component");
       setAnalysisText(data?.analysis || "Analysis completed with no output.");
     } catch (e: any) {
-      setAnalysisText(`**Error analyzing logs:**\n\n${e.message}`);
+      handleGlobalError(e instanceof Error ? e : new Error(`[DeploymentsList] Failed to analyze component: ${e?.message || String(e)}`));
+      setAnalysisText(`**Error analyzing logs:**\n\n${e.message || String(e)}`);
     } finally {
       setIsAnalyzing(false);
     }

@@ -33,16 +33,36 @@ app.post("/", zValidator("json", schema), async (c) => {
     const baseBranch = pr.base.ref;
     
     // 2. Build prompt for Jules
-    const prompt = `This PR (#${pullNumber}) has merge conflicts between branch '${headBranch}' and base branch '${baseBranch}'.
-Please do the following:
-1. Run \`git fetch origin ${baseBranch}\`
-2. Run \`git config user.name "Jules AI"\` and \`git config user.email "jules@ezagentsdk.com"\`
-3. Run \`git merge origin/${baseBranch}\` - this will likely have conflicts.
-4. Carefully resolve all merge conflicts in the files.
-5. Run \`git add .\`
-6. Run \`git commit -m "chore: resolve merge conflicts with ${baseBranch}"\`
-7. Run \`git push origin ${headBranch}\`
-After pushing, please summarize the files you resolved.`;
+    const prompt = `Jules, this PR (#${pullNumber}) has merge conflicts between branch '${headBranch}' and base branch '${baseBranch}'. Please execute a complete conflict resolution workflow by following these exact steps:
+
+1. Execute the following setup script to configure your environment and start the merge:
+\`\`\`bash
+git config user.name "Jules AI"
+git config user.email "jules@ezagentsdk.com"
+git fetch origin ${baseBranch}
+# Note: This will likely return a conflict status, which is expected.
+git merge origin/${baseBranch} || true
+\`\`\`
+
+2. Identify all files currently containing Git conflict markers (\`<<<<<<<\`, \`=======\`, \`>>>>>>>\`).
+
+3. For each conflicted file:
+   - Analyze the intent of the incoming changes from the target branch.
+   - Analyze the modifications made in this PR.
+   - Reconcile the logic to preserve both intents. Prioritize the architectural logic of this PR while ensuring any upstream bug fixes or structural updates are seamlessly integrated.
+
+4. Remove all conflict markers and ensure the resulting syntax is perfectly valid.
+
+5. Run standard workspace type checks and validations to ensure the newly integrated code does not introduce regressions.
+
+6. Once all conflicts are resolved and checks pass, execute the following script to complete the process:
+\`\`\`bash
+git add .
+git commit -m "chore: resolve merge conflicts with ${baseBranch}"
+git push origin ${headBranch}
+\`\`\`
+
+After pushing, please summarize the files you resolved and the architectural decisions made during reconciliation.`;
 
     // 3. Start Jules session
     const builder = new JulesSessionBuilder(c.env)

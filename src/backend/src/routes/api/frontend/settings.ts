@@ -8,10 +8,12 @@
 import { Hono } from "hono";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
+import { createInsertSchema } from "drizzle-zod";
 import { getDb } from "@db";
 import { userSettings } from "@/db/schemas/app/settings";
 import { configAuditLogs } from "@db/schemas/app/config";
-import { systemConfigDefinitions } from "@/db/schemas/app/standardization";
+import { systemConfigDefinitions, repositorySecretDefaults } from "@/db/schemas/app/standardization";
+import { goldenPathConfig, goldenPathConfigScopes, goldenPathConfigTagDefinitions } from "@/db/schemas/app/golden_path";
 import { zValidator } from "@hono/zod-validator";
 import { getConfigManager } from "@/config-settings";
 import { getSecretsStoreClient } from "@/utils/cloudflare/secret-store";
@@ -42,29 +44,32 @@ import {
 
 const settingsApi = new Hono<{ Bindings: Env }>();
 const DEFAULT_USER = "default-user";
-const RepoSecretDefaultSchema = z.object({
-  secretName: z.string().trim().min(1, "Secret name is required").regex(/^[A-Z][A-Z0-9_]*$/, "Secret name must be UPPERCASE_SNAKE_CASE"),
-  description: z.string().trim().max(255).optional().nullable(),
-});
-const GoldenPathConfigPayloadSchema = z.object({
-  title: z.string().trim().min(1),
-  description: z.string().trim().min(1),
-  rule: z.string().trim().min(1),
-  scopeId: z.coerce.number().int().positive(),
-});
-const GoldenPathScopePayloadSchema = z.object({
-  title: z.string().trim().min(1),
-  description: z.string().trim().min(1),
-  infrastructure: z.string().trim().min(1),
-  hexColor: z.string().trim().regex(/^#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})$/),
+const RepoSecretDefaultSchema = createInsertSchema(repositorySecretDefaults, {
+  secretName: (s) => s.trim().min(1, "Secret name is required").regex(/^[A-Z][A-Z0-9_]*$/, "Secret name must be UPPERCASE_SNAKE_CASE"),
+  description: (s) => s.trim().max(255).optional().nullable(),
+}).pick({ secretName: true, description: true });
+
+const GoldenPathConfigPayloadSchema = createInsertSchema(goldenPathConfig, {
+  title: (s) => s.trim().min(1),
+  description: (s) => s.trim().min(1),
+  rule: (s) => s.trim().min(1),
+  scopeId: () => z.coerce.number().int().positive(),
+}).pick({ title: true, description: true, rule: true, scopeId: true });
+
+const GoldenPathScopePayloadSchema = createInsertSchema(goldenPathConfigScopes, {
+  title: (s) => s.trim().min(1),
+  description: (s) => s.trim().min(1),
+  infrastructure: (s) => s.trim().min(1),
+  hexColor: (s) => s.trim().regex(/^#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})$/),
+}).pick({ title: true, description: true, infrastructure: true, hexColor: true }).extend({
   tagIds: z.array(z.coerce.number().int().positive()).default([]),
 });
-const GoldenPathTagPayloadSchema = z.object({
-  name: z.string().trim().min(1),
-  description: z.string().trim().min(1),
-  hexColor: z.string().trim().regex(/^#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})$/),
-  isActive: z.boolean().default(true),
-});
+
+const GoldenPathTagPayloadSchema = createInsertSchema(goldenPathConfigTagDefinitions, {
+  name: (s) => s.trim().min(1),
+  description: (s) => s.trim().min(1),
+  hexColor: (s) => s.trim().regex(/^#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})$/),
+}).pick({ name: true, description: true, hexColor: true, isActive: true });
 
 // --- Helper Functions ---
 

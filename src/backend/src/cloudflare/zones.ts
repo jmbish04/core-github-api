@@ -8,7 +8,6 @@ export async function listZones(env: Env, name?: string) {
 
 export async function getZoneIdByName(env: Env, name: string): Promise<string | null> {
     const res = await listZones(env, name);
-    // @ts-ignore
     const result = res.result;
     if (result && Array.isArray(result) && result.length > 0) {
         const match = result.find((z: { name: string; id: string }) => z.name === name);

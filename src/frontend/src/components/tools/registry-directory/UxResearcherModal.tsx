@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { toast } from 'sonner';
+import { handleGlobalError } from '@/lib/error-handler';
+import { handleGlobalSuccess } from '@/lib/success-handler';
 import { Microscope, Github, FileCode, X } from 'lucide-react';
 import { api } from '@/lib/api-client';
 import type { RegistryItem } from './data';
@@ -41,7 +42,7 @@ export const UxResearcherModal = ({ isOpen, onClose, registries, initialRepoUrl,
       }
     } catch (e) {
       console.error(e);
-      toast.error("Analysis failed. Please try with less text or check your connection.");
+      handleGlobalError("Analysis failed. Please try with less text or check your connection.");
       setStep(0);
     }
   };
@@ -140,7 +141,7 @@ export const UxResearcherModal = ({ isOpen, onClose, registries, initialRepoUrl,
                    Start Over
                  </button>
                  <button
-                   onClick={() => { navigator.clipboard.writeText(report); toast.success('Report copied to clipboard!'); }}
+                    onClick={() => { navigator.clipboard.writeText(report); handleGlobalSuccess('Copied', 'Report copied to clipboard!'); }}
                    className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
                  >
                    Copy Report

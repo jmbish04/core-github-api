@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { toast } from 'sonner';
+import { handleGlobalSuccess } from '@/lib/success-handler';
 
 export const RetrainingWizard = () => {
     const [retraining, setRetraining] = useState(false);
@@ -10,7 +10,7 @@ export const RetrainingWizard = () => {
         setRetraining(true);
         setTimeout(() => {
             setRetraining(false);
-            toast.success("Agent model weights synchronized successfully.");
+            handleGlobalSuccess('Synchronized', 'Agent model weights synchronized successfully.');
         }, 3000);
     };
 

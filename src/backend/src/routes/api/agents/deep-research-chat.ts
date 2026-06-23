@@ -5,7 +5,7 @@
 
 import { OpenAPIHono, createRoute } from '@hono/zod-openapi'
 import { z } from 'zod'
-import { HoniClient } from '@utils/honi-client';
+import { getAgentByName } from 'agents';
 import { generateUuid } from "@/utils/common";
 
 const deepResearchChatApi = new OpenAPIHono<{ Bindings: Env }>({
@@ -78,7 +78,7 @@ deepResearchChatApi.openapi(route, async (c) => {
         const { message, sessionId: providedSessionId, history, context, source } = c.req.valid('json')
 
         const sessionId = providedSessionId || generateUuid()
-        const stub = HoniClient.getStub(c.env.DEEP_RESEARCH_CHAT_AGENT as any, sessionId) as any;
+        const stub = await getAgentByName(c.env.RESEARCH_AGENT as any, sessionId) as any;
 
         interface ChatResult {
             blocks?: Array<{ type: string; text: string; language?: string }>;

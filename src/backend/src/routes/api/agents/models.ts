@@ -5,9 +5,7 @@
  */
 
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi';
-import { getModels } from '@/ai/providers/index';
-import { resolveDefaultAiModel } from '@/ai/providers/ai-gateway/config';
-import { REASONING_MODEL, STRUCTURING_MODEL } from '@/ai/providers/worker-ai';
+import { AIProvider, REASONING_MODEL, STRUCTURING_MODEL } from '@/ai/providers';
 
 const modelsApi = new OpenAPIHono<{ Bindings: Env }>();
 
@@ -65,7 +63,8 @@ modelsApi.openapi(createRoute({
     }
 
     // List available models from the provider(s)
-    const models = await getModels(c.env, fetchProvider, filter as any);
+    const ai = new AIProvider(c.env);
+    const models = await ai.getModels(fetchProvider, filter as any);
     
     const uniqueModelsMap = new Map();
 
@@ -106,13 +105,13 @@ modelsApi.openapi(createRoute({
 
     // Add other provider defaults if no provider specified or if explicitly requested
     if (!fetchProvider || fetchProvider === 'openai') {
-      const defaultOpenai = resolveDefaultAiModel(c.env, 'openai');
+      const defaultOpenai = 'gpt-4o-mini';
       if (!uniqueModelsMap.has(defaultOpenai)) {
         uniqueModelsMap.set(defaultOpenai, { id: defaultOpenai, name: `OpenAI Default (${defaultOpenai})`, provider: 'openai', capabilities: [] });
       }
     }
     if (!fetchProvider || fetchProvider === 'anthropic') {
-      const defaultAnthropic = resolveDefaultAiModel(c.env, 'anthropic');
+      const defaultAnthropic = 'claude-4-5-sonnet-latest';
       if (!uniqueModelsMap.has(defaultAnthropic)) {
         uniqueModelsMap.set(defaultAnthropic, { id: defaultAnthropic, name: `Anthropic Default (${defaultAnthropic})`, provider: 'anthropic', capabilities: [] });
       }
@@ -148,10 +147,12 @@ modelsApi.openapi(createRoute({
     providers: {},
   };
 
+  const ai = new AIProvider(c.env);
+
   // Test full list per provider
   for (const provider of providers) {
     try {
-      const models = await getModels(c.env, provider);
+      const models = await ai.getModels(provider);
       results.providers[provider] = {
         status: models.length > 0 ? 'healthy' : 'empty',
         totalModels: models.length,
@@ -160,7 +161,7 @@ modelsApi.openapi(createRoute({
 
       // Test each filter
       for (const filter of filters) {
-        const filteredModels = await getModels(c.env, provider, filter as any);
+        const filteredModels = await ai.getModels(provider, filter as any);
         results.providers[provider].filters[filter] = {
           supported: filteredModels.length > 0,
           count: filteredModels.length,
@@ -178,7 +179,7 @@ modelsApi.openapi(createRoute({
 
   // Also test all providers combined
   try {
-     const allModels = await getModels(c.env);
+     const allModels = await ai.getModels();
      results.allProviders = {
         status: allModels.length > 0 ? 'healthy' : 'empty',
         totalModels: allModels.length

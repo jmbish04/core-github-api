@@ -1,4 +1,4 @@
-import { generateEmbeddings } from "@/ai/providers";
+import { AIProvider } from "@/ai/providers";
 import type { PlanningArtifactUrls } from "./monitor";
 import { createPlanningArtifact } from "./store";
 
@@ -161,7 +161,8 @@ export async function vectorizePlanningArtifact(
     return null;
   }
 
-  const embeddings = await generateEmbeddings(env, chunks);
+  const ai = new AIProvider(env);
+  const embeddings = await ai.generateEmbeddings( chunks);
   await env.PLAN_EMBEDDINGS.upsert(
     embeddings.map((values, index) => ({
       id: `planning:${options.requestId}:${index}`,
@@ -208,7 +209,8 @@ export async function queryPlanningArtifacts(
     topK?: number;
   },
 ) {
-  const embeddings = await generateEmbeddings(env, [options.query]);
+  const ai = new AIProvider(env);
+  const embeddings = await ai.generateEmbeddings( [options.query]);
   const [vector] = embeddings;
 
   if (!vector) {

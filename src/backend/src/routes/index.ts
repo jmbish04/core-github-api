@@ -34,12 +34,14 @@ import {
   cloudflareServicesApi,
   uxApi,
   docsAgentsRouter,
-  prReviewerApi,
   commentsTools,
   sandboxApi,
   researchProjectsApi,
   sentinelApi,
   sentinelInsightsApi,
+  backlogApi,
+  continuousLearningApi,
+  hitlApi,
 } from './api';
 
 /**
@@ -48,7 +50,7 @@ import {
  */
 export function mountRoutes(app: OpenAPIHono<{ Bindings: Env }>) {
   return app
-    .route('/api/agent-planning', agentPlanningApi)
+    .route('/api/agents/chat-rooms', agentPlanningApi)
     .route('/api/planning', planningApi)
     .route('/api/reverse-engineering', reverseEngineeringApi)
     .route('/api/jules', julesApi)
@@ -79,9 +81,11 @@ export function mountRoutes(app: OpenAPIHono<{ Bindings: Env }>) {
     .route('/api/services/cloudflare', cloudflareServicesApi)
     .route('/api/ux', uxApi)
     .route('/api/docs/agents', docsAgentsRouter)
-    .route('/api/pr-reviewer', prReviewerApi)
     .route('/api/sandbox', sandboxApi)
     .route('/api/research', researchProjectsApi)
     .route('/api/projects/sentinel', sentinelApi)
-    .route('/api/sentinel', sentinelInsightsApi);
+    .route('/api/sentinel', sentinelInsightsApi)
+    .route('/api/backlog', backlogApi)
+    .route('/api/continuous-learning', continuousLearningApi)
+    .route('/api/hitl', hitlApi);
 }

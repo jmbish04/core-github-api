@@ -15,7 +15,8 @@
  */
 
 import { useState, useEffect } from "react";
-import { toast } from "sonner";
+import { handleGlobalError } from '@/lib/error-handler';
+import { handleGlobalSuccess } from '@/lib/success-handler';
 import {
   Dialog,
   DialogContent,
@@ -162,7 +163,7 @@ export function PromptDraftModal({
       setProvider(data.provider ?? "gemini");
       setInstruction("");
     } catch (err: any) {
-      toast.error("AI edit failed", { description: err.message });
+      handleGlobalError(`AI edit failed: ${err.message}`);
     } finally {
       setAiLoading(false);
     }
@@ -190,14 +191,12 @@ export function PromptDraftModal({
       const data = (await res.json()) as any;
       if (!res.ok || !data.success) throw new Error(data.error ?? `HTTP ${res.status}`);
 
-      toast.success("System prompt updated", {
-        description: "New prompt will take effect on the next agent message.",
-      });
+      handleGlobalSuccess("System Prompt Updated", "New prompt will take effect on the next agent message.");
       onSaved(pendingSave, data.lastUpdated);
       setConfirmOpen(false);
       onClose();
     } catch (err: any) {
-      toast.error("Save failed", { description: err.message });
+      handleGlobalError(`Save failed: ${err.message}`);
     } finally {
       setSaving(false);
     }

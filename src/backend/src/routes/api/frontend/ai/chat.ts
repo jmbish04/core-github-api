@@ -10,11 +10,11 @@ import { getDb } from "@db";
 import { eq, desc } from 'drizzle-orm'
 import { chatThreads, chatMessages } from "@/db/schemas/agents/chat";
 import { v4 as uuidv4 } from 'uuid'
-import { HoniClient } from '@utils/honi-client';
+import { getAgentByName } from 'agents';
 
 const chatApi = new OpenAPIHono<{ Bindings: Env }>()
 
-// Schemas
+
 // Schemas
 const ThreadSchema = z.object({
     id: z.string(),
@@ -174,7 +174,7 @@ chatApi.openapi(createRoute({
         }
 
         if (targetAgentId === 'cloudflare-docs') {
-             stub = HoniClient.getStub(c.env.CLOUDFLARE_DOCS_AGENT as any, threadId) as any;
+             stub = await getAgentByName(c.env.CLOUDFLARE_AGENT as any, threadId) as any;
              let context = repoContext;
              if (!context && thread?.repoId) {
                  if (thread.repoId.includes('/')) {
@@ -184,14 +184,14 @@ chatApi.openapi(createRoute({
              }
              result = await stub.chat(content, history, context);
         } else if (targetAgentId === 'automation-architect') {
-             stub = HoniClient.getStub(c.env.GEMINI_AGENT as any, threadId) as any;
+             stub = await getAgentByName(c.env.DESIGN_AGENT as any, threadId) as any;
              const architectPrompt = `You are the Automation Architect for the core-github-api. 
              You help engineers scaffold new webhook automations by creating classes that extend BaseAutomation. 
              All new automations must implement a .shouldExecute() hook. Output patch-ready code in Markdown blocks.`;
              result = await stub.chat(content, history, architectPrompt);
         } else {
              // Default: GeminiAgent
-             stub = HoniClient.getStub(c.env.GEMINI_AGENT as any, threadId) as any;
+             stub = await getAgentByName(c.env.DESIGN_AGENT as any, threadId) as any;
              result = await stub.chat(content, history);
         }
     } catch (error: any) {

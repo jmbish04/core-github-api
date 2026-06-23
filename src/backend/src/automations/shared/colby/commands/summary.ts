@@ -1,4 +1,4 @@
-import { generateText } from '@/ai/providers';
+import { AIProvider } from '@/ai/providers';
 import type { ColbyCommandDefinition } from '../contracts';
 
 function truncate(value: string, limit = 4000): string {
@@ -105,7 +105,8 @@ export const SummaryCommand: ColbyCommandDefinition = {
       checkSummary.join('\n') || '- No check runs found.',
     ]);
 
-    const summary = await generateText(ctx.env, prompt, systemPrompt, {
+    const ai = new AIProvider(ctx.env);
+    const summary = await ai.generateText(prompt, systemPrompt, {
       maxTokens: 1200,
       effort: 'medium',
     });

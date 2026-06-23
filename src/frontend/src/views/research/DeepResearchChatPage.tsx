@@ -22,7 +22,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api-client";
-import { toast } from "sonner";
+import { handleGlobalError } from '@/lib/error-handler';
+import { handleGlobalSuccess } from '@/lib/success-handler';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -227,7 +228,9 @@ export default function DeepResearchChatPage() {
                     setProgressSteps([]);
                     setLoading(false);
                 }
-            } catch { /* skip non-JSON */ }
+            } catch (err) {
+                handleGlobalError(`Failed to parse WebSocket message: ${err}`);
+            }
         };
         wsRef.current = ws;
         return () => { ws.onopen = null; ws.onclose = null; ws.onerror = null; ws.onmessage = null; };
@@ -289,10 +292,10 @@ export default function DeepResearchChatPage() {
             const res = await (api as unknown as { research: { "trigger-job": { $post: (v: unknown) => Promise<Response> } } })
                 .research["trigger-job"].$post({ json: { repoUrl: "https://github.com/honojs/hono", repoOwner: "honojs", repoName: "hono" } });
             const data = await res.json() as { success: boolean; workflowId?: string; error?: string };
-            if (data.success) toast.success(`Workflow started: ${data.workflowId}`);
-            else toast.error(data.error ?? "Failed to start workflow");
+            if (data.success) handleGlobalSuccess('Workflow Started', `Workflow started: ${data.workflowId}`);
+            else handleGlobalError(data.error ?? "Failed to start workflow");
         } catch (e: unknown) {
-            toast.error(e instanceof Error ? e.message : "Failed to trigger job");
+            handleGlobalError(e instanceof Error ? e.message : "Failed to trigger job");
         } finally {
             setIsTriggering(false);
         }
@@ -304,10 +307,10 @@ export default function DeepResearchChatPage() {
             const res = await (api as unknown as { research: { "test-email": { $post: () => Promise<Response> } } })
                 .research["test-email"].$post();
             const data = await res.json() as { success: boolean; message?: string; error?: string };
-            if (data.success) toast.success(data.message ?? "Email triggered");
-            else toast.error(data.error ?? "Failed to send email");
+            if (data.success) handleGlobalSuccess('Email Sent', data.message ?? "Email triggered");
+            else handleGlobalError(data.error ?? "Failed to send email");
         } catch (e: unknown) {
-            toast.error(e instanceof Error ? e.message : "Failed to trigger email");
+            handleGlobalError(e instanceof Error ? e.message : "Failed to trigger email");
         } finally {
             setIsEmailing(false);
         }

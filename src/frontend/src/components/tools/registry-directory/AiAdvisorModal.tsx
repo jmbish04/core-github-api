@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Sparkles, Bot, Send, Loader2, X } from 'lucide-react';
 import { api } from '@/lib/api-client';
+import { handleGlobalError } from '@/lib/error-handler';
 import type { RegistryItem } from './data';
 
 interface AiAdvisorModalProps {
@@ -37,8 +38,9 @@ export const AiAdvisorModal = ({ isOpen, onClose, registries }: AiAdvisorModalPr
       } else {
         throw new Error('Failed to get recommendations.');
       }
-    } catch {
+    } catch (e: any) {
       setError("Failed to get recommendations. Please try again.");
+      handleGlobalError(e instanceof Error ? e : new Error(`[AiAdvisorModal] Failed to get recommendations: ${e}`));
     } finally {
       setLoading(false);
     }

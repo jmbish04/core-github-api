@@ -10,7 +10,7 @@ import { julesJobs } from "@/db/schemas/agents/jules";
 import { eq } from "drizzle-orm";
 import { generateUuid } from "@/utils/common";
 import { buildCodingAgentInstructions } from "@/services/golden-path-config";
-import { HoniClient } from '@utils/honi-client';
+import { getAgentByName } from 'agents';
 
 
 const app = new Hono<{ Bindings: Env }>();
@@ -106,7 +106,9 @@ app.post("/start", zValidator("json", startSessionSchema), async (c) => {
 
     // Trigger Overseer
     if (force_overseer) {
-        c.executionCtx.waitUntil(HoniClient.fetch(c.env.JULES_OVERSEER, "jules-overseer-singleton", "/schedule/check"));
+        const agent = await getAgentByName(c.env.ORCHESTRATOR_AGENT as any, "jules-overseer-singleton");
+        // Direct DO RPC — call @callable checkSchedule() on OrchestratorAgent
+        c.executionCtx.waitUntil((agent as any).checkSchedule());
     }
 
     let status = "connecting";

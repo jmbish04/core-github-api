@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
-import { generateStructuredResponse } from '@/ai/providers';
+import { AIProvider } from '@/ai/providers';
 import { withFullCodeOutputRules } from '@/ai/utils/code-output-rules';
 import type { ReverseEngineeringAuthInput } from '@/lib/schemas/reverse-engineering';
 import { JulesService } from '@/services/jules/service';
@@ -425,8 +425,8 @@ async function synthesizePageUx(
     JSON.stringify(input.capture?.visibleLinks || [], null, 2),
   ].join('\n');
 
-  return generateStructuredResponse<SynthesizedPage>(
-    env,
+  const ai = new AIProvider(env);
+  return ai.generateStructuredResponse<SynthesizedPage>(
     prompt,
     SynthesizedPageSchema,
     'Combine route-level code analysis and screenshot vision analysis into one final UX description.',
@@ -441,8 +441,8 @@ async function synthesizeOverallUx(
     overallDescription: z.string(),
   });
 
-  const result = await generateStructuredResponse<z.infer<typeof OverallUxSchema>>(
-    env,
+  const ai2 = new AIProvider(env);
+  const result = await ai2.generateStructuredResponse<z.infer<typeof OverallUxSchema>>(
     [
       'Summarize the overall user experience of this application using the provided route analyses.',
       JSON.stringify(pages, null, 2),
@@ -557,8 +557,8 @@ async function runFinalSynthesis(
     };
   }
 
-  const fallback = await generateStructuredResponse<FinalReverseEngineering>(
-    env,
+  const ai3 = new AIProvider(env);
+  const fallback = await ai3.generateStructuredResponse<FinalReverseEngineering>(
     [
       'Normalize the final reverse-engineering deliverables from this Jules output.',
       'If the PRD markdown is missing, construct it from the available synthesis context.',

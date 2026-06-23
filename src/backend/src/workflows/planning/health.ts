@@ -122,13 +122,13 @@ export async function checkHealth(env: Env): Promise<HealthStepResult> {
   //    Do NOT use raw `idFromName` + `get`. The Agents SDK `getAgentByName`
   //    is the correct API for server-side agent access.
   await runCheck('planner', async () => {
-    if (!env.PLANNER) {
-      throw new Error('PLANNER binding missing');
+    if (!env.ORCHESTRATOR_AGENT) {
+      throw new Error('ORCHESTRATOR_AGENT binding missing');
     }
     // getAgentByName from 'agents' SDK — verifies binding + class registration.
-    const plannerNs: any = env.PLANNER;
+    const plannerNs: any = env.ORCHESTRATOR_AGENT;
     const stub = await getAgentByName(plannerNs, 'planning-health-probe');
-    if (!stub) throw new Error('getAgentByName returned null — PLANNER may be misconfigured');
+    if (!stub) throw new Error('getAgentByName returned null — ORCHESTRATOR_AGENT may be misconfigured');
     return {
       message: 'Planner agent stub resolved via Agents SDK',
       note: 'HTTP probe skipped — agent health endpoint not guaranteed to be mounted',

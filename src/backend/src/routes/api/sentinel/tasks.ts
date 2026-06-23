@@ -5,7 +5,7 @@
  * - GET  /tasks/available  — unclaimed tasks (assignee IS NULL)
  * - POST /tasks/:id/claim  — sets assignee, logs audit event
  * - PATCH /tasks/:id       — updates task status/kanbanColumn
- * - POST /tasks/:id/submit — marks task in_review, dispatches JUDGE_AGENT
+ * - POST /tasks/:id/submit — marks task in_review, dispatches GUARDRAIL_AGENT
  *
  * @module Routes/Sentinel
  */
@@ -14,6 +14,8 @@ import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { getDb } from "@db";
 import { tasks, taskEvents } from "@/db/schemas/projects/backlog/tasks";
 import { eq, isNull, desc } from "drizzle-orm";
+import { getAgentByName } from "agents";
+import { Logger } from "@/lib/logger";
 
 const app = new OpenAPIHono<{ Bindings: Env }>();
 
@@ -38,7 +40,10 @@ const availableRoute = createRoute({
   },
 });
 
-app.openapi(availableRoute, async (c) => {
+(app.openapi as any)(availableRoute, async (c: any) => {
+  const logger = new Logger(c.env as any, "SentinelTasks");
+  const logPrefix = `[getAvailableTasks] `;
+  logger.info(`${logPrefix}Received request for available tasks`);
   const db = getDb(c.env.DB);
   const available = await db
     .select()
@@ -46,7 +51,8 @@ app.openapi(availableRoute, async (c) => {
     .where(isNull(tasks.assignee))
     .orderBy(desc(tasks.createdAt))
     .limit(50);
-  return c.json({ tasks: available });
+  logger.info(`${logPrefix}Returning ${available.length} available tasks`);
+  return c.json({ tasks: available as any[] }, 200);
 });
 
 // ─── POST /tasks/:id/claim ──────────────────────────────────────────────────
@@ -79,9 +85,13 @@ const claimRoute = createRoute({
 app.openapi(claimRoute, async (c) => {
   const { id } = c.req.valid("param");
   const { assignee } = c.req.valid("json");
+  const logger = new Logger(c.env as any, "SentinelTasks");
+  const logPrefix = `[claimTask] `;
+  logger.info(`${logPrefix}Received request to claim task ${id} for assignee ${assignee}`);
   const db = getDb(c.env.DB);
 
   await db.update(tasks).set({ assignee, updatedAt: new Date().toISOString() }).where(eq(tasks.id, id));
+  logger.info(`${logPrefix}Updated task ${id} assignee to ${assignee}`);
 
   await db.insert(taskEvents).values({
     id: crypto.randomUUID(),
@@ -93,6 +103,7 @@ app.openapi(claimRoute, async (c) => {
     status: "success",
     timestamp: new Date().toISOString(),
   });
+  logger.info(`${logPrefix}Created task auditEvent for claim task ${id}`);
 
   return c.json({ ok: true });
 });
@@ -130,12 +141,16 @@ const updateRoute = createRoute({
 app.openapi(updateRoute, async (c) => {
   const { id } = c.req.valid("param");
   const updates = c.req.valid("json");
+  const logger = new Logger(c.env as any, "SentinelTasks");
+  const logPrefix = `[updateTask] `;
+  logger.info(`${logPrefix}Received request to update task ${id}; ${JSON.stringify(updates)}`);
   const db = getDb(c.env.DB);
 
   await db
     .update(tasks)
     .set({ ...updates, updatedAt: new Date().toISOString() })
     .where(eq(tasks.id, id));
+  logger.info(`${logPrefix}Updated task ${id} successfully`);
 
   return c.json({ ok: true });
 });
@@ -171,6 +186,9 @@ const submitRoute = createRoute({
 app.openapi(submitRoute, async (c) => {
   const { id } = c.req.valid("param");
   const body = c.req.valid("json");
+  const logger = new Logger(c.env as any, "SentinelTasks");
+  const logPrefix = `[submitTask] `;
+  logger.info(`${logPrefix}Received request to submit task ${id}`);
   const db = getDb(c.env.DB);
 
   await db
@@ -181,6 +199,7 @@ app.openapi(submitRoute, async (c) => {
       updatedAt: new Date().toISOString(),
     })
     .where(eq(tasks.id, id));
+  logger.info(`${logPrefix}Updated task ${id} to in_review`);
 
   await db.insert(taskEvents).values({
     id: crypto.randomUUID(),
@@ -194,19 +213,16 @@ app.openapi(submitRoute, async (c) => {
     status: "success",
     timestamp: new Date().toISOString(),
   });
+  logger.info(`${logPrefix}Created task auditEvent for task ${id}`);
 
-  // Dispatch to JUDGE_AGENT for review
+  // Dispatch to GUARDRAIL_AGENT for review
   try {
-    const judgeId = c.env.JUDGE_AGENT.idFromName(`task-${id}`);
-    const judgeStub = c.env.JUDGE_AGENT.get(judgeId);
-    await judgeStub.fetch(
-      new Request("http://internal/evaluate", {
-        method: "POST",
-        body: JSON.stringify({ taskId: id, prUrl: body.prUrl }),
-      })
-    );
+    logger.info(`${logPrefix}Dispatching GUARDRAIL_AGENT for task ${id}`);
+    const judge = await getAgentByName(c.env.GUARDRAIL_AGENT as any, `task-${id}`);
+    await (judge as any).evaluateTask(id, body.prUrl);
+    logger.info(`${logPrefix}Dispatched GUARDRAIL_AGENT for task ${id}`);
   } catch (err) {
-    console.error("[Sentinel] Failed to dispatch to JUDGE_AGENT:", err);
+    logger.error(`${logPrefix}Failed to dispatch to GUARDRAIL_AGENT for task ${id}; ${JSON.stringify(err)}`);
   }
 
   return c.json({ ok: true });

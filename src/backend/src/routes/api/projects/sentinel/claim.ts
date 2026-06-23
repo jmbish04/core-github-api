@@ -18,8 +18,8 @@ import {
     ClaimTaskBodySchema,
     SentinelTaskSchema,
     ErrorResponseSchema,
-    broadcastSentinelEvent,
 } from './types';
+import { broadcastSentinelEvent } from './broadcast';
 
 const ResponseSchema = z.object({
     ok: z.literal(true),

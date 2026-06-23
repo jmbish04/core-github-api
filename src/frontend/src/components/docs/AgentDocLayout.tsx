@@ -6,8 +6,9 @@
  */
 import { useAgentsRegistry } from '@/hooks/useAgentsRegistry';
 import { UxDesignAgentDoc } from './UxDesignAgentDoc';
+import { SoftwareOrchestrationDoc } from './SoftwareOrchestrationDoc';
 import {
-  Sparkles, Shield, Wrench, BookOpen, Users, Code2,
+  Sparkles, Shield, Wrench, BookOpen, Users, Code2, Cpu,
   ArrowLeft, ExternalLink, Loader2,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -18,7 +19,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 // ─── Icon name → component mapping ─────────────────────────────────────────
 
 const ICON_MAP: Record<string, LucideIcon> = {
-  Sparkles, Shield, Wrench, BookOpen, Users, Code2,
+  Sparkles, Shield, Wrench, BookOpen, Users, Code2, Cpu
 };
 
 function AgentIcon({ name, color }: { name: string; color: string }) {
@@ -31,7 +32,7 @@ function AgentIcon({ name, color }: { name: string; color: string }) {
 const queryClient = new QueryClient();
 
 interface AgentDocLayoutProps {
-  page: 'index' | 'ux-design-agent';
+  page: 'index' | 'ux-design-agent' | 'software-orchestration';
 }
 
 export function AgentDocLayout({ page }: AgentDocLayoutProps) {
@@ -60,6 +61,25 @@ function AgentDocLayoutInner({ page }: AgentDocLayoutProps) {
           </a>
         </nav>
         <UxDesignAgentDoc />
+      </div>
+    );
+  }
+
+  if (page === 'software-orchestration') {
+    return (
+      <div className="min-h-screen bg-zinc-950">
+        <nav className="border-b border-zinc-800 px-6 py-3 flex items-center gap-3">
+          <a href="/docs/agents" className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-zinc-200 transition-colors">
+            <ArrowLeft className="w-3.5 h-3.5" />
+            All Agents
+          </a>
+          <span className="text-zinc-700">/</span>
+          <span className="text-xs text-zinc-300">Software Orchestrator</span>
+          <a href="/control/global/planning-rooms" className="ml-auto flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300">
+            View Active Rooms <ExternalLink className="w-3 h-3" />
+          </a>
+        </nav>
+        <SoftwareOrchestrationDoc />
       </div>
     );
   }

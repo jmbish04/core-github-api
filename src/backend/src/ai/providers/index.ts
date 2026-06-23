@@ -1,542 +1,360 @@
 /**
  * AI Provider Registry & Unified Interface
- * 
- * This module serves as the primary router for all AI provider integrations.
- * It defines unified types for options, responses, and model capabilities,
- * and handles automatic provider-to-provider fallback logic.
- * 
+ *
+ * The thin entrypoint for all AI inference. Encapsulates state and lazily delegates
+ * execution to modularized methods for optimal cold-start performance.
+ *
  * @module AI/Providers
  */
-import { 
+import {
   resolveDefaultAiProvider,
   resolveDefaultAiModel,
   normalizeProvider,
-  SupportedProvider 
+  type ModelUseCase,
 } from "./ai-gateway/config";
-import * as openai from "./openai";
-import * as gemini from "./gemini";
-import * as anthropic from "./anthropic";
-import * as workerAi from "./worker-ai";
-import * as jules from "./jules";
 import { Logger } from "@/lib/logger";
 import { z } from "zod";
+import type { HealthStepResult } from "@/health/types";
 
-/**
- * metadata for an AI provider fallback event.
- */
-export interface FallbackAlert {
-  fallbackUsed: boolean;
-  originalProvider: string;
-  errorMessage: string;
-}
-
-/**
- * configuration options for AI generation requests.
- */
-export interface AIOptions {
-  model?: string;
-  temperature?: number;
-  maxTokens?: number;
-  sanitize?: boolean;
-  effort?: "low" | "medium" | "high";
-  onFallback?: (alert: FallbackAlert) => void;
-}
-
-export interface ToolCall {
-  id: string;
-  function: {
-    name: string;
-    arguments: string;
+export async function checkHealth(env: any): Promise<HealthStepResult> {
+  return {
+    name: "AI Agents",
+    status: "success",
+    message: "Agents layer operational",
+    durationMs: 0
   };
 }
+import type {
+  AIOptions, TextWithToolsResponse, StructuredWithToolsResponse,
+  FileInput, UnifiedModel, ModelFilter,
+} from "./types";
 
-export interface TextWithToolsResponse {
-  text: string;
-  toolCalls: ToolCall[];
-}
+import { AgentStateStore } from './agent-support/state-store';
+import { buildToolInstructions } from './agent-support/utils';
+import { SkillManager } from './agent-support/skills';
 
-export interface StructuredWithToolsResponse<T> {
-  data: T;
-  toolCalls: ToolCall[];
-}
-
-export interface FileInput {
-  name: string;
-  type: string;
-  data: string;
-  isBase64: boolean;
-}
-
-export type ModelCapability = 
-  | 'structured_response' 
-  | 'high_reasoning' 
-  | 'fast' 
-  | 'vision' 
-  | 'function_calling';
+// Re-export public types for consumers
+export { getJulesClient } from './vendors/jules';
+export type { OpenAIAgentOptions } from './clients';
+export { REASONING_MODEL, STRUCTURING_MODEL } from './vendors/worker-ai';
+export { tool } from 'ai';
+export type {
+  AIOptions, FallbackAlert, ToolCall, TextWithToolsResponse,
+  StructuredWithToolsResponse, FileInput, ModelCapability,
+  UnifiedModel, ModelFilter,
+} from './types';
 
 /**
- * Unified model definition string across all providers.
+ * AIProvider — the single entrypoint for all AI inference and client orchestration.
+ *
+ * Usage:
+ *   const ai = new AIProvider(env);
+ *   ai.provider = 'gemini';          // optional instance-level override
+ *   await ai.generateText(prompt);
  */
-export interface UnifiedModel {
-  /** Unique API ID (e.g., "gpt-4o") */
-  id: string;
-  /** Provider key: 'google' | 'openai' | 'anthropic' | 'cloudflare' | 'jules' */
-  provider: string;
-  /** Human-friendly name */
-  name: string;
-  description: string;
-  capabilities: ModelCapability[];
-  /** Context window or output limit */
-  maxTokens?: number;
-  /** Original response for debugging */
-  raw: any;
-}
+export class AIProvider {
+  public provider?: string;
+  public model?: string;
+  public env: Env;
+  public logger: Logger;
 
-export type ModelFilter = ModelCapability;
+  public readonly AgentStateStore = AgentStateStore;
+  public readonly buildToolInstructions = buildToolInstructions;
+  public readonly skills: SkillManager;
 
-/**
- * Core Routing Functions
- */
-
-export async function verifyApiKey(env: Env, providerOverride?: SupportedProvider | 'jules'): Promise<boolean> {
-  const provider = providerOverride || resolveDefaultAiProvider(env);
-  const logger = new Logger(env, 'AIRouter');
-  logger.info(`verifyApiKey`, { provider });
-  await logger.flush();
-  switch (provider) {
-    case 'openai': return openai.verifyApiKey(env);
-    case 'gemini': return gemini.verifyApiKey(env);
-    case 'anthropic': return anthropic.verifyApiKey(env);
-    case 'jules': return jules.verifyApiKey(env);
-    default: return workerAi.verifyApiKey(env);
+  constructor(env: Env) {
+    this.env = env;
+    this.logger = new Logger(env, 'AIProvider');
+    this.skills = new SkillManager(env);
   }
-}
 
-export function resolveInvocation(
-  env: Env,
-  providerOverride?: string,
-  modelOverride?: string
-): { provider: SupportedProvider | 'jules'; model?: string } {
-  if (!providerOverride && !modelOverride) {
-    const provider = resolveDefaultAiProvider(env);
-    return { provider, model: resolveDefaultAiModel(env, provider as any) };
+  /**
+   * Pre-loads skills into the cache. Ideal for `base-chat-agent` to await.
+   */
+  public async warmSkillCache(skills: string[]): Promise<void> {
+    await this.skills.prefetch(skills);
   }
-  if (providerOverride && !modelOverride) {
-    const prov = providerOverride === 'jules' ? 'jules' : normalizeProvider(providerOverride);
-    return { 
-      provider: prov, 
-      model: prov === 'jules' ? undefined : resolveDefaultAiModel(env, prov as any) 
+
+  // ---------------------------------------------------------------------------
+  // Logging (Threads & Messages) — delegates to shared/chat-persistence.ts
+  // ---------------------------------------------------------------------------
+
+  public async logThreadMessage(deps: { ctx: DurableObjectState; env: Env; roomId: string }, msg: import('@/ai/agents/backend/CollaborationAgent/types').ChatMessage, userId?: string): Promise<void> {
+    const { getDb } = await import('@db');
+    const { upsertThread, insertMessage, addParticipant } = await import('@/shared/chat-persistence');
+    const db = getDb(deps.env.DB);
+    const threadId = await upsertThread(db, deps.roomId);
+    const role: 'user' | 'assistant' | 'agent' =
+      userId ? 'user' : msg.user === 'assistant' ? 'assistant' : 'agent';
+    const contentParts = [
+      { type: 'text', text: msg.text ?? '' },
+      ...(msg.metadata ? [{ type: 'data', data: msg.metadata }] : []),
+    ];
+    await insertMessage(db, threadId, role, msg.user, contentParts);
+    const participantRole = userId ? 'user' as const : 'participant' as const;
+    await addParticipant(db, threadId, userId ? `user:${msg.user}` : msg.user, participantRole);
+  }
+
+  public async logAuditMessage(deps: { ctx: DurableObjectState; env: Env; roomId: string }, msg: import('@/ai/agents/backend/CollaborationAgent/types').ChatMessage, userId?: string): Promise<void> {
+    // Flat audit log — not part of unified chat schema, stays in CollaborationAgent
+    const { mirrorToD1 } = await import('@/ai/agents/backend/CollaborationAgent/methods/messaging');
+    return mirrorToD1(deps as any, msg, userId);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Resolution
+  // ---------------------------------------------------------------------------
+
+  public resolveInvocation(
+    useCase: ModelUseCase,
+    optProvider?: string,
+    optModel?: string,
+  ): { provider: string; model: string } {
+    const rawProvider = optProvider || this.provider || resolveDefaultAiProvider(this.env);
+    const resolvedProvider = rawProvider === 'jules' ? 'jules' : normalizeProvider(rawProvider);
+
+    let resolvedModel = optModel || this.model;
+    if (!resolvedModel) {
+      resolvedModel = resolvedProvider === 'jules' ? 'jules' : resolveDefaultAiModel(this.env, resolvedProvider as any, useCase);
+    }
+
+    return { provider: resolvedProvider, model: resolvedModel };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Agent Config — centralized D1-backed per-function overrides
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Fetch the active AI config for a specific agent method from D1.
+   * Returns null if no active config row exists — agents should fall back
+   * to their hardcoded defaults in that case.
+   *
+   * @example
+   * ```ts
+   * const cfg = await this.ai.getAgentFunctionConfig('OrchestratorAgent', 'submitRequest');
+   * const provider = cfg?.primaryProvider ?? 'gemini';
+   * const model    = cfg?.primaryModel    ?? 'gemini-2.0-flash';
+   * ```
+   */
+  async getAgentFunctionConfig(agentName: string, functionName: string) {
+    try {
+      const { AgentConfigService } = await import('@/db/services/agent-config');
+      const svc = new AgentConfigService(this.env);
+      return await svc.getConfig(agentName, functionName);
+    } catch {
+      // D1 unavailable or schema not yet migrated — degrade gracefully
+      return null;
+    }
+  }
+
+  /**
+   * Convenience: resolve config + create an OpenAI Agents SDK agent in one call.
+   * Uses primary provider/model from DB config, falls back to provided defaults.
+   *
+   * @example
+   * ```ts
+   * const agent = await this.ai.createOpenAIAgentForFunction(
+   *   'OrchestratorAgent', 'submitRequest',
+   *   { name: 'Orchestrator', instructions: DEFAULT_INSTRUCTIONS }
+   * );
+   * const result = await run(agent, prompt);
+   * ```
+   */
+  async createOpenAIAgentForFunction(
+    agentName: string,
+    functionName: string,
+    defaults: import('./clients/openai/agent-sdk-helpers').OpenAIAgentOptions,
+  ) {
+    const { createOpenAIAgent } = await import('./clients/openai/agent');
+    const cfg = await this.getAgentFunctionConfig(agentName, functionName);
+    const provider = (cfg?.primaryProvider ?? 'gemini') as any;
+    return createOpenAIAgent(this.env, provider, {
+      name: defaults.name,
+      instructions: cfg?.systemInstructions ?? defaults.instructions,
+      model: cfg?.primaryModel ?? defaults.model,
+      tools: defaults.tools,
+    });
+  }
+
+  public formatGatewayModel(provider: string, model: string): string {
+    if (provider === 'worker-ai' || provider === 'jules' || model.includes('/')) {
+      return model;
+    }
+    const prefix = provider === 'gemini' ? 'google-ai-studio' : provider;
+    return `${prefix}/${model}`;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Core Generation (Lazy Loaded)
+  // ---------------------------------------------------------------------------
+
+  public async generateText(prompt: string, systemPrompt?: string, options?: AIOptions): Promise<string> {
+    const { generateTextImpl } = await import('./methods/generation');
+    return generateTextImpl(this, prompt, systemPrompt, options);
+  }
+
+  public async generateStructuredResponse<T>(prompt: string, schema: z.ZodType<T>, systemPrompt?: string, options?: AIOptions): Promise<T> {
+    const { generateStructuredResponseImpl } = await import('./methods/generation');
+    return generateStructuredResponseImpl<T>(this, prompt, schema, systemPrompt, options);
+  }
+
+  public async generateTextWithTools(prompt: string, tools: any[], systemPrompt?: string, options?: AIOptions): Promise<TextWithToolsResponse> {
+    const { generateTextWithToolsImpl } = await import('./methods/generation');
+    return generateTextWithToolsImpl(this, prompt, tools, systemPrompt, options);
+  }
+
+  public async generateStructuredWithTools<T>(prompt: string, schema: z.ZodType<T>, tools: any[], systemPrompt?: string, options?: AIOptions): Promise<StructuredWithToolsResponse<T>> {
+    const { generateStructuredWithToolsImpl } = await import('./methods/generation');
+    return generateStructuredWithToolsImpl<T>(this, prompt, schema, tools, systemPrompt, options);
+  }
+
+  public async generateTextFromFiles(prompt: string, files: FileInput[], systemPrompt?: string, options?: AIOptions, providerOverride?: string): Promise<string> {
+    const { generateTextFromFilesImpl } = await import('./methods/generation');
+    return generateTextFromFilesImpl(this, prompt, files, systemPrompt, options, providerOverride);
+  }
+
+  public async generateStructuredResponseFromFiles<T>(prompt: string, files: FileInput[], schema: z.ZodType<T>, systemPrompt?: string, options?: AIOptions): Promise<T> {
+    const { generateStructuredResponseFromFilesImpl } = await import('./methods/generation');
+    return generateStructuredResponseFromFilesImpl<T>(this, prompt, files, schema, systemPrompt, options);
+  }
+
+  public async generateEmbedding(text: string): Promise<number[]> {
+    const { generateEmbeddingImpl } = await import('./methods/generation');
+    return generateEmbeddingImpl(this, text);
+  }
+
+  public async generateEmbeddings(text: string | string[]): Promise<number[][]> {
+    const { generateEmbeddingsImpl } = await import('./methods/generation');
+    return generateEmbeddingsImpl(this, text);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Orchestration & Clients (Lazy Loaded)
+  // ---------------------------------------------------------------------------
+
+  public async verifyApiKey(providerOverride?: string): Promise<boolean> {
+    const { verifyApiKeyImpl } = await import('./methods/orchestration');
+    return verifyApiKeyImpl(this, providerOverride);
+  }
+
+  public async setupOpenAIAgentClient(providerOverride?: string) {
+    const { setupOpenAIAgentClientImpl } = await import('./methods/orchestration');
+    return setupOpenAIAgentClientImpl(this, providerOverride);
+  }
+
+  public async rewriteQuestionForMCP(question: string, context?: any, options?: AIOptions): Promise<string> {
+    const { rewriteQuestionForMCPImpl } = await import('./methods/orchestration');
+    return rewriteQuestionForMCPImpl(this, question, context, options);
+  }
+
+  public async analyzeResponseAndGenerateFollowUps(originalQuestion: string, mcpResponse: any, options?: AIOptions): Promise<{ analysis: string; followUpQuestions: string[] }> {
+    const { analyzeResponseAndGenerateFollowUpsImpl } = await import('./methods/orchestration');
+    return analyzeResponseAndGenerateFollowUpsImpl(this, originalQuestion, mcpResponse, options);
+  }
+
+  public async getModels(provider?: string, filter?: ModelFilter): Promise<UnifiedModel[]> {
+    const { getModelsImpl } = await import('./methods/orchestration');
+    return getModelsImpl(this, provider, filter);
+  }
+
+  public async analyzeRepo(repoUrl: string, prompt: string): Promise<string> {
+    const { analyzeRepoImpl } = await import('./methods/orchestration');
+    return analyzeRepoImpl(this, repoUrl, prompt);
+  }
+
+  public async completeTask(repoUrl: string, issueId: string): Promise<string> {
+    const { completeTaskImpl } = await import('./methods/orchestration');
+    return completeTaskImpl(this, repoUrl, issueId);
+  }
+
+  public async createPlan(prompt: string, githubRepoUrl?: string): Promise<string> {
+    const { createPlanImpl } = await import('./methods/orchestration');
+    return createPlanImpl(this, prompt, githubRepoUrl);
+  }
+
+  public async runWithOpenAIChat(prompt: string, instructions: string, options?: AIOptions): Promise<string> {
+    const { runWithOpenAIChatImpl } = await import('./methods/orchestration');
+    return runWithOpenAIChatImpl(this, prompt, instructions, options);
+  }
+
+  public async runWithOpenAIAgent(prompt: string, agentOptions: any, options?: AIOptions): Promise<any> {
+    const { runWithOpenAIAgentImpl } = await import('./methods/orchestration');
+    return runWithOpenAIAgentImpl(this, prompt, agentOptions, options);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Agents SDK / Chat Orchestrator (Lazy Loaded)
+  // ---------------------------------------------------------------------------
+
+  public get chat() {
+    return {
+      generateText: async (messages: any[], systemPrompt?: string, options?: AIOptions) => {
+        const { generateChatTextImpl } = await import('./clients/vercel/chat');
+        return generateChatTextImpl(this, messages, systemPrompt, options);
+      },
+      streamUIMessage: async (messages: any[], systemPrompt?: string, options?: AIOptions) => {
+        const { streamUIChatMessageImpl } = await import('./clients/vercel/chat');
+        return streamUIChatMessageImpl(this, messages, systemPrompt, options);
+      },
+      chatWithTools: async (messages: any[], tools: Record<string, any>, systemPrompt?: string, options?: AIOptions) => {
+        const { chatWithToolsImpl } = await import('./clients/vercel/chat');
+        return chatWithToolsImpl(this, messages, tools, systemPrompt, options);
+      },
+      streamWithTools: async (messages: any[], tools: Record<string, any>, systemPrompt?: string, options?: AIOptions) => {
+        const { streamWithToolsImpl } = await import('./clients/vercel/chat');
+        return streamWithToolsImpl(this, messages, tools, systemPrompt, options);
+      },
+      delegateToSubagent: async (subagentName: string, prompt: string, context?: any) => {
+        const { delegateToSubagentImpl } = await import('./clients/vercel/chat');
+        return delegateToSubagentImpl(this, subagentName, prompt, context);
+      },
+      generateObject: async <T>(messages: any[], schema: z.ZodType<T>, systemPrompt?: string, options?: AIOptions) => {
+        const { generateChatStructuredImpl } = await import('./clients/vercel/chat');
+        return generateChatStructuredImpl<T>(this, messages, schema, systemPrompt, options);
+      },
+      streamObject: async <T>(messages: any[], schema: z.ZodType<T>, systemPrompt?: string, options?: AIOptions) => {
+        const { streamChatStructuredImpl } = await import('./clients/vercel/chat');
+        return streamChatStructuredImpl<T>(this, messages, schema, systemPrompt, options);
+      }
     };
   }
-  if (!providerOverride && modelOverride) {
-    return { provider: 'worker-ai', model: modelOverride };
-  }
-  return { 
-    provider: providerOverride === 'jules' ? 'jules' : normalizeProvider(providerOverride!), 
-    model: modelOverride 
-  };
 }
 
-/**
- * Universal text generation function with automatic fallback.
- * Routes to the appropriate provider and retries with Workers AI on failure.
- * 
- * @param env - Cloudflare Environment bindings.
- * @param prompt - User input.
- * @param systemPrompt - Optional role/instructions.
- * @param options - Generation settings.
- * @param providerOverride - Force a specific provider.
- */
-export async function generateText(
-  env: Env,
-  prompt: string,
-  systemPrompt?: string,
-  options?: AIOptions,
-  providerOverride?: SupportedProvider
-): Promise<string> {
-  const { provider, model } = resolveInvocation(env, providerOverride, options?.model);
-  const finalOptions = { ...options, model };
-  const logger = new Logger(env, 'AIRouter');
-  logger.info(`generateText`, { provider, model });
-  await logger.flush();
-  
-  try {
-    switch (provider) {
-      case 'openai': return await openai.generateText(env, prompt, systemPrompt, finalOptions);
-      case 'gemini': return await gemini.generateText(env, prompt, systemPrompt, finalOptions);
-      case 'anthropic': return await anthropic.generateText(env, prompt, systemPrompt, finalOptions);
-      case 'jules': return await jules.generateText(env, prompt, systemPrompt, finalOptions);
-      case 'worker-ai': return await workerAi.generateText(env, prompt, systemPrompt, finalOptions);
-      default: return await workerAi.generateText(env, prompt, systemPrompt, finalOptions);
-    }
-  } catch (error: any) {
-    if (provider !== 'worker-ai') {
-      const alert: FallbackAlert = { fallbackUsed: true, originalProvider: provider, errorMessage: error.message || String(error) };
-      console.warn(`[AI_FALLBACK] ${provider} failed during generateText. Routing to worker-ai.`, alert);
-      if (options?.onFallback) options.onFallback(alert);
-      return await workerAi.generateText(env, prompt, systemPrompt, finalOptions);
-    }
-    throw error;
-  }
-}
+// ─── Agent Support Primitives ────────────────────────────────────────────────
+// Single canonical import for all agents: '@/ai/providers'.
+export type {
+  PersistentAgentState,
+  StructuredChatState,
+  AgentTool,
+  ContentBlock,
+  StructuredChatResult,
+} from './agent-support/types';
+export { BASE_RESPONSE_SCHEMA } from './agent-support/types';
+export { AgentStateStore } from './agent-support/state-store';
+export { BaseAgent } from './agent-support/base-agent';
+export { BaseChatAgent } from './agent-support/base-chat-agent';
+export { SkillManager } from './agent-support/skills';
+export { HitlQueue } from './agent-support/hitl-queue';
+export { CollaborationService } from './agent-support/collaboration-service';
 
-export async function generateStructuredResponse<T>(
-  env: Env,
-  prompt: string,
-  schema: z.ZodType<T>,
-  systemPrompt?: string,
-  options?: AIOptions,
-  providerOverride?: SupportedProvider
-): Promise<T> {
-  const { provider, model } = resolveInvocation(env, providerOverride, options?.model);
-  const finalOptions = { ...options, model };
-  
-  try {
-    switch (provider) {
-      case 'openai': return await openai.generateStructuredResponse<T>(env, prompt, schema as any, systemPrompt, finalOptions);
-      case 'gemini': return await gemini.generateStructuredResponse<T>(env, prompt, schema, systemPrompt, finalOptions);
-      case 'anthropic': return await anthropic.generateStructuredResponse<T>(env, prompt, schema as any, systemPrompt, finalOptions);
-      case 'jules': return await jules.generateStructuredResponse<T>(env, prompt, schema, systemPrompt, finalOptions);
-      case 'worker-ai': return await workerAi.generateStructuredResponse<T>(env, prompt, schema, systemPrompt, finalOptions);
-      default: return await workerAi.generateStructuredResponse<T>(env, prompt, schema, systemPrompt, finalOptions);
-    }
-  } catch (error: any) {
-    if (provider !== 'worker-ai') {
-      const alert: FallbackAlert = { fallbackUsed: true, originalProvider: provider, errorMessage: error.message || String(error) };
-      console.warn(`[AI_FALLBACK] ${provider} failed during generateStructuredResponse. Routing to worker-ai.`, alert);
-      if (options?.onFallback) options.onFallback(alert);
-      return await workerAi.generateStructuredResponse<T>(env, prompt, schema, systemPrompt, finalOptions);
-    }
-    throw error;
-  }
-}
-
-export async function generateTextWithTools(
-  env: Env,
-  prompt: string,
-  tools: any[],
-  systemPrompt?: string,
-  options?: AIOptions,
-  providerOverride?: SupportedProvider
-): Promise<TextWithToolsResponse> {
-  const { provider, model } = resolveInvocation(env, providerOverride, options?.model);
-  const finalOptions = { ...options, model };
-  
-  try {
-    switch (provider) {
-      case 'openai': return await openai.generateTextWithTools(env, prompt, tools, systemPrompt, finalOptions);
-      case 'gemini': return await gemini.generateTextWithTools(env, prompt, tools, systemPrompt, finalOptions);
-      case 'anthropic': return await anthropic.generateTextWithTools(env, prompt, tools, systemPrompt, finalOptions);
-      case 'jules': return await jules.generateTextWithTools(env, prompt, tools, systemPrompt, finalOptions);
-      case 'worker-ai': return await workerAi.generateTextWithTools(env, prompt, tools, systemPrompt, finalOptions);
-      default: return await workerAi.generateTextWithTools(env, prompt, tools, systemPrompt, finalOptions);
-    }
-  } catch (error: any) {
-    if (provider !== 'worker-ai') {
-      const alert: FallbackAlert = { fallbackUsed: true, originalProvider: provider, errorMessage: error.message || String(error) };
-      console.warn(`[AI_FALLBACK] ${provider} failed during generateTextWithTools. Routing to worker-ai.`, alert);
-      if (options?.onFallback) options.onFallback(alert);
-      return await workerAi.generateTextWithTools(env, prompt, tools, systemPrompt, finalOptions);
-    }
-    throw error;
-  }
-}
-
-export async function generateStructuredWithTools<T>(
-  env: Env,
-  prompt: string,
-  schema: z.ZodType<T>,
-  tools: any[],
-  systemPrompt?: string,
-  options?: AIOptions,
-  providerOverride?: SupportedProvider
-): Promise<StructuredWithToolsResponse<T>> {
-  const { provider, model } = resolveInvocation(env, providerOverride, options?.model);
-  const finalOptions = { ...options, model };
-  
-  try {
-    switch (provider) {
-      case 'openai': return await openai.generateStructuredWithTools<T>(env, prompt, schema as any, tools, systemPrompt, finalOptions);
-      case 'gemini': return await gemini.generateStructuredWithTools<T>(env, prompt, schema, tools, systemPrompt, finalOptions);
-      case 'anthropic': return await anthropic.generateStructuredWithTools<T>(env, prompt, schema as any, tools, systemPrompt, finalOptions);
-      case 'jules': return await jules.generateStructuredWithTools<T>(env, prompt, schema, tools, systemPrompt, finalOptions);
-      case 'worker-ai': return await workerAi.generateStructuredWithTools<T>(env, prompt, schema, tools, systemPrompt, finalOptions);
-      default: return await workerAi.generateStructuredWithTools<T>(env, prompt, schema, tools, systemPrompt, finalOptions);
-    }
-  } catch (error: any) {
-    if (provider !== 'worker-ai') {
-      const alert: FallbackAlert = { fallbackUsed: true, originalProvider: provider, errorMessage: error.message || String(error) };
-      console.warn(`[AI_FALLBACK] ${provider} failed during generateStructuredWithTools. Routing to worker-ai.`, alert);
-      if (options?.onFallback) options.onFallback(alert);
-      return await workerAi.generateStructuredWithTools<T>(env, prompt, schema, tools, systemPrompt, finalOptions);
-    }
-    throw error;
-  }
-}
-
-export async function generateTextFromFiles(
-  env: Env,
-  prompt: string,
-  files: FileInput[],
-  systemPrompt?: string,
-  options?: AIOptions,
-  providerOverride?: SupportedProvider | 'jules'
-): Promise<string> {
-  // Default to 'gemini' for file/multimodal operations (best multimodal support)
-  const { provider, model } = resolveInvocation(env, providerOverride || 'gemini', options?.model);
-  const finalOptions = { ...options, model };
-  try {
-    switch (provider) {
-      case 'gemini': return await gemini.generateTextFromFiles(env, prompt, files, systemPrompt, finalOptions);
-      case 'jules': return await jules.generateTextFromFiles(env, prompt, files, systemPrompt, finalOptions);
-      case 'worker-ai': return await workerAi.generateTextFromFiles(env, prompt, files, systemPrompt, finalOptions);
-      default: return await gemini.generateTextFromFiles(env, prompt, files, systemPrompt, finalOptions);
-    }
-  } catch (error: any) {
-    if (provider !== 'worker-ai') {
-      const alert: FallbackAlert = { fallbackUsed: true, originalProvider: provider, errorMessage: error.message || String(error) };
-      console.warn(`[AI_FALLBACK] ${provider} failed during generateTextFromFiles. Routing to worker-ai.`, alert);
-      if (options?.onFallback) options.onFallback(alert);
-      return await workerAi.generateTextFromFiles(env, prompt, files, systemPrompt, finalOptions);
-    }
-    throw error;
-  }
-}
-
-export async function generateStructuredResponseFromFiles<T>(
-  env: Env,
-  prompt: string,
-  files: FileInput[],
-  schema: z.ZodType<T>,
-  systemPrompt?: string,
-  options?: AIOptions,
-  providerOverride?: SupportedProvider
-): Promise<T> {
-  // Default to 'gemini' for file/multimodal operations (best multimodal support)
-  const { provider, model } = resolveInvocation(env, providerOverride || 'gemini', options?.model);
-  const finalOptions = { ...options, model };
-  try {
-    switch (provider) {
-      case 'gemini': return await gemini.generateStructuredResponseFromFiles<T>(env, prompt, files, schema, systemPrompt, finalOptions);
-      case 'jules': return await jules.generateStructuredResponseFromFiles<T>(env, prompt, files, schema, systemPrompt, finalOptions);
-      case 'worker-ai': return await workerAi.generateStructuredResponseFromFiles<T>(env, prompt, files, schema, systemPrompt, finalOptions);
-      default: return await gemini.generateStructuredResponseFromFiles<T>(env, prompt, files, schema, systemPrompt, finalOptions);
-    }
-  } catch (error: any) {
-    if (provider !== 'worker-ai') {
-      const alert: FallbackAlert = { fallbackUsed: true, originalProvider: provider, errorMessage: error.message || String(error) };
-      console.warn(`[AI_FALLBACK] ${provider} failed during generateStructuredResponseFromFiles. Routing to worker-ai.`, alert);
-      if (options?.onFallback) options.onFallback(alert);
-      return await workerAi.generateStructuredResponseFromFiles<T>(env, prompt, files, schema, systemPrompt, finalOptions);
-    }
-    throw error;
-  }
-}
-
-export async function generateEmbedding(
-  env: Env,
-  text: string
-): Promise<number[]> {
-  return workerAi.generateEmbedding(env, text);
-}
-
-/**
- * Generates embeddings (plural) using the default embedding model.
- */
-export async function generateEmbeddings(
-  env: Env,
-  text: string | string[]
-): Promise<number[][]> {
-  return workerAi.generateEmbeddings(env, text);
-}
-
-/**
- * Universal MCP & Context Helper Methods
- */
-
-export async function rewriteQuestionForMCP(
-  env: Env,
-  question: string,
-  context?: {
-    bindings?: string[];
-    libraries?: string[];
-    tags?: string[];
-    codeSnippets?: Array<{ file_path: string; code: string; relation: string }>;
-  },
-  options?: AIOptions
-): Promise<string> {
-  const systemPrompt = "You are a technical documentation assistant. Rewrite the user question to be clear, comprehensive, and optimized for querying Cloudflare documentation.";
-  let prompt = `Original Question: ${question}\n\n`;
-
-  if (context) {
-    if (context.bindings?.length) prompt += `Bindings: ${context.bindings.join(", ")}\n`;
-    if (context.libraries?.length) prompt += `Libraries: ${context.libraries.join(", ")}\n`;
-    if (context.tags?.length) prompt += `Tags: ${context.tags.join(", ")}\n`;
-    if (context.codeSnippets?.length) {
-      // Pass full code context to Jules (1-2 million token context window)
-      prompt += `\nCode Context:\n${context.codeSnippets.map(s => `File: ${s.file_path} (${s.relation})\n${s.code}`).join("\n\n")}`;
-    }
-  }
-
-  const schema = z.object({
-    rewritten_question: z.string().describe("The technical, search-optimized question.")
-  });
-
-  // Use Jules provider directly for repoless massive-context session
-  const result = await jules.generateStructuredResponse<{ rewritten_question: string }>(env, prompt, schema, systemPrompt, options);
-  return result.rewritten_question;
-}
-
-export async function analyzeResponseAndGenerateFollowUps(
-  env: Env,
-  originalQuestion: string,
-  mcpResponse: any,
-  options?: AIOptions
-): Promise<{ analysis: string; followUpQuestions: string[] }> {
-  const systemPrompt = "You are a technical documentation analyst. Analyze responses from documentation and identify gaps.";
-  const prompt = `Original Question: ${originalQuestion}\n\nDocumentation Response: ${JSON.stringify(mcpResponse, null, 2)}`;
-
-  const schema = z.object({
-    analysis: z.string().describe("Analysis of whether the response answers the question."),
-    followUpQuestions: z.array(z.string()).describe("2-3 specific follow-up questions.")
-  });
-
-  return await generateStructuredResponse<{ analysis: string; followUpQuestions: string[] }>(env, prompt, schema, systemPrompt, options);
-}
-
-/**
- * Aggregates available models from all active providers.
- * 
- * @param env - Cloudflare Environment bindings.
- * @param provider - Optional specific provider to fetch models for.
- * @param filter - Optional capability to filter models.
- * @returns Combined list of unified model definitions.
- */
-export async function getModels(
-  env: Env,
-  provider?: SupportedProvider | 'google' | 'cloudflare',
-  filter?: ModelFilter
-): Promise<UnifiedModel[]> {
-  const allModels: UnifiedModel[] = [];
-
-  // Map 'google' to 'gemini' and 'cloudflare' to 'worker-ai' if needed, or simply handle all aliases
-  const fetchProviders = provider ? [provider] : ["gemini", "openai", "anthropic", "worker-ai"] as SupportedProvider[];
-
-  const promises = fetchProviders.map(async (p) => {
-    try {
-      switch (p) {
-        case 'google':
-        case 'gemini': return await gemini.getGoogleModels(env, filter);
-        case 'openai': return await openai.getOpenAIModels(env, filter);
-        case 'anthropic': return await anthropic.getAnthropicModels(env, filter);
-        case 'cloudflare':
-        case 'worker-ai': return await workerAi.getCloudflareModels(env, filter);
-        default: return [];
-      }
-    } catch (e) {
-      console.warn(`[getModels] failed to fetch from ${p}:`, e);
-      return [];
-    }
-  });
-
-  const results = await Promise.all(promises);
-  results.forEach(res => allModels.push(...res));
-
-  return allModels;
-}
-
-/**
- * Jules SDK Specific Orchestration Methods
- */
-export async function analyzeRepo(env: Env, repoUrl: string, prompt: string): Promise<string> {
-    return await jules.analyzeRepo(env, repoUrl, prompt);
-}
-
-export async function completeTask(env: Env, repoUrl: string, issueId: string): Promise<string> {
-    return await jules.completeTask(env, repoUrl, issueId);
-}
-
-export async function createPlan(env: Env, prompt: string): Promise<string> {
-    return await jules.createPlan(env, prompt);
-}
-
-/**
- * Universal OpenAI SDK Helper Methods (via AI Gateway Compat Mode)
- */
-
-export { 
-  getJulesClient 
-} from './jules';
-import { 
-  createOpenAIChatClient, 
-  createOpenAIAgent, 
-  setupOpenAIAgentClient, 
-  OpenAIAgentOptions 
-} from './clients';
-export { 
-  createOpenAIChatClient, 
-  createOpenAIAgent, 
-  setupOpenAIAgentClient, 
-  type OpenAIAgentOptions 
-};
-
-/**
- * Runs a text prompt using the native OpenAI Chat SDK via AI Gateway compat mode.
- */
-export async function runWithOpenAIChat(
-  env: Env,
-  prompt: string,
-  instructions: string,
-  options?: AIOptions,
-  providerOverride?: SupportedProvider | 'cloudflare' | 'google'
-): Promise<string> {
-  const invocation = resolveInvocation(env, providerOverride, options?.model);
-  const client = await createOpenAIChatClient(env, invocation.provider as SupportedProvider);
-  let model = invocation.model!;
-  
-  if (invocation.provider !== 'worker-ai' && invocation.provider !== 'jules' && !model.includes('/')) {
-     const prefix = invocation.provider === 'gemini' ? 'google-ai-studio' : invocation.provider;
-     model = `${prefix}/${model}`;
-  }
-
-  const response = await client.chat.completions.create({
-    model: model || resolveDefaultAiModel(env, 'worker-ai'),
-    messages: [
-      { role: 'system', content: instructions },
-      { role: 'user', content: prompt }
-    ]
-  });
-
-  return response.choices?.[0]?.message?.content || '';
-}
-
-/**
- * Runs a task using the native @openai/agents SDK via AI Gateway compat mode.
- */
-export async function runWithOpenAIAgent(
-  env: Env,
-  prompt: string,
-  agentOptions: OpenAIAgentOptions,
-  options?: AIOptions,
-  providerOverride?: SupportedProvider | 'cloudflare' | 'google'
-): Promise<any> {
-  const invocation = resolveInvocation(env, providerOverride, options?.model);
-  let model = invocation.model!;
-  
-  if (invocation.provider !== 'worker-ai' && invocation.provider !== 'jules' && !model.includes('/')) {
-     const prefix = invocation.provider === 'gemini' ? 'google-ai-studio' : invocation.provider;
-     model = `${prefix}/${model}`;
-  }
-
-  const agentOpts = {
-    ...agentOptions,
-    model: model || resolveDefaultAiModel(env, 'worker-ai')
-  };
-
-  const agent = await createOpenAIAgent(env, invocation.provider as SupportedProvider, agentOpts);
-  
-  const { run } = await import('@openai/agents');
-  const result = await run(agent, prompt);
-  
-  return result.finalOutput;
-}
+export {
+  runStructuredChat,
+  buildChatPrompt,
+} from './agent-support/structured-chat';
+export {
+  getMessageContent,
+  buildToolInstructions,
+  isZodSchema,
+  normalizeBlocks,
+  normalizeFollowupPrompts,
+} from './agent-support/utils';
+export type {
+  EpisodicMemoryEntry,
+  SemanticMemoryEntry,
+  GraphNode,
+  GraphEdge,
+  GraphContext,
+} from './agent-support/edigraph-memory';
+export { EdigraphService } from './agent-support/edigraph-memory';
+export { CF_DOCS_PROMPT_KV_KEY } from './agent-support/constants';

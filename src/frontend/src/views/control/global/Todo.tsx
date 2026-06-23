@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { handleGlobalError } from "@/lib/error-handler";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -399,8 +400,9 @@ export default function TodoPage() {
           body: JSON.stringify({ title: newTitle, content: newContent, noteColor: newColor }),
         });
         setNotes(ns => ns.map(n => n.id === editingNoteId ? { ...n, title: newTitle, content: newContent, color: newColor } : n));
-      } catch {
+      } catch (err) {
         setNotes(ns => ns.map(n => n.id === editingNoteId ? { ...n, title: newTitle, content: newContent, color: newColor } : n));
+        handleGlobalError(`[Todo] Failed to update note: ${err}`);
       }
     } else {
       // Create new note
@@ -417,9 +419,10 @@ export default function TodoPage() {
         const data = await res.json() as any;
         const id = String(data.id ?? crypto.randomUUID());
         setNotes(ns => [...ns, { id, title: newTitle, content: newContent, x: px, y: py, rotation: rot, color: newColor, isActive: true }]);
-      } catch {
+      } catch (err) {
         const id = crypto.randomUUID();
         setNotes(ns => [...ns, { id, title: newTitle, content: newContent, x: px, y: py, rotation: rot, color: newColor, isActive: true }]);
+        handleGlobalError(`[Todo] Failed to create note: ${err}`);
       }
     }
 
@@ -466,8 +469,9 @@ export default function TodoPage() {
           body: JSON.stringify({ text: newLabelText }),
         });
         setLabels(ls => ls.map(l => l.id === editingLabelId ? { ...l, text: newLabelText } : l));
-      } catch {
+      } catch (err) {
         setLabels(ls => ls.map(l => l.id === editingLabelId ? { ...l, text: newLabelText } : l));
+        handleGlobalError(`[Todo] Failed to update label: ${err}`);
       }
     } else {
       const rot = randomRotation();
@@ -483,8 +487,9 @@ export default function TodoPage() {
         const data = await res.json() as any;
         const id = String(data.id ?? crypto.randomUUID());
         setLabels(ls => [...ls, { id, text: newLabelText, x: px, y: py, rotation: rot }]);
-      } catch {
+      } catch (err) {
         setLabels(ls => [...ls, { id: crypto.randomUUID(), text: newLabelText, x: px, y: py, rotation: rot }]);
+        handleGlobalError(`[Todo] Failed to create label: ${err}`);
       }
     }
 

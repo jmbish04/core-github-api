@@ -1,0 +1,83 @@
+src/ai/agents/WorkshopAgent/UxResearcher.ts(321,25): error TS2352: Conversion of type '{ id: string; name: string; }' to type '{ projectId: string; }' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Property 'projectId' is missing in type '{ id: string; name: string; }' but required in type '{ projectId: string; }'.
+src/ai/mcp/tools/d1.ts(15,1): error TS2578: Unused '@ts-expect-error' directive.
+src/ai/mcp/tools/d1.ts(40,1): error TS2578: Unused '@ts-expect-error' directive.
+src/ai/mcp/tools/stitch/index.ts(51,5): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Type '(args: z.infer<typeof CreateProjectSchema>) => Promise<{ id: string; name: string; }>' is not assignable to type 'undefined'.
+src/ai/mcp/tools/stitch/index.ts(60,5): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Type '(args: z.infer<typeof GetProjectSchema>) => Promise<any>' is not assignable to type 'undefined'.
+src/ai/mcp/tools/stitch/index.ts(71,5): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Type '(args: z.infer<typeof ListProjectsSchema>) => Promise<any[]>' is not assignable to type 'undefined'.
+src/ai/mcp/tools/stitch/index.ts(80,5): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Type '(args: z.infer<typeof GenerateScreenFromTextSchema>) => Promise<any>' is not assignable to type 'undefined'.
+src/ai/mcp/tools/stitch/index.ts(89,5): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Type '(args: z.infer<typeof EditScreensSchema>) => Promise<any>' is not assignable to type 'undefined'.
+src/ai/mcp/tools/stitch/index.ts(98,5): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Type '(args: z.infer<typeof GetScreenSchema>) => Promise<any>' is not assignable to type 'undefined'.
+src/ai/mcp/tools/stitch/index.ts(107,5): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Type '(args: z.infer<typeof ListScreensSchema>) => Promise<any[]>' is not assignable to type 'undefined'.
+src/ai/providers/vendors/openai.ts(79,7): error TS2353: Object literal may only specify known properties, and 'env' does not exist in type '{ name: string; instructions?: string | ((runContext: RunContext<unknown>, agent: Agent<unknown, "text">) => string | Promise<string>) | undefined; prompt?: Prompt | ((runContext: RunContext<...>, agent: Agent<...>) => Prompt | Promise<...>) | undefined; ... 11 more ...; resetToolChoice?: boolean | undefined; }'.
+src/ai/providers/vendors/openai.ts(154,7): error TS2353: Object literal may only specify known properties, and 'env' does not exist in type '{ name: string; instructions?: string | ((runContext: RunContext<unknown>, agent: Agent<unknown, "text">) => string | Promise<string>) | undefined; prompt?: Prompt | ((runContext: RunContext<...>, agent: Agent<...>) => Prompt | Promise<...>) | undefined; ... 11 more ...; resetToolChoice?: boolean | undefined; }'.
+src/routes/api/agents/deep-research-chat.ts(81,49): error TS2339: Property 'DEEP_RESEARCH_CHAT_AGENT' does not exist on type 'Env'.
+src/routes/api/agents/jules.ts(109,50): error TS2339: Property 'JULES_OVERSEER' does not exist on type 'Env'.
+src/routes/api/cloudflare/docs/prompt.ts(24,36): error TS2307: Cannot find module '@/ai/agents/GuardrailAgent/todo_integration/CloudflareDocs' or its corresponding type declarations.
+src/routes/api/jules/_shared.ts(2,27): error TS2307: Cannot find module '@/cloudflare/secrets' or its corresponding type declarations.
+src/routes/api/jules/index.ts(206,48): error TS2339: Property 'JULES_OVERSEER' does not exist on type 'Env'.
+src/routes/api/ops/ops.ts(93,46): error TS2339: Property 'SUPERVISOR' does not exist on type 'Env'.
+src/routes/api/ops/ops.ts(100,46): error TS2339: Property 'SUPERVISOR' does not exist on type 'Env'.
+src/routes/api/ops/ops.ts(107,46): error TS2339: Property 'SUPERVISOR' does not exist on type 'Env'.
+src/routes/api/planning.ts(361,44): error TS2551: Property 'PLANNING_ORCHESTRATOR_AGENT' does not exist on type 'Env'. Did you mean 'PLANNING_ORCHESTRATOR'?
+src/routes/api/projects/sentinel/submit.ts(83,19): error TS2339: Property 'JUDGE_AGENT' does not exist on type 'Env'.
+src/routes/api/projects/sentinel/submit.ts(84,26): error TS2339: Property 'JUDGE_AGENT' does not exist on type 'Env'.
+src/routes/api/sandbox.ts(305,59): error TS2339: Property 'SANDBOX_AGENT' does not exist on type 'Env'.
+src/routes/api/sentinel/tasks.ts(201,46): error TS2339: Property 'JUDGE_AGENT' does not exist on type 'Env'.
+src/routes/api/webhooks/index.ts(232,29): error TS2339: Property 'REPO_AGENT' does not exist on type 'Env'.
+src/routes/api/webhooks/index.ts(236,52): error TS2339: Property 'REPO_AGENT' does not exist on type 'Env'.
+src/routes/api/webhooks/index.ts(246,13): error TS2339: Property 'OWNER_AGENT' does not exist on type 'Env'.
+src/routes/api/webhooks/index.ts(255,52): error TS2339: Property 'OWNER_AGENT' does not exist on type 'Env'.
+src/routes/api/webhooks/jules.ts(190,50): error TS2339: Property 'JULES_OVERSEER' does not exist on type 'Env'.
+src/services/jules/methods/mcp.ts(62,24): error TS2339: Property 'execute' does not exist on type 'MCPTool'.
+src/services/jules/methods/mcp.ts(63,27): error TS2339: Property 'execute' does not exist on type 'MCPTool'.
+src/utils/secrets.ts(24,43): error TS2345: Argument of type 'KVNamespace<string>' is not assignable to parameter of type 'Env'.
+  Type 'KVNamespace<string>' is missing the following properties from type 'Env': ETAG_KV, COMMENTS_KV, AGENT_CACHE, KV_CONFIGS, and 102 more.
+src/workflows/planning/health.ts(125,14): error TS2339: Property 'PLANNER' does not exist on type 'Env'.
+src/workflows/planning/health.ts(129,32): error TS2339: Property 'PLANNER' does not exist on type 'Env'.
+src/workflows/planning/orchestrator.ts(163,42): error TS2339: Property 'PLANNING_SUPERVISOR' does not exist on type 'Env'.
+src/workflows/planning/orchestrator.ts(178,42): error TS2551: Property 'PLANNING_ORCHESTRATOR_AGENT' does not exist on type 'Env'. Did you mean 'PLANNING_ORCHESTRATOR'?
+src/workflows/planning/stitch-loop.ts(19,15): error TS2305: Module '"@services/stitch"' has no exported member 'StitchLoopParams'.
+src/workflows/planning/stitch-loop.ts(66,54): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/workflows/planning/stitch-loop.ts(66,57): error TS7006: Parameter 'i' implicitly has an 'any' type.
+src/workflows/research/discord.ts(10,8): error TS2307: Cannot find module '@/ai/agents/research/discord-shared' or its corresponding type declarations.
+src/workflows/research/discord.ts(40,17): error TS7006: Parameter 'match' implicitly has an 'any' type.
+src/workflows/research/discord.ts(40,24): error TS7006: Parameter 'index' implicitly has an 'any' type.
+src/workflows/research/orchestrator.ts(14,80): error TS2307: Cannot find module '@/ai/agents/runtime/workflows' or its corresponding type declarations.
+src/workflows/research/orchestrator.ts(38,41): error TS2307: Cannot find module '@/ai/agents/runtime/openai' or its corresponding type declarations.
+src/workflows/research/orchestrator.ts(45,17): error TS2339: Property 'env' does not exist on type 'ResearchOrchestrator'.
+src/workflows/research/orchestrator.ts(60,29): error TS2339: Property 'env' does not exist on type 'ResearchOrchestrator'.
+src/workflows/research/orchestrator.ts(77,16): error TS2339: Property 'reportProgress' does not exist on type 'ResearchOrchestrator'.
+src/workflows/research/orchestrator.ts(135,29): error TS2339: Property 'env' does not exist on type 'ResearchOrchestrator'.
+src/workflows/research/orchestrator.ts(162,31): error TS2339: Property 'env' does not exist on type 'ResearchOrchestrator'.
+src/workflows/research/orchestrator.ts(169,18): error TS2339: Property 'reportProgress' does not exist on type 'ResearchOrchestrator'.
+src/workflows/research/orchestrator.ts(178,35): error TS2339: Property 'waitForApproval' does not exist on type 'ResearchOrchestrator'.
+src/workflows/research/orchestrator.ts(187,29): error TS2339: Property 'env' does not exist on type 'ResearchOrchestrator'.
+src/workflows/research/orchestrator.ts(194,16): error TS2339: Property 'reportProgress' does not exist on type 'ResearchOrchestrator'.
+src/workflows/research/orchestrator.ts(199,54): error TS7006: Parameter 'candidate' implicitly has an 'any' type.
+src/workflows/research/orchestrator.ts(207,16): error TS2339: Property 'reportProgress' does not exist on type 'ResearchOrchestrator'.
+src/workflows/research/orchestrator.ts(212,49): error TS7006: Parameter 'analysis' implicitly has an 'any' type.
+src/workflows/research/orchestrator.ts(224,39): error TS2339: Property 'env' does not exist on type 'ResearchOrchestrator'.
+src/workflows/research/orchestrator.ts(229,20): error TS2339: Property 'env' does not exist on type 'ResearchOrchestrator'.
+src/workflows/research/orchestrator.ts(247,29): error TS2339: Property 'env' does not exist on type 'ResearchOrchestrator'.
+src/workflows/research/orchestrator.ts(274,45): error TS2339: Property 'env' does not exist on type 'ResearchOrchestrator'.
+src/workflows/research/orchestrator.ts(301,33): error TS2339: Property 'env' does not exist on type 'ResearchOrchestrator'.
+src/workflows/research/orchestrator.ts(326,27): error TS2339: Property 'env' does not exist on type 'ResearchOrchestrator'.
+src/workflows/research/orchestrator.ts(350,33): error TS2339: Property 'env' does not exist on type 'ResearchOrchestrator'.
+src/workflows/research/orchestrator.ts(371,27): error TS2339: Property 'env' does not exist on type 'ResearchOrchestrator'.
+src/workflows/research/topic.ts(23,57): error TS2551: Property 'WEB_SEARCH_AGENT' does not exist on type 'Env'. Did you mean 'RESEARCH_AGENT'?
+src/workflows/research/topic.ts(39,57): error TS2339: Property 'JUDGE_AGENT' does not exist on type 'Env'.

@@ -3,6 +3,7 @@
 
 import { HealthStepResult } from "@/health/types";
 import { testAnyValidToken } from "@/utils/cloudflare/tokens";
+import { getSecret } from "@/utils/secrets";
 
 /**
  * Checks the health of the Browser Render API by verifying:
@@ -12,21 +13,8 @@ export async function checkHealth(env: Env): Promise<HealthStepResult> {
     const start = Date.now();
 
     // Unwrap tokens
-    let accountId = ""; 
-    const rawAccountId = env.CLOUDFLARE_ACCOUNT_ID as any;
-    if (typeof rawAccountId === 'string') accountId = rawAccountId;
-    else if (rawAccountId && typeof rawAccountId.get === 'function') {
-         const s = await rawAccountId.get();
-         accountId = (s && typeof s === 'object' && s.value) ? s.value : String(s);
-    } else accountId = String(rawAccountId || "");
-
-    let token = "";
-    const rawToken = env.CF_BROWSER_RENDER_TOKEN as any;
-    if (typeof rawToken === 'string') token = rawToken;
-    else if (rawToken && typeof rawToken.get === 'function') {
-         const s = await rawToken.get();
-         token = (s && typeof s === 'object' && s.value) ? s.value : String(s);
-    } else token = String(rawToken || "");
+    const accountId = await getSecret(env, "CLOUDFLARE_ACCOUNT_ID") || "";
+    const token = await getSecret(env, "CF_BROWSER_RENDER_TOKEN") || "";
 
 
     if (!accountId || !token) {

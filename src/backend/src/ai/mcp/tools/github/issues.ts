@@ -7,7 +7,7 @@
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
 import { getOctokit } from '@services/octokit/core'
 import { DEFAULT_GITHUB_OWNER } from "@github-utils";
-
+import { tool } from "@/ai/providers";
 
 // --- 1. Zod Schema Definitions ---
 
@@ -28,42 +28,11 @@ const CreateIssueResponseSchema = z.object({
   body: z.string().nullable(),
 })
 
-// --- 2. Route Definition ---
+// --- 2. Core Implementation ---
 
-const createIssueRoute = createRoute({
-  method: 'post',
-  path: '/issues/create',
-  operationId: 'createIssue',
-  request: {
-    body: {
-      content: {
-        'application/json': {
-          schema: CreateIssueRequestSchema,
-        },
-      },
-    },
-  },
-  responses: {
-    200: {
-      content: {
-        'application/json': {
-          schema: CreateIssueResponseSchema,
-        },
-      },
-      description: 'Issue created successfully.',
-    },
-  },
-  'x-agent': true,
-  description: 'Create a new issue in a GitHub repository.',
-})
-
-// --- 3. Hono App and Handler ---
-
-const issues = new OpenAPIHono<{ Bindings: Env }>()
-
-issues.openapi(createIssueRoute, async (c) => {
-  const { owner, repo, title, body, labels } = c.req.valid('json')
-  const octokit = await getOctokit(c.env)
+export async function createIssue(env: Env, params: z.infer<typeof CreateIssueRequestSchema>) {
+  const { owner, repo, title, body, labels } = params;
+  const octokit = await getOctokit(env);
 
   const { data } = await octokit.issues.create({
     owner,
@@ -71,19 +40,48 @@ issues.openapi(createIssueRoute, async (c) => {
     title,
     body,
     labels,
-  })
+  });
 
-  const response: z.infer<typeof CreateIssueResponseSchema> = {
+  return {
     id: data.id,
     number: data.number,
     html_url: data.html_url,
     state: data.state,
     title: data.title,
     body: data.body ?? null,
-  }
+  };
+}
 
-  return c.json(response)
-})
+// --- 3. Tool Factory ---
+
+export function makeIssueTools(env: Env) {
+  return {
+    createIssue: tool({
+      description: 'Create a new issue in a GitHub repository.',
+      parameters: CreateIssueRequestSchema,
+      execute: async (params: any) => createIssue(env, params),
+    } as any),
+  };
+}
+
+// --- 4. Hono App and Routes ---
+
+const issues = new OpenAPIHono<{ Bindings: Env }>()
+
+issues.openapi(
+  createRoute({
+    method: 'post',
+    path: '/issues/create',
+    operationId: 'createIssue',
+    request: { body: { content: { 'application/json': { schema: CreateIssueRequestSchema } } } },
+    responses: {
+      200: { content: { 'application/json': { schema: CreateIssueResponseSchema } }, description: 'Success' }
+    },
+    'x-agent': true,
+    description: 'Create a new issue',
+  }),
+  async (c) => c.json(await createIssue(c.env, c.req.valid('json')))
+)
 
 export default issues
 

@@ -17,7 +17,8 @@ import React, {
   useCallback,
   useRef,
 } from 'react';
-import { toast } from 'sonner';
+import { handleGlobalError } from '@/lib/error-handler';
+import { handleGlobalWarning, handleGlobalInfo } from '@/lib/notification-handler';
 import { useAuth } from '@/context/auth-context';
 
 // ─── Types (mirroring backend schema) ───────────────────────────────────────
@@ -74,15 +75,6 @@ const DEFAULT_CONFIG: AlertsConfig = {
   types: { health: true, webhook: true, security: true, deployment: true, agent: true, info: true },
 };
 
-// ─── Severity → Sonner type ───────────────────────────────────────────────────
-function toSonnerType(severity: AlertSeverity): 'default' | 'success' | 'warning' | 'error' {
-  switch (severity) {
-    case 'critical':
-    case 'error': return 'error';
-    case 'warning': return 'warning';
-    default: return 'default';
-  }
-}
 
 // ─── Provider ────────────────────────────────────────────────────────────────
 
@@ -126,14 +118,19 @@ export function AlertsProvider({ children }: { children: React.ReactNode }) {
           const age = now - new Date(alert.created_at).getTime();
           if (age <= freshWindowMs) {
             toastedIds.current.add(alert.id);
-            const duration = data.config?.sonner_duration_ms ?? 15000;
-            toast[toSonnerType(alert.severity)](alert.title, {
-              description: alert.description,
-              duration,
-              action: alert.link_url
-                ? { label: 'View', onClick: () => window.location.href = alert.link_url! }
-                : undefined,
-            });
+            // Dispatch via centralized handlers based on severity
+            switch (alert.severity) {
+              case 'critical':
+              case 'error':
+                handleGlobalError(`${alert.title}: ${alert.description}`);
+                break;
+              case 'warning':
+                handleGlobalWarning(alert.title, alert.description);
+                break;
+              default:
+                handleGlobalInfo(alert.title, alert.description);
+                break;
+            }
           }
         }
       }

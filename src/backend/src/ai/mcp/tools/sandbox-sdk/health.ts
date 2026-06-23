@@ -868,3 +868,106 @@ export async function checkSandboxDevCapabilities(
         };
     }
 }
+
+// ── 4. Canonical Unified Health Check ────────────────────────────────────────
+//
+// Single entry point for `health/coordinator.ts`.
+// Covers: binding — lifecycle — git auth — file I/O — processes — ports — web
+//         server — code interpreter.
+// Runs the lifecycle probe + all capability checks concurrently, then folds
+// into one aggregated HealthStepResult. The coordinator only needs:
+//   import { checkHealth } from '@/ai/mcp/tools/sandbox-sdk/health';
+
+/**
+ * Canonical health gate for the entire Sandbox SDK subsystem.
+ *
+ * Checks:
+ *  1. SANDBOX binding presence
+ *  2. Full lifecycle (create → exec → file-io → git-clone → destroy)
+ *  3. GitHub API authentication
+ *  4. File read/write roundtrip
+ *  5. Process management (start / list / kill / stream)
+ *  6. Port exposure (expose / list / unexpose)
+ *  7. Web server (start HTTP → expose → fetch response)
+ *  8. Code interpreter (Python + Node.js exec)
+ */
+export async function checkHealth(env: Env): Promise<HealthStepResult> {
+    const start = Date.now();
+    const details: Record<string, any> = {};
+
+    // ── 0. Binding gate ──────────────────────────────────────────────────
+    if (!(env as any).SANDBOX) {
+        return {
+            name: "Sandbox SDK",
+            status: "failure",
+            message: "SANDBOX binding missing from environment",
+            durationMs: Date.now() - start,
+            details: { binding: { status: "FAILURE", error: "SANDBOX binding missing" } },
+        };
+    }
+    details.binding = { status: "OK" };
+
+    // ── 1. Run all probes concurrently ───────────────────────────────────
+    const hostname = (env as any).SANDBOX_HOSTNAME || undefined;
+
+    const [
+        lifecycleResult,
+        gitResult,
+        processResult,
+        portResult,
+        webServerResult,
+        codeResult,
+    ] = await Promise.allSettled([
+        withTimeout(checkSandboxLifecycle(env), 60_000, "Lifecycle"),
+        withTimeout(checkGitCapabilities(env), 35_000, "Git"),
+        withTimeout(checkProcessManagement(env), 30_000, "Process"),
+        withTimeout(checkPortExposure(env, hostname), 30_000, "Port"),
+        withTimeout(checkWebServer(env, hostname), 30_000, "WebServer"),
+        withTimeout(checkCodeInterpreter(env), 20_000, "CodeInterpreter"),
+    ]);
+
+    // ── 2. Fold results ──────────────────────────────────────────────────
+    const mapResult = (
+        label: string,
+        r: PromiseSettledResult<HealthStepResult>,
+    ) => {
+        if (r.status === "fulfilled") {
+            details[label] = {
+                status: r.value.status === "success" ? "OK" : "FAIL",
+                message: r.value.message,
+                latency: r.value.durationMs,
+                ...r.value.details,
+            };
+            return r.value.status === "success";
+        }
+        details[label] = {
+            status: "FAIL",
+            error: r.reason instanceof Error ? r.reason.message : String(r.reason),
+        };
+        return false;
+    };
+
+    const allOk = [
+        mapResult("lifecycle", lifecycleResult),
+        mapResult("git", gitResult),
+        mapResult("process", processResult),
+        mapResult("port", portResult),
+        mapResult("webServer", webServerResult),
+        mapResult("codeInterpreter", codeResult),
+    ];
+
+    const failCount = allOk.filter((ok) => !ok).length;
+    const status: "success" | "failure" = failCount === 0 ? "success" : "failure";
+    const message =
+        failCount === 0
+            ? "Sandbox SDK fully operational — all 8 checks passed"
+            : `Sandbox SDK degraded — ${failCount}/6 capability probes failed`;
+
+    return {
+        name: "Sandbox SDK",
+        status,
+        message,
+        durationMs: Date.now() - start,
+        details,
+    };
+}

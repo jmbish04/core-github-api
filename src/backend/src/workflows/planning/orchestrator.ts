@@ -1,5 +1,5 @@
 import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from "cloudflare:workers";
-import { HoniClient } from '@utils/honi-client';
+import { getAgentByName } from 'agents';
 import type {
   PlanningDecisionInput,
   PlanningRequestInput,
@@ -13,7 +13,7 @@ import {
   extractFilesFromDiff,
   type PlanningCaptureState,
   type PlanningSessionResultSummary,
-} from "@/services/planning/honi-babysitter";
+} from "@/services/planning/babysitter";
 import {
   putPlanningTextArtifact,
   upsertPlanningMarkdownArtifact,
@@ -147,14 +147,6 @@ async function captureSnapshotActivities(
   return next;
 }
 
-async function getPlanningSupervisorStub(env: Env, requestId: string) {
-  return HoniClient.getStub(env.PLANNING_SUPERVISOR as any, `planning-supervisor-${requestId}`) as any;
-}
-
-async function getPlanningOrchestratorStub(env: Env, requestId: string) {
-  return HoniClient.getStub(env.PLANNING_ORCHESTRATOR_AGENT as any, `planning-orchestrator-${requestId}`) as any;
-}
-
 async function materializePlanningMarkdown(
   env: Env,
   input: {
@@ -168,21 +160,9 @@ async function materializePlanningMarkdown(
     failureMessage?: string | null;
   },
 ): Promise<string> {
-  const stub = await getPlanningSupervisorStub(env, input.requestId);
-  const response = await stub.fetch(
-    new Request("http://planning-supervisor/materialize", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(input),
-    }),
-  );
-
-  if (!response.ok) {
-    throw new Error(`Planning supervisor failed: ${response.status} ${await response.text()}`);
-  }
-
-  const payload = (await response.json()) as { success: boolean; markdown: string };
-  return payload.markdown;
+  const agent = await getAgentByName(env.ORCHESTRATOR_AGENT as any, `planning-supervisor-${input.requestId}`);
+  const result = await (agent as any).materialize(input);
+  return result.markdown;
 }
 
 async function orchestrateApprovedPlan(
@@ -195,20 +175,8 @@ async function orchestrateApprovedPlan(
     projectName?: string;
   },
 ) {
-  const stub = await getPlanningOrchestratorStub(env, input.requestId);
-  const response = await stub.fetch(
-    new Request("http://planning-orchestrator/orchestrate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(input),
-    }),
-  );
-
-  if (!response.ok) {
-    throw new Error(`Planning orchestrator failed: ${response.status} ${await response.text()}`);
-  }
-
-  return response.json();
+  const agent = await getAgentByName(env.ORCHESTRATOR_AGENT as any, `planning-orchestrator-${input.requestId}`);
+  return (agent as any).orchestrate(input);
 }
 
 async function waitForDecision(

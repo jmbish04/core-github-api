@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Bot, Loader2, MessageSquare, SendHorizonal } from 'lucide-react';
-import { toast } from 'sonner';
+import { handleGlobalError } from '@/lib/error-handler';
 import { consultReverseEngineeringSnapshot } from '@/components/reverse-engineering/api';
 import { Button } from '@/components/ui/button';
 import {
@@ -51,7 +51,7 @@ export function GlobalConsultantModal() {
     const trimmedMessage = message.trim();
 
     if (!trimmedSnapshotId) {
-      toast.error('Provide a reverse-engineering snapshot ID first.');
+      handleGlobalError('Provide a reverse-engineering snapshot ID first.');
       return;
     }
 
@@ -91,7 +91,7 @@ export function GlobalConsultantModal() {
         role: 'assistant',
         content: nextMessage,
       });
-      toast.error(nextMessage);
+      handleGlobalError(nextMessage);
     } finally {
       setIsRunning(false);
     }

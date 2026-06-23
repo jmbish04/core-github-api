@@ -1,0 +1,179 @@
+{
+  "version": "v7",
+  "title": "Agent Collaboration Gaps — Specialist Delegation Enforcement",
+  "description": "Close five remaining bypasses where non-specialist agents call Cloudflare Docs MCP or GitHub Octokit directly instead of going through CloudflareAgent / GithubAgent. Add a guardrail that makes the bypass impossible to reintroduce. Codify CoordinatorAgent's pure-router contract.",
+  "context": {
+    "audit": "docs/20260417/standardize_agents/v7/AUDIT_FINDINGS.md",
+    "prd": "docs/20260417/standardize_agents/v7/PRD.md",
+    "prompt": "docs/20260417/standardize_agents/v7/PROMPT.md",
+    "supersedes": ["v5/followup A6"],
+    "taxonomy": {
+      "chat/": ["CoordinatorAgent", "CloudflareAgent", "WorkshopAgent"],
+      "backend/": ["OrchestratorAgent", "EngineerAgent", "GuardrailAgent", "ResearchAgent", "GithubAgent", "DesignAgent", "LearningAgent", "CollaborationAgent"]
+    }
+  },
+  "phases": [
+    {
+      "phase": 1,
+      "name": "Specialist surface area",
+      "tasks": [
+        {
+          "id": "P1-GITHUB-SEARCH-CALLABLE",
+          "type": "new",
+          "priority": "critical",
+          "title": "Add searchRepositories and searchCode @callable to GithubAgent",
+          "files": [
+            "src/backend/src/ai/agents/backend/GithubAgent/methods/search.ts",
+            "src/backend/src/ai/agents/backend/GithubAgent/index.ts"
+          ],
+          "depends_on": [],
+          "description": "Create methods/search.ts exporting searchRepositoriesImpl(agent, args) and searchCodeImpl(agent, args) that wrap getOctokitAsUser(env).search.repos(...) and .search.code(...). In GithubAgent/index.ts add two @callable() methods that dynamic-import and delegate to the impls. Return raw data.items arrays — no normalization. Args: { query: string; perPage?: number; page?: number }. Preserve existing @callable pattern (dynamic import).",
+          "success_criteria": "rg -n '@callable' src/backend/src/ai/agents/backend/GithubAgent | grep -E 'searchRepositories|searchCode' returns 2 matches. npx tsc --noEmit passes."
+        }
+      ]
+    },
+    {
+      "phase": 2,
+      "name": "Remove bypasses",
+      "tasks": [
+        {
+          "id": "P2-GUARDRAIL-NO-REWRITE",
+          "type": "modify",
+          "priority": "critical",
+          "title": "GuardrailAgent: drop local rewriteQuestionForMCP — pass raw question to CloudflareAgent",
+          "files": [
+            "src/backend/src/ai/agents/backend/GuardrailAgent/methods/cloudflare-docs.ts"
+          ],
+          "depends_on": [],
+          "description": "Delete lines ~99-102 (the agent.getAI().rewriteQuestionForMCP(...) call). Pass mcpQuestionBase directly into cloudflareAgent.agenticSearch(mcpQuestionBase, { files, rules }). CloudflareAgent rewrites internally. Preserve the try/catch graceful-degradation block and the logger info line about the base question. Do not touch the rest of the file.",
+          "success_criteria": "rg -n 'rewriteQuestionForMCP' src/backend/src/ai/agents/backend/GuardrailAgent returns 0 lines of code (only the JSDoc comment at line 19 may remain — strip it in this edit). npx tsc --noEmit passes."
+        },
+        {
+          "id": "P2-LEARNING-NO-REWRITE",
+          "type": "modify",
+          "priority": "critical",
+          "title": "LearningAgent: drop local rewriteQuestionForMCP — pass raw question to CloudflareAgent",
+          "files": [
+            "src/backend/src/ai/agents/backend/LearningAgent/methods/diagnose-health.ts"
+          ],
+          "depends_on": [],
+          "description": "Delete lines ~53-59 (the `let rewritten = mcpQuery;` block and its try/catch). Replace the existing cloudflareAgent.agenticSearch(rewritten) call with cloudflareAgent.agenticSearch(mcpQuery). Preserve the outer try/catch that provides graceful degradation when the peer is unreachable.",
+          "success_criteria": "rg -n 'rewriteQuestionForMCP' src/backend/src/ai/agents/backend/LearningAgent returns 0 matches. npx tsc --noEmit passes."
+        },
+        {
+          "id": "P2-ORCHESTRATOR-REV-ENG-DELEGATE",
+          "type": "modify",
+          "priority": "critical",
+          "title": "OrchestratorAgent: route reverse-engineering MCP call through CloudflareAgent",
+          "files": [
+            "src/backend/src/ai/agents/backend/OrchestratorAgent/methods/reverse-engineering.ts"
+          ],
+          "depends_on": [],
+          "description": "Remove the `import { queryMCP } from '@/ai/mcp/mcp-client';` at line 18. Replace the direct queryMCP(...) call at line ~113 with `const cloudflareAgent = (agent as any).getPeerAgent((env as any).CLOUDFLARE_AGENT); cloudflareDocs = await cloudflareAgent.agenticSearch(query);` wrapped in try/catch with a warn-log fallback (cloudflareDocs = null). Reference graceful-degradation pattern from backend/GuardrailAgent/methods/cloudflare-docs.ts:107-118.",
+          "success_criteria": "rg -n 'queryMCP' src/backend/src/ai/agents/backend/OrchestratorAgent returns 0 matches. npx tsc --noEmit passes."
+        },
+        {
+          "id": "P2-RESEARCH-GITHUB-DELEGATE",
+          "type": "modify",
+          "priority": "critical",
+          "title": "ResearchAgent: consume GithubAgent.searchRepositories instead of direct Octokit",
+          "files": [
+            "src/backend/src/ai/agents/backend/ResearchAgent/methods/github.ts"
+          ],
+          "depends_on": ["P1-GITHUB-SEARCH-CALLABLE"],
+          "description": "Remove the dynamic import `const { getOctokit } = await import('@services/octokit/core');` and the subsequent direct octokit.search.repos(...) call. Replace with `const githubAgent = (agent as any).getPeerAgent((agent as any).env.GITHUB_AGENT); const items = await githubAgent.searchRepositories({ query, perPage: opts?.perPage ?? 20 });`. Wrap in try/catch returning [] on failure. Do not re-export Octokit anywhere in ResearchAgent.",
+          "success_criteria": "rg -n '@octokit|getOctokit|new Octokit' src/backend/src/ai/agents/backend/ResearchAgent returns 0 matches. npx tsc --noEmit passes."
+        },
+        {
+          "id": "P2-CLOUDFLARE-AGENTIC-SEARCH-CONTRACT",
+          "type": "audit",
+          "priority": "high",
+          "title": "Audit CloudflareAgent.agenticSearch signature consistency",
+          "files": [
+            "src/backend/src/ai/agents/chat/CloudflareAgent/index.ts"
+          ],
+          "depends_on": ["P2-GUARDRAIL-NO-REWRITE", "P2-LEARNING-NO-REWRITE", "P2-ORCHESTRATOR-REV-ENG-DELEGATE"],
+          "description": "Confirm agenticSearch(question: string, context?: Record<string, any>) matches every caller's shape after P2 fixes. The signature must tolerate callers that pass no context (LearningAgent diagnose-health, OrchestratorAgent reverse-engineering) AND callers that pass structured context (GuardrailAgent). If today's signature requires context, update to accept context?:, treat undefined as empty, and do not throw. Audit only — implement a fix only if a mismatch is detected.",
+          "success_criteria": "All four callers compile. Calling agenticSearch with just a question string (no context) completes successfully in a smoke test. npx tsc --noEmit passes."
+        }
+      ]
+    },
+    {
+      "phase": 3,
+      "name": "Guardrails and cleanup",
+      "tasks": [
+        {
+          "id": "P3-LINT-RULE",
+          "type": "new",
+          "priority": "high",
+          "title": "Add path-scoped no-restricted-imports overrides",
+          "files": [
+            ".eslintrc.cjs",
+            ".agent/rules/agent-specialist-delegation.md"
+          ],
+          "depends_on": ["P2-GUARDRAIL-NO-REWRITE", "P2-LEARNING-NO-REWRITE", "P2-ORCHESTRATOR-REV-ENG-DELEGATE", "P2-RESEARCH-GITHUB-DELEGATE"],
+          "description": "Add three ESLint overrides: (1) agents outside chat/CloudflareAgent/ may not import @/ai/mcp/*; (2) agents outside backend/GithubAgent/ may not import @octokit/*, @services/octokit/*, @/services/octokit/*; (3) chat/CoordinatorAgent/ may not import @octokit/*, @/ai/mcp/*, @/cloudflare/*, @services/*, @/services/*. Include a helpful `message` on each rule pointing at PRD.md. Also create .agent/rules/agent-specialist-delegation.md explaining the rule in prose for LLM-driven PRs. If the project does not use ESLint, omit .eslintrc.cjs and encode the rule only in .agent/rules/.",
+          "success_criteria": "npx eslint src/backend/src/ai/agents passes with no errors. Introducing a test bypass (e.g. temporarily adding `import { queryMCP } from '@/ai/mcp/mcp-client'` in backend/DesignAgent) produces a lint error."
+        },
+        {
+          "id": "P3-COORDINATOR-ROUTING-CONTRACT",
+          "type": "modify",
+          "priority": "high",
+          "title": "Codify CoordinatorAgent's pure-router contract in a header comment",
+          "files": [
+            "src/backend/src/ai/agents/chat/CoordinatorAgent/index.ts"
+          ],
+          "depends_on": ["P3-LINT-RULE"],
+          "description": "Add a JSDoc header block immediately above the CoordinatorAgent class declaration that names (1) the pure-router contract, (2) allowed imports, (3) forbidden import categories, (4) the rule that new functionality must be added as a @callable on the specialist first. Reference PRD.md C9 for enforcement details. Exact text provided in PROMPT.md §C9.",
+          "success_criteria": "The header comment exists and references v7/PRD.md. The lint rule from P3-LINT-RULE flags any attempt to add a forbidden import."
+        },
+        {
+          "id": "P3-BABYSITTER-DECISION",
+          "type": "modify",
+          "priority": "medium",
+          "title": "Decide babysitter utility's MCP access strategy",
+          "files": [
+            "src/backend/src/services/planning/babysitter/utils.ts"
+          ],
+          "depends_on": [],
+          "description": "The babysitter utility at services/planning/babysitter/utils.ts:47 calls queryMCP directly. It runs in a scheduled-worker context, not inside an agent DO. Pick one: (a) refactor to accept an agent instance (or a CloudflareAgent stub) and delegate via getPeerAgent(env.CLOUDFLARE_AGENT).agenticSearch(...); or (b) add an explicit eslint-disable-next-line comment and a prose justification explaining why this is the one sanctioned non-agent queryMCP call site. Do not leave the bypass undocumented.",
+          "success_criteria": "Either the queryMCP call is gone (option a) or an inline comment + eslint-disable exists at the call site with a link to this PRD (option b)."
+        },
+        {
+          "id": "P3-V5-FOLLOWUP-NOTE",
+          "type": "modify",
+          "priority": "low",
+          "title": "Mark v5/followup A6 as superseded by v7 C1",
+          "files": [
+            "docs/20260417/standardize_agents/v5/followup/PRD.md"
+          ],
+          "depends_on": ["P2-GUARDRAIL-NO-REWRITE"],
+          "description": "In the A6 row of the Agent Refinements scope table in v5/followup/PRD.md, append to the 'What's Missing' cell: ' (Superseded by v7 C1 — see docs/20260417/standardize_agents/v7/PRD.md)'. No other edits.",
+          "success_criteria": "rg -n 'Superseded by v7 C1' docs/20260417/standardize_agents/v5/followup/PRD.md returns 1 match."
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "commands": [
+      "npx tsc --noEmit",
+      "rg -n \"from ['\\\"]@/ai/mcp/mcp-client\" src/backend/src/ai/agents | grep -v \"chat/CloudflareAgent\" | wc -l   # must be 0",
+      "rg -n \"@octokit|getOctokit|new Octokit\" src/backend/src/ai/agents | grep -v \"backend/GithubAgent\" | wc -l   # must be 0",
+      "rg -n \"rewriteQuestionForMCP\" src/backend/src/ai/agents | grep -v \"chat/CloudflareAgent\" | wc -l   # must be 0",
+      "rg -n \"from ['\\\"]@/cloudflare|@/ai/mcp|@octokit|@services\" src/backend/src/ai/agents/chat/CoordinatorAgent | wc -l   # must be 0",
+      "rg -n \"@callable\" src/backend/src/ai/agents/backend/GithubAgent | grep -E \"searchRepositories|searchCode\" | wc -l   # must be 2",
+      "npx eslint src/backend/src/ai/agents",
+      "npx wrangler deploy --dry-run"
+    ]
+  },
+  "execution_order": [
+    "P1-GITHUB-SEARCH-CALLABLE",
+    "[P2-GUARDRAIL-NO-REWRITE, P2-LEARNING-NO-REWRITE, P2-ORCHESTRATOR-REV-ENG-DELEGATE, P2-RESEARCH-GITHUB-DELEGATE]",
+    "P2-CLOUDFLARE-AGENTIC-SEARCH-CONTRACT",
+    "P3-LINT-RULE",
+    "P3-COORDINATOR-ROUTING-CONTRACT",
+    "P3-BABYSITTER-DECISION",
+    "P3-V5-FOLLOWUP-NOTE",
+    "final-verification"
+  ]
+}

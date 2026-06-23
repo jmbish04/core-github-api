@@ -22,6 +22,7 @@ import {
   Loader2,
 } from "lucide-react";
 
+import { handleGlobalError } from "@/lib/error-handler";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -123,7 +124,8 @@ function formatPST(isoString: string): string {
       minute: "2-digit",
       hour12: true,
     }) + " PST";
-  } catch {
+  } catch (e) {
+    handleGlobalError(new Error("[Webhooks] Date Formatting Error: " + (e instanceof Error ? e.message : String(e))));
     return isoString;
   }
 }
@@ -173,7 +175,8 @@ function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) 
       await navigator.clipboard.writeText(text);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch {
+    } catch (e) {
+      handleGlobalError(new Error("[Webhooks] Clipboard Copy Error: " + (e instanceof Error ? e.message : String(e))));
       const textarea = document.createElement("textarea");
       textarea.value = text;
       document.body.appendChild(textarea);

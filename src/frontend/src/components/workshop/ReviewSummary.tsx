@@ -3,7 +3,8 @@ import { api } from '@/lib/api-client';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { toast } from 'sonner';
+import { handleGlobalError } from '@/lib/error-handler';
+import { handleGlobalSuccess } from '@/lib/success-handler';
 
 export const ReviewSummary = ({ projectId }: { projectId: string }) => {
     const [draftData, setDraftData] = useState<any>(null);
@@ -18,10 +19,11 @@ export const ReviewSummary = ({ projectId }: { projectId: string }) => {
                     const data = await res.json();
                     setDraftData(data.draftData);
                 } else {
-                    toast.error("Failed to load draft data.");
+                    handleGlobalError("Failed to load draft data.");
                 }
-            } catch (err) {
-                toast.error("Error loading draft.");
+            } catch (err: unknown) {
+                const msg = err instanceof Error ? err.message : String(err);
+                handleGlobalError(`Error loading draft. ${msg}`);
             } finally {
                 setLoading(false);
             }
@@ -36,14 +38,15 @@ export const ReviewSummary = ({ projectId }: { projectId: string }) => {
                 json: { projectId }
             });
             if (res.ok) {
-                toast.success("Project launched successfully!");
+                handleGlobalSuccess('Launched', 'Project launched successfully!');
                 // Trigger animation or navigation
                 window.location.href = `/projects/default/default/workshop`;
             } else {
-                toast.error("Failed to launch project.");
+                handleGlobalError("Failed to launch project.");
             }
-        } catch (err) {
-            toast.error("Error launching project.");
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : String(err);
+            handleGlobalError(`Error launching project. ${msg}`);
         } finally {
             setLaunching(false);
         }

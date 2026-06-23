@@ -1,8 +1,12 @@
 import { JulesService } from "../jules/service";
 import { getCfSdkClient } from "../../cloudflare/client";
+import { Logger } from "@/lib/logger";
 
 export class BuildLogAnalyzer {
-    constructor(private env: Env) {}
+    private logger: Logger;
+    constructor(private env: Env) {
+        this.logger = new Logger(env, 'BuildLogAnalyzer');
+    }
 
     private async fetchCloudflareDocs(url: string): Promise<string> {
         try {
@@ -87,7 +91,8 @@ export class BuildLogAnalyzer {
                 const found = (d1List.result || []).find((db: any) => db.name === workerName);
                 if (found) provisioned.push(`- D1 Database \`${workerName}\` exists. ID: \`${found.uuid}\``);
             } catch (ignore) {
-                console.error("[BuildLogAnalyzer] Failed to list D1 databases", JSON.stringify(ignore));
+                const errorMessage = `[BuildLogAnalyzer] Failed to list D1 databases ${JSON.stringify(ignore)}`;
+                this.logger.error(errorMessage);
             }
         }
 

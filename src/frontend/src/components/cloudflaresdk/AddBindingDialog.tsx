@@ -3,7 +3,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Plus, Loader2 } from "lucide-react";
-import { toast } from "sonner";
+import { handleGlobalError } from '@/lib/error-handler';
+import { handleGlobalSuccess } from '@/lib/success-handler';
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
@@ -81,13 +82,13 @@ export function AddBindingDialog({ repoOwner, repoName }: AddBindingDialogProps)
       return await res.json();
     },
     onSuccess: () => {
-      toast.success("Binding synchronized to wrangler.jsonc via GitHub.");
+      handleGlobalSuccess('Binding Added', "Binding synchronized to wrangler.jsonc via GitHub.");
       queryClient.invalidateQueries({ queryKey: ["project-overview", repoOwner, repoName] });
       setOpen(false);
       form.reset();
     },
     onError: (error: Error) => {
-      toast.error(`Failed to sync binding: ${error.message}`);
+      handleGlobalError(`Failed to sync binding: ${error.message}`);
     },
   });
 

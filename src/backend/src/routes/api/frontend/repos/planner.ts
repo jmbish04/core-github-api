@@ -13,7 +13,7 @@ import {
   fetchProjectContextByOwnerRepo,
   generateUuid 
 } from "./utils";
-import { runWithOpenAIAgent } from "@/ai/providers";
+import { AIProvider } from "@/ai/providers";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -166,8 +166,8 @@ app.post("/phases/:phaseId/generate-instructions", async (c) => {
         }
     }
 
-    const res = await runWithOpenAIAgent(
-        c.env,
+    const ai = new AIProvider(c.env);
+    const res = await ai.runWithOpenAIAgent(
         `Phase/Epic: ${epic.title}\nDescription: ${epic.description || "No description provided."}${repoContextStr}`,
         {
             name: "PhaseLead",

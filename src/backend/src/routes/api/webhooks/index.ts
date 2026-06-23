@@ -57,19 +57,19 @@ import { eq, desc, like, sql, and, inArray, gte, lte, or } from 'drizzle-orm';
 // Internal schema & database imports
 import { getGitHubPrivateKey, getGitHubAppId, getGitHubWebhookSecret } from "@utils/secrets";
 import { generateUuid } from "@/utils/common";
-import { HoniClient } from '@utils/honi-client';
-import { getWebhooksDb } from '@db';
+import { getWebhooksDb, getDb } from '@db';
 import { webhookDeliveries } from '@/db/schemas/github/webhooks';
 
 // Types & Services
 import type { GitHubWebhookPayload } from '@/types/github/webhooks';
 import { App } from 'octokit';
 import { Octokit } from '@octokit/rest';
-import OpenAI from 'openai';
 import { getSandbox } from '@cloudflare/sandbox';
 import { sanitizeRepoName } from '@/ai/mcp/tools/sandbox-sdk';
 import { AutomationRegistry } from '@/automations/core/AutomationRegistry';
 import { JulesService } from '@/services/jules/service';
+import { getAgentByName } from 'agents';
+import { Logger } from '@/lib/logger';
 
 const webhooksApi = new Hono<{ Bindings: Env }>();
 
@@ -85,17 +85,23 @@ export async function webhookHandler(c: Context<{ Bindings: Env }>): Promise<Res
   const hookId = c.req.header('x-github-hook-id');
   const installationTargetId = c.req.header('x-github-hook-installation-target-id');
   const installationTargetType = c.req.header('x-github-hook-installation-target-type');
+  const loggerPreface = '[Unified GitHub Webhook Handler]';
+
+  const logger = new Logger(c.env, loggerPreface);
 
   if (!deliveryId || !eventName || !signature) {
+    logger.error(`${loggerPreface} Missing required headers; deliveryId: ${deliveryId}, eventName: ${eventName}, signature: ${signature}`);
     return c.json({ error: 'Missing required headers' }, 400);
   }
+
+  
 
   const privateKey = await getGitHubPrivateKey(c.env);
   const appId = await getGitHubAppId(c.env);
   const webhookSecret = await getGitHubWebhookSecret(c.env);
 
   if (!privateKey || !appId || !webhookSecret) {
-    console.error('Missing GitHub App configuration');
+    logger.error(`${loggerPreface} Missing GitHub App configuration`);
     return c.json({ error: 'Server misconfiguration' }, 500);
   }
 
@@ -116,8 +122,8 @@ export async function webhookHandler(c: Context<{ Bindings: Env }>): Promise<Res
       payload: rawBody,
       signature: signature,
     });
-  } catch (error) {
-    console.error('Webhook verification failed', error);
+  } catch (error: any) {
+    logger.error(`${loggerPreface} Webhook verification failed; error: ${error?.message || error}`);
     return c.json({ error: 'Invalid signature' }, 401);
   }
 
@@ -127,14 +133,14 @@ export async function webhookHandler(c: Context<{ Bindings: Env }>): Promise<Res
     pull_request?: { number?: number };
     issue?: { number?: number };
     action?: string;
-    check_run?: { status?: string; conclusion?: string; name?: string; details_url?: string; check_suite?: { head_branch?: string } };
+    check_run?: { status?: string; conclusion?: string; name?: string; details_url?: string; check_suite?: { head_branch?: string }; pull_requests?: Array<{ number: number }> };
   } & Record<string, unknown>;
   const action = payload.action || null;
   const repoFullName = payload.repository?.full_name;
   const installationId = payload.installation?.id || (installationTargetId ? parseInt(installationTargetId) : undefined);
 
   if (repoFullName && !repoFullName.startsWith("jmbish04/")) {
-    console.log(`[Webhook] Ignoring repo outside jmbish04/ scope: ${repoFullName}`);
+    logger.info(`${loggerPreface} CI Healer: Ignoring repo outside jmbish04/ scope: ${repoFullName}`);
     return c.json({ success: true, status: 'ignored_scope' });
   }
 
@@ -145,7 +151,7 @@ export async function webhookHandler(c: Context<{ Bindings: Env }>): Promise<Res
     payload.check_run?.conclusion === "failure" &&
     repoFullName
   ) {
-    console.log(`[CI-Healer] Triggering Jules to fix failing check run: ${payload.check_run.name}`);
+    logger.info(`${loggerPreface} CI Healer: Triggering Jules to fix failing check run: ${payload.check_run.name}`);
     const branch = payload.check_run?.check_suite?.head_branch;
     const owner = payload.repository?.owner?.login;
     const repoName = payload.repository?.name;
@@ -154,17 +160,61 @@ export async function webhookHandler(c: Context<{ Bindings: Env }>): Promise<Res
       c.executionCtx.waitUntil(
         (async () => {
           try {
-            const jules = JulesService.getInstance(c.env);
-            const session = await jules.startSession({
-              prompt: `The CI check "${payload.check_run?.name}" failed on branch '${branch}'.\n\nReview the logs at ${payload.check_run?.details_url} or run checks locally, then fix the code causing the failure.`,
-              repo: { owner, repo: repoName, branch },
-              autoPr: true,
-              requireApproval: false,
-              sessionRole: "implementation"
+            
+            // First, check if there's an active session for this branch
+            const db = getDb(c.env.DB);
+            // Dynamic import to avoid top-level D1 schema circular deps if any
+            const { julesSessions } = await import('@db/schemas/jules');
+            const { eq, and, inArray, desc } = await import('drizzle-orm');
+
+            const activeSession = await db.select()
+              .from(julesSessions)
+              .where(and(
+                eq(julesSessions.repoName, repoName),
+                eq(julesSessions.repoOwner, owner),
+                eq(julesSessions.branch, branch),
+                inArray(julesSessions.status, ["active", "waiting_for_user", "stuck"])
+              ))
+              .orderBy(desc(julesSessions.updatedAt))
+              .limit(1)
+              .get();
+
+            if (!activeSession) {
+              logger.info(`${loggerPreface} CI Healer: No active session found for ${repoFullName} branch ${branch}. Skipping to prevent quota drain.`);
+              return;
+            }
+
+            // Deduplication: To prevent blasting Jules if multiple checks fail exactly at the same time
+            // Let's use KV or caches to debounce? Actually, just relying on sendMessage instead of startSession
+            // will dramatically reduce quota usage (1 message vs 1 new repocloning session).
+            
+            const { analyzeBuildFailure } = await import('@/automations/pr/build-analyzer/analysis');
+            
+            const PR_NUM = payload.check_run?.pull_requests?.[0]?.number || 1;
+            const analysisResult = await analyzeBuildFailure(c.env, {
+                prNumber: PR_NUM, 
+                prTitle: `Failed Check: ${payload.check_run?.name}`,
+                headRef: branch,
+                repoFullName
             });
-            console.log(`[CI-Healer] Started Jules session ${session.id} for ${repoFullName} branch ${branch}`);
-          } catch (e) {
-            console.error("[CI-Healer] Failed to start Jules session:", e);
+            
+            const fixInstructions = analysisResult.fixPrompt;
+            let docsContext = "";
+            const rawLogs = analysisResult.relevantLogs;
+
+            if (fixInstructions.toLowerCase().includes("binding") || rawLogs.toLowerCase().includes("binding not found")) {
+                docsContext = `\n\nCRITICAL CF FIX COMMAND: The logs indicate missing Cloudflare resource bindings. You MUST use 'cf_d1_create', 'cf_kv_create', or equivalent Cloudflare MCP tools to physically provision them. Update wrangler.jsonc with the binding name. Do NOT tell the user to do it. Just do it.\n\nRAW LOGS EXTRACT:\n${rawLogs}`;
+            } else {
+                docsContext = `\n\nRAW LOGS EXTRACT:\n${rawLogs}`;
+            }
+
+            const jules = JulesService.getInstance(c.env);
+            const message = `The CI check "${payload.check_run?.name}" failed on branch '${branch}'.\n\n${fixInstructions}${docsContext}`;
+            
+            await jules.sendMessage(activeSession.id, message);
+            logger.info(`${loggerPreface} CI Healer: Sent failure message to existing Jules session ${activeSession.id} for ${repoFullName} branch ${branch}`);
+          } catch (e: any) {
+            logger.error(`${loggerPreface} CI Healer: Failed to send CI failure to Jules session; error: ${e?.message || e}`);
           }
         })()
       );
@@ -173,38 +223,87 @@ export async function webhookHandler(c: Context<{ Bindings: Env }>): Promise<Res
 
   // PR Reviewer (Sandbox + AI Gateway)
   if (eventName === 'pull_request' && (action === 'opened' || action === 'reopened')) {
-    console.log(`[PR-Reviewer] Triggering Sandbox review for PR #${payload.pull_request?.number}`);
+    logger.info(`${loggerPreface} PR-Reviewer: Triggering Sandbox review for PR #${payload.pull_request?.number}`);
     c.executionCtx.waitUntil(reviewPullRequest(payload, c.env));
     // Notice: we do NOT return early here because we still want to log the webhook delivery in D1.
   }
 
+  // ── Colby Command: /colby merge conflicts or @colby merge conflicts ────────
+  if (
+    eventName === "issue_comment" &&
+    action === "created" &&
+    (payload as any).issue?.pull_request && // comment is on a PR
+    /@?colby\s+merge\s+conflicts/i.test((payload as any).comment?.body ?? "")
+  ) {
+    const prBody = payload as any;
+    const prOwner = prBody.repository?.owner?.login;
+    const prRepo = prBody.repository?.name;
+    const prNumber = prBody.issue?.number;
+    const headBranch = (prBody.issue as any)?.head?.ref ?? "unknown"; // enriched below
+    const baseBranch = prBody.repository?.default_branch ?? "main";
+
+    if (prOwner && prRepo && prNumber) {
+      logger.info(`${loggerPreface} Colby command: merge conflicts on ${prOwner}/${prRepo}#${prNumber}`);
+
+      c.executionCtx.waitUntil(
+        (async () => {
+          try {
+            const octokit = new Octokit({ auth: c.env.GITHUB_PERSONAL_ACCESS_TOKEN });
+
+            // Enrich with actual head branch from PR data
+            const { data: pr } = await octokit.pulls.get({ owner: prOwner, repo: prRepo, pull_number: prNumber });
+
+            // Post acknowledgement comment immediately
+            await octokit.issues.createComment({
+              owner: prOwner, repo: prRepo, issue_number: prNumber,
+              body: `🤖 **Colby** is resolving merge conflicts on this PR (branch \`${pr.head.ref}\`).\n\n_This may take 1–2 minutes. I'll post an update when done._`,
+            });
+
+            // Dispatch to EngineerAgent via RPC
+            const { getAgentByName: getAgent } = await import("agents");
+            const engineer = await getAgent(c.env.ENGINEER_AGENT as any, "singleton");
+            const result = await (engineer as any).resolveConflicts({
+              owner: prOwner,
+              repo: prRepo,
+              prNumber,
+              headBranch: pr.head.ref,
+              baseBranch: pr.base.ref,
+            });
+
+            // Post result comment
+            const statusEmoji = result.success ? "✅" : "❌";
+            const summary = result.success
+              ? `Resolved **${result.resolvedFiles.length}** file(s): ${result.resolvedFiles.join(", ")}${result.commitSha ? `\n\nCommit: \`${result.commitSha}\`` : ""}`
+              : `Failed to resolve conflicts: ${result.error ?? "Unknown error"}`;
+
+            await octokit.issues.createComment({
+              owner: prOwner, repo: prRepo, issue_number: prNumber,
+              body: `${statusEmoji} **Colby conflict resolution complete.**\n\n${summary}`,
+            });
+          } catch (err: any) {
+            logger.error(`${loggerPreface} Colby merge conflicts failed: ${err?.message || err}`);
+          }
+        })()
+      );
+    }
+  }
+
   // Agent Dispatching (Kept isolated as per earlier design)
-  if (repoFullName && c.env.REPO_AGENT) {
+  if (repoFullName && c.env.GITHUB_AGENT) {
     c.executionCtx.waitUntil(
       (async () => {
         try {
-          await HoniClient.fetch(
-            c.env.REPO_AGENT as unknown as DurableObjectNamespace,
-            sanitizeRepoName(repoFullName),
-            "/webhook",
-            {
-              method: "POST",
-              headers: {
-                "content-type": "application/json",
-                "x-github-event": eventName,
-                ...(signature ? { "x-hub-signature-256": signature } : {}),
-              },
-              body: rawBody,
-            }
-          );
-        } catch (error) {
-          console.error('[RepoAgent] Failed to dispatch webhook:', error);
+          const agent = await getAgentByName(c.env.GITHUB_AGENT as any, sanitizeRepoName(repoFullName));
+          // Direct DO RPC — no HTTP round-trip needed for same-Worker calls
+          await (agent as any).handleWebhookEvent(eventName, JSON.parse(rawBody));
+        } catch (error: any) {
+          logger.error(`${loggerPreface} RepoAgent: Failed to dispatch webhook; error: ${error?.message || error}`);
         }
       })()
     );
   }
 
-  if (c.env.OWNER_AGENT) {
+  if (c.env.GITHUB_AGENT) {
     c.executionCtx.waitUntil(
       (async () => {
         try {
@@ -213,21 +312,11 @@ export async function webhookHandler(c: Context<{ Bindings: Env }>): Promise<Res
             (payload as { installation?: { account?: { login?: string } } }).installation?.account?.login ||
             (c.env as { GITHUB_OWNER?: string }).GITHUB_OWNER ||
             'default-owner';
-          await HoniClient.fetch(
-            c.env.OWNER_AGENT as unknown as DurableObjectNamespace,
-            sanitizeRepoName(ownerKey),
-            "/webhook",
-            {
-              method: 'POST',
-              headers: {
-                'content-type': 'application/json',
-                'x-github-event': eventName,
-              },
-              body: rawBody,
-            }
-          );
-        } catch (error) {
-          console.error('[OwnerAgent] Failed to dispatch webhook:', error);
+          const agent = await getAgentByName(c.env.GITHUB_AGENT as any, sanitizeRepoName(ownerKey));
+          // Direct DO RPC — no HTTP round-trip needed for same-Worker calls
+          await (agent as any).handleWebhookEvent(eventName, JSON.parse(rawBody));
+        } catch (error: any) {
+          logger.error(`${loggerPreface} OwnerAgent: Failed to dispatch webhook; error: ${error?.message || error}`);
         }
       })()
     );
@@ -241,7 +330,7 @@ export async function webhookHandler(c: Context<{ Bindings: Env }>): Promise<Res
     .get();
 
   if (existing) {
-    console.log(`[Webhook] Duplicate delivery ${deliveryId}, skipping.`);
+    logger.info(`${loggerPreface} Webhook: Duplicate delivery ${deliveryId}, skipping.`);
     return c.json({ success: true, delivery_id: deliveryId, status: 'already_processed' });
   }
 
@@ -276,14 +365,14 @@ export async function webhookHandler(c: Context<{ Bindings: Env }>): Promise<Res
       }).then((results) => {
         const failures = results.filter((result) => result.status === 'rejected').length;
         if (failures > 0) {
-          console.error(`[Webhook] ${failures} automations failed for delivery ${deliveryId}`);
+          logger.error(`${loggerPreface} Webhook: ${failures} automations failed for delivery ${deliveryId}`);
         }
       })
     );
     return c.json({ success: true, delivery_id: deliveryId });
 
   } catch (error: unknown) {
-    console.error('Failed to process webhook', error);
+    logger.error(`${loggerPreface} Webhook: Failed to process webhook; error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     return c.json({ error: 'Processing error', details: error instanceof Error ? error.message : 'Unknown error' }, 500);
   }
 }
@@ -430,6 +519,11 @@ webhooksApi.get('/:owner/:repo/pr/:pull_number/initial', async (c) => {
 async function reviewPullRequest(payload: any, env: any): Promise<void> {
   const pr = payload.pull_request;
   const repo = payload.repository;
+  const loggerPreface = '[Unified GitHub Webhook Handler]';
+  const logger = new Logger(env, loggerPreface);
+
+  logger.info(`${loggerPreface} PR-Reviewer: Starting repoless session for PR #${pr.number} in ${repo.full_name}`);
+
   const octokit = new Octokit({ auth: env.GITHUB_PERSONAL_ACCESS_TOKEN });
   const sandbox = getSandbox(env.SANDBOX, `review-${pr.number}`);
 
@@ -440,8 +534,10 @@ async function reviewPullRequest(payload: any, env: any): Promise<void> {
       issue_number: pr.number,
       body: "Code review in progress...",
     });
+    logger.info(`${loggerPreface} PR-Reviewer: Posted initial comment for PR #${pr.number}`);
 
     const cloneUrl = `https://${env.GITHUB_PERSONAL_ACCESS_TOKEN}@github.com/${repo.owner.login}/${repo.name}.git`;
+    logger.info(`${loggerPreface} PR-Reviewer: Cloning repository ${repo.full_name}...`);
     await sandbox.exec(`git clone --depth=1 --branch=${pr.head.ref} ${cloneUrl} /workspace/repo`);
 
     const comparison = await octokit.repos.compareCommits({
@@ -452,43 +548,41 @@ async function reviewPullRequest(payload: any, env: any): Promise<void> {
     });
 
     const files = [];
+    logger.info(`${loggerPreface} PR-Reviewer: Extracting file diffs and contents...`);
     for (const file of (comparison.data.files || []).slice(0, 5)) {
       if (file.status !== "removed") {
-        const content = await sandbox.readFile(`/workspace/repo/${file.filename}`);
-        files.push({
-          path: file.filename,
-          patch: file.patch || "",
-          content: content.content,
-        });
+        try {
+          const content = await sandbox.readFile(`/workspace/repo/${file.filename}`);
+          files.push({
+            path: file.filename,
+            patch: file.patch || "",
+            content: content.content,
+          });
+        } catch (readError: any) {
+          logger.warn(`${loggerPreface} PR-Reviewer: Failed to read file ${file.filename}; error: ${readError.message || readError}`);
+        }
       }
     }
 
-    const openai = new OpenAI({
-      apiKey: env.OPENAI_API_KEY,
-      baseURL: env.AI_GATEWAY_URL,
-    });
+    const changedFilesText = files.map((f: any) => "File: " + f.path + "\nDiff:\n" + f.patch + "\n\nContent:\n" + f.content).join("\n\n");
 
-    const changedFilesText = files.map((f: any) => "File: " + f.path + "\nDiff:\n" + f.patch + "\n\nContent:\n" + f.content.substring(0, 1000)).join("\n\n");
+    const jules = JulesService.getInstance(env);
+    logger.info(`${loggerPreface} PR-Reviewer: Dispatching to Jules Repoless Session for Gemini 3.1 Pro analysis...`);
+    const { agentMessage } = await jules.runRepolessSession(
+      `Review this PR:\nTitle: ${pr.title}\nChanged files:\n${changedFilesText}\nProvide a brief code review focusing on bugs, security, and best practices.`
+    );
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "user",
-          content: `Review this PR:\nTitle: ${pr.title}\nChanged files:\n${changedFilesText}\nProvide a brief code review focusing on bugs, security, and best practices.`,
-        },
-      ],
-    });
-
-    const review = response.choices[0]?.message?.content || "No review generated";
+    const review = agentMessage || "No review generated";
+    logger.info(`${loggerPreface} PR-Reviewer: Review generated successfully. Posting final comment.`);
 
     await octokit.issues.createComment({
       owner: repo.owner.login,
       repo: repo.name,
       issue_number: pr.number,
-      body: `## Code Review\n\n${review}\n\n---\n*Generated by OpenAI SDK via Cloudflare AI Gateway*`,
+      body: `## Code Review\n\n${review}\n\n---\n*Generated by Jules Repoless Session*`,
     });
   } catch (error: any) {
+    logger.error(`${loggerPreface} PR-Reviewer: Failed to review PR #${pr.number}; error: ${error.message || error}`);
     await octokit.issues.createComment({
       owner: repo.owner.login,
       repo: repo.name,
@@ -496,6 +590,7 @@ async function reviewPullRequest(payload: any, env: any): Promise<void> {
       body: `Review failed: ${error.message}`,
     });
   } finally {
+    logger.info(`${loggerPreface} PR-Reviewer: Destroying sandbox environment review-${pr.number}`);
     await sandbox.destroy();
   }
 }

@@ -6,7 +6,7 @@ import {
   SidebarInset,
   SidebarTrigger
 } from "@/components/ui/sidebar";
-import { useHoniChatRuntime } from "./useHoniChatRuntime";
+import { useStreamingAgentRuntime } from "./useStreamingAgentRuntime";
 import { AssistantRuntimeProvider } from "@assistant-ui/react";
 import { Bot, Cpu } from "lucide-react";
 
@@ -29,13 +29,13 @@ export default function ChatPage() {
       .catch(err => console.error("Failed to fetch specialists", err));
   }, []);
 
-  // Use our custom Honi websocket runtime.
+  // Use our custom Agent SDK websocket runtime.
   // Note: For a fully persistent thread list, a custom ThreadStore adapter would be needed. 
   // By default, assistant-ui's LocalRuntime manages threads in memory.
-  const runtime = useHoniChatRuntime(activeAgentId, crypto.randomUUID());
+  const runtime = useStreamingAgentRuntime(activeAgentId, crypto.randomUUID());
 
   return (
-    <AssistantRuntimeProvider runtime={runtime}>
+    <AssistantRuntimeProvider runtime={runtime as any}>
       <WeatherToolUI />
       <SidebarProvider>
         <div className="flex h-[calc(100vh-6rem)] w-full bg-background border rounded-xl overflow-hidden shadow-sm">

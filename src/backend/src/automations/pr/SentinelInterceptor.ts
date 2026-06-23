@@ -18,73 +18,160 @@ import {
 import { getDb } from "@db";
 import { learningAiInsights } from "@db/schemas/github/learning";
 import { eq, and } from "drizzle-orm";
+import { Logger } from "@/lib/logger";
 
-const PullRequestPayloadSchema = z.object({
-  action: z.enum(["opened", "synchronize"]),
+const SentinelPayloadSchema = z.object({
+  action: z.string(),
   repository: z.object({
     name: z.string(),
     full_name: z.string(),
     owner: z.object({ login: z.string() }),
   }),
-  pull_request: z.object({
-    number: z.number(),
-    title: z.string(),
-    body: z.string().nullable(),
-    html_url: z.string(),
-    diff_url: z.string(),
-    user: z.object({ login: z.string(), type: z.string().optional() }),
-    head: z.object({ ref: z.string() }),
-    base: z.object({ ref: z.string() }),
-  }),
-});
+  pull_request: z.any().optional(),
+  issue: z.any().optional(),
+  review: z.any().optional(),
+  comment: z.any().optional(),
+}).passthrough();
 
-type SentinelPayload = z.infer<typeof PullRequestPayloadSchema>;
+type SentinelPayload = z.infer<typeof SentinelPayloadSchema>;
 
 export class SentinelInterceptor extends BaseAutomation<SentinelPayload> {
   static readonly metadata: AutomationMetadata = {
     key: "sentinel-interceptor",
     domain: "pr",
     description:
-      "Analyzes PRs against architectural memory and posts AI-driven findings.",
-    events: ["pull_request"],
+      "Analyzes PRs against architectural memory and posts AI-driven findings. Triggered by Gemini code assist, user slash commands, or PR diff guardrails.",
+    events: ["pull_request", "pull_request_review", "issue_comment"],
     alwaysOn: true,
     authPolicy: "pat",
   };
 
   async shouldRun(): Promise<boolean> {
-    const parsed = PullRequestPayloadSchema.safeParse(this.payload);
+    const parsed = SentinelPayloadSchema.safeParse(this.payload);
     if (!parsed.success) return false;
-    return (
-      this.action === "opened" || this.action === "synchronize"
-    );
+    const { action, issue, review, comment } = parsed.data;
+
+    // Trigger 1: Guardrail Checking for Push/Open (handled deeper in run)
+    if (this.eventName === "pull_request" && (action === "opened" || action === "synchronize" || action === "reopened")) {
+      return true; 
+    }
+    
+    // Trigger 2: Gemini Review Completion
+    if (this.eventName === "pull_request_review" && action === "submitted") {
+      if (review?.user?.login === "gemini-code-assist") {
+        return true;
+      }
+    }
+
+    // Trigger 3: Slash Command `/colby review` or `@colby review`
+    if (this.eventName === "issue_comment" && action === "created") {
+      if (issue?.pull_request && comment?.body) {
+        if (comment.body.includes("/colby review") || comment.body.includes("@colby review")) {
+          return true;
+        }
+      }
+    }
+
+    return false;
   }
 
   async run(): Promise<void> {
-    const payload = PullRequestPayloadSchema.parse(this.payload);
-    const { repository, pull_request: pr } = payload;
+    const logger = new Logger(this.env, "sentinel-interceptor");
+    const payload = SentinelPayloadSchema.parse(this.payload);
+    const { repository } = payload;
+    
     const repoFullName = repository.full_name;
     const owner = repository.owner.login;
     const repo = repository.name;
+    const issueNumber = payload.pull_request?.number || payload.issue?.number;
+
+    if (!issueNumber) {
+      logger.warn("Payload missing pull_request and issue number", { eventName: this.eventName });
+      await logger.flush();
+      return;
+    }
 
     try {
       const octokit = await this.getGitHubClient();
 
-      // Step 1: Post initial analysis comment
+      // Ensure we have a populated PR object to access title, body, user
+      let pr = payload.pull_request;
+      if (!pr || !pr.title) {
+        const { data } = await octokit.rest.pulls.get({
+           owner,
+           repo,
+           pull_number: issueNumber
+        });
+        pr = data;
+      }
+
+      // Step 1: Determination & Guardrail Traceability
+      let triggerReason = "";
+      let diff = "";
+
+      // Fetch that diff early since we might need it for Guardrails AND the prompt
+      try {
+        const { data: patchData } = await octokit.rest.pulls.get({
+           owner,
+           repo,
+           pull_number: issueNumber,
+           mediaType: { format: "diff" },
+        });
+        diff = typeof patchData === "string" ? patchData : JSON.stringify(patchData);
+      } catch (err) {
+        logger.warn("Failed to fetch PR diff", { error: err instanceof Error ? err.message : String(err) });
+      }
+
+      if (this.eventName === "pull_request_review") {
+        triggerReason = "Triggered by: Gemini Code Assist Review Submission";
+        logger.info("Sentinel running via Gemini Submission", { repoFullName, issueNumber });
+      } else if (this.eventName === "issue_comment") {
+        triggerReason = "Triggered by: Slash Command (User requested Review)";
+        logger.info("Sentinel running via User Slash Command", { repoFullName, issueNumber });
+      } else if (this.eventName === "pull_request") {
+        // Run Guardrails Check against additions
+        const guardrails = [
+          { name: "Node.js Hallucination", regex: /(process\.env|__dirname|import.*from\s+['"]fs['"]|import.*from\s+['"]path['"])/i },
+          { name: "Type Evasion", regex: /(@ts-ignore|@ts-nocheck|as\s+any|:\s*any)/i },
+          { name: "D1 SQL Injection", regex: /\.prepare\(['"][^'"]*\$\{[^}]*\}/i },
+          { name: "Legacy Syntax", regex: /addEventListener\(['"]fetch['"]/i },
+          { name: "Driver Mismatch", regex: /(better-sqlite3|mysql2|pg)/i },
+          { name: "Manual Env definition", regex: /(interface|type)\s+Env/i }
+        ];
+
+        const additionLines = diff
+          .split('\\n')
+          .filter(line => line.startsWith('+') && !line.startsWith('+++'))
+          .join('\\n');
+
+        const matchedGuardrails: string[] = [];
+        for (const guard of guardrails) {
+          if (guard.regex.test(additionLines)) {
+            matchedGuardrails.push(guard.name);
+          }
+        }
+
+        if (matchedGuardrails.length > 0) {
+          triggerReason = `Triggered by Guardrail Alert: ${matchedGuardrails.join(", ")}`;
+          logger.info(`Guardrail match found`, { repoFullName, issueNumber, matches: matchedGuardrails });
+        } else {
+          // No guardrails matched! Short-circuit out immediately
+          logger.info("Sentinel analysis skipped: No guardrail violations detected on synchronize.", { repoFullName, issueNumber });
+          await this.logExecution('skipped', 'No guardrail violations detected.', issueNumber);
+          await logger.flush();
+          return; 
+        }
+      } else {
+         triggerReason = `Triggered by Unexpected Event (${this.eventName})`;
+      }
+
+      // Step 2: Post initial analysis comment
       await octokit.rest.issues.createComment({
         owner,
         repo,
-        issue_number: pr.number,
-        body: `🔍 **Sentinel** is crunching architectural history to optimize this PR...`,
+        issue_number: issueNumber,
+        body: `🔍 **Sentinel** is analyzing this PR based on system guardrails...\n> _${triggerReason}_\n`,
       });
-
-      // Step 2: Fetch the PR diff for analysis
-      const { data: diffData } = await octokit.rest.pulls.get({
-        owner,
-        repo,
-        pull_number: pr.number,
-        mediaType: { format: "diff" },
-      });
-      const diff = typeof diffData === "string" ? diffData : JSON.stringify(diffData);
 
       // Step 3: Query architectural memory
       const db = getDb(this.env.DB);
@@ -104,7 +191,7 @@ export class SentinelInterceptor extends BaseAutomation<SentinelPayload> {
       try {
         const embedding = await this.env.AI.run(
           "@cf/baai/bge-large-en-v1.5" as any,
-          { text: [pr.title + "\n" + (pr.body || "")] }
+          { text: [(pr?.title || "") + "\\n" + (pr?.body || "")] }
         );
         const vectors = (embedding as any).data?.[0];
         if (vectors) {
@@ -120,20 +207,20 @@ export class SentinelInterceptor extends BaseAutomation<SentinelPayload> {
             );
         }
       } catch (err) {
-        console.warn("[SentinelInterceptor] Vectorize query failed:", err);
+        logger.warn("Vectorize query failed", { error: err instanceof Error ? err.message : String(err) });
       }
 
       // Step 5: Run AI analysis
       const analysisPrompt = `Analyze this PR diff for architectural anti-patterns, style drift, or improvements based on these known patterns:
 
 **Known Immunized Insights for ${repoFullName}:**
-${repoInsights.map((i) => `- [${i.patternType}/${i.severity}] ${i.description?.substring(0, 200)}`).join("\n") || "None yet."}
+${repoInsights.map((i) => `- [${i.patternType}/${i.severity}] ${i.description?.substring(0, 200)}`).join("\\n") || "None yet."}
 
 **Vector Similarity Matches:**
-${vectorMatches.join("\n") || "No similar prior patterns found."}
+${vectorMatches.join("\\n") || "No similar prior patterns found."}
 
-**PR Title:** ${pr.title}
-**PR Description:** ${pr.body || "No description provided."}
+**PR Title:** ${pr?.title || 'Unknown'}
+**PR Description:** ${pr?.body || "No description provided."}
 
 **Diff (truncated to 50000 chars):**
 \`\`\`
@@ -161,7 +248,11 @@ Respond with a concise analysis. If you detect anti-patterns or potential issues
 
       // Step 6: Post summary comment
       const baseUrl = (this.env as any).BASE_URL || "https://core-github-api.hacolby.workers.dev";
+      const authorLogin = pr?.user?.login || "Unknown";
+      const isBot = pr?.user?.type === "Bot" ? "(Bot)" : "";
+      
       const summaryBody = `## 🛡️ Sentinel Analysis
+_📌 ${triggerReason}_
 
 ${analysis}
 
@@ -172,7 +263,7 @@ ${analysis}
 
 - **Immunized patterns for this repo:** ${repoInsights.length}
 - **Similar prior patterns:** ${vectorMatches.length}
-- **PR Author:** ${pr.user.login} ${pr.user.type === "Bot" ? "(Bot)" : ""}
+- **PR Author:** ${authorLogin} ${isBot}
 
 [View full insights →](${baseUrl}/sentinel)
 
@@ -184,25 +275,26 @@ ${analysis}
       await octokit.rest.issues.createComment({
         owner,
         repo,
-        issue_number: pr.number,
+        issue_number: issueNumber,
         body: summaryBody,
       });
 
+      logger.info(`Sentinel analysis posted`, { repoFullName, issueNumber });
       await this.logExecution(
         "success",
-        `Sentinel analysis posted for PR #${pr.number}`,
-        pr.number
+        `Sentinel analysis posted for PR #${issueNumber} (${triggerReason})`,
+        issueNumber
       );
+      
+      await logger.flush();
     } catch (err: any) {
-      console.error(
-        `[SentinelInterceptor] Failed to analyze PR #${pr.number}:`,
-        err
-      );
+      logger.error(`Failed to analyze PR`, { repoFullName, issueNumber, error: err.message, stack: err.stack });
       await this.logExecution(
         "failure",
         `Failed: ${err.message}`,
-        pr.number
+        issueNumber
       );
+      await logger.flush();
     }
   }
 }

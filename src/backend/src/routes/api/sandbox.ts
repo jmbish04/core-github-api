@@ -3,8 +3,8 @@ import { getSandbox, parseSSEStream, type ExecEvent } from '@cloudflare/sandbox'
 import { Shell, Editor } from '@cloudflare/sandbox/openai';
 import { Agent, run, shellTool, applyPatchTool, setDefaultOpenAIClient } from '@openai/agents';
 import OpenAI from 'openai';
-import { setupOpenAIAgentClient } from '@/ai/providers';
-import sandboxHandler from '@/ai/agents/SandboxAgent';
+import { AIProvider } from '@/ai/providers';
+
 
 const app = new OpenAPIHono<{ Bindings: Env }>();
 
@@ -15,7 +15,7 @@ const app = new OpenAPIHono<{ Bindings: Env }>();
 // through the `compat` (workers-ai) gateway slot.
 // ──────────────────────────────────────────────
 async function createGatewayClient(env: Env): Promise<OpenAI> {
-  return setupOpenAIAgentClient(env, 'workers-ai');
+  return new AIProvider(env).setupOpenAIAgentClient('workers-ai');
 }
 
 // ──────────────────────────────────────────────
@@ -299,8 +299,12 @@ app.openapi(
   }
 );
 
-// Mount the Honi SandboxAgent at /agent/* by forwarding raw fetch args
-app.all('/agent/*', (c) => sandboxHandler.fetch(c.req.raw, c.env, c.executionCtx));
+import { routeAgentRequest } from 'agents';
+
+app.all('/agent/*', async (c) => {
+  const result = await routeAgentRequest(c.req.raw, c.env.ENGINEER_AGENT as any);
+  return result as unknown as Response;
+});
 
 // ──────────────────────────────────────────────
 // Proxy endpoints for container-hosted goodies
@@ -317,6 +321,7 @@ app.all('/:id/proxy/*', async (c) => {
   const targetUrl = `http://localhost:8788${targetPath}${url.search}`;
   
   try {
+    // Sandbox SDK proxy: not a DO anti-pattern — sandbox.fetch() is the official container API
     const response = await sandbox.fetch(new Request(targetUrl, c.req.raw));
     return response;
   } catch (error) {
@@ -335,6 +340,7 @@ app.all('/:id/agent-proxy/*', async (c) => {
   const targetUrl = `http://localhost:3001${targetPath}${url.search}`;
   
   try {
+    // Sandbox SDK proxy: not a DO anti-pattern — sandbox.fetch() is the official container API
     const response = await sandbox.fetch(new Request(targetUrl, c.req.raw));
     return response;
   } catch (error) {

@@ -7,7 +7,7 @@
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi';
 import { getOctokit } from '@services/octokit/core';
 import { DEFAULT_GITHUB_OWNER } from "@github-utils";
-import { encode } from '@utils/base64';
+import { encodeBase64 as encode } from '@/utils/base64';
 import { getWebhooksDb } from '@db';
 import { webhookDeliveries } from '@db/schemas/github/webhooks';
 import { eq, and, desc } from 'drizzle-orm';

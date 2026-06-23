@@ -1,9 +1,9 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
-import { Env } from '@/types';
-import { generateText } from '@/ai/providers';
-import { uxResearcherHandler } from '@/ai/agents/workshop/UxResearcher';
+
+import { AIProvider } from '@/ai/providers';
+
 
 const app = new OpenAPIHono<{ Bindings: Env }>();
 
@@ -30,12 +30,11 @@ Format the output as a simple list. Use bolding for registry names. Add emoji wh
     const safePrompt = `Context:\n${registriesContext}\n\nUser Query: ${query}`;
 
     try {
-      const textResponse = await generateText(
-        c.env,
+      const ai = new AIProvider(c.env);
+      const textResponse = await ai.generateText(
         safePrompt,
         systemPrompt,
-        { model: modelName },
-        'worker-ai'
+        { provider: 'worker-ai', model: modelName }
       );
 
       return c.json({ result: textResponse });
@@ -68,12 +67,11 @@ Output a comparison in Markdown format.
 Keep it practical for a developer.`;
 
     try {
-      const textResponse = await generateText(
-        c.env,
+      const ai = new AIProvider(c.env);
+      const textResponse = await ai.generateText(
         safePrompt,
         systemPrompt,
-        { model: modelName },
-        'worker-ai'
+        { provider: 'worker-ai', model: modelName }
       );
       return c.json({ result: textResponse });
     } catch (e: any) {
@@ -96,12 +94,11 @@ Keep it to 2-3 sentences. Focus on what makes this specific registry unique.
 Start with an emoji suitable for the idea.`;
 
     try {
-      const textResponse = await generateText(
-        c.env,
+      const ai = new AIProvider(c.env);
+      const textResponse = await ai.generateText(
         safePrompt,
         systemPrompt,
-        { model: modelName },
-        'worker-ai'
+        { provider: 'worker-ai', model: modelName }
       );
       return c.json({ result: textResponse });
     } catch (e: any) {
@@ -133,12 +130,11 @@ Task: Output a comprehensive Markdown architectural report prescribing the neces
 Identify specific Shadcn UI elements (e.g. Card, Data Table, Dialog), map out screen flows, and define wireframe structures. Be highly specific and actionable.`;
 
     try {
-      const textResponse = await generateText(
-        c.env,
+      const ai = new AIProvider(c.env);
+      const textResponse = await ai.generateText(
         safePrompt,
         systemPrompt,
-        { model: modelName },
-        'worker-ai'
+        { provider: 'worker-ai', model: modelName }
       );
       return c.json({ result: textResponse });
     } catch (e: any) {

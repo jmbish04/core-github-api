@@ -11,7 +11,7 @@ import {
   detectWranglerConfig, 
   extractWranglerBindings
 } from "./utils";
-import { generateText } from "@/ai/providers";
+import { AIProvider } from "@/ai/providers";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -66,8 +66,8 @@ app.post("/:owner/:repo/bindings", async (c) => {
 app.post("/:owner/:repo/analyze-deployment", async (c) => {
   const body = await c.req.json() as any;
 
-  const analysis = await generateText(
-    c.env,
+  const ai = new AIProvider(c.env);
+  const analysis = await ai.generateText(
     `Analyze logs: ${body.logs}`,
     "Diagnose Cloudflare deployment failures accurately."
   );

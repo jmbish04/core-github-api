@@ -65,7 +65,7 @@ README Snippet: ${readme.substring(0, 1500)}
 Evaluate on a scale of 1-10. You MUST respond with ONLY valid JSON: {"score": <number>, "reasoning": "<1-2 sentences why>"}`;
 
     try {
-      const aiResponse = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
+      const aiResponse = await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
         messages: [{ role: 'user', content: systemPrompt }]
       });
 

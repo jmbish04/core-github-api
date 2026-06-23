@@ -12,9 +12,10 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
-import { HoniClient } from '@utils/honi-client';
+import { getAgentByName } from 'agents';
 import { getDb, workshopUxRuns, workshopUxPages } from '@db';
 import { eq, desc } from 'drizzle-orm';
+
 
 
 const app = new Hono<{ Bindings: Env }>();
@@ -44,18 +45,14 @@ app.post('/run', zValidator('json', startRunSchema), async (c) => {
     phase: 'idle',
   });
 
-  // Forward to the DO to start the pipeline
-  const doResponse = await HoniClient.fetch(c.env.UX_RESEARCHER as unknown as DurableObjectNamespace, runId, '/start', {
-    method: 'POST',
-    body: JSON.stringify({ runId, repoOwner, repoName, originalPrompt: prompt }),
-  });
-
-  if (!doResponse.ok) {
-    const err = await doResponse.text();
-    return c.json({ success: false, error: err }, 500);
+  // Forward to the DO to start the pipeline via direct RPC
+  const agent = await getAgentByName<Env>(c.env.DESIGN_AGENT as any, runId);
+  try {
+    await (agent as any).startPipeline({ runId, repoOwner, repoName, originalPrompt: prompt });
+    return c.json({ success: true, runId }, 201);
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message }, 500);
   }
-
-  return c.json({ success: true, runId }, 201);
 });
 
 // ─── GET /run/:runId — Get run state + pages ──────────────────────────────
@@ -77,15 +74,17 @@ app.get('/run/:runId', async (c) => {
 app.get('/run/:runId/stream', async (c) => {
   const { runId } = c.req.param();
 
-  // Proxy the SSE stream from the Durable Object
-  const doResponse = await HoniClient.fetch(c.env.UX_RESEARCHER as unknown as DurableObjectNamespace, runId, '/stream', {
+  // Legacy HTTP-SSE proxy for browser EventSource clients.
+  // Prefer @callable({ streaming: true }) streamPipeline() for RPC consumers.
+  const agent = await getAgentByName(c.env.DESIGN_AGENT as any, runId);
+  const doResponse = await agent.fetch(new Request("http://agent/stream", {
     headers: { 'Accept': 'text/event-stream' },
-  });
+  }));
 
   return new Response(doResponse.body, {
     headers: {
       'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
+      'Cache-Control': 'no-cache, no-transform',
       'Connection': 'keep-alive',
       'X-Accel-Buffering': 'no',
       'Access-Control-Allow-Origin': '*',

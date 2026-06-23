@@ -9,7 +9,7 @@ import { getDb } from "@db";
 import { generateUuid } from "@/utils/common";
 import { eq } from "drizzle-orm";
 import { BrowserService } from "@/cloudflare/browser";
-import { generateStructuredResponse } from "@/ai/providers";
+import { AIProvider } from "@/ai/providers";
 
 const TodoInsightItemSchema = z.object({
     type: z.enum(["offer_to_help", "enrich_todo", "research"]).default("enrich_todo"),
@@ -121,8 +121,8 @@ export class TodoInsightService {
         `;
 
         try {
-            const result = await generateStructuredResponse(
-                env,
+            const ai = new AIProvider(env);
+            const result = await ai.generateStructuredResponse(
                 prompt,
                 TodoInsightsSchema,
                 "You are an intelligent productivity assistant. Return only structured JSON with an `insights` array.",

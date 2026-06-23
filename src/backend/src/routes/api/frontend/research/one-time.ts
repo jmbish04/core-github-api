@@ -7,7 +7,7 @@ import { getOctokit } from '@/services/octokit/core';
 import { createDiscordApiClient } from '@/services/discord/client';
 import { Logger } from '@/lib/logger';
 import { getGithubToken } from '@/utils/secrets';
-import { HoniClient } from '@utils/honi-client';
+import { getAgentByName } from 'agents';
 const app = new Hono<{ Bindings: Env }>();
 
 // 1. Get Projects by Type
@@ -283,7 +283,7 @@ Write a very brief (2-3 sentences max) "AI Interpretation" telling the user what
 Findings:
 ${summaryContext}`;
 
-      const aiResponse = await ai.run('@cf/meta/llama-3.1-8b-instruct', {
+      const aiResponse = await ai.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
           messages: [{ role: 'user', content: prompt }]
       });
       
@@ -439,8 +439,9 @@ app.post('/projects/:id/callback', async (c) => {
      
      const queueRepo = c.env.RESEARCH_QUEUE_REPO_NAME || 'jmbish04/core-github-research';
      
-     // Invoke the Agent Research by fetching to its endpoint (using HoniClient DO binding)
-     await HoniClient.chat(c.env.AGENT_SESSION_DO, `research-orch-${id}`,
+     // Invoke the Agent Research by fetching to its endpoint (using DO binding)
+     const agent = await getAgentByName(c.env.AGENT_SESSION_DO as any, `research-orch-${id}`) as any;
+     await agent.chat(
          `Begin Jules orchestration for research task ${id} located in daily-research/${id}/ on repo ${queueRepo}`
      );
      

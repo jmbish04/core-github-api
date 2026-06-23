@@ -108,7 +108,7 @@ export function PlanningCenter() {
       {/* Main Content: Active Request Stream */}
       <div className="flex-1 bg-[#0b1020] flex flex-col relative">
         {activeRequest ? (
-          <PlanningRoom requestId={activeRequest} onBack={() => setActiveRequest(null)} />
+          <ChatRoom requestId={activeRequest} onBack={() => setActiveRequest(null)} />
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-gray-500">
             <Terminal className="w-12 h-12 mb-4 text-gray-700" />
@@ -138,7 +138,7 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function PlanningRoom({ requestId, onBack }: { requestId: string; onBack: () => void }) {
+function ChatRoom({ requestId, onBack }: { requestId: string; onBack: () => void }) {
   const [snapshot, setSnapshot] = useState<MonitorSnapshot | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<"connecting" | "connected" | "disconnected">("connecting");
   const ws = useRef<WebSocket | null>(null);

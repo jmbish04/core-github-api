@@ -28,7 +28,7 @@ import { formatDistanceToNow } from "date-fns";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import ShikiHighlighter from "react-shiki";
-import { Suggestions } from "@assistant-ui/react";
+import { handleGlobalError } from "@/lib/error-handler";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -207,7 +207,7 @@ function MarkdownContent({ content }: { content: string }) {
                     ul: ({ children }) => (
                         <ul className="my-2 space-y-1 list-none pl-4">{children}</ul>
                     ),
-                    ol: ({ children, start }) => (
+                    ol: ({ children }) => (
                         <ol className="my-2 space-y-1 pl-4 list-decimal">{children}</ol>
                     ),
                     li: ({ children }) => (
@@ -637,7 +637,9 @@ function BetaChatPanel({
                     setProgressSteps([]);
                     setLoading(false);
                 }
-            } catch { /* ignore non-JSON */ }
+            } catch (err) {
+                handleGlobalError(`[CloudflareDocsBetaPage] Failed to parse WebSocket message: ${err}`);
+            }
         };
 
         wsRef.current = ws;

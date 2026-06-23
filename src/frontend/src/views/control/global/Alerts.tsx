@@ -23,6 +23,7 @@ import { cn } from '@/lib/utils';
 import { useAlerts } from '@/context/alerts-context';
 import type { Alert, AlertType, AlertSeverity } from '@/context/alerts-context';
 import { useAuth } from '@/context/auth-context';
+import { handleGlobalError } from '@/lib/error-handler';
 
 // ─── Type meta ────────────────────────────────────────────────────────────────
 
@@ -145,7 +146,9 @@ export default function AlertsPage() {
         setHistoryAlerts(data.alerts ?? []);
         setHistoryLoaded(true);
       }
-    } catch { /* ignore */ }
+    } catch (e: any) { 
+      handleGlobalError(e instanceof Error ? e : new Error(`[Alerts] Failed to load alert history: ${e}`));
+    }
   };
 
   return (

@@ -1,7 +1,7 @@
 
 import { getOctokitAsBot, getOctokitAsUser } from '../github/client';
 import { Logger } from '@/lib/logger';
-import { generateStructuredResponse } from '@/ai/providers';
+import { AIProvider } from '@/ai/providers';
 import { z } from 'zod';
 import { getCloudflareAccountId } from '@/utils/secrets';
 import { getCfSdkClient } from '@/cloudflare/client';
@@ -207,8 +207,8 @@ export class CloudflareBindingsManager {
         this.logger.info("Sending configuration to AI Gateway for parsing...");
         const prompt = `Here is a wrangler configuration file.\n\n\`\`\`\n${content}\n\`\`\`\n\nExtract the worker name and all bindings. For every binding, propose a standardized name based on the worker_name. The format must be {worker_name}. If there are multiple bindings of the same type, append a suffix like {worker_name}-{purpose}.`;
 
-        const parsed = await generateStructuredResponse<ParsedBindings>(
-            this.env,
+        const ai = new AIProvider(this.env);
+        const parsed = await ai.generateStructuredResponse<ParsedBindings>(
             prompt,
             CloudflareBindingsSchema as any,
             "You are an expert infrastructure analyzer."

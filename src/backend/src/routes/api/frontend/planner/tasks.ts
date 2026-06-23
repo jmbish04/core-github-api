@@ -143,7 +143,7 @@ tasksApi.post('/repos/:owner/:repo/tasks', async (c) => {
     }
 
     // 1. Create GitHub Issue
-    const issue = await createGitHubIssue(c.env, owner, repo, title, description, assignee ? [assignee] : undefined);
+    const issue = await createGitHubIssue(c.env, { owner, repo, title, body: description });
 
     if (!issue) {
         await logTaskEvent(db, requestId, null, null, 'github_issue_create', 'failed');
@@ -225,7 +225,7 @@ tasksApi.patch('/tasks/:id', async (c) => {
             if (assignee !== undefined) updates.assignees = assignee ? [assignee] : [];
 
             if (Object.keys(updates).length > 0) {
-                const ghResult = await updateGitHubIssue(c.env, owner, name, issueNumber, updates);
+                const ghResult = await updateGitHubIssue(c.env, { owner, repo: name, issue_number: issueNumber, ...updates });
                 if (ghResult) {
                     await logTaskEvent(db, requestId, id, issueNumber, 'github_issue_update', 'success', updates);
                 } else {
@@ -297,7 +297,7 @@ tasksApi.post('/tasks/:id/comments', async (c) => {
         const repoRecord = await db.select().from(repos).where(eq(repos.id, task.repoId)).limit(1);
         if (repoRecord.length) {
             const { owner, name } = repoRecord[0];
-            const comment = await createGitHubComment(c.env, owner, name, task.githubIssueId, `**${author || 'User'}**: ${content}`);
+            const comment = await createGitHubComment(c.env, { owner, repo: name, issue_number: task.githubIssueId, body: `**${author || 'User'}**: ${content}` });
             if (comment) {
                 githubCommentId = comment.id;
                 await logTaskEvent(db, requestId, id, task.githubIssueId, 'github_comment_create', 'success');
@@ -333,7 +333,7 @@ tasksApi.delete('/tasks/:id', async (c) => {
         const repoRecord = await db.select().from(repos).where(eq(repos.id, currentTask[0].repoId)).limit(1);
         if (repoRecord.length) {
             const { owner, name } = repoRecord[0];
-            await updateGitHubIssue(c.env, owner, name, currentTask[0].githubIssueId, { state: 'closed' });
+            await updateGitHubIssue(c.env, { owner, repo: name, issue_number: currentTask[0].githubIssueId, state: 'closed' });
             await logTaskEvent(db, requestId, id, currentTask[0].githubIssueId, 'github_issue_close', 'success');
         }
     }

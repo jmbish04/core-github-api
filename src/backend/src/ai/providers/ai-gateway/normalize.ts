@@ -9,6 +9,8 @@
  */
 import { Logger } from '@/lib/logger';
 import { getApiKeyForProvider } from './keys';
+import { getSecret } from '@/utils/secrets';
+import type { GatewayUseCase } from './config';
 
 export const GATEWAY_PROVIDER_ALIASES: Record<string, string> = {
   "gemini": "google-ai-studio",
@@ -56,16 +58,59 @@ export function normalizeWorkerAiModel(model: string): string {
 
 
 
+/**
+ * Adapts a resolved Gateway URL for a specific downstream client SDK.
+ * SDKs like OpenAI auto-append `/chat/completions`, so we must strip it
+ * from the gateway URL to prevent double-pathing (e.g. `/v1/chat/completions/chat/completions`).
+ */
+export function formatBaseUrlForClient(baseUrl: string, useCase: GatewayUseCase): string {
+  let url = baseUrl.replace(/\/+$/, "");
+
+  switch (useCase) {
+    case 'openai_sdk':
+    case 'openai_agents_sdk':
+      // OpenAI SDK auto-appends /chat/completions to baseURL.
+      // Strip to /v1 so it doesn't double up.
+      if (url.endsWith(ENDPOINT_PATHS.chat)) {
+        url = url.slice(0, -ENDPOINT_PATHS.chat.length);
+      } else if (url.endsWith('/chat/completions')) {
+        url = url.replace(/\/chat\/completions$/, "");
+      }
+      break;
+
+    case 'anthropic_sdk':
+      // Anthropic SDK appends /v1/messages internally.
+      if (url.endsWith(ENDPOINT_PATHS.chat)) {
+        url = url.slice(0, -ENDPOINT_PATHS.chat.length);
+      } else if (url.endsWith('/v1/messages')) {
+        url = url.replace(/\/v1\/messages$/, "");
+      }
+      break;
+
+    case 'google_sdk':
+      if (url.endsWith(ENDPOINT_PATHS.chat)) {
+        url = url.slice(0, -ENDPOINT_PATHS.chat.length);
+      }
+      break;
+
+    case 'worker_ai':
+      // Raw fetch — return as-is
+      break;
+  }
+
+  return url;
+}
+
 export async function getBaseUrl(
   env: any, 
   options: { provider: string, endpoint?: 'chat' | 'models', openai_compatible?: boolean }
 ): Promise<{ baseUrl: string, apiKey: string, aigToken: string }> {
   const gatewayName = env.AI_GATEWAY_NAME || 'core-github-api';
   let aigToken = '';
-  if (env.AI_GATEWAY_TOKEN) {
-    aigToken = typeof env.AI_GATEWAY_TOKEN === 'object' && env.AI_GATEWAY_TOKEN?.get
-      ? await env.AI_GATEWAY_TOKEN.get()
-      : (env.AI_GATEWAY_TOKEN as string);
+  // Will fallback to KV or Secrets Store if not directly available
+  const token = await getSecret(env, 'AI_GATEWAY_TOKEN');
+  if (token) {
+    aigToken = token;
   }
 
   const normalizedProvider = normalizeProvider(options.provider);

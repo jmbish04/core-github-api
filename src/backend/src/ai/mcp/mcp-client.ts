@@ -1,13 +1,18 @@
-import { MCPRequest, MCPResponse, MCPToolCallParams } from "./types";
+import { MCPRequest, MCPResponse } from "./types";
+import { Logger } from "@/lib/logger";
 
 /**
  * Query the Cloudflare Docs MCP API
  */
 export async function queryMCP(
+  env: Env,
   query: string,
   context?: string,
   mcpApiUrl?: string
 ): Promise<any> {
+  const logger = new Logger(env, "MCPClient");
+  const logPrefix = "[MCPClient - queryMCP] ";
+  logger.info(`${logPrefix} Querying MCP for: ${query}`);
   const url = mcpApiUrl || "https://docs.mcp.cloudflare.com/mcp";
 
   try {
@@ -31,6 +36,7 @@ export async function queryMCP(
     });
 
     if (!response.ok) {
+      logger.error(`${logPrefix} MCP API error (${JSON.stringify(response)})`);
       const errorText = await response.text();
       throw new Error(
         `MCP API error (${response.status}): ${errorText}`
@@ -82,7 +88,7 @@ export async function queryMCP(
 
     return data.result;
   } catch (error) {
-    console.error("MCP query error:", error);
+    logger.error(`${logPrefix} MCP error: ${String(error)}`);
     return {
       error: error instanceof Error ? error.message : "Unknown MCP error",
       query,
@@ -94,10 +100,14 @@ export async function queryMCP(
  * Query MCP with event stream support (for WebSocket)
  */
 export async function queryMCPStream(
+  env: Env,
   query: string,
   context?: string,
   mcpApiUrl?: string
 ): Promise<ReadableStream> {
+  const logger = new Logger(env, "MCPClient");
+  const logPrefix = "[MCPClient - queryMCPStream] ";
+  logger.info(`${logPrefix} Querying MCP for: ${query}`);
   const url = mcpApiUrl || "https://docs.mcp.cloudflare.com/mcp";
 
   // Create MCP JSON-RPC request
@@ -120,6 +130,7 @@ export async function queryMCPStream(
   });
 
   if (!response.ok) {
+    logger.error(`${logPrefix} MCP API error (${JSON.stringify(response)})`);
     throw new Error(`MCP API error (${response.status})`);
   }
 

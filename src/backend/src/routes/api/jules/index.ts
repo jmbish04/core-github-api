@@ -24,7 +24,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import { streamText } from "hono/streaming";
-import { HoniClient } from '@utils/honi-client';
+import { getAgentByName } from 'agents';
 import { JulesService } from "@/services/jules/service";
 import { getDb } from "@db";
 import { julesSessions, julesJobs, julesWebhookEvents } from "@db/schemas/jules";
@@ -44,6 +44,7 @@ import googleSheetsApi from "./google-sheets";
 import mergeApi from "./merge";
 import customCliApi from "./custom-cli";
 import resolveConflictsApi from "./resolve-conflicts";
+import categoriesApi from "./categories";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -59,6 +60,7 @@ app.route("/examples/google-sheets", googleSheetsApi);
 app.route("/examples/merge", mergeApi);
 app.route("/examples/custom-cli", customCliApi);
 app.route("/resolve-conflicts", resolveConflictsApi);
+app.route("/categories", categoriesApi);
 
 
 // ─── Zod Schemas ──────────────────────────────────────────────────────────────
@@ -201,7 +203,8 @@ app.post("/start", zValidator("json", startSessionSchema), async (c) => {
 
     // Optionally start JulesOverseer monitoring
     if (force_overseer) {
-      c.executionCtx.waitUntil(HoniClient.fetch(c.env.JULES_OVERSEER as unknown as DurableObjectNamespace, "jules-overseer-singleton", "/schedule/check"));
+      const agent = await getAgentByName(c.env.ORCHESTRATOR_AGENT as any, "jules-overseer-singleton");
+      c.executionCtx.waitUntil((agent as any).checkSchedule());
     }
 
     let status = "connecting";
@@ -381,5 +384,9 @@ app.get("/search", async (c) => {
     return c.json({ success: false, error: error.message }, 500);
   }
 });
+
+// Sub-routers
+import categoriesRoute from './categories';
+app.route('/categories', categoriesRoute);
 
 export default app;

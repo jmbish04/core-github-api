@@ -1,3 +1,5 @@
+import { handleGlobalError } from '@/lib/error-handler';
+
 export type RecentProject = {
   repoOwner: string;
   repoName: string;
@@ -20,7 +22,8 @@ export function getRecentProjects(): RecentProject[] {
     const parsed = JSON.parse(raw) as RecentProject[];
     if (!Array.isArray(parsed)) return [];
     return parsed.filter((entry) => entry.repoOwner && entry.repoName);
-  } catch {
+  } catch (e: any) {
+    handleGlobalError(e instanceof Error ? e : new Error(`[ProjectRecents] Failed to parse recent projects: ${e}`));
     return [];
   }
 }

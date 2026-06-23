@@ -5,7 +5,7 @@ import {
   reverseEngineeringEvents,
   reverseEngineeringSnapshots,
   reverseEngineeringUx,
-} from '@db/schemas/projects/reverse_engineering';
+} from '@/db/schemas/projects/plans/reverse_engineering';
 import type {
   ReverseEngineeringAnalyzeInput,
   ReverseEngineeringListQuery,

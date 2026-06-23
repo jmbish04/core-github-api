@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { handleGlobalError } from '@/lib/error-handler';
 
 interface ActiveSession {
   id: string;
@@ -28,8 +29,8 @@ export function BabysitterSessionCard({
       await fetch(`${apiBase}/upscale`, { method: 'POST' });
       setDone(true);
       onOverride?.(session.id);
-    } catch {
-      // ignore
+    } catch (e: any) {
+      handleGlobalError(e instanceof Error ? e : new Error(`[BabysitterSessionCard] Failed to manual override session: ${e}`));
     } finally {
       setOverriding(false);
     }

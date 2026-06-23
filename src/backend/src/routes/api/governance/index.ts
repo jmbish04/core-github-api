@@ -7,7 +7,7 @@
  */
 
 import { OpenAPIHono } from '@hono/zod-openapi';
-import type { ConversationPayload } from '@agents/LearningAgent';
+import { getAgentByName } from 'agents';
 
 export const governanceRouter = new OpenAPIHono<{ Bindings: Env }>();
 
@@ -16,7 +16,7 @@ export const governanceRouter = new OpenAPIHono<{ Bindings: Env }>();
 // ---------------------------------------------------------------------------
 
 governanceRouter.post('/analyze', async (c) => {
-  let body: { conversations?: ConversationPayload['conversations']; repoless?: boolean };
+  let body: { conversations?: any[]; repoless?: boolean };
   try {
     body = await c.req.json();
   } catch {
@@ -28,25 +28,13 @@ governanceRouter.post('/analyze', async (c) => {
   }
 
   try {
-    const agentId = (c.env as any).LEARNING_AGENT.idFromName('learning-agent');
-    const agent = (c.env as any).LEARNING_AGENT.get(agentId);
+    const agent = await getAgentByName(c.env.LEARNING_AGENT as any, 'learning-agent');
+    const sessionId = await (agent as any).analyzeConversation(
+      { conversations: body.conversations, repoless: body.repoless ?? true },
+      body.repoless ?? true,
+    );
 
-    const res = await agent.fetch('http://internal/analyze', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        conversations: body.conversations,
-        repoless: body.repoless ?? true,
-      }),
-    });
-
-    if (!res.ok) {
-      const err = await res.text();
-      return c.json({ error: err }, res.status);
-    }
-
-    const data = await res.json() as any;
-    return c.json({ ok: true, sessionId: data.sessionId });
+    return c.json({ ok: true, sessionId });
   } catch (err: any) {
     return c.json({ error: err.message }, 500);
   }

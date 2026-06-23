@@ -4,8 +4,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { GitPullRequest, Loader2, MessageSquare, Sparkles, ExternalLink, FileCode, ArrowLeft, Bot } from 'lucide-react';
+import { GitPullRequest, Loader2, MessageSquare, Sparkles, ExternalLink, FileCode, ArrowLeft, Bot, Copy, TerminalSquare, Settings2, CheckCircle2 } from 'lucide-react';
 import { PrCommentExtractor } from '@/components/tools/PrCommentExtractor';
+import { handleGlobalError } from "@/lib/error-handler";
+import { handleGlobalSuccess } from "@/lib/success-handler";
+
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -92,6 +95,11 @@ export function PRCommandCenter({ repoOwner, repoName, initialPrs }: PRCommandCe
     const [loadingOverview, setLoadingOverview] = useState(false);
     const [assignedAgent, setAssignedAgent] = useState<{ agent: string; tag: string } | null>(null);
 
+    const [buildLogs, setBuildLogs] = useState<string | null>(null);
+    const [loadingLogs, setLoadingLogs] = useState(false);
+    const [analyzingLogs, setAnalyzingLogs] = useState(false);
+    const [copiedLogs, setCopiedLogs] = useState(false);
+
     // Sync URL when selected PR changes
     useEffect(() => {
         const basePath = `/project/${repoOwner}/${repoName}/pr-command`;
@@ -118,7 +126,8 @@ export function PRCommandCenter({ repoOwner, repoName, initialPrs }: PRCommandCe
                                 reviewCount: data.reviewCount,
                             };
                         }
-                    } catch {
+                    } catch (e) {
+                        handleGlobalError(e instanceof Error ? e : new Error(`[PRCommandCenter] Failed to fetch status for PR #${pr.number}: ${e}`));
                         statusMap[pr.number] = { status: 'pending_review', commentCount: 0, reviewCount: 0 };
                     }
                 })
@@ -165,6 +174,75 @@ export function PRCommandCenter({ repoOwner, repoName, initialPrs }: PRCommandCe
         void fetchAgent();
         return () => { cancelled = true; };
     }, [selectedPrNumber, repoOwner, repoName]);
+
+    // Fetch build logs when the tab is 'logs'
+    useEffect(() => {
+        if (!selectedPrNumber || activeTab !== 'logs') return;
+        let cancelled = false;
+
+        const fetchLogs = async () => {
+            if (buildLogs !== null) return; // already fetched
+            setLoadingLogs(true);
+            try {
+                // Fetch using our standard /api/repos routing prefix
+                const res = await fetch(`/api/repos/${repoOwner}/${repoName}/pr-command/${selectedPrNumber}/build/logs/raw`);
+                if (!res.ok) throw new Error('Failed to fetch build logs');
+                const text = await res.text();
+                if (!cancelled) setBuildLogs(text);
+            } catch (err) {
+                console.error('[PRCommandCenter] Build logs fetch failed:', err);
+                if (!cancelled) setBuildLogs("Failed to load build logs. They might be unavailable or expired.");
+            } finally {
+                if (!cancelled) setLoadingLogs(false);
+            }
+        };
+
+        void fetchLogs();
+        return () => { cancelled = true; };
+    }, [selectedPrNumber, activeTab, repoOwner, repoName, buildLogs]);
+
+    const handleCopyLogs = () => {
+        if (buildLogs) {
+            navigator.clipboard.writeText(buildLogs);
+            setCopiedLogs(true);
+            setTimeout(() => setCopiedLogs(false), 2000);
+        }
+    };
+
+    const handleAnalyzeLogs = async () => {
+        if (!selectedPrNumber) return;
+        setAnalyzingLogs(true);
+        try {
+            const res = await fetch(`/api/repos/${repoOwner}/${repoName}/pr-command/${selectedPrNumber}/build/logs/analyze`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" }
+            });
+            if (res.ok) {
+                const data = await res.json() as any;
+                handleGlobalSuccess(
+                    "Jules Session Started", 
+                    <span>
+                      Jules is analyzing and fixing the build. Session tracking ID:{" "}
+                      <a href={`https://jules.google.com/session/${data.sessionId}`} target="_blank" rel="noopener noreferrer" className="underline hover:text-emerald-500">
+                        {data.sessionId}
+                      </a>
+                    </span>
+                );
+            } else {
+                const data = await res.json();  
+                handleGlobalError(
+                    new Error(`[PRCommandCenter] Failed to analyze build logs: ${JSON.stringify(data) || 'Unknown error'}`)
+                );
+            }
+        } catch (e) {
+            console.error(`[PRCommandCenter] Analysis failed:`, JSON.stringify(e));
+            handleGlobalError(
+                new Error(`[PRCommandCenter] Failed to analyze build logs: ${JSON.stringify(e) || 'Unknown error'}`)
+            );
+        } finally {
+            setAnalyzingLogs(false);
+        }
+    };
 
     // PR List View
     if (!selectedPrNumber) {
@@ -298,6 +376,9 @@ export function PRCommandCenter({ repoOwner, repoName, initialPrs }: PRCommandCe
                     <TabsTrigger value="comments">
                         <MessageSquare className="w-3.5 h-3.5 mr-1.5" /> Comments
                     </TabsTrigger>
+                    <TabsTrigger value="logs">
+                        <TerminalSquare className="w-3.5 h-3.5 mr-1.5" /> Build Logs
+                    </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="overview" className="flex-1 mt-4 overflow-auto">
@@ -425,6 +506,56 @@ export function PRCommandCenter({ repoOwner, repoName, initialPrs }: PRCommandCe
                         defaultRepo={repoName}
                         defaultPrNumber={selectedPrNumber}
                     />
+                </TabsContent>
+
+                <TabsContent value="logs" className="flex-1 mt-4 overflow-hidden flex flex-col">
+                    <div className="flex gap-2 mb-3 pb-3 border-b border-zinc-800">
+                        <Button 
+                            variant="secondary" 
+                            size="sm" 
+                            onClick={handleCopyLogs}
+                            disabled={!buildLogs || loadingLogs}
+                        >
+                            {copiedLogs ? <CheckCircle2 className="w-4 h-4 mr-1.5 text-green-400" /> : <Copy className="w-4 h-4 mr-1.5" />} 
+                            {copiedLogs ? 'Copied' : 'Copy'}
+                        </Button>
+                        <Button 
+                            variant="outline" 
+                            size="sm" 
+                            asChild
+                        >
+                            <a href={`/api/repos/${repoOwner}/${repoName}/pr-command/${selectedPrNumber}/build/logs/raw`} target="_blank" rel="noreferrer">
+                                <ExternalLink className="w-4 h-4 mr-1.5" /> View Raw
+                            </a>
+                        </Button>
+                        <Button 
+                            variant="default" 
+                            size="sm" 
+                            onClick={handleAnalyzeLogs}
+                            disabled={!buildLogs || loadingLogs || analyzingLogs}
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white ml-auto"
+                        >
+                            {analyzingLogs ? (
+                                <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                            ) : (
+                                <Settings2 className="w-4 h-4 mr-1.5" />
+                            )}
+                            Analyze & Fix with AI
+                        </Button>
+                    </div>
+                    {loadingLogs ? (
+                        <div className="flex-1 flex items-center justify-center">
+                            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                        </div>
+                    ) : (
+                        <div className="flex-1 bg-zinc-950 border border-zinc-800 rounded-md overflow-hidden flex flex-col">
+                            <ScrollArea className="flex-1 h-full font-mono text-xs p-4">
+                                <pre className="whitespace-pre-wrap break-all text-zinc-300">
+                                    {buildLogs || "No logs available."}
+                                </pre>
+                            </ScrollArea>
+                        </div>
+                    )}
                 </TabsContent>
             </Tabs>
         </div>

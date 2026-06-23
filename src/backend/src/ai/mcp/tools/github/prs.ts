@@ -6,8 +6,8 @@
 
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
 import { getOctokit } from '@services/octokit/core'
-import { DEFAULT_TEMPLATE_REPO, DEFAULT_GITHUB_OWNER } from "@github-utils";
-
+import { DEFAULT_GITHUB_OWNER } from "@github-utils";
+import { tool } from "@/ai/providers";
 
 // --- 1. Zod Schema Definitions ---
 
@@ -20,7 +20,6 @@ const OpenPrRequestSchema = z.object({
   body: z.string().optional().openapi({ example: 'This PR adds a new feature.' }),
 })
 
-
 const OpenPrResponseSchema = z.object({
   id: z.number(),
   number: z.number(),
@@ -30,42 +29,26 @@ const OpenPrResponseSchema = z.object({
   body: z.string().nullable(),
 })
 
-// --- 2. Route Definition ---
-
-const openPrRoute = createRoute({
-  method: 'post',
-  path: '/prs/open',
-  operationId: 'openPullRequest',
-  request: {
-    body: {
-      content: {
-        'application/json': {
-          schema: OpenPrRequestSchema,
-        },
-      },
-    },
-  },
-  responses: {
-    200: {
-      content: {
-        'application/json': {
-          schema: OpenPrResponseSchema,
-        },
-      },
-      description: 'Pull request opened successfully.',
-    },
-  },
-  'x-agent': true,
-  description: 'Open a new pull request in a GitHub repository.',
+const ListCommentsSchema = z.object({
+  owner: z.string().default(DEFAULT_GITHUB_OWNER),
+  repo: z.string(),
+  number: z.number(),
 })
 
-// --- 3. Hono App and Handler ---
+const CreateCommentSchema = z.object({
+  owner: z.string().default(DEFAULT_GITHUB_OWNER),
+  repo: z.string(),
+  number: z.number(),
+  body: z.string(),
+  path: z.string().optional(),
+  line: z.number().optional(),
+})
 
-const prs = new OpenAPIHono<{ Bindings: Env }>()
+// --- 2. Core Implementation ---
 
-prs.openapi(openPrRoute, async (c) => {
-  const { owner, repo, head, base, title, body } = c.req.valid('json')
-  const octokit = await getOctokit(c.env)
+export async function openPullRequest(env: Env, params: z.infer<typeof OpenPrRequestSchema>) {
+  const { owner, repo, head, base, title, body } = params;
+  const octokit = await getOctokit(env);
 
   const { data } = await octokit.pulls.create({
     owner,
@@ -74,107 +57,40 @@ prs.openapi(openPrRoute, async (c) => {
     base,
     title,
     body,
-  })
+  });
 
-  const response: z.infer<typeof OpenPrResponseSchema> = {
+  return {
     id: data.id,
     number: data.number,
     html_url: data.html_url,
     state: data.state,
     title: data.title,
     body: data.body,
-  }
+  };
+}
 
-  return c.json(response)
-  return c.json(response)
-})
+export async function listPrComments(env: Env, params: z.infer<typeof ListCommentsSchema>) {
+  const { owner, repo, number } = params;
+  const octokit = await getOctokit(env);
 
-// --- Comment Schemas ---
-
-const ListCommentsSchema = z.object({
-  owner: z.string().default(DEFAULT_GITHUB_OWNER),
-
-  repo: z.string(),
-  number: z.string().transform(n => parseInt(n, 10)),
-})
-
-const CreateCommentSchema = z.object({
-  owner: z.string().default(DEFAULT_GITHUB_OWNER),
-
-  repo: z.string(),
-  number: z.number(),
-  body: z.string(),
-  path: z.string().optional(),
-  line: z.number().optional(),
-})
-
-// --- Comment Routes ---
-
-const listCommentsRoute = createRoute({
-  method: 'get',
-  path: '/prs/comments/list',
-  operationId: 'listPrComments',
-  request: {
-    query: ListCommentsSchema
-  },
-  responses: {
-    200: {
-      content: { 'application/json': { schema: z.array(z.any()) } },
-      description: 'List of PR comments'
-    }
-  }
-})
-
-const createCommentRoute = createRoute({
-  method: 'post',
-  path: '/prs/comments/create',
-  operationId: 'createPrComment',
-  request: {
-    body: { content: { 'application/json': { schema: CreateCommentSchema } } }
-  },
-  responses: {
-    200: {
-      content: { 'application/json': { schema: z.any() } },
-      description: 'Comment created'
-    }
-  }
-})
-
-// --- Handlers ---
-
-prs.openapi(listCommentsRoute, async (c) => {
-  const { owner, repo, number } = c.req.valid('query')
-  const octokit = await getOctokit(c.env)
-
-  // Fetch both issue comments (general) and review comments (code)
   const [issueComments, reviewComments] = await Promise.all([
     octokit.issues.listComments({ owner, repo, issue_number: number }),
     octokit.pulls.listReviewComments({ owner, repo, pull_number: number })
-  ])
+  ]);
 
-  // Combine and sort by date
-  const allComments = [
+  return [
     ...issueComments.data.map((C: any) => ({ ...C, type: 'issue' })),
     ...reviewComments.data.map((C: any) => ({ ...C, type: 'review' }))
-  ].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+  ].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+}
 
-  return c.json(allComments)
-})
+export async function createPrComment(env: Env, params: z.infer<typeof CreateCommentSchema>) {
+  const { owner, repo, number, body, path, line } = params;
+  const octokit = await getOctokit(env);
 
-prs.openapi(createCommentRoute, async (c) => {
-  const { owner, repo, number, body, path, line } = c.req.valid('json')
-  const octokit = await getOctokit(c.env)
-
-  let data;
   if (path && line) {
-    // Create review comment
-    // Note: This requires the PR to have a pending review or we create a new one. 
-    // Simply creating a comment on a line usually requires the latest commit_id or interaction with a review.
-    // For simplicity, we'll try createReviewComment but it might fail if commit_id isn't provided.
-    // Most robust way for tools is usually just "comment on the PR" unless we have full context.
-    // Let's try fetching the PR to get the head sha.
-    const { data: pr } = await octokit.pulls.get({ owner, repo, pull_number: number })
-    const res = await octokit.pulls.createReviewComment({
+    const { data: pr } = await octokit.pulls.get({ owner, repo, pull_number: number });
+    const { data } = await octokit.pulls.createReviewComment({
       owner,
       repo,
       pull_number: number,
@@ -182,21 +98,91 @@ prs.openapi(createCommentRoute, async (c) => {
       path,
       line,
       commit_id: pr.head.sha
-    })
-    data = res.data
+    });
+    return data;
   } else {
-    // General issue comment
-    const res = await octokit.issues.createComment({
+    const { data } = await octokit.issues.createComment({
       owner,
       repo,
       issue_number: number,
       body
-    })
-    data = res.data
+    });
+    return data;
   }
+}
 
-  return c.json(data)
-})
+// --- 3. Tool Factory ---
+
+export function makePrTools(env: Env) {
+  return {
+    openPullRequest: tool({
+      description: 'Open a new pull request in a GitHub repository.',
+      parameters: OpenPrRequestSchema,
+      execute: async (params: any) => openPullRequest(env, params),
+    } as any),
+    listPrComments: tool({
+      description: 'List all comments (issue and review) for a pull request.',
+      parameters: ListCommentsSchema,
+      execute: async (params: any) => listPrComments(env, params),
+    } as any),
+    createPrComment: tool({
+      description: 'Create a comment on a pull request (general or on a specific line of code).',
+      parameters: CreateCommentSchema,
+      execute: async (params: any) => createPrComment(env, params),
+    } as any),
+  };
+}
+
+// --- 4. Hono App and Routes ---
+
+const prs = new OpenAPIHono<{ Bindings: Env }>()
+
+prs.openapi(
+  createRoute({
+    method: 'post',
+    path: '/prs/open',
+    operationId: 'openPullRequest',
+    request: { body: { content: { 'application/json': { schema: OpenPrRequestSchema } } } },
+    responses: {
+      200: { content: { 'application/json': { schema: OpenPrResponseSchema } }, description: 'Success' }
+    },
+    'x-agent': true,
+    description: 'Open a new pull request',
+  }),
+  async (c) => c.json(await openPullRequest(c.env, c.req.valid('json')))
+)
+
+prs.openapi(
+  createRoute({
+    method: 'get',
+    path: '/prs/comments/list',
+    operationId: 'listPrComments',
+    request: { query: ListCommentsSchema },
+    responses: {
+      200: { content: { 'application/json': { schema: z.array(z.any()) } }, description: 'Success' }
+    },
+    description: 'List PR comments',
+  }),
+  async (c) => {
+    // Handling query override for number string -> number conversion if needed
+    const query = c.req.valid('query');
+    return c.json(await listPrComments(c.env, { ...query, number: Number(query.number) }))
+  }
+)
+
+prs.openapi(
+  createRoute({
+    method: 'post',
+    path: '/prs/comments/create',
+    operationId: 'createPrComment',
+    request: { body: { content: { 'application/json': { schema: CreateCommentSchema } } } },
+    responses: {
+      200: { content: { 'application/json': { schema: z.any() } }, description: 'Success' }
+    },
+    description: 'Create PR comment',
+  }),
+  async (c) => c.json(await createPrComment(c.env, c.req.valid('json')))
+)
 
 export default prs
 

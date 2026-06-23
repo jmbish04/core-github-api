@@ -11,6 +11,7 @@ import { useParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { TrendingUp, AlertTriangle, Users, Activity, CheckCircle2, Bot, Loader2 } from "lucide-react";
+import { handleGlobalError } from "@/lib/error-handler";
 
 interface StatusData {
   totalTasks: number;
@@ -41,8 +42,9 @@ export default function TrackerReportsViewBeta() {
             blockedTasks: data.blockedTasks ?? data.taskCounts?.blocked ?? 0,
           });
         }
-      } catch {
-        // Use defaults
+      } catch (e) {
+        // Log explicitly instead of just using defaults silently
+        handleGlobalError(e instanceof Error ? e : new Error(`[Tracker Reports] API Error: Failed to fetch sentinel status for reports: ${JSON.stringify(e)}`));
       } finally {
         if (!cancelled) setLoading(false);
       }

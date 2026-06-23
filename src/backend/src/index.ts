@@ -4,6 +4,7 @@ import { mountRoutes } from '@/routes';
 import { mountMcpEndpoints } from '@/ai/mcp';
 import { Logger } from '@/lib/logger';
 import { proxyToSandbox } from '@cloudflare/sandbox';
+import { routeAgentRequest } from 'agents';
 
 export { Sandbox } from '@cloudflare/sandbox';
 
@@ -69,7 +70,7 @@ app.doc('/openapi.json', {
   info: {
     title: 'Codex MCP Orchestrator API',
     version: '1.0.0',
-    description: 'Remote MCP Server utilizing the repo-local Honi-compatible agent runtime',
+    description: 'Remote MCP Server utilizing the Cloudflare Agents SDK runtime',
   },
 });
 
@@ -95,18 +96,47 @@ app.get('/docs', (c) => c.redirect('/scalar'));
 mountMcpEndpoints(app);
 
 // ---------------------------------------------------------------------------
+// Agent SDK Routing — delegates /agents/:name/:room to the correct DO
+// ---------------------------------------------------------------------------
+app.all('/agents/*', async (c) => {
+  const response = await routeAgentRequest(c.req.raw, c.env);
+  if (response) return response;
+  return c.json({ error: 'Agent not found' }, 404);
+});
+
+// ---------------------------------------------------------------------------
 // Fallback → Astro static assets
 // ---------------------------------------------------------------------------
 app.notFound(async (c) => {
   console.log("Hono 404 fallback invoked for:", c.req.method, c.req.url);
   if (c.req.method === 'GET' || c.req.method === 'HEAD') {
-    let res = await c.env.ASSETS.fetch(c.req.raw);
-    if (res.status === 404) {
-      const url = new URL(c.req.url);
-      url.pathname = '/';
-      res = await c.env.ASSETS.fetch(new Request(url.toString(), c.req.raw as RequestInit));
+    // First, try serving static assets (CSS, JS, images) from the ASSETS binding.
+    // These live in public/client/ (built by Astro).
+    const assetRes = await c.env.ASSETS.fetch(c.req.raw);
+    if (assetRes.status !== 404) {
+      return assetRes;
     }
-    return res;
+
+    // If no static asset matched, delegate to the Astro SSR entry
+    // which server-renders pages on demand (no static index.html exists).
+    try {
+      // @ts-expect-error — Astro SSR entry is a generated build artifact without type declarations
+      const astroEntry = await import('../../../public/server/entry.mjs');
+      const astroHandler = astroEntry.default;
+      // The Astro Cloudflare adapter exports a Worker-compatible default export
+      // with a `fetch` method that accepts (request, env, ctx).
+      if (astroHandler && typeof astroHandler.fetch === 'function') {
+        return astroHandler.fetch(c.req.raw, c.env, c.executionCtx);
+      }
+    } catch (e) {
+      console.error("[Astro SSR] Failed to render page:", e);
+    }
+
+    // Ultimate fallback: SPA-style redirect to root
+    const url = new URL(c.req.url);
+    url.pathname = '/';
+    const fallbackRes = await c.env.ASSETS.fetch(new Request(url.toString(), c.req.raw as RequestInit));
+    return fallbackRes;
   }
 
   return c.json({ error: 'Not found', path: c.req.url }, 404);

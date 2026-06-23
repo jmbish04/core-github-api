@@ -198,6 +198,18 @@ const DEFAULT_AGENTS = [
     docsSlug: 'github-standardization-agent',
     sortOrder: 5,
   },
+  {
+    id: 'software-orchestration-agent',
+    name: 'Software Orchestrator',
+    description: 'Manages multi-agent coding sessions over Jules. Seamlessly creates plans, researches via Cloudflare Docs, and executes repoless or repo-aware modifications autonomously.',
+    tags: ['Jules', 'Orchestration', 'Multi-Agent', 'Docs'],
+    iconName: 'Cpu',
+    iconBg: 'bg-blue-500/10 border border-blue-500/20',
+    iconColor: 'text-blue-400',
+    workshopUrl: '/workshop',
+    docsSlug: 'software-orchestration',
+    sortOrder: 6,
+  },
 ] as const;
 
 app.post('/seed', async (c) => {

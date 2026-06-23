@@ -13,6 +13,10 @@ import transcribeApi from '@/routes/api/agents/transcribe'
 import modelsApi from '@/routes/api/agents/models'
 import workshopChatApi from '@/routes/api/agents/workshop-chat'
 import specialistsApi from '@/routes/api/agents/specialists'
+import statusApi from '@/routes/api/agents/status'
+import agentConfigApi from '@/routes/api/agents/config'
+import traceabilityApi from '@/routes/api/agents/traceability'
+import agentHealthApi from '@/routes/api/agents/health'
 
 const agentsApi = new OpenAPIHono<{ Bindings: Env }>()
 
@@ -24,5 +28,9 @@ agentsApi.route('/', workshopChatApi)
 agentsApi.route('/transcribe', transcribeApi)
 agentsApi.route('/models', modelsApi)
 agentsApi.route('/specialists', specialistsApi)
+agentsApi.route('/status', statusApi)
+agentsApi.route('/config', agentConfigApi)
+agentsApi.route('/traceability', traceabilityApi)
+agentsApi.route('/health', agentHealthApi)
 
 export default agentsApi

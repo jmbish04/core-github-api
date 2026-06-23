@@ -36,7 +36,9 @@ import {
   TreeProvider,
   TreeView,
 } from "@/components/kibo-ui/tree";
-import { toast } from "sonner";
+import { handleGlobalLoading } from '@/lib/notification-handler';
+import { handleGlobalSuccess } from "@/lib/success-handler";
+import { handleGlobalError } from "@/lib/error-handler";
 
 type OverviewEntry = {
   path: string;
@@ -275,7 +277,7 @@ export default function ProjectView() {
 
   const dispatchToJules = async (prompt: string, taskTitle: string) => {
     setCommandOpen(false);
-    const toastId = toast.loading(`Dispatching ${taskTitle}...`);
+    const loader = handleGlobalLoading(`Dispatching ${taskTitle}...`);
     try {
       const res = await fetch(`/api/repos/${encodeURIComponent(owner || "")}/${encodeURIComponent(repo || "")}/jules/dispatch`, {
         method: "POST",
@@ -288,15 +290,19 @@ export default function ProjectView() {
       });
       const responseData = await res.json() as any;
       if (!res.ok || !responseData.success) throw new Error(responseData.error || "Failed to dispatch task");
-      toast.success(`${taskTitle} Dispatched`, {
-        id: toastId,
-        description: `Session tracking ID: ${responseData.sessionId}`
-      });
+      loader.dismiss();
+      handleGlobalSuccess(
+        `${taskTitle} Dispatched`,
+        <span>
+          Session tracking ID:{" "}
+          <a href={`https://jules.google.com/session/${responseData.sessionId}`} target="_blank" rel="noopener noreferrer" className="underline hover:text-emerald-500">
+            {responseData.sessionId}
+          </a>
+        </span>
+      );
     } catch (e: any) {
-      toast.error(`Failed to dispatch ${taskTitle}`, {
-        id: toastId,
-        description: e.message
-      });
+      loader.dismiss();
+      handleGlobalError(new Error(`Failed to dispatch ${taskTitle}: ${e.message}`));
     }
   };
 

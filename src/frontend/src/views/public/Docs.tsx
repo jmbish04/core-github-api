@@ -190,9 +190,18 @@ export default function DocsPage() {
                                 Jules is deeply integrated into the backend API using the <code>@google/jules-sdk</code> to handle automated code scaffolding, reviews, and architecture planning.
                             </p>
                             
+                            <h3 className="text-lg font-semibold mt-6">Dual-Scope Routing Architecture</h3>
+                            <p className="text-sm text-muted-foreground mb-2">
+                                The Jules interface operates in a context-aware paradigm, supporting both global oversight and targeted project scopes:
+                            </p>
+                            <ul className="list-disc pl-5 space-y-2 text-sm text-muted-foreground">
+                                <li><strong>Global Scope (<code>/jules/.*</code>):</strong> Displays all active sessions, backlogs, and telemetry across every authorized repository. Useful for portfolio-level observability.</li>
+                                <li><strong>Repository Scope (<code>/repos/:owner/:repo/jules/.*</code>):</strong> Strict isolation mode. Filters sessions, tasks, backlogs, and metrics specifically to the selected GitHub repository. Reduces noise during single-project focus mode.</li>
+                            </ul>
+                            
                             <h3 className="text-lg font-semibold mt-6">Core Flow</h3>
                             <ol className="list-decimal pl-5 space-y-2 text-sm text-muted-foreground">
-                                <li><strong>Invocation:</strong> Triggers `/api/agents/jules/start` with a prompt and repository.</li>
+                                <li><strong>Invocation:</strong> Triggers `/api/agents/jules/start` with a prompt and repository. If invoked from a repo-scoped context, project metadata is automatically attached.</li>
                                 <li><strong>Standards Injection:</strong> Global project architecture standards are prepended to ensure the PR aligns with team conventions.</li>
                                 <li><strong>State Storage:</strong> Sessions are stored in D1 <code>jules_sessions</code> and <code>jules_jobs</code>.</li>
                                 <li><strong>Overseer Sync:</strong> (Optional) Triggers the stateful Overseer durable object to check background job statuses.</li>
@@ -200,7 +209,7 @@ export default function DocsPage() {
                             
                             <h3 className="text-lg font-semibold mt-6">Database Entities</h3>
                             <ul className="list-disc pl-5 space-y-2 text-sm text-muted-foreground">
-                                <li><strong>julesSessions:</strong> Bound directly 1:1 with the Jules SDK session handle.</li>
+                                <li><strong>julesSessions:</strong> Bound directly 1:1 with the Jules SDK session handle. Contains the active context ID which maps to the frontend URL router.</li>
                                 <li><strong>julesJobs:</strong> Internal wrapper identifying repo contexts and status workflows independent of the SDK's execution.</li>
                             </ul>
                         </CardContent>
@@ -244,7 +253,7 @@ OPENAI_API_KEY="... (Optional, for fallbacks)"`}
                         </CardHeader>
                         <CardContent className="space-y-5 text-sm text-muted-foreground">
                             <p>
-                                The reverse-engineering pipeline uses a staged Honi + Jules workflow:
+                                The reverse-engineering pipeline uses a staged Agents SDK + Jules workflow:
                                 repository research, preview URL resolution, authenticated Browser Rendering screenshots,
                                 parallel Jules analysis, and final synthesis into implementation-ready deliverables.
                             </p>
@@ -271,8 +280,8 @@ OPENAI_API_KEY="... (Optional, for fallbacks)"`}
                                 <div className="rounded-lg border border-border/60 bg-card/40 p-4">
                                     <h3 className="mb-2 font-semibold text-foreground">Durable Agents</h3>
                                     <ul className="list-disc pl-5 space-y-1">
-                                        <li><strong>HoniOrchestrator</strong>: runs the three-stage repo research, Jules parallelization, and final synthesis loop.</li>
-                                        <li><strong>HoniConsultant</strong>: answers snapshot questions using stored D1 context plus Cloudflare docs MCP when infrastructure context is relevant.</li>
+                                        <li><strong>OrchestratorAgent</strong>: runs the three-stage repo research, Jules parallelization, and final synthesis loop.</li>
+                                        <li><strong>OrchestratorAgent (Consultant)</strong>: answers snapshot questions using stored D1 context plus Cloudflare docs MCP when infrastructure context is relevant.</li>
                                         <li><strong>ReverseEngineeringMonitor</strong>: request-scoped WebSocket room for progress updates and event fan-out.</li>
                                     </ul>
                                 </div>

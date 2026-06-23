@@ -33,8 +33,8 @@ import { julesSessions, julesWebhookEvents } from "@db/schemas/jules";
 import { eq } from "drizzle-orm";
 import { createAlert } from "@alerts";
 import type { JulesEventType, JulesLiveMessage } from "@/services/jules/types";
-import { BroadcastClient } from "@utils/do-broadcast";
-import { HoniClient } from "@utils/honi-client";
+import { getAgentByName } from "agents";
+import { getSecret } from "@/utils/secrets";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -92,9 +92,10 @@ const statusPayloadSchema = z.object({
  */
 async function broadcast(env: Env, message: JulesLiveMessage): Promise<void> {
   try {
-    await BroadcastClient.broadcast(env.JULES_WEBHOOK_BROADCASTER, "jules-broadcaster", message);
+    const agent = await getAgentByName(env.JULES_WEBHOOK_BROADCASTER as any, "jules-broadcaster");
+    await (agent as any).broadcastEvent(message);
   } catch (err) {
-    console.error("[JulesWebhook] Failed to broadcast to DO:", err);
+    console.error("[JulesWebhook] Failed to broadcast to Agent:", err);
   }
 }
 
@@ -181,13 +182,10 @@ app.post("/event", zValidator("json", eventPayloadSchema), async (c) => {
   ) {
     // Trigger JulesOverseer to evaluate and auto-unblock
     try {
-      c.executionCtx.waitUntil(
-        HoniClient.fetch(
-          c.env.JULES_OVERSEER as unknown as DurableObjectNamespace,
-          "jules-overseer-singleton",
-          "/schedule/check"
-        )
-      );
+      c.executionCtx.waitUntil((async () => {
+        const agent = await getAgentByName(c.env.ENGINEER_AGENT as any, "singleton");
+        await (agent as any).checkSchedule();
+      })());
     } catch (err) {
       console.warn("[JulesWebhook] Failed to trigger JulesOverseer:", err);
     }
@@ -326,11 +324,20 @@ app.get("/ws", async (c) => {
     return c.text("Expected WebSocket upgrade", 426);
   }
 
-  return BroadcastClient.upgradeWebSocket(
-    c.env.JULES_WEBHOOK_BROADCASTER,
-    "jules-broadcaster",
-    c.req.raw
-  );
+  // Primary auth gate at the edge (before Agent sees the request)
+  const providedKey = c.req.query("apiKey") || c.req.header("X-API-Key");
+  const [agentKey, workerKey] = await Promise.all([
+    getSecret(c.env, "AGENTIC_WORKER_API_KEY"),
+    getSecret(c.env, "WORKER_API_KEY"),
+  ]);
+  const validKeys = [agentKey, workerKey].filter(Boolean) as string[];
+  if (validKeys.length > 0 && (!providedKey || !validKeys.includes(providedKey))) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  // Delegate to Agent — base class handles WS handshake, then calls getConnectionTags + onConnect
+  const agent = await getAgentByName(c.env.JULES_WEBHOOK_BROADCASTER as any, "jules-broadcaster");
+  return agent.fetch(c.req.raw);  // c.req.raw preserves full URL + query params
 });
 
 export default app;

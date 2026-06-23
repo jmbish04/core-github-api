@@ -39,7 +39,8 @@ export default function TrackerLayoutBeta() {
   const [isAssistantOpen, setAssistantOpen] = useState(false);
   const [activeSearch, setActiveSearch] = useState<string | null>(null);
 
-  const basePath = `/repos/${owner}/${repo}/projects/tracker-beta`;
+  const isShadcn = location.pathname.includes('tracker-shadcn');
+  const basePath = `/repos/${owner}/${repo}/projects/${isShadcn ? 'tracker-shadcn' : 'tracker-beta'}`;
 
   return (
     <div className="flex h-full bg-zinc-950 text-zinc-100 overflow-hidden selection:bg-indigo-500/30 font-sans">

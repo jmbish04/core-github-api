@@ -4,8 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Copy, Check, Webhook } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { toast } from "sonner";
-import { handleGlobalError } from "@/lib/error-handler";
+import { handleGlobalError } from '@/lib/error-handler';
+import { handleGlobalSuccess } from '@/lib/success-handler';
 
 interface PrWebhookExtractorProps {
     defaultOwner?: string;
@@ -52,7 +52,7 @@ export function PrWebhookExtractor({ defaultOwner, defaultRepo, defaultPrNumber 
     const handleFetchPayload = async () => {
         const params = parsePrUrl(url);
         if (!params) {
-            toast.error("Please provide a valid GitHub PR URL (e.g., https://github.com/owner/repo/pull/123)");
+            handleGlobalError("Please provide a valid GitHub PR URL (e.g., https://github.com/owner/repo/pull/123)");
             return;
         }
 
@@ -82,7 +82,7 @@ export function PrWebhookExtractor({ defaultOwner, defaultRepo, defaultPrNumber 
                 }
             }
             setPayload(parsedPayload || data.data);
-            toast.success("Initial PR Webhook payload retrieved");
+            handleGlobalSuccess('Payload Retrieved', 'Initial PR Webhook payload retrieved');
         } catch (error: unknown) {
             handleGlobalError(error);
         } finally {
@@ -95,7 +95,7 @@ export function PrWebhookExtractor({ defaultOwner, defaultRepo, defaultPrNumber 
             navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
-            toast.success("Payload copied to clipboard");
+            handleGlobalSuccess('Copied', 'Payload copied to clipboard');
         }
     };
 

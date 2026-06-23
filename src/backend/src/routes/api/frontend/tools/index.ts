@@ -1,5 +1,5 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
-import { Env } from '@/types';
+
 import shadcnRegistry from './shadcn-registry';
 
 const app = new OpenAPIHono<{ Bindings: Env }>();

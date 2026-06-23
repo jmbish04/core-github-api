@@ -6,6 +6,7 @@ import { AuditTable, type AuditLogEntry } from "./AuditTable";
 import { SyncSecretsConfig } from "./SyncSecretsConfig";
 import { SkillsManager } from "./SkillsManager";
 import { StandardizationConfig } from "./StandardizationConfig";
+import { AgentConfigManager } from "./agents/AgentConfigManager";
 import { Loader2 } from "lucide-react";
 
 interface ConfigDashboardProps {
@@ -99,6 +100,7 @@ export function ConfigDashboard({ category }: ConfigDashboardProps) {
   };
 
   const isHistory = category === "history";
+  const isAgentConfig = category === "agents-ai";
   const fields = fieldDefinitions[category] || [];
 
   return (
@@ -107,7 +109,9 @@ export function ConfigDashboard({ category }: ConfigDashboardProps) {
       <div className="flex flex-1 flex-col">
         <ConfigHeader title={`Configuration: ${category.charAt(0).toUpperCase() + category.slice(1)}`} onRefresh={fetchData} isRefreshing={loading} />
         <main className="flex-1 overflow-auto p-6">
-          {loading && !data && logs.length === 0 ? (
+          {isAgentConfig ? (
+            <AgentConfigManager />
+          ) : loading && !data && logs.length === 0 ? (
             <div className="flex h-full items-center justify-center">
               <Loader2 className="h-8 w-8 animate-spin" />
             </div>

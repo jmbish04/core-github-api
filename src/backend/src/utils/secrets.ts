@@ -21,7 +21,7 @@ export async function getSecret(env: Env, key: string): Promise<string | undefin
 
     // 1. Try KV Config (Pointer Pattern)
     try {
-        const manager = new ConfigManager(env.KV_CONFIGS);
+        const manager = new ConfigManager(env);
         const metadata = await manager.getMetadata(key); 
 
         // CASE A: The key exists in KV and is managed by Secret Store
@@ -152,6 +152,30 @@ export async function getCloudflareAccountId(env: Env): Promise<string | undefin
             : await (env.CLOUDFLARE_ACCOUNT_ID as any).get();
     }
     return getSecret(env, "CLOUDFLARE_ACCOUNT_ID");
+}
+
+/**
+ * Helper to fetch the full Google Sa Private Key.
+ * Cloudflare Secret Store Secrets have a max character limit of 1024 characters per secret.
+ * This function will concatenate the private keys pt1 and pt2 and return the full privateKey value
+ */
+export async function getGoogleSaPrivateKey(env: Env): Promise<string | undefined> {
+    const logger = new Logger(env, 'utils/secrets');
+    const pt1 = await getSecret(env, "GOOGLE_CREDS_SA_PRIVATE_KEY_PT_1") as string;
+    const pt2 = await getSecret(env, "GOOGLE_CREDS_SA_PRIVATE_KEY_PT_2") as string;
+    const errors = [];
+    if(!pt1){
+        errors.push("GOOGLE_CREDS_SA_PRIVATE_KEY_PT_1 not found");
+    }
+    if(!pt2){
+        errors.push("GOOGLE_CREDS_SA_PRIVATE_KEY_PT_2 not found");
+    }
+    if(errors.length > 0){
+        logger.error(`[getGoogleSaPrivateKey] Failed to fetch Google Sa Private Key: ${errors.join(", ")}`);
+        return `ERROR: Unable to build SA private key: ${errors.join(", ")}`;
+    }
+    return pt1 + pt2;
+
 }
 
 export async function getGithubClientId(env: Env): Promise<string | undefined> {

@@ -10,7 +10,8 @@ import {
   Sparkles,
   Telescope,
 } from 'lucide-react';
-import { toast } from 'sonner';
+import { handleGlobalError } from '@/lib/error-handler';
+import { handleGlobalSuccess } from '@/lib/success-handler';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -116,11 +117,11 @@ export default function ReverseEngineeringPage() {
       });
     },
     onSuccess: ({ snapshotId }) => {
-      toast.success('Reverse-engineering snapshot queued.');
+      handleGlobalSuccess('Snapshot Queued', 'Reverse-engineering snapshot queued.');
       navigate(`/reverse-engineering/${snapshotId}`);
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : 'Failed to queue reverse-engineering snapshot.');
+      handleGlobalError(error instanceof Error ? error.message : 'Failed to queue reverse-engineering snapshot.');
     },
   });
 

@@ -9,9 +9,20 @@ import { v4 as uuidv4 } from 'uuid';
 import { eq } from 'drizzle-orm';
 import { App } from 'octokit';
 import { getGitHubPrivateKey, getGitHubAppId, getGithubToken } from "@utils/secrets";
-import { HoniClient } from '@utils/honi-client';
+import { getAgentByName } from 'agents';
+import { seedGoldenPathDefaults } from "@/services/golden-path-seed";
 
 const healthApi = new Hono<{ Bindings: Env }>();
+
+// POST /seed — temporary endpoint to seed golden paths
+healthApi.post('/seed', async (c) => {
+    try {
+        const result = await seedGoldenPathDefaults(c.env);
+        return c.json(result);
+    } catch (err: any) {
+        return c.json({ error: err.message }, 500);
+    }
+});
 
 // GET /latest — most recent run with results
 healthApi.get('/latest', async (c) => {
@@ -50,26 +61,18 @@ healthApi.post('/analyze', async (c) => {
     if (!failureDetails) return c.json({ error: 'Missing failureDetails' }, 400);
 
     // Call HealthDiagnostician
-    if (!c.env.HEALTH_DIAGNOSTICIAN) {
+    if (!c.env.LEARNING_AGENT) {
         return c.json({ error: 'HEALTH_DIAGNOSTICIAN binding not found' }, 500);
     }
     
-    const response = await HoniClient.fetch(c.env.HEALTH_DIAGNOSTICIAN, 'singleton', '/diagnose', {
-        method: "POST",
-        body: JSON.stringify({
-            errorName: failureDetails.name || 'Unknown Error',
-            errorMessage: failureDetails.message || 'No message provided',
-            errorDetails: failureDetails.details || {},
-            category: failureDetails.category || 'unknown',
-            target: failureDetails.name || 'unknown'
-        })
-    });
-
-    if (!response.ok) {
-        return c.json({ error: await response.text() }, 500);
-    }
-
-    const rawAnalysis = await response.json<{ severity: string; rootCause: string; suggestedFix: string; prUrl: string | null }>();
+    const agent = await getAgentByName(c.env.LEARNING_AGENT as any, 'singleton');
+    const rawAnalysis = await (agent as any).diagnoseHealth({
+        errorName: failureDetails.name || 'Unknown Error',
+        errorMessage: failureDetails.message || 'No message provided',
+        errorDetails: failureDetails.details || {},
+        category: failureDetails.category || 'unknown',
+        target: failureDetails.name || 'unknown',
+    }) as { severity: string; rootCause: string; suggestedFix: string; prUrl: string | null };
     
     // Transform back to the UI expected format
     return c.json({

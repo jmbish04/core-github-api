@@ -25,13 +25,10 @@ export const workers = {
     },
     async getScript(env: Env, name: string) {
         const res = await fetchAdmin(env, `/workers/scripts/${name}`, {}, false);
-        // @ts-ignore
         const type = res.headers.get("content-type");
         if (type && type.includes("application/json")) {
-            // @ts-ignore
             return res.json();
         }
-        // @ts-ignore
         return res.text();
     },
     async deployScript(env: Env, name: string, script: string | FormData) {

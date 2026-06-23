@@ -3,28 +3,107 @@
  * @description Shared Zod schemas and TypeScript types for the Sentinel API.
  *
  * All endpoint files import from here — single source of truth for request/response shapes.
+ * Schemas are chained with .openapi('SchemaName') for OpenAPI v3.1.0 doc generation.
  */
 
-import { z } from 'zod';
+import { z } from '@hono/zod-openapi';
 
-// ─── Task Shapes ─────────────────────────────────────────────────────────────
+// ─── Shared Enums ────────────────────────────────────────────────────────────
 
+export const TaskStatusEnum = z.enum(['todo', 'in_progress', 'done', 'backlog', 'cancelled']);
+export const KanbanColumnEnum = z.enum(['backlog', 'todo', 'in_progress', 'in_review', 'done']);
+export const TaskPriorityEnum = z.enum(['low', 'medium', 'high', 'critical', 'urgent']);
+export const TaskTypeEnum = z.enum(['task', 'bug', 'story', 'epic']);
+export const TaskLabelEnum = z.enum(['bug', 'feature', 'documentation', 'improvement']);
+
+/**
+ * Hand-written Zod equivalent of `createSelectSchema(tasks)`.
+ * We intentionally avoid importing drizzle-zod + the Drizzle table here because
+ * the frontend imports this file via the @api alias — pulling Drizzle into the
+ * Vite bundle breaks the build and violates the Data Layer Isolation rule.
+ */
 export const SentinelTaskSchema = z.object({
-    id: z.string(),
-    repoId: z.string(),
-    parentId: z.string().nullable().optional(),
-    title: z.string(),
-    description: z.string().nullable().optional(),
-    status: z.string(),
-    priority: z.string(),
-    assignee: z.string().nullable().optional(),
-    position: z.number().nullable().optional(),
-    kanbanColumn: z.string(),
-    createdAt: z.string().nullable().optional(),
-    updatedAt: z.string().nullable().optional(),
-});
+  id: z.string(),
+  repoId: z.string(),
+  parentId: z.string().nullable(),
+  planRevisionId: z.string().nullable(),
+  title: z.string(),
+  description: z.string().nullable(),
+  status: z.string(),
+  priority: z.string(),
+  assignee: z.string().nullable(),
+  position: z.number().nullable(),
+  kanbanColumn: z.string(),
+  githubIssueId: z.number().nullable(),
+  githubHtmlUrl: z.string().nullable(),
+  isDeleted: z.number().nullable(),
+  createdAt: z.string().nullable(),
+  updatedAt: z.string().nullable(),
+}).openapi('SentinelTask');
 
 export type SentinelTask = z.infer<typeof SentinelTaskSchema>;
+
+// ─── Tracker Item Schema (full response shape for frontend consumption) ──────
+
+export const TrackerItemSchema = z.object({
+    id: z.string(),
+    type: TaskTypeEnum,
+    title: z.string(),
+    status: TaskStatusEnum,
+    label: TaskLabelEnum,
+    priority: TaskPriorityEnum,
+    parentId: z.string().nullable(),
+    assignee: z.string().nullable(),
+    description: z.string().optional(),
+    createdAt: z.string(),
+}).openapi('TrackerItem');
+
+export type TrackerItem = z.infer<typeof TrackerItemSchema>;
+
+// ─── Create / Update / Import Schemas ────────────────────────────────────────
+
+export const CreateTrackerItemSchema = z.object({
+    title: z.string().min(1, 'Title is required.'),
+    description: z.string().optional(),
+    status: TaskStatusEnum.default('todo'),
+    label: TaskLabelEnum.default('feature'),
+    priority: TaskPriorityEnum.default('medium'),
+    type: TaskTypeEnum.default('task'),
+}).openapi('CreateTrackerItem');
+
+export type CreateTrackerItemInput = z.infer<typeof CreateTrackerItemSchema>;
+
+export const UpdateTrackerItemSchema = z.object({
+    title: z.string().min(1, 'Title is required.').optional(),
+    description: z.string().optional(),
+    status: TaskStatusEnum.optional(),
+    label: TaskLabelEnum.optional(),
+    priority: TaskPriorityEnum.optional(),
+    type: TaskTypeEnum.optional(),
+    kanbanColumn: KanbanColumnEnum.optional(),
+    notes: z.string().optional(),
+}).openapi('UpdateTrackerItem');
+
+export type UpdateTrackerItemInput = z.infer<typeof UpdateTrackerItemSchema>;
+
+export const ImportTrackerItemsSchema = z.object({
+    payload: z.string().min(1, 'Please enter some data to import'),
+}).openapi('ImportTrackerItems');
+
+export type ImportTrackerItemsInput = z.infer<typeof ImportTrackerItemsSchema>;
+
+// ─── Form Validation Schema (reused by frontend zodResolver) ─────────────────
+
+export const TrackerItemFormSchema = z.object({
+    title: z.string().min(1, 'Title is required.'),
+    description: z.string().optional(),
+    status: z.string().min(1, 'Please select a status.'),
+    label: z.string().min(1, 'Please select a label.'),
+    priority: z.string().min(1, 'Please select a priority.'),
+    type: TaskTypeEnum.describe('Please select a type.'),
+}).openapi('TrackerItemForm');
+
+export type TrackerItemFormValues = z.infer<typeof TrackerItemFormSchema>;
 
 export const SentinelTaskWithContextSchema = SentinelTaskSchema.extend({
     story: z.object({ id: z.string(), title: z.string() }).nullable().optional(),
@@ -48,11 +127,15 @@ export const ClaimTaskBodySchema = z.object({
 });
 
 export const UpdateTaskBodySchema = z.object({
-    status: z.enum(['todo', 'in_progress', 'done', 'backlog', 'cancelled']).optional(),
+    status: TaskStatusEnum.optional(),
     notes: z.string().optional(),
-    kanbanColumn: z.enum(['backlog', 'todo', 'in_progress', 'in_review', 'done']).optional(),
+    kanbanColumn: KanbanColumnEnum.optional(),
     description: z.string().optional(),
-});
+    title: z.string().optional(),
+    type: TaskTypeEnum.optional(),
+    label: TaskLabelEnum.optional(),
+    priority: TaskPriorityEnum.optional(),
+}).openapi('UpdateTaskBody');
 
 export const SubmitTaskBodySchema = z.object({
     notes: z.string().optional(),
@@ -107,25 +190,3 @@ export const ErrorResponseSchema = z.object({
     ok: z.literal(false),
     error: z.string(),
 });
-
-// ─── Broadcast Helper ─────────────────────────────────────────────────────────
-
-/**
- * Posts a JSON payload to JulesWebhookBroadcaster for fan-out to all WS subscribers.
- * Used by claim, update, submit, clarify, and ingest handlers.
- */
-export async function broadcastSentinelEvent(env: Env, payload: Record<string, unknown>): Promise<void> {
-    try {
-        const id = env.JULES_WEBHOOK_BROADCASTER.idFromName('jules-broadcaster');
-        const stub = env.JULES_WEBHOOK_BROADCASTER.get(id);
-        await stub.fetch(
-            new Request('http://do/internal/broadcast', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ source: 'sentinel', ...payload }),
-            }),
-        );
-    } catch {
-        // Non-fatal — broadcast failure should not block task mutation response
-    }
-}

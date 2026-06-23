@@ -47,24 +47,27 @@ export async function verifyUserToken(
     token_name: string
 ): Promise<CloudflareTokenVerifyResult> {
     const client = new Cloudflare({ apiToken: token });
-
+    console.log(`[verifyUserToken] Verifying user token: ${token_name}`);
     try {
         const response = await client.user.tokens.verify();
-        
-        return {
+        const cfRespose = {
             success: true,
             status: response.status as any,
             token_id: response.id,
             raw: { success: true, result: response }
         };
+        console.log(`[verifyUserToken] User token verified: ${cfRespose}`);
+        return cfRespose;
     } catch (error: any) {
         // Cloudflare SDK throws on non-200 responses
         const errors = error.errors || [{ code: error.status || 500, message: error.message || "User token verification failed" }];
-        return {
+        const cfRespose = {
             success: false,
             errors,
             raw: error
         };
+        console.log(`[verifyUserToken] User token verification failed: ${cfRespose}`);
+        return cfRespose;
     }
 }
 
@@ -77,23 +80,27 @@ export async function verifyAccountToken(
     token_name: string
 ): Promise<CloudflareTokenVerifyResult> {
     const client = new Cloudflare({ apiToken: token });
+    console.log(`[verifyAccountToken] Verifying account token: ${token_name}`);
 
     try {
         const response = await client.accounts.tokens.verify({ account_id: accountId });
-        
-        return {
+        const cfRespose = {
             success: true,
             status: response.status as any,
             token_id: response.id,
             raw: { success: true, result: response }
         };
+        console.log(`[verifyAccountToken] Account token verified: ${cfRespose}`);
+        return cfRespose;
     } catch (error: any) {
         const errors = error.errors || [{ code: error.status || 500, message: error.message || "Account token verification failed" }];
-        return {
+        const cfRespose = {
             success: false,
             errors,
             raw: error
         };
+        console.log(`[verifyAccountToken] Account token verification failed: ${cfRespose}`);
+        return cfRespose;
     }
 }
 

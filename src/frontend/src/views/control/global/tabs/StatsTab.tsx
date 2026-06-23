@@ -10,7 +10,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DashboardTab } from "@/components/project-dashboard/tabs/DashboardTab";
 import { CloudflareRepositorySpend } from "@/components/cloudflaresdk/CloudflareRepositorySpend";
-import { toast } from "sonner";
+import { handleGlobalLoading } from '@/lib/notification-handler';
+import { handleGlobalSuccess } from "@/lib/success-handler";
+import { handleGlobalError } from "@/lib/error-handler";
 
 function asDateLabel(value?: string | null) {
   if (!value) return "Unknown";
@@ -52,7 +54,7 @@ export function StatsTab({ repoOwner, repoName, basePath, overview, onSelectEven
   const navigate = useNavigate();
 
   const handleDispatch = async () => {
-    const toastId = toast.loading("Dispatching to Jules...");
+    const loader = handleGlobalLoading(`Dispatching to Jules...`);
     try {
       const res = await fetch(`/api/repos/${encodeURIComponent(repoOwner)}/${encodeURIComponent(repoName)}/jules/dispatch`, {
         method: "POST",
@@ -65,12 +67,19 @@ export function StatsTab({ repoOwner, repoName, basePath, overview, onSelectEven
       });
       const data = await res.json() as any;
       if (!res.ok || !data.success) throw new Error(data.error || "Failed dispatch");
-      toast.success("Dispatched to Jules", {
-        id: toastId,
-        description: `Session tracking ID: ${data.sessionId}`,
-      });
+      loader.dismiss();
+      handleGlobalSuccess(
+        "Dispatched to Jules",
+        <span>
+          Session tracking ID:{" "}
+          <a href={`https://jules.google.com/session/${data.sessionId}`} target="_blank" rel="noopener noreferrer" className="underline hover:text-emerald-500">
+            {data.sessionId}
+          </a>
+        </span>
+      );
     } catch (e: any) {
-      toast.error("Dispatch Failed", { id: toastId, description: e.message });
+      loader.dismiss();
+      handleGlobalError(new Error(`Dispatch Failed: ${e.message}`));
     }
   };
 

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Play, Pause, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getBaseUrl } from "@/lib/api-client";
-import { toast } from "sonner";
+import { handleGlobalError } from '@/lib/error-handler';
 
 interface LogStreamerProps {
   owner: string;
@@ -67,7 +67,7 @@ export function LogStreamer({ owner, repo }: LogStreamerProps) {
         ws.onerror = (err) => {
             console.error("WebSocket proxy error", err);
             if (active) {
-                toast.error("WebSocket connection encountered an error.");
+                handleGlobalError("WebSocket connection encountered an error.");
                 setLogs(prev => [...prev, { timestamp: new Date().toISOString(), message: `[SYSTEM] Error connecting to tail session.`, isSystem: true }]);
                 setIsTailing(false);
             }
@@ -120,6 +120,7 @@ export function LogStreamer({ owner, repo }: LogStreamerProps) {
 
         ws.onerror = (err) => {
           console.error("Tail WebSocket error", err);
+          handleGlobalError(new Error("[LogStreamer] Tail WebSocket error"));
           setLogs(prev => [...prev, { timestamp: new Date().toISOString(), message: "[SYSTEM] WebSocket error occurred.", isSystem: true }]);
         };
 
@@ -132,7 +133,7 @@ export function LogStreamer({ owner, repo }: LogStreamerProps) {
 
       } catch (err: any) {
         if (active) {
-          toast.error("Failed to fetch tail session: " + err.message);
+          handleGlobalError("Failed to fetch tail session: " + err.message);
           setLogs(prev => [...prev, { timestamp: new Date().toISOString(), message: `[SYSTEM] Fetch Error: ${err.message}`, isSystem: true }]);
           setIsTailing(false);
         }

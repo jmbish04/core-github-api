@@ -37,6 +37,7 @@
 | Update Dependencies | Jules dispatch toast |
 | Generate Landing Page | Jules dispatch toast |
 | Design Frontend | Jules dispatch toast |
+| **Generate README** | Jules dispatch toast — full codebase analysis + README.md PR |
 | **Sync Default Secrets** | Direct sync (no Jules) → success toast with secret count |
 | Clean Up Code | Jules dispatch toast |
 | Setup CI/CD | Jules dispatch toast |

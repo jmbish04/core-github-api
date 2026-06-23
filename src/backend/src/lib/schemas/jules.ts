@@ -25,7 +25,8 @@ export const PlanningRequestStatusSchema = z.enum([
 export const SafeStringSchema = z
   .string()
   .min(1)
-  .refine((value) => !/[\x00-\x1F]/.test(value), "Control characters are not allowed")
+  // eslint-disable-next-line no-control-regex -- intentional: checks for ASCII control chars 0x00-0x1F
+  .refine((value) => !new RegExp('[\x00-\x1F]').test(value), "Control characters are not allowed")
   .refine((value) => !value.includes("%"), "Pre-URL encoded strings are not allowed");
 
 export const SafeRepoSchema = SafeStringSchema.refine(

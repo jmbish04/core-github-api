@@ -11,7 +11,8 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { getDb } from "@db";
 import { learningAiInsights } from "@db/schemas/github/learning";
-import { eq, desc, sql, count } from "drizzle-orm";
+import { eq, desc, sql } from "drizzle-orm";
+
 
 const app = new OpenAPIHono<{ Bindings: Env }>();
 
@@ -52,8 +53,8 @@ app.openapi(listInsightsRoute, async (c) => {
 
   const conditions: any[] = [];
   if (repo) conditions.push(eq(learningAiInsights.repo, repo));
-  if (status) conditions.push(eq(learningAiInsights.status, status));
-  if (patternType) conditions.push(eq(learningAiInsights.patternType, patternType));
+  if (status) conditions.push(eq(learningAiInsights.status, status as any));
+  if (patternType) conditions.push(eq(learningAiInsights.patternType, patternType as 'doom_loop' | 'anti_pattern' | 'standard_violation' | 'best_practice'));
 
   let query = db.select().from(learningAiInsights);
   for (const cond of conditions) {
@@ -66,11 +67,12 @@ app.openapi(listInsightsRoute, async (c) => {
     .offset(offset);
 
   // Count total
-  let countQuery = db.select({ value: count() }).from(learningAiInsights);
+  let countQuery = db.select({ value: sql<number>`count(*)` }).from(learningAiInsights);
   for (const cond of conditions) {
     countQuery = countQuery.where(cond) as any;
   }
   const [{ value: total }] = await countQuery;
+
 
   return c.json({ insights, total });
 });
@@ -89,9 +91,9 @@ const globalStatsRoute = createRoute({
         "application/json": {
           schema: z.object({
             totalInsights: z.number(),
-            byStatus: z.record(z.number()),
-            byPatternType: z.record(z.number()),
-            bySeverity: z.record(z.number()),
+            byStatus: z.record(z.string(), z.number()),
+            byPatternType: z.record(z.string(), z.number()),
+            bySeverity: z.record(z.string(), z.number()),
             proposed: z.number(),
             open: z.number(),
           }),
@@ -105,13 +107,13 @@ app.openapi(globalStatsRoute, async (c) => {
   const db = getDb(c.env.DB);
 
   const [{ value: totalInsights }] = await db
-    .select({ value: count() })
+    .select({ value: sql<number>`count(*)` })
     .from(learningAiInsights);
 
   const statusCounts = await db
     .select({
       status: learningAiInsights.status,
-      count: count(),
+      count: sql<number>`count(*)`,
     })
     .from(learningAiInsights)
     .groupBy(learningAiInsights.status);
@@ -119,7 +121,7 @@ app.openapi(globalStatsRoute, async (c) => {
   const patternTypeCounts = await db
     .select({
       patternType: learningAiInsights.patternType,
-      count: count(),
+      count: sql<number>`count(*)`,
     })
     .from(learningAiInsights)
     .groupBy(learningAiInsights.patternType);
@@ -127,7 +129,7 @@ app.openapi(globalStatsRoute, async (c) => {
   const severityCounts = await db
     .select({
       severity: learningAiInsights.severity,
-      count: count(),
+      count: sql<number>`count(*)`,
     })
     .from(learningAiInsights)
     .groupBy(learningAiInsights.severity);

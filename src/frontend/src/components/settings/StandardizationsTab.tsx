@@ -21,7 +21,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { toast } from "sonner";
+import { handleGlobalError } from '@/lib/error-handler';
+import { handleGlobalSuccess } from '@/lib/success-handler';
 import { Edit, Loader2, Plus, Search, Trash2 } from "lucide-react";
 
 type ScopeTag = {
@@ -212,9 +213,9 @@ export function StandardizationsTab() {
       setConfigDialogOpen(false);
       setEditingConfig(null);
       setConfigForm(defaultConfigForm());
-      toast.success("Golden path config saved");
+      handleGlobalSuccess('Saved', 'Golden path config saved');
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: Error) => handleGlobalError(error.message),
   });
 
   const deleteConfigMutation = useMutation({
@@ -222,9 +223,9 @@ export function StandardizationsTab() {
       fetchJson(`/api/settings/golden-path/configs/${id}`, { method: "DELETE" }),
     onSuccess: async () => {
       await invalidateAll();
-      toast.success("Golden path config deleted");
+      handleGlobalSuccess('Deleted', 'Golden path config deleted');
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: Error) => handleGlobalError(error.message),
   });
 
   const saveScopeMutation = useMutation({
@@ -243,9 +244,9 @@ export function StandardizationsTab() {
       setScopeDialogOpen(false);
       setEditingScope(null);
       setScopeForm(defaultScopeForm());
-      toast.success("Scope saved");
+      handleGlobalSuccess('Saved', 'Scope saved');
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: Error) => handleGlobalError(error.message),
   });
 
   const deleteScopeMutation = useMutation({
@@ -253,9 +254,9 @@ export function StandardizationsTab() {
       fetchJson(`/api/settings/golden-path/scopes/${id}`, { method: "DELETE" }),
     onSuccess: async () => {
       await invalidateAll();
-      toast.success("Scope deleted");
+      handleGlobalSuccess('Deleted', 'Scope deleted');
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: Error) => handleGlobalError(error.message),
   });
 
   const saveTagMutation = useMutation({
@@ -274,9 +275,9 @@ export function StandardizationsTab() {
       setTagDialogOpen(false);
       setEditingTag(null);
       setTagForm(defaultTagForm());
-      toast.success("Tag saved");
+      handleGlobalSuccess('Saved', 'Tag saved');
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: Error) => handleGlobalError(error.message),
   });
 
   const deleteTagMutation = useMutation({
@@ -284,9 +285,9 @@ export function StandardizationsTab() {
       fetchJson(`/api/settings/golden-path/tags/${id}`, { method: "DELETE" }),
     onSuccess: async () => {
       await invalidateAll();
-      toast.success("Tag deactivated");
+      handleGlobalSuccess('Deactivated', 'Tag deactivated');
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: Error) => handleGlobalError(error.message),
   });
 
   const openCreateConfig = () => {

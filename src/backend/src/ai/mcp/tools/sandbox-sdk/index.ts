@@ -39,7 +39,7 @@ export {
 } from "./utils";
 
 // Health check
-export { checkHealth as checkSandboxHealth } from "./health_old";
+export { checkHealth as checkSandboxHealth } from "./health";
 
 // Git health (GitHub auth verification)
 export { checkGitHealth } from "./git";

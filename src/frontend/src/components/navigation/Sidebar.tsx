@@ -111,7 +111,7 @@ export function Sidebar({ className }: SidebarProps) {
     const isDocsActive = docsLinks.some(link => location.pathname === link.href);
     const isWorkflowsActive =
         location.pathname.startsWith("/workflows");
-    const isProjectRouteActive = location.pathname.startsWith("/repos/") || location.pathname.startsWith("/projects/");
+    const isProjectRouteActive = location.pathname.startsWith("/repos/");
     const isWorkshopActive = location.pathname.startsWith("/workshop");
 
     if (isDocsActive && !isDocsExpanded) setIsDocsExpanded(true);

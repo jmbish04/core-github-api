@@ -82,7 +82,7 @@ export function ConsultantPanel({ snapshotId }: ConsultantPanelProps) {
           Reverse-Engineering Consultant
         </CardTitle>
         <CardDescription>
-          Query the Honi consultant against the live snapshot, Cloudflare guidance, and synthesized findings.
+          Query the consultant against the live snapshot, Cloudflare guidance, and synthesized findings.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

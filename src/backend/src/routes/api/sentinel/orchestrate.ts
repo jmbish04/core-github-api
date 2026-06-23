@@ -58,7 +58,7 @@ const orchestrateRoute = createRoute({
   },
 });
 
-app.openapi(orchestrateRoute, async (c) => {
+(app.openapi as any)(orchestrateRoute, async (c: any) => {
   const body = c.req.valid("json");
 
   try {
@@ -76,9 +76,9 @@ app.openapi(orchestrateRoute, async (c) => {
     });
 
     return c.json({
-      workflowId: instance.id,
+      workflowId: instance.id as string,
       status: "started",
-    });
+    }, 200);
   } catch (err: any) {
     console.error("[Sentinel] Failed to start StitchLoopWorkflow:", err);
     return c.json({ error: err.message || "Failed to start workflow" }, 500);

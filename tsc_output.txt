@@ -1,0 +1,150 @@
+src/ai/agents/ChatRoom/methods/messaging.ts(201,5): error TS2578: Unused '@ts-expect-error' directive.
+src/ai/agents/ChatRoom/methods/messaging.ts(225,5): error TS2578: Unused '@ts-expect-error' directive.
+src/ai/agents/DesignAgent/methods/ux-research.ts(149,21): error TS2352: Conversion of type '{ id: string; name: string; }' to type '{ projectId: string; }' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Property 'projectId' is missing in type '{ id: string; name: string; }' but required in type '{ projectId: string; }'.
+src/ai/agents/DesignAgent/methods/ux-research.ts(149,51): error TS2353: Object literal may only specify known properties, and 'name' does not exist in type 'CreateProjectParams'.
+src/ai/agents/DesignAgent/methods/ux-research.ts(221,47): error TS2353: Object literal may only specify known properties, and 'screenIds' does not exist in type 'EditScreensParams'.
+src/ai/agents/DesignAgent/todo_integration/UxResearcher.ts(10,31): error TS2307: Cannot find module '@/services/stitch/service' or its corresponding type declarations.
+src/ai/agents/EngineerAgent/index.ts(155,36): error TS2339: Property 'chatWithText' does not exist on type '{ generateText: (messages: any[], systemPrompt?: string | undefined, options?: AIOptions | undefined) => Promise<string>; streamUIMessage: (messages: any[], systemPrompt?: string | undefined, options?: AIOptions | undefined) => Promise<...>; ... 4 more ...; streamObject: <T>(messages: any[], schema: ZodType<...>, sy...'.
+src/ai/agents/EngineerAgent/index.ts(179,38): error TS2345: Argument of type 'string' is not assignable to parameter of type 'DurableObjectNamespace<Agent<Env, unknown, Record<string, unknown>>>'.
+src/ai/agents/GithubAgent/index.ts(162,29): error TS2551: Property 'stats' does not exist on type 'PersistentAgentState'. Did you mean 'status'?
+src/ai/agents/GithubAgent/index.ts(169,49): error TS2353: Object literal may only specify known properties, and 'lastUpdated' does not exist in type 'PersistentAgentState'.
+src/ai/agents/GithubAgent/index.ts(256,7): error TS2353: Object literal may only specify known properties, and 'repoFullName' does not exist in type 'PersistentAgentState'.
+src/ai/agents/GuardrailAgent/methods/evaluate.ts(120,8): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(value: { agentId: string | SQL<unknown> | Placeholder<string, any>; content: string | SQL<unknown> | Placeholder<string, any>; ruleKey: string | SQL<unknown> | Placeholder<...>; cachedAt: SQL<...> | ... 1 more ... | Placeholder<...>; updatedAt?: string | ... 2 more ... | undefined; }): SQLiteInsertBase<...>', gave the following error.
+    Type 'number' is not assignable to type 'SQL<unknown> | Date | Placeholder<string, any>'.
+  Overload 2 of 2, '(values: { agentId: string | SQL<unknown> | Placeholder<string, any>; content: string | SQL<unknown> | Placeholder<string, any>; ruleKey: string | SQL<unknown> | Placeholder<...>; cachedAt: SQL<...> | ... 1 more ... | Placeholder<...>; updatedAt?: string | ... 2 more ... | undefined; }[]): SQLiteInsertBase<...>', gave the following error.
+    Object literal may only specify known properties, and 'ruleKey' does not exist in type '{ agentId: string | SQL<unknown> | Placeholder<string, any>; content: string | SQL<unknown> | Placeholder<string, any>; ruleKey: string | SQL<unknown> | Placeholder<...>; cachedAt: SQL<...> | ... 1 more ... | Placeholder<...>; updatedAt?: string | ... 2 more ... | undefined; }[]'.
+src/ai/agents/GuardrailAgent/methods/evaluate.ts(131,11): error TS2322: Type 'number' is not assignable to type 'SQL<unknown> | Date | SQLiteColumn<ColumnBaseConfig<ColumnDataType, string>, {}, {}> | undefined'.
+src/ai/agents/OrchestratorAgent/methods/parse-request.ts(61,13): error TS2445: Property 'env' is protected and only accessible within class 'DurableObject<Env, Props>' and its subclasses.
+src/ai/agents/OrchestratorAgent/methods/parse-request.ts(62,11): error TS2445: Property 'ctx' is protected and only accessible within class 'DurableObject<Env, Props>' and its subclasses.
+src/ai/agents/OrchestratorAgent/methods/parse-request.ts(63,33): error TS2445: Property 'env' is protected and only accessible within class 'DurableObject<Env, Props>' and its subclasses.
+src/ai/agents/OrchestratorAgent/methods/parse-request.ts(63,52): error TS2339: Property 'id' does not exist on type 'OrchestratorAgent'.
+src/ai/agents/ResearchAgent/methods/discord/DiscordResearch.ts(5,8): error TS2307: Cannot find module '@/ai/agents/research/discord-shared' or its corresponding type declarations.
+src/ai/agents/WorkshopAgent/index.ts(40,51): error TS2339: Property 'activeProjectId' does not exist on type 'PersistentAgentState'.
+src/ai/agents/WorkshopAgent/UxResearcher.ts(10,31): error TS2307: Cannot find module '@/services/stitch/service' or its corresponding type declarations.
+src/ai/mcp/tools/cloudflare/stitch.ts(14,31): error TS2307: Cannot find module '@/services/stitch/service' or its corresponding type declarations.
+src/ai/mcp/tools/orchestration/index.ts(6,10): error TS2305: Module '"../stitch"' has no exported member 'StitchTool'.
+src/ai/mcp/tools/stitch/index.ts(51,5): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Type '(args: any) => Promise<{ id: string; name: string; }>' is not assignable to type 'undefined'.
+src/ai/mcp/tools/stitch/index.ts(51,21): error TS7006: Parameter 'args' implicitly has an 'any' type.
+src/ai/mcp/tools/stitch/index.ts(60,5): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Type '(args: any) => Promise<any>' is not assignable to type 'undefined'.
+src/ai/mcp/tools/stitch/index.ts(60,21): error TS7006: Parameter 'args' implicitly has an 'any' type.
+src/ai/mcp/tools/stitch/index.ts(71,5): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Type '(args: any) => Promise<any[]>' is not assignable to type 'undefined'.
+src/ai/mcp/tools/stitch/index.ts(71,21): error TS7006: Parameter 'args' implicitly has an 'any' type.
+src/ai/mcp/tools/stitch/index.ts(80,5): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Type '(args: any) => Promise<any>' is not assignable to type 'undefined'.
+src/ai/mcp/tools/stitch/index.ts(80,21): error TS7006: Parameter 'args' implicitly has an 'any' type.
+src/ai/mcp/tools/stitch/index.ts(89,5): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Type '(args: any) => Promise<any>' is not assignable to type 'undefined'.
+src/ai/mcp/tools/stitch/index.ts(89,21): error TS7006: Parameter 'args' implicitly has an 'any' type.
+src/ai/mcp/tools/stitch/index.ts(98,5): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Type '(args: any) => Promise<any>' is not assignable to type 'undefined'.
+src/ai/mcp/tools/stitch/index.ts(98,21): error TS7006: Parameter 'args' implicitly has an 'any' type.
+src/ai/mcp/tools/stitch/index.ts(107,5): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Type '(args: any) => Promise<any[]>' is not assignable to type 'undefined'.
+src/ai/mcp/tools/stitch/index.ts(107,21): error TS7006: Parameter 'args' implicitly has an 'any' type.
+src/ai/providers/index.ts(64,32): error TS2345: Argument of type '{ ctx: DurableObjectState<unknown>; env: Env; roomId: string; }' is not assignable to parameter of type 'ChatRoomDeps'.
+  Property 'broadcast' is missing in type '{ ctx: DurableObjectState<unknown>; env: Env; roomId: string; }' but required in type 'ChatRoomDeps'.
+src/ai/providers/index.ts(69,23): error TS2345: Argument of type '{ ctx: DurableObjectState<unknown>; env: Env; roomId: string; }' is not assignable to parameter of type 'ChatRoomDeps'.
+  Property 'broadcast' is missing in type '{ ctx: DurableObjectState<unknown>; env: Env; roomId: string; }' but required in type 'ChatRoomDeps'.
+src/ai/providers/vendors/anthropic.ts(15,34): error TS2307: Cannot find module '@/ai/agents/runtime/openai' or its corresponding type declarations.
+src/ai/providers/vendors/openai.ts(14,34): error TS2307: Cannot find module '@/ai/agents/runtime/openai' or its corresponding type declarations.
+src/ai/workflows/jules-stitch.ts(23,40): error TS2345: Argument of type 'Env' is not assignable to parameter of type 'DurableObjectNamespace<Agent<Env, unknown, Record<string, unknown>>>'.
+  Type 'Env' is missing the following properties from type 'DurableObjectNamespace<Agent<Env, unknown, Record<string, unknown>>>': newUniqueId, idFromName, idFromString, get, and 2 more.
+src/ai/workflows/jules-stitch.ts(30,41): error TS2345: Argument of type 'string' is not assignable to parameter of type 'DurableObjectNamespace<Agent<Env, unknown, Record<string, unknown>>>'.
+src/ai/workflows/jules-stitch.ts(34,37): error TS2345: Argument of type 'string' is not assignable to parameter of type 'DurableObjectNamespace<Agent<Env, unknown, Record<string, unknown>>>'.
+src/health/coordinator.ts(12,10): error TS2305: Module '"@/ai/providers"' has no exported member 'checkHealth'.
+src/health/coordinator.ts(27,10): error TS2305: Module '"@/ai/agents/OrchestratorAgent"' has no exported member 'checkOrchestrationHealth'.
+src/health/health-check.ts(7,10): error TS2305: Module '"@/ai/providers"' has no exported member 'checkHealth'.
+src/routes/api/agents/deep-research-chat.ts(81,49): error TS2339: Property 'DEEP_RESEARCH_CHAT_AGENT' does not exist on type 'Env'.
+src/routes/api/agents/jules.ts(109,50): error TS2339: Property 'JULES_OVERSEER' does not exist on type 'Env'.
+src/routes/api/agents/traceability.ts(98,3): error TS2345: Argument of type '(c: Context<{ Bindings: Env; }, "/guardrail/rules", {}>) => Promise<JSONRespondReturn<{ rules: { ruleKey: string; agentId: string; content: string; cachedAt: Date; updatedAt: string; }[]; }, 200>>' is not assignable to parameter of type 'Handler<{ Bindings: Env; }, "/guardrail/rules", {}, MaybePromise<TypedResponse<{ rules: { ruleKey: string; agentId: string; content: string; cachedAt: number; updatedAt: string; }[]; }, 200, "json">>>'.
+  Type 'Promise<JSONRespondReturn<{ rules: { ruleKey: string; agentId: string; content: string; cachedAt: Date; updatedAt: string; }[]; }, 200>>' is not assignable to type 'MaybePromise<TypedResponse<{ rules: { ruleKey: string; agentId: string; content: string; cachedAt: number; updatedAt: string; }[]; }, 200, "json">>'.
+    Type 'Promise<JSONRespondReturn<{ rules: { ruleKey: string; agentId: string; content: string; cachedAt: Date; updatedAt: string; }[]; }, 200>>' is not assignable to type 'Promise<TypedResponse<{ rules: { ruleKey: string; agentId: string; content: string; cachedAt: number; updatedAt: string; }[]; }, 200, "json">>'.
+      Type 'JSONRespondReturn<{ rules: { ruleKey: string; agentId: string; content: string; cachedAt: Date; updatedAt: string; }[]; }, 200>' is not assignable to type 'TypedResponse<{ rules: { ruleKey: string; agentId: string; content: string; cachedAt: number; updatedAt: string; }[]; }, 200, "json">'.
+        The types of '_data.rules' are incompatible between these types.
+          Type '{ ruleKey: string; agentId: string; content: string; cachedAt: string; updatedAt: string; }[]' is not assignable to type '{ ruleKey: string; agentId: string; content: string; cachedAt: number; updatedAt: string; }[]'.
+            Type '{ ruleKey: string; agentId: string; content: string; cachedAt: string; updatedAt: string; }' is not assignable to type '{ ruleKey: string; agentId: string; content: string; cachedAt: number; updatedAt: string; }'.
+              Types of property 'cachedAt' are incompatible.
+                Type 'string' is not assignable to type 'number'.
+src/routes/api/agents/traceability.ts(136,3): error TS2345: Argument of type '(c: Context<{ Bindings: Env; }, "/chat/subscribers", { in: { query: { roomId?: string | undefined; }; }; out: { query: { roomId?: string | undefined; }; }; }>) => Promise<JSONRespondReturn<{ subscribers: { ...; }[]; }, 200>>' is not assignable to parameter of type 'Handler<{ Bindings: Env; }, "/chat/subscribers", { in: { query: { roomId?: string | undefined; }; }; out: { query: { roomId?: string | undefined; }; }; }, MaybePromise<TypedResponse<{ subscribers: { id: string; roomId: string; agentName: string; subscribedAt: number; updatedAt: string; }[]; }, 200, "json">>>'.
+  Type 'Promise<JSONRespondReturn<{ subscribers: { id: string; roomId: string; agentName: string; subscribedAt: Date; updatedAt: string; }[]; }, 200>>' is not assignable to type 'MaybePromise<TypedResponse<{ subscribers: { id: string; roomId: string; agentName: string; subscribedAt: number; updatedAt: string; }[]; }, 200, "json">>'.
+    Type 'Promise<JSONRespondReturn<{ subscribers: { id: string; roomId: string; agentName: string; subscribedAt: Date; updatedAt: string; }[]; }, 200>>' is not assignable to type 'Promise<TypedResponse<{ subscribers: { id: string; roomId: string; agentName: string; subscribedAt: number; updatedAt: string; }[]; }, 200, "json">>'.
+      Type 'JSONRespondReturn<{ subscribers: { id: string; roomId: string; agentName: string; subscribedAt: Date; updatedAt: string; }[]; }, 200>' is not assignable to type 'TypedResponse<{ subscribers: { id: string; roomId: string; agentName: string; subscribedAt: number; updatedAt: string; }[]; }, 200, "json">'.
+        The types of '_data.subscribers' are incompatible between these types.
+          Type '{ id: string; roomId: string; agentName: string; subscribedAt: string; updatedAt: string; }[]' is not assignable to type '{ id: string; roomId: string; agentName: string; subscribedAt: number; updatedAt: string; }[]'.
+            Type '{ id: string; roomId: string; agentName: string; subscribedAt: string; updatedAt: string; }' is not assignable to type '{ id: string; roomId: string; agentName: string; subscribedAt: number; updatedAt: string; }'.
+              Types of property 'subscribedAt' are incompatible.
+                Type 'string' is not assignable to type 'number'.
+src/routes/api/cloudflare/chat.ts(81,49): error TS2551: Property 'CLOUDFLARE_DOCS_AGENT' does not exist on type 'Env'. Did you mean 'CLOUDFLARE_AGENT'?
+src/routes/api/cloudflare/docs/prompt.ts(24,36): error TS2307: Cannot find module '@/ai/agents/GuardrailAgent/todo_integration/CloudflareDocs' or its corresponding type declarations.
+src/routes/api/frontend/ai/chat.ts(177,48): error TS2551: Property 'CLOUDFLARE_DOCS_AGENT' does not exist on type 'Env'. Did you mean 'CLOUDFLARE_AGENT'?
+src/routes/api/frontend/ai/chat.ts(187,48): error TS2339: Property 'GEMINI_AGENT' does not exist on type 'Env'.
+src/routes/api/frontend/ai/chat.ts(194,48): error TS2339: Property 'GEMINI_AGENT' does not exist on type 'Env'.
+src/routes/api/frontend/research/research.ts(25,20): error TS2551: Property 'TOPIC_ORCHESTRATOR' does not exist on type 'Env'. Did you mean 'ORCHESTRATOR'?
+src/routes/api/frontend/research/research.ts(26,22): error TS2551: Property 'TOPIC_ORCHESTRATOR' does not exist on type 'Env'. Did you mean 'ORCHESTRATOR'?
+src/routes/api/jules/_shared.ts(10,12): error TS2339: Property 'JULES_OVERSEER' does not exist on type 'Env'.
+src/routes/api/jules/index.ts(206,48): error TS2339: Property 'JULES_OVERSEER' does not exist on type 'Env'.
+src/routes/api/jules/stitch.ts(25,31): error TS2307: Cannot find module '@/services/stitch/service' or its corresponding type declarations.
+src/routes/api/ops/ops.ts(93,46): error TS2339: Property 'SUPERVISOR' does not exist on type 'Env'.
+src/routes/api/ops/ops.ts(100,46): error TS2339: Property 'SUPERVISOR' does not exist on type 'Env'.
+src/routes/api/ops/ops.ts(107,46): error TS2339: Property 'SUPERVISOR' does not exist on type 'Env'.
+src/routes/api/planning.ts(361,44): error TS2551: Property 'PLANNING_ORCHESTRATOR_AGENT' does not exist on type 'Env'. Did you mean 'PLANNING_ORCHESTRATOR'?
+src/routes/api/projects/sentinel/submit.ts(83,19): error TS2339: Property 'JUDGE_AGENT' does not exist on type 'Env'.
+src/routes/api/projects/sentinel/submit.ts(84,26): error TS2339: Property 'JUDGE_AGENT' does not exist on type 'Env'.
+src/routes/api/sandbox.ts(305,59): error TS2339: Property 'SANDBOX_AGENT' does not exist on type 'Env'.
+src/routes/api/sentinel/tasks.ts(201,46): error TS2339: Property 'JUDGE_AGENT' does not exist on type 'Env'.
+src/routes/api/webhooks/index.ts(232,29): error TS2339: Property 'REPO_AGENT' does not exist on type 'Env'.
+src/routes/api/webhooks/index.ts(236,52): error TS2339: Property 'REPO_AGENT' does not exist on type 'Env'.
+src/routes/api/webhooks/index.ts(246,13): error TS2339: Property 'OWNER_AGENT' does not exist on type 'Env'.
+src/routes/api/webhooks/index.ts(255,52): error TS2339: Property 'OWNER_AGENT' does not exist on type 'Env'.
+src/routes/api/webhooks/jules.ts(190,50): error TS2339: Property 'JULES_OVERSEER' does not exist on type 'Env'.
+src/services/jules/methods/mcp.ts(62,24): error TS2339: Property 'execute' does not exist on type 'MCPTool'.
+src/services/jules/methods/mcp.ts(63,27): error TS2339: Property 'execute' does not exist on type 'MCPTool'.
+src/utils/secrets.ts(24,43): error TS2345: Argument of type 'KVNamespace<string>' is not assignable to parameter of type 'Env'.
+  Type 'KVNamespace<string>' is missing the following properties from type 'Env': ETAG_KV, COMMENTS_KV, AGENT_CACHE, KV_CONFIGS, and 102 more.
+src/workflows/planning/health.ts(125,14): error TS2339: Property 'PLANNER' does not exist on type 'Env'.
+src/workflows/planning/health.ts(129,32): error TS2339: Property 'PLANNER' does not exist on type 'Env'.
+src/workflows/planning/orchestrator.ts(163,42): error TS2339: Property 'PLANNING_SUPERVISOR' does not exist on type 'Env'.
+src/workflows/planning/orchestrator.ts(178,42): error TS2551: Property 'PLANNING_ORCHESTRATOR_AGENT' does not exist on type 'Env'. Did you mean 'PLANNING_ORCHESTRATOR'?
+src/workflows/planning/stitch-loop.ts(19,15): error TS2305: Module '"@services/stitch"' has no exported member 'StitchLoopParams'.
+src/workflows/planning/stitch-loop.ts(66,54): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/workflows/planning/stitch-loop.ts(66,57): error TS7006: Parameter 'i' implicitly has an 'any' type.
+src/workflows/planning/stitch-loop.ts(99,37): error TS2339: Property 'generateScreen' does not exist on type 'StitchService'.
+src/workflows/research/discord.ts(10,8): error TS2307: Cannot find module '@/ai/agents/research/discord-shared' or its corresponding type declarations.
+src/workflows/research/discord.ts(40,17): error TS7006: Parameter 'match' implicitly has an 'any' type.
+src/workflows/research/discord.ts(40,24): error TS7006: Parameter 'index' implicitly has an 'any' type.
+src/workflows/research/orchestrator.ts(14,80): error TS2307: Cannot find module '@/ai/agents/runtime/workflows' or its corresponding type declarations.
+src/workflows/research/orchestrator.ts(38,41): error TS2307: Cannot find module '@/ai/agents/runtime/openai' or its corresponding type declarations.
+src/workflows/research/orchestrator.ts(45,17): error TS2339: Property 'env' does not exist on type 'ResearchOrchestrator'.
+src/workflows/research/orchestrator.ts(60,29): error TS2339: Property 'env' does not exist on type 'ResearchOrchestrator'.
+src/workflows/research/orchestrator.ts(77,16): error TS2339: Property 'reportProgress' does not exist on type 'ResearchOrchestrator'.
+src/workflows/research/orchestrator.ts(135,29): error TS2339: Property 'env' does not exist on type 'ResearchOrchestrator'.
+src/workflows/research/orchestrator.ts(162,31): error TS2339: Property 'env' does not exist on type 'ResearchOrchestrator'.
+src/workflows/research/orchestrator.ts(169,18): error TS2339: Property 'reportProgress' does not exist on type 'ResearchOrchestrator'.
+src/workflows/research/orchestrator.ts(178,35): error TS2339: Property 'waitForApproval' does not exist on type 'ResearchOrchestrator'.
+src/workflows/research/orchestrator.ts(187,29): error TS2339: Property 'env' does not exist on type 'ResearchOrchestrator'.
+src/workflows/research/orchestrator.ts(194,16): error TS2339: Property 'reportProgress' does not exist on type 'ResearchOrchestrator'.
+src/workflows/research/orchestrator.ts(199,54): error TS7006: Parameter 'candidate' implicitly has an 'any' type.
+src/workflows/research/orchestrator.ts(207,16): error TS2339: Property 'reportProgress' does not exist on type 'ResearchOrchestrator'.
+src/workflows/research/orchestrator.ts(212,49): error TS7006: Parameter 'analysis' implicitly has an 'any' type.
+src/workflows/research/orchestrator.ts(224,39): error TS2339: Property 'env' does not exist on type 'ResearchOrchestrator'.
+src/workflows/research/orchestrator.ts(229,20): error TS2339: Property 'env' does not exist on type 'ResearchOrchestrator'.
+src/workflows/research/orchestrator.ts(247,29): error TS2339: Property 'env' does not exist on type 'ResearchOrchestrator'.
+src/workflows/research/orchestrator.ts(274,45): error TS2339: Property 'env' does not exist on type 'ResearchOrchestrator'.
+src/workflows/research/orchestrator.ts(301,33): error TS2339: Property 'env' does not exist on type 'ResearchOrchestrator'.
+src/workflows/research/orchestrator.ts(326,27): error TS2339: Property 'env' does not exist on type 'ResearchOrchestrator'.
+src/workflows/research/orchestrator.ts(350,33): error TS2339: Property 'env' does not exist on type 'ResearchOrchestrator'.
+src/workflows/research/orchestrator.ts(371,27): error TS2339: Property 'env' does not exist on type 'ResearchOrchestrator'.
+src/workflows/research/topic.ts(23,57): error TS2551: Property 'WEB_SEARCH_AGENT' does not exist on type 'Env'. Did you mean 'RESEARCH_AGENT'?
+src/workflows/research/topic.ts(39,57): error TS2339: Property 'JUDGE_AGENT' does not exist on type 'Env'.

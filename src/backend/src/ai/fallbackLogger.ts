@@ -11,6 +11,7 @@ import { FallbackAlert } from "./providers";
 import { drizzle } from "drizzle-orm/d1";
 import { requestLogs } from "@db/schema";
 import { Context } from "hono";
+import { Logger } from "@/lib/logger";
 
 /**
  * Creates an `onFallback` handler for the AI subsystem.
@@ -48,8 +49,9 @@ export function createFallbackHandler(c: Context<any>) {
               ...alert
             })
           });
-        } catch (e) {
-          console.error("Failed to write AI fallback D1 log", e);
+        } catch (err: any) {
+          const logger = new Logger(c.env, "FallbackLogger");
+          logger.error("Failed to write AI fallback D1 log", { error: String(err) });
         }
       })()
     );

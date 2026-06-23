@@ -7,3 +7,5 @@
 
 export * from './openai/chat';
 export * from './openai/agent';
+export * from './openai/agent-sdk-helpers';
+export * from './vercel';

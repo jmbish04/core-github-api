@@ -13,10 +13,10 @@ const schema = z.object({
 });
 
 app.post("/", zValidator("json", schema), async (c) => {
-  const { prompt, documentId, accessToken } = c.req.valid("json");
+  const { prompt, documentId } = c.req.valid("json");
   
   try {
-    const docText = await fetchGoogleDoc(c.env, documentId, accessToken);
+    const docText = await fetchGoogleDoc(c.env, documentId);
     const enrichedPrompt = `${prompt}\n\nDocument Constraints:\n${docText}`;
 
     const builder = new JulesSessionBuilder(c.env)

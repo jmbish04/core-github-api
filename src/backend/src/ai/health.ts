@@ -1,74 +1,61 @@
 /**
  * AI Domain Health & Diagnostic Suite
- * 
- * This module provides comprehensive health checks for the AI subsystem, 
- * covering text generation, structured output, embeddings, and cross-provider 
- * connectivity via AI Gateway.
- * 
+ *
+ * Validates core Workers AI functionality via the NATIVE env.AI binding:
+ * text generation, structured output, and embeddings.
+ *
+ * Gateway-level multi-provider probes are handled by `ai-gateway/health.ts`.
+ * This check intentionally bypasses the gateway to isolate Workers AI binding health.
+ *
+ * All sub-checks run in PARALLEL to fit within the coordinator's 8s timeout.
+ *
  * @module AI/Health
  */
-import { generateText, generateStructuredResponse, generateEmbedding } from "@/ai/providers";
-import { z } from "zod";
-import { AIGateway } from "./providers/ai-gateway";
 import { cleanJsonOutput, sanitizeAndFormatResponse } from "./utils/sanitizer";
-import { analyzeFailure } from "./utils/diagnostician";
 import { HealthStepResult } from "@/health/types";
-import { getGeminiApiKey, getOpenaiApiKey } from "@utils/secrets";
-import { verifyCloudflareTokens } from "@utils/cloudflare/tokens";
 
-// Checks whose failure is only a WARNING (not a hard system failure).
-// These are paid third-party providers routed through AI Gateway.
-const GATEWAY_WARNING_ONLY_CHECKS = new Set(['gemini', 'geminiRaw', 'openai', 'openaiRaw', 'anthropic', 'anthropicRaw']);
+interface SubCheck {
+    status: 'OK' | 'FAILURE' | 'SKIPPED';
+    latency?: number;
+    error?: string;
+    [key: string]: any;
+}
 
 /**
- * Performs a deep health check of all AI domain components.
- * 
+ * Runs a check safely and returns a SubCheck result.
+ */
+async function safeRun(name: string, fn: () => Promise<Record<string, any>>): Promise<[string, SubCheck]> {
+    const checkStart = Date.now();
+    try {
+        const result = await fn();
+        return [name, { status: 'OK', latency: Date.now() - checkStart, ...result }];
+    } catch (e: any) {
+        return [name, {
+            status: 'FAILURE',
+            latency: Date.now() - checkStart,
+            error: e instanceof Error ? e.message : String(e),
+            errorName: e?.name || 'Error',
+        }];
+    }
+}
+
+/**
+ * Performs a focused health check of the AI subsystem using NATIVE env.AI binding.
+ *
  * Validates:
- * 1. Synchronous utility performance (Sanitizers).
- * 2. Asynchronous API connectivity (Workers AI, Gemini, OpenAI).
- * 3. AI Gateway authorization and token validity.
- * 4. Structured data integrity (JSON schema adherence).
- * 5. Self-diagnostic capabilities.
- * 
- * @param env - Cloudflare Environment bindings.
- * @returns A structured HealthStepResult containing granular check statuses.
- * @agent-note This is the primary diagnostic entry point for AI-related incidents.
+ * 1. Sanitizer utilities (synchronous, fast).
+ * 2. Text generation via env.AI.run() (Workers AI native, no gateway).
+ * 3. Structured output via env.AI.run() (Workers AI native, no gateway).
+ * 4. Embeddings generation via env.AI.run() (Workers AI native, no gateway).
+ *
+ * Gateway-specific multi-provider probes (Gemini, OpenAI, Anthropic) are handled
+ * by the separate `checkAIGatewayHealth` check to avoid redundancy.
  */
 export async function checkHealth(env: Env): Promise<HealthStepResult> {
     const start = Date.now();
-    const subChecks: Record<string, any> = {};
 
-    // Helper to run a check safely
-    const runCheck = async (name: string, fn: () => Promise<any>) => {
-        const checkStart = Date.now();
-        try {
-            const result = await fn();
-            subChecks[name] = { status: "OK", latency: Date.now() - checkStart, ...result };
-        } catch (e: any) {
-            let errorDetails = e instanceof Error ? e.message : String(e);
-            
-            // Try to extract nested JSON if the error string is JSON
-            try {
-                if (errorDetails.startsWith('{') && errorDetails.includes('"error"')) {
-                    const parsed = JSON.parse(errorDetails);
-                    errorDetails = JSON.stringify(parsed, null, 2);
-                }
-            } catch (err) {
-                console.error("Failed to parse error details", err);
-            }
-
-            subChecks[name] = {
-                status: "FAILURE",
-                latency: Date.now() - checkStart,
-                error: errorDetails,
-                errorName: e?.name || "Error",
-                stack: e?.stack,
-                details: e?.details || e?.cause || undefined
-            };
-        }
-    };
-
-    // --- 1. Test Sanitizers (Fast, Synchronous) ---
+    // --- 1. Sanitizer (Synchronous — always fast) ---
+    let sanitizerCheck: [string, SubCheck];
     try {
         const dirtyJson = '```json\n{"status": "ok"}\n```';
         const cleanJson = cleanJsonOutput(dirtyJson);
@@ -81,393 +68,98 @@ export async function checkHealth(env: Env): Promise<HealthStepResult> {
         if (!html.includes("<strong>Bold</strong>") || !html.includes("<code>code</code>")) {
             throw new Error(`sanitizeAndFormatResponse failed. Got: ${html}`);
         }
-        subChecks.sanitizer = { status: "OK" };
-    } catch (e) {
-        subChecks.sanitizer = { status: "FAILURE", error: e instanceof Error ? e.message : String(e) };
+        sanitizerCheck = ['sanitizer', { status: 'OK', latency: 0 }];
+    } catch (e: any) {
+        sanitizerCheck = ['sanitizer', { status: 'FAILURE', error: e.message }];
     }
 
-    // --- 2. Test Text Generation (GPT-OSS-120B) ---
+    // --- 2-4. Async checks in PARALLEL (Native env.AI binding — bypasses gateway) ---
     if (!env.AI) {
-        subChecks.generateText = { status: "SKIPPED", reason: "env.AI binding missing" };
-    } else {
-        await runCheck("generateText", async () => {
-            const response = await generateText(env, "Reply with exactly: Pong");
-            if (!response || response.trim().length === 0) {
-                throw new Error("Empty response");
-            }
-            return { sample: response.substring(0, 50) };
-        });
-    }
-
-    // --- 3. Test Structured Output (GPT-OSS → Llama 3.3) ---
-    if (!env.AI) {
-        subChecks.generateStructured = { status: "SKIPPED", reason: "env.AI binding missing" };
-    } else {
-        await runCheck("generateStructured", async () => {
-            const schema = z.object({
-                message: z.string(),
-                number: z.number()
-            });
-
-            // Use a clear, unambiguous prompt
-            const result = await generateStructuredResponse<{ message: string; number: number }>(
-                env,
-                "Generate a test response with message='hello' and number=42",
-                schema,
-                undefined,
-                { effort: "low" }
-            );
-
-            if (!result.message || typeof result.number !== 'number') {
-                throw new Error(`Invalid response: ${JSON.stringify(result)}`);
-            }
-            return { response: result };
-        });
-    }
-
-    // --- 4. Test Embeddings ---
-    if (!env.AI) {
-        subChecks.generateEmbedding = { status: "SKIPPED", reason: "env.AI binding missing" };
-    } else {
-        await runCheck("generateEmbedding", async () => {
-            const vector = await generateEmbedding(env, "Health check embedding test");
-            if (!Array.isArray(vector) || vector.length === 0) {
-                throw new Error("Invalid vector returned");
-            }
-            return { dimensions: vector.length };
-        });
-    }
-
-    // --- 5. Test AI Gateway Configuration ---
-    // First verify all required env vars are present
-    const aigEnvCheck: Record<string, boolean> = {
-        CLOUDFLARE_ACCOUNT_ID: !!env.CLOUDFLARE_ACCOUNT_ID,
-        AI_GATEWAY_NAME: !!env.AI_GATEWAY_NAME,
-        AI_GATEWAY_TOKEN: !!env.AI_GATEWAY_TOKEN,
-        GEMINI_API_KEY: !!(await getGeminiApiKey(env)),
-        OPENAI_API_KEY: !!(await getOpenaiApiKey(env))
-    };
-
-    const missingEnvVars = Object.entries(aigEnvCheck)
-        .filter(([_, present]) => !present)
-        .map(([name, _]) => name);
-
-    if (missingEnvVars.length > 0) {
-        subChecks.aiGatewayConfig = {
-            status: "FAILURE",
-            error: `Missing env vars: ${missingEnvVars.join(", ")}`,
-            envCheck: aigEnvCheck
+        return {
+            name: 'AI Domain',
+            status: 'failure',
+            message: 'env.AI binding missing — Workers AI unavailable',
+            durationMs: Date.now() - start,
+            details: {
+                sanitizer: sanitizerCheck[1],
+                generateText: { status: 'SKIPPED', reason: 'env.AI binding missing' },
+                generateStructured: { status: 'SKIPPED', reason: 'env.AI binding missing' },
+                generateEmbedding: { status: 'SKIPPED', reason: 'env.AI binding missing' },
+            },
         };
-    } else {
-        subChecks.aiGatewayConfig = { status: "OK", envCheck: aigEnvCheck };
     }
 
-    // --- 5b. Verify AI Gateway Token is Active ---
-    if (env.CLOUDFLARE_ACCOUNT_ID && env.AI_GATEWAY_TOKEN) {
-        await runCheck("aiGatewayToken", async () => {
-            const accountId = (typeof env.CLOUDFLARE_ACCOUNT_ID === 'object' && env.CLOUDFLARE_ACCOUNT_ID !== null && 'get' in env.CLOUDFLARE_ACCOUNT_ID ? await env.CLOUDFLARE_ACCOUNT_ID.get() : env.CLOUDFLARE_ACCOUNT_ID) as string;
-            if (!accountId) throw new Error("CLOUDFLARE_ACCOUNT_ID is required for token verification");
+    const TEXT_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
+    const EMBEDDING_MODEL = '@cf/baai/bge-large-en-v1.5';
 
-            const token = (typeof env.AI_GATEWAY_TOKEN === 'object' && env.AI_GATEWAY_TOKEN !== null && 'get' in env.AI_GATEWAY_TOKEN ? await env.AI_GATEWAY_TOKEN.get() : env.AI_GATEWAY_TOKEN) as string;
-            const gatewayName = env.AI_GATEWAY_NAME || "core-github-api";
-            
-            if (!token) throw new Error(`AI_GATEWAY_TOKEN is empty. Gateway Config: { name: "${gatewayName}", tokenName: "AI_GATEWAY_TOKEN" }`);
-            
-            // Re-use our Cloudflare Token Verification Utility (Prioritizes Account, then User)
-            const verifyResult = await verifyCloudflareTokens(token, accountId, "AI_GATEWAY_TOKEN");
-            
-            if (!verifyResult.passed) {
-                const sdkErrors = verifyResult.details?.user?.errors || verifyResult.details?.account?.errors || [];
-                throw new Error(`Token verification failed against Account & User endpoints. Gateway Config: { name: "${gatewayName}", tokenName: "AI_GATEWAY_TOKEN" }\nSDK Errors: ${JSON.stringify(sdkErrors)}`);
-            }
-
-            return {
-                tokenStatus: "active",
-                message: `${verifyResult.detectedType} Token Active`,
-                type: verifyResult.detectedType
-            };
-        });
-    } else {
-        subChecks.aiGatewayToken = { status: "SKIPPED", reason: "Missing required env vars" };
-    }
-
-    // --- 5c. Test Gemini (SDK) ---
-    const geminiKey = await getGeminiApiKey(env);
-    const hasGeminiAccess = !!(geminiKey || env.AI_GATEWAY_TOKEN);
-    if (!hasGeminiAccess) {
-        subChecks.gemini = { status: "SKIPPED", reason: "Missing GEMINI_API_KEY and AI_GATEWAY_TOKEN" };
-    } else {
-        await runCheck("gemini", async () => {
-            const response = await generateText(env, "Reply with: Pong", "You are a ping bot.", { model: "gemini-2.5-flash" }, "gemini");
-            if (!response.toLowerCase().includes("pong")) {
-                throw new Error(`Unexpected response: ${response.substring(0, 100)}`);
-            }
-            return { sample: response.substring(0, 50) };
-        });
-    }
-
-    // --- 5d. Test Gemini (Raw Fetch via Custom Router) ---
-    if (!hasGeminiAccess || !env.CLOUDFLARE_ACCOUNT_ID) {
-        subChecks.geminiRaw = { status: "SKIPPED", reason: "Missing Env Vars" };
-    } else {
-        await runCheck("geminiRaw", async () => {
-            const model = "gemini-2.5-flash";
-            // Do not pass apiVersion, let getBaseUrl infer it from 'model' length
-            const { baseUrl: url } = await AIGateway.getBaseUrl(env, { provider: "gemini" });
-
-            const payload = {
-                contents: [
-                    {
-                        role: "user",
-                        parts: [{ text: "Reply with: Pong" }]
-                    }
-                ]
-            };
-
-            const gatewayToken = typeof env.AI_GATEWAY_TOKEN === 'object' && env.AI_GATEWAY_TOKEN !== null && 'get' in env.AI_GATEWAY_TOKEN ? await env.AI_GATEWAY_TOKEN.get() : env.AI_GATEWAY_TOKEN as string;
-            const gatewayName = env.AI_GATEWAY_NAME || "core-github-api";
-
-            if (!gatewayToken) throw new Error(`AI_GATEWAY_TOKEN is empty. Gateway Config: { name: "${gatewayName}" }`);
-
-            // When AI Gateway has provider keys configured, only cf-aig-authorization is needed
-            const headers: Record<string, string> = {
-                "Content-Type": "application/json",
-                "cf-aig-authorization": `Bearer ${gatewayToken}`,
-            };
-
-            // BYOK: only cf-aig-authorization is needed; gateway injects the stored provider key
-            const response = await fetch(`${url}/v1beta/models/${model}:generateContent`, {
-                method: "POST",
-                headers,
-                body: JSON.stringify(payload)
+    const asyncChecks = await Promise.all([
+        // Text generation — native env.AI.run() to isolate from gateway auth
+        safeRun('generateText', async () => {
+            const response = await env.AI.run(TEXT_MODEL as any, {
+                messages: [
+                    { role: 'system', content: 'Reply with exactly the word requested.' },
+                    { role: 'user', content: 'Reply with exactly: Pong' },
+                ],
+                max_tokens: 10,
             });
-
-            if (!response.ok) {
-                const text = await response.text();
-                throw new Error(`HTTP ${response.status}: ${text}. Gateway Config: { name: "${gatewayName}" }`);
+            const text = (response as any)?.response || '';
+            if (!text || text.trim().length === 0) {
+                throw new Error("Empty response from env.AI.run()");
             }
+            return { sample: text.substring(0, 50), model: TEXT_MODEL };
+        }),
 
-            const data = await response.json() as any;
-            const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-            if (!text.toLowerCase().includes("pong")) {
-                throw new Error(`Unexpected Raw response: ${JSON.stringify(data).substring(0, 200)}`);
-            }
-            return { success: true, model: model };
-        });
-    }
-
-    // --- 5e. Test OpenAI (SDK) ---
-    const openaiKey = await getOpenaiApiKey(env);
-    const hasOpenAIAccess = !!(openaiKey || env.AI_GATEWAY_TOKEN);
-    if (!hasOpenAIAccess) {
-        subChecks.openai = { status: "SKIPPED", reason: "Missing OPENAI_API_KEY and AI_GATEWAY_TOKEN" };
-    } else {
-        await runCheck("openai", async () => {
-            const response = await generateText(env, "Reply with: Pong", "You are a ping bot.", { model: "gpt-4o-mini" }, "openai");
-            if (!response.toLowerCase().includes("pong")) {
-                throw new Error(`Unexpected response: ${response.substring(0, 100)}`);
-            }
-            return { sample: response.substring(0, 50) };
-        });
-    }
-
-    // --- 5f. Test OpenAI (Raw Fetch) ---
-    if (!hasOpenAIAccess || !env.CLOUDFLARE_ACCOUNT_ID) {
-        subChecks.openaiRaw = { status: "SKIPPED", reason: "Missing Env Vars" };
-    } else {
-        await runCheck("openaiRaw", async () => {
-            const model = "gpt-4o-mini";
-            const { baseUrl: url } = await AIGateway.getBaseUrl(env, { provider: "openai" });
-
-            const payload = {
-                model: model,
-                messages: [{ role: "user", content: "Reply with: Pong" }]
-            };
-
-            const gatewayToken = typeof env.AI_GATEWAY_TOKEN === 'object' && env.AI_GATEWAY_TOKEN !== null && 'get' in env.AI_GATEWAY_TOKEN ? await env.AI_GATEWAY_TOKEN.get() : env.AI_GATEWAY_TOKEN as string;
-            const gatewayName = env.AI_GATEWAY_NAME || "core-github-api";
-
-            if (!gatewayToken) throw new Error(`AI_GATEWAY_TOKEN is empty. Gateway Config: { name: "${gatewayName}" }`);
-
-            // BYOK: only cf-aig-authorization is needed; gateway injects the stored provider key
-            const response = await fetch(`${url}/chat/completions`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "cf-aig-authorization": `Bearer ${gatewayToken}`,
-                },
-                body: JSON.stringify(payload)
+        // Structured output — native env.AI.run() with response_format
+        safeRun('generateStructured', async () => {
+            const response = await env.AI.run(TEXT_MODEL as any, {
+                messages: [
+                    { role: 'system', content: 'You output valid JSON only. No markdown.' },
+                    { role: 'user', content: 'Generate JSON with message="hello" and number=42' },
+                ],
+                max_tokens: 100,
             });
-
-            if (!response.ok) {
-                const text = await response.text();
-                throw new Error(`HTTP ${response.status}: ${text}. Gateway Config: { name: "${gatewayName}" }`);
+            const text = (response as any)?.response || '';
+            if (!text || text.trim().length === 0) {
+                throw new Error("Empty response from env.AI.run()");
             }
+            // Attempt to parse as JSON to validate structured capability
+            const parsed = JSON.parse(cleanJsonOutput(text));
+            return { response: parsed, model: TEXT_MODEL };
+        }),
 
-            const data = await response.json() as any;
-            const text = data?.choices?.[0]?.message?.content || "";
-            if (!text.toLowerCase().includes("pong")) {
-                throw new Error(`Unexpected Raw response: ${JSON.stringify(data).substring(0, 200)}`);
+        // Embeddings — native env.AI.run()
+        safeRun('generateEmbedding', async () => {
+            const response = await env.AI.run(EMBEDDING_MODEL as any, { text: ["Health check embedding test"] });
+            const vector = (response as any)?.data?.[0];
+            if (!Array.isArray(vector) || vector.length === 0) {
+                throw new Error("Invalid vector returned from env.AI.run()");
             }
-            return { success: true, model: model };
-        });
-    }
+            return { dimensions: vector.length, model: EMBEDDING_MODEL };
+        }),
+    ]);
 
-
-    // --- 5g. Test Anthropic (Raw Fetch via Gateway) ---
-    if (!env.CLOUDFLARE_ACCOUNT_ID || !env.AI_GATEWAY_TOKEN) {
-        subChecks.anthropicRaw = { status: "SKIPPED", reason: "Missing CLOUDFLARE_ACCOUNT_ID or AI_GATEWAY_TOKEN" };
-    } else {
-        await runCheck("anthropicRaw", async () => {
-            const model = "claude-3-5-haiku-latest";
-            const { baseUrl: url } = await AIGateway.getBaseUrl(env, { provider: "anthropic" });
-
-            const gatewayToken = typeof env.AI_GATEWAY_TOKEN === 'object' && env.AI_GATEWAY_TOKEN !== null && 'get' in env.AI_GATEWAY_TOKEN ? await env.AI_GATEWAY_TOKEN.get() : env.AI_GATEWAY_TOKEN as string;
-            const gatewayName = env.AI_GATEWAY_NAME || "core-github-api";
-
-            if (!gatewayToken) throw new Error(`AI_GATEWAY_TOKEN is empty. Gateway Config: { name: "${gatewayName}" }`);
-
-            // BYOK: Anthropic via gateway uses OpenAI-compatible /chat/completions.
-            const response = await fetch(`${url}/chat/completions`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "cf-aig-authorization": `Bearer ${gatewayToken}`,
-                },
-                body: JSON.stringify({
-                    model: `anthropic/${model}`,
-                    messages: [{ role: "user", content: "Reply with: Pong" }],
-                    max_tokens: 20,
-                }),
-                signal: AbortSignal.timeout(20_000),
-            });
-
-            if (!response.ok) {
-                const text = await response.text();
-                throw new Error(`HTTP ${response.status}: ${text.slice(0, 300)}. Gateway Config: { name: "${gatewayName}" }`);
-            }
-
-            const data = await response.json() as any;
-            const text = data?.choices?.[0]?.message?.content || "";
-            if (!text.toLowerCase().includes("pong")) {
-                throw new Error(`Unexpected response: ${JSON.stringify(data).substring(0, 200)}`);
-            }
-            return { success: true, model };
-        });
-    }
-
-    // --- 5h. Test Workers AI (Raw Fetch via Gateway) ---
-    if (!env.CLOUDFLARE_ACCOUNT_ID || !env.AI_GATEWAY_TOKEN) {
-        subChecks.workersAiRaw = { status: "SKIPPED", reason: "Missing CLOUDFLARE_ACCOUNT_ID or AI_GATEWAY_TOKEN" };
-    } else {
-        await runCheck("workersAiRaw", async () => {
-            const model = "@cf/meta/llama-3.1-8b-instruct";
-            const { baseUrl: url } = await AIGateway.getBaseUrl(env, { provider: "workers-ai" });
-
-            const gatewayToken = typeof env.AI_GATEWAY_TOKEN === 'object' && env.AI_GATEWAY_TOKEN !== null && 'get' in env.AI_GATEWAY_TOKEN ? await env.AI_GATEWAY_TOKEN.get() : env.AI_GATEWAY_TOKEN as string;
-            const gatewayName = env.AI_GATEWAY_NAME || "core-github-api";
-
-            if (!gatewayToken) throw new Error(`AI_GATEWAY_TOKEN is empty. Gateway Config: { name: "${gatewayName}" }`);
-
-            const response = await fetch(`${url}/chat/completions`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "cf-aig-authorization": `Bearer ${gatewayToken}`,
-                },
-                body: JSON.stringify({
-                    model,
-                    messages: [{ role: "user", content: "Reply with: Pong" }],
-                    max_tokens: 20,
-                }),
-                signal: AbortSignal.timeout(15_000),
-            });
-
-            if (!response.ok) {
-                const text = await response.text();
-                throw new Error(`HTTP ${response.status}: ${text.slice(0, 300)}. Gateway Config: { name: "${gatewayName}" }`);
-            }
-
-            const data = await response.json() as any;
-            const text = data?.choices?.[0]?.message?.content || "";
-            if (!text.toLowerCase().includes("pong")) {
-                throw new Error(`Unexpected response: ${JSON.stringify(data).substring(0, 200)}`);
-            }
-            return { success: true, model };
-        });
-    }
-
-    // --- 6. Test Diagnostician (Self-Test) ---
-    if (!env.AI) {
-        subChecks.diagnostician = { status: "SKIPPED", reason: "env.AI binding missing" };
-    } else {
-        await runCheck("diagnostician", async () => {
-            // Call diagnostician with mock failure data
-            const mockAnalysis = await analyzeFailure(
-                env,
-                "Mock Test Step",
-                "This is a mock error for testing the diagnostician",
-                { testKey: "testValue", status: "FAILURE" },
-                { reasoningEffort: "low" }
-            );
-
-            if (!mockAnalysis) {
-                throw new Error("Diagnostician returned null");
-            }
-            if (!mockAnalysis.rootCause || !mockAnalysis.suggestedFix) {
-                throw new Error(`Incomplete analysis: ${JSON.stringify(mockAnalysis)}`);
-            }
-            // Verify it echoed back context
-            if (mockAnalysis.providedContext?.stepName === "Unknown") {
-                throw new Error("Diagnostician failed to capture input context");
-            }
-            return {
-                rootCause: mockAnalysis.rootCause.substring(0, 100),
-                confidence: mockAnalysis.confidence
-            };
-        });
+    // --- Assemble results ---
+    const subChecks: Record<string, SubCheck> = {};
+    subChecks[sanitizerCheck[0]] = sanitizerCheck[1];
+    for (const [name, result] of asyncChecks) {
+        subChecks[name] = result;
     }
 
     // --- Determine Overall Status ---
-    // Paid provider gateway checks (gemini, openai, anthropic) are warnings only.
-    // Core checks (sanitizer, generateText, generateStructured, etc.) are hard failures.
-    const allChecks = Object.values(subChecks);
-    const allSkipped = allChecks.every((c: any) => c.status === "SKIPPED");
-
-    const hardFailedChecks = Object.entries(subChecks)
-        .filter(([k, v]: [string, any]) => v.status === "FAILURE" && !GATEWAY_WARNING_ONLY_CHECKS.has(k))
+    const failedChecks = Object.entries(subChecks)
+        .filter(([, v]) => v.status === 'FAILURE')
         .map(([k]) => k);
 
-    const warnChecks = Object.entries(subChecks)
-        .filter(([k, v]: [string, any]) => {
-            if (v.status !== "FAILURE") return false;
-            // Treat quota/credit errors as SKIPPED instead of warnings so the health check is clean
-            if (v.error && (v.error.includes('insufficient_quota') || v.error.includes('credit balance is too low') || v.error.includes('429'))) {
-                v.status = "SKIPPED";
-                v.reason = "Quota exceeded";
-                return false;
-            }
-            return GATEWAY_WARNING_ONLY_CHECKS.has(k);
-        })
-        .map(([k]) => k);
-
-    let overallStatus: 'success' | 'failure' = 'success';
-    let message = "All AI subsystems operational";
-
-    if (hardFailedChecks.length > 0) {
-        overallStatus = 'failure';
-        message = `Failed: ${hardFailedChecks.join(", ")}${warnChecks.length > 0 ? ` | Warnings: ${warnChecks.join(", ")}` : ''}`;
-    } else if (warnChecks.length > 0) {
-        message = `Operational with paid-provider warnings: ${warnChecks.join(", ")}`;
-    } else if (allSkipped) {
-        message = "All checks skipped (bindings missing)";
-    }
+    const overallStatus: 'success' | 'failure' = failedChecks.length > 0 ? 'failure' : 'success';
+    const message = failedChecks.length > 0
+        ? `Failed: ${failedChecks.join(', ')}`
+        : 'All AI subsystems operational';
 
     return {
-        name: "AI Domain",
+        name: 'AI Domain',
         status: overallStatus,
         message,
         durationMs: Date.now() - start,
-        details: subChecks
+        details: subChecks,
     };
 }

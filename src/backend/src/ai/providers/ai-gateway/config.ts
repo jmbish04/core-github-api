@@ -17,7 +17,11 @@ export type SupportedProvider =
   | 'openai'
   | 'gemini'
   | 'google-ai-studio'
+  | 'jules'
   | 'anthropic';
+
+/** Use case for capability-based model resolution. */
+export type ModelUseCase = 'text' | 'structured' | 'vision' | 'embeddings' | 'functions';
 
 /** Default fallback provider. */
 export const DEFAULT_AI_PROVIDER: SupportedProvider = 'worker-ai';
@@ -67,6 +71,9 @@ export function normalizeProvider(provider?: string): SupportedProvider {
   if (normalized === 'gemini' || normalized === 'google' || normalized === 'google-ai-studio') {
     return 'gemini';
   }
+  if (normalized === 'jules') {
+    return 'jules';
+  }
   if (normalized === 'anthropic') {
     return 'anthropic';
   }
@@ -89,48 +96,106 @@ export function resolveDefaultAiProvider(env: Partial<Env>): SupportedProvider {
 }
 
 /**
- * Resolves the default AI model for a given provider or environment.
- * Handles provider-specific model defaults if not explicitly configured in `env`.
- * 
+ * Default model matrix — maps each provider × use case to the optimal model.
+ */
+const MODEL_MATRIX: Record<string, Record<ModelUseCase, string>> = {
+  'worker-ai': {
+    text: '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
+    structured: '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
+    functions: '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
+    vision: '@cf/llava-hf/llava-1.5-7b-hf',
+    embeddings: '@cf/baai/bge-base-en-v1.5',
+  },
+  'openai': {
+    text: 'gpt-4o',
+    structured: 'gpt-4o',
+    functions: 'gpt-4o',
+    vision: 'gpt-4o',
+    embeddings: 'text-embedding-3-small',
+  },
+  'gemini': {
+    text: 'gemini-2.5-flash',
+    structured: 'gemini-2.5-flash',
+    functions: 'gemini-2.5-flash',
+    vision: 'gemini-2.5-flash',
+    embeddings: 'text-embedding-004',
+  },
+  'anthropic': {
+    text: 'claude-4-5-sonnet-latest',
+    structured: 'claude-4-5-sonnet-latest',
+    functions: 'claude-4-5-sonnet-latest',
+    vision: 'claude-4-5-sonnet-latest',
+    embeddings: '@cf/baai/bge-base-en-v1.5',
+  },
+  'jules': {
+    text: 'jules',
+    structured: 'jules',
+    functions: 'jules',
+    vision: 'jules',
+    embeddings: 'jules',
+  },
+};
+
+/**
+ * Resolves the default AI model for a given provider, use case, and environment.
+ * Returns the optimal model for the specific capability requested.
+ *
+ * Resolution order:
+ * 1. Explicit env variable override (e.g. `AI_DEFAULT_MODEL`)
+ * 2. Provider-specific env override (e.g. `OPENAI_MODEL`)
+ * 3. Capability-based matrix lookup
+ * 4. Fallback to worker-ai equivalent
+ *
  * @param env - Cloudflare Environment bindings.
  * @param provider - Target provider to resolve for.
+ * @param useCase - The capability needed (text, structured, vision, embeddings, functions).
  * @returns The model identifier string.
- * @agent-note Use this to obtain the "standard" model for a provider when one isn't specified.
  */
-export function resolveDefaultAiModel(env: Partial<Env>, provider?: SupportedProvider): string {
-  const model =
-    (env as Partial<Env> & { AI_DEFAULT_MODEL?: string; WORKERS_AI_MODEL?: string }).AI_DEFAULT_MODEL ||
-    (env as Partial<Env> & { AI_DEFAULT_MODEL?: string; WORKERS_AI_MODEL?: string }).WORKERS_AI_MODEL;
-  
-  if (model && model.trim()) {
-    return model.trim();
+export function resolveDefaultAiModel(env: Partial<Env>, provider?: SupportedProvider | 'jules', useCase: ModelUseCase = 'text'): string {
+  // Check for explicit global override — only applies to non-embeddings/vision use cases
+  // so a global text model override doesn't accidentally route embeddings to a chat model
+  if (useCase === 'text' || useCase === 'structured' || useCase === 'functions') {
+    const model =
+      (env as Partial<Env> & { AI_DEFAULT_MODEL?: string; WORKERS_AI_MODEL?: string }).AI_DEFAULT_MODEL ||
+      (env as Partial<Env> & { AI_DEFAULT_MODEL?: string; WORKERS_AI_MODEL?: string }).WORKERS_AI_MODEL;
+
+    if (model && model.trim()) {
+      return model.trim();
+    }
   }
 
   const effectiveProvider = provider || resolveDefaultAiProvider(env);
-  if (effectiveProvider === 'worker-ai' || effectiveProvider === 'workers-ai') {
-    return DEFAULT_WORKERS_AI_MODEL;
-  }
-  if (effectiveProvider === 'openai') {
-    const defaultOpenAI = (env as Partial<Env> & { OPENAI_MODEL?: string }).OPENAI_MODEL || 'gpt-4o-mini';
-    const openaiStr = String(defaultOpenAI);
-    if (openaiStr === 'gpt-5' || openaiStr === 'gpt-5.1' || openaiStr.startsWith('gpt-5')) {
-       return 'gpt-4o-mini';
+
+  // Check provider-specific env overrides (only for text/structured/functions)
+  if (useCase === 'text' || useCase === 'structured' || useCase === 'functions') {
+    if (effectiveProvider === 'openai') {
+      const envModel = (env as Partial<Env> & { OPENAI_MODEL?: string }).OPENAI_MODEL;
+      if (envModel) {
+        const openaiStr = String(envModel);
+        if (openaiStr.startsWith('gpt-5')) return 'gpt-4o';
+        return envModel;
+      }
     }
-    return defaultOpenAI;
-  }
-  if (effectiveProvider === 'gemini' || effectiveProvider === 'google-ai-studio') {
-    const defaultGemini = (env as Partial<Env> & { GEMINI_MODEL?: string }).GEMINI_MODEL || 'gemini-2.5-flash';
-    const geminiStr = String(defaultGemini);
-    if (geminiStr.includes('gemini-1.5') || geminiStr.includes('gemini-2.0')) {
-       return 'gemini-2.5-flash';
+    if (effectiveProvider === 'gemini' || effectiveProvider === 'google-ai-studio') {
+      const envModel = (env as Partial<Env> & { GEMINI_MODEL?: string }).GEMINI_MODEL;
+      if (envModel) {
+        const geminiStr = String(envModel);
+        if (geminiStr.includes('gemini-1.5') || geminiStr.includes('gemini-2.0')) return 'gemini-2.5-flash';
+        return envModel;
+      }
     }
-    return defaultGemini;
-  }
-  if (effectiveProvider === 'anthropic') {
-    return (env as Partial<Env> & { ANTHROPIC_MODEL?: string }).ANTHROPIC_MODEL || 'claude-4-5-sonnet-latest';
+    if (effectiveProvider === 'anthropic') {
+      const envModel = (env as Partial<Env> & { ANTHROPIC_MODEL?: string }).ANTHROPIC_MODEL;
+      if (envModel) return envModel;
+    }
   }
 
-  return DEFAULT_WORKERS_AI_MODEL;
+  // Normalize workers-ai variant
+  const matrixKey = (effectiveProvider === 'workers-ai' || effectiveProvider === 'google-ai-studio')
+    ? (effectiveProvider === 'workers-ai' ? 'worker-ai' : 'gemini')
+    : effectiveProvider;
+
+  return MODEL_MATRIX[matrixKey]?.[useCase] || MODEL_MATRIX['worker-ai'][useCase];
 }
 
 /**

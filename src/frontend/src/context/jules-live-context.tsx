@@ -36,7 +36,9 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { toast } from "sonner";
+import Cookies from 'js-cookie';
+import { handleGlobalSuccess } from '@/lib/success-handler';
+import { handleGlobalWarning, handleGlobalInfo } from '@/lib/notification-handler';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -93,20 +95,26 @@ const BASE_RECONNECT_MS = 2000;
  * @param eventType - Jules lifecycle or progress event classification.
  * @returns The Sonner toast method to use.
  */
-function toastForEvent(
-  eventType: JulesLiveEvent["eventType"]
-): (title: string, opts?: any) => void {
+function fireToastForEvent(
+  eventType: JulesLiveEvent["eventType"],
+  title: string,
+  description: string,
+  duration: number,
+): void {
   switch (eventType) {
     case "ready_for_pr":
     case "done":
-      return toast.success;
+      handleGlobalSuccess(title, description);
+      break;
     case "blocked":
     case "needs_context":
-      return toast.warning;
+      handleGlobalWarning(title, description, duration);
+      break;
     case "progress":
     case "info":
     default:
-      return toast.info;
+      handleGlobalInfo(title, description, duration);
+      break;
   }
 }
 
@@ -147,7 +155,9 @@ export function JulesLiveProvider({
 
     // Build WebSocket URL — replace http(s) with ws(s)
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${protocol}//${window.location.host}/api/webhooks/jules/ws`;
+    const apiKey = Cookies.get('colby_api_key');
+    const authParam = apiKey ? `?apiKey=${encodeURIComponent(apiKey)}` : '';
+    const wsUrl = `${protocol}//${window.location.host}/api/webhooks/jules/ws${authParam}`;
 
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
@@ -167,22 +177,15 @@ export function JulesLiveProvider({
         // Prepend to events array, capped at MAX_EVENTS
         setEvents((prev) => [event, ...prev].slice(0, MAX_EVENTS));
 
-        // Fire the appropriate Sonner toast
-        const showToast = toastForEvent(event.eventType);
         const description =
           event.eventType === "progress" && event.progressPct != null
             ? `${event.progressPct}% — ${event.message}`
             : event.message;
 
-        showToast(event.title, {
-          description,
-          duration:
-            event.eventType === "progress" ? 5000 : 12000,
-          action:
-            event.eventType === "ready_for_pr" || event.eventType === "done"
-              ? { label: "View Sessions", onClick: () => (window.location.href = "/jules") }
-              : undefined,
-        });
+        const duration =
+            event.eventType === "progress" ? 5000 : 12000;
+
+        fireToastForEvent(event.eventType, event.title, description, duration);
       } catch (err) {
         console.warn("[JulesLive] Failed to parse WebSocket message:", err);
       }

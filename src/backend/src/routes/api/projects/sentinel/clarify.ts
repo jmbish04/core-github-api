@@ -3,68 +3,73 @@
  * @description POST /api/projects/sentinel/tasks/:taskId/clarify
  *
  * Accepts a clarification question for a Sentinel task, broadcasts it via
- * JulesWebhookBroadcaster, and notifies JulesOverseer for AI-assisted answering.
+ * JulesWebhookBroadcaster Agent, and notifies EngineerAgent for AI-assisted answering.
  */
 
 import { Hono } from 'hono';
+import { getAgentByName } from 'agents';
+import { Logger } from '@/lib/logger';
 
 const clarifyRouter = new Hono<{ Bindings: Env }>();
 
 clarifyRouter.post('/tasks/:taskId/clarify', async (c) => {
+  const logger = new Logger(c.env, 'ClarifyRouter');
+  const logPrefix = "[ClarifyRouter - /tasks/:taskId/clarify] ";
+  logger.info(`${logPrefix} Received request for task: ${c.req.param('taskId')}`);
   const taskId = c.req.param('taskId');
   let body: { question?: string; projectId?: string; agentId?: string };
   try {
     body = await c.req.json();
-  } catch {
+  } catch (error) {
+    logger.error(`${logPrefix} Invalid JSON body`, { error: String(error) });
     return c.json({ error: 'Invalid JSON body' }, 400);
   }
 
   if (!body.question || typeof body.question !== 'string') {
+
+    logger.error(`${logPrefix} question field is required`);
     return c.json({ error: 'question field is required' }, 400);
   }
 
   const env = c.env;
 
-  // 1. Broadcast to JulesWebhookBroadcaster (real-time WS fan-out)
+  // 1. Broadcast to JulesWebhookBroadcaster Agent (real-time WS fan-out)
   try {
-    const broadcasterId = env.JULES_WEBHOOK_BROADCASTER.idFromName('jules-broadcaster');
-    const broadcaster = env.JULES_WEBHOOK_BROADCASTER.get(broadcasterId);
-    await broadcaster.fetch('http://internal/internal/broadcast', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        type: 'clarification_request',
-        taskId,
-        sessionId: taskId,
-        projectId: body.projectId,
-        question: body.question,
-        timestamp: new Date().toISOString(),
-      }),
-    });
+    const agent = await getAgentByName(env.JULES_WEBHOOK_BROADCASTER as any, "jules-broadcaster");
+    const broadcastEventObj = {
+      type: 'clarification_request',
+      taskId,
+      sessionId: taskId,
+      projectId: body.projectId,
+      question: body.question,
+      timestamp: new Date().toISOString(),
+    };
+    logger.info(`${logPrefix} Broadcasting event: ${JSON.stringify(broadcastEventObj)}`);
+    await (agent as any).broadcastEvent(broadcastEventObj);
+    logger.info(`${logPrefix} Event broadcast successfully`);
   } catch (err: any) {
-    console.error('[clarify] Failed to broadcast to JulesWebhookBroadcaster:', err.message);
+    logger.error(`${logPrefix} Failed to broadcast to JulesWebhookBroadcaster`, { error: String(err) });
   }
 
-  // 2. Notify JulesOverseer for AI-assisted answering (non-blocking)
+    // 2. Notify EngineerAgent for AI-assisted answering (non-blocking)
   try {
-    const overseerStubId = env.JULES_OVERSEER.idFromName('jules-overseer');
-    const overseerStub = env.JULES_OVERSEER.get(overseerStubId);
-    await overseerStub.fetch('http://internal/ingest', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        type: 'clarification_request',
-        sessionId: taskId,
-        taskId,
-        question: body.question,
-        projectId: body.projectId,
-        agentId: body.agentId,
-        timestamp: new Date().toISOString(),
-      }),
-    });
+    const engineer = await getAgentByName(env.ENGINEER_AGENT as any, 'singleton');
+    logger.info(`${logPrefix} Notifying EngineerAgent for AI-assisted answering`);
+    // Direct DO RPC — ingestEvent is a @callable on EngineerAgent (absorbed from OverseerAgent)
+    const ingestEventObj = {
+      type: 'clarification_request',
+      sessionId: taskId,
+      taskId,
+      question: body.question,
+      projectId: body.projectId,
+      agentId: body.agentId,
+      timestamp: new Date().toISOString(),
+    };
+    logger.info(`${logPrefix} Notifying EngineerAgent for AI-assisted answering: ${JSON.stringify(ingestEventObj)}`);
+    await (engineer as any).ingestEvent(ingestEventObj);
+    logger.info(`${logPrefix} Event notified successfully`);
   } catch (err: any) {
-    // Non-fatal: log but don't fail the main response
-    console.error('[clarify] Failed to notify JulesOverseer:', err.message);
+    logger.error(`${logPrefix} Failed to notify EngineerAgent`, { error: String(err) });
   }
 
   return c.json({

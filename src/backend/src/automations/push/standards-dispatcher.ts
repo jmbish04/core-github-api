@@ -1,6 +1,6 @@
 import { Octokit } from '@octokit/rest';
 import { withCompatOctokit } from '@/services/octokit/compat';
-import { generateText } from '@/ai/providers';
+import { AIProvider } from '@/ai/providers';
 import { buildCodingAgentInstructions } from '@/services/golden-path-config';
 import { JulesService } from '@/services/jules/service';
 import type { AutomationRunnerPolicyRow } from '@/db/schemas/app/automation_runner_policies';
@@ -125,16 +125,16 @@ async function dispatchInternalAgent(
     formatChangedFiles(commitContext),
   ].join('\n');
 
-  const analysis = await generateText(
-    input.env,
+  const ai = new AIProvider(input.env);
+  const analysis = await ai.generateText(
     prompt,
     systemPrompt,
     {
+      provider: 'worker-ai',
       model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
       maxTokens: 1400,
       temperature: 0.1,
-    },
-    'worker-ai',
+    }
   );
 
   const body = [

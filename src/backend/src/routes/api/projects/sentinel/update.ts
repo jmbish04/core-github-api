@@ -18,8 +18,8 @@ import {
     UpdateTaskBodySchema,
     SentinelTaskSchema,
     ErrorResponseSchema,
-    broadcastSentinelEvent,
 } from './types';
+import { broadcastSentinelEvent } from './broadcast';
 
 const ResponseSchema = z.object({
     ok: z.literal(true),
@@ -85,6 +85,14 @@ updateApi.openapi(route, async (c) => {
     if (body.description !== undefined) {
         changes.description = { from: task.description, to: body.description };
         setClause.description = body.description;
+    }
+    if (body.title !== undefined && body.title !== task.title) {
+        changes.title = { from: task.title, to: body.title };
+        setClause.title = body.title;
+    }
+    if (body.priority !== undefined && body.priority !== task.priority) {
+        changes.priority = { from: task.priority, to: body.priority };
+        setClause.priority = body.priority;
     }
 
     if (Object.keys(changes).length > 0) {

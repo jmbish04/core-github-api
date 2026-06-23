@@ -1,0 +1,15 @@
+export { JulesHomePage } from './JulesHomePage';
+export { TasksListPage } from './TasksListPage';
+export { TaskDetailPage } from './TaskDetailPage';
+export { NewTaskPage } from './NewTaskPage';
+export { JulesActivityPage } from './JulesActivityPage';
+export { SettingsPage } from './SettingsPage';
+export { MCPSettingsPage } from './MCPSettingsPage';
+export { SkillsPage } from './SkillsPage';
+export { CategoriesPage } from './CategoriesPage';
+export { default as DesignLabPage } from './DesignLabPage';
+export { GitHubPage } from './GitHubPage';
+export { BacklogPage } from './BacklogPage';
+export { VelocityPage } from './VelocityPage';
+export { AgentInsightsPage } from './AgentInsightsPage';
+export { default as ChatPage } from './ChatPage';

@@ -16,7 +16,16 @@ import {
 } from "cloudflare:workers";
 import { StitchService } from "@services/stitch";
 import { JulesService } from "@services/jules/service";
-import type { StitchLoopParams } from "@services/stitch";
+export interface StitchLoopParams {
+  prompt: string;
+  repoOwner: string;
+  repoName: string;
+  branch?: string;
+  routeType?: "global" | "repo";
+  pageId: string;
+  stitchProjectId?: string;
+  structure?: string[];
+}
 
 const DESIGN_SYSTEM_RULES = `
 **DESIGN SYSTEM (REQUIRED):**
@@ -63,7 +72,7 @@ export class StitchLoopWorkflow extends WorkflowEntrypoint<
       },
       async () => {
         const structureBlock = structure?.length
-          ? `\n**PAGE STRUCTURE:**\n${structure.map((s, i) => `${i + 1}. ${s}`).join("\n")}`
+          ? `\n**PAGE STRUCTURE:**\n${structure.map((s: string, i: number) => `${i + 1}. ${s}`).join("\n")}`
           : "";
 
         const systemPrompt = `You are a senior UX architect. Enhance the following UI brief into a detailed, implementation-ready UX specification. Inject the design system rules exactly as provided. Output ONLY the enhanced prompt text, no preamble.`;

@@ -16,6 +16,8 @@
  *   CLOUDFLARE_AI_SEARCH_TOKEN    → CLOUDFLARE_AI_SEARCH_TOKEN
  */
 
+import { getSecret } from '@/utils/secrets';
+
 export interface ResolvedCloudflareEnv {
     CLOUDFLARE_ACCOUNT_ID: string;
     CLOUDFLARE_AI_GATEWAY_TOKEN: string;
@@ -37,14 +39,9 @@ export interface ResolvedCloudflareEnv {
  * Handles both SecretsStoreSecret bindings (need `.get()`) and plain string env vars.
  */
 export async function resolveCfEnv(env: Env): Promise<ResolvedCloudflareEnv> {
-    const resolve = async (binding: any, fallback = ''): Promise<string> => {
-        if (!binding) return fallback;
-        if (typeof binding === 'string') return binding;
-        // SecretsStoreSecret — async `.get()`
-        if (typeof binding?.get === 'function') {
-            try { return await binding.get(); } catch { return fallback; }
-        }
-        return fallback;
+    const resolve = async (key: string, fallback = ''): Promise<string> => {
+        const secret = await getSecret(env, key);
+        return secret || fallback;
     };
 
     const [
@@ -56,15 +53,13 @@ export async function resolveCfEnv(env: Env): Promise<ResolvedCloudflareEnv> {
         aiSearchToken,
         apiToken,
     ] = await Promise.all([
-        resolve((env as any).CLOUDFLARE_ACCOUNT_ID),
-        // Wrangler binds AI_GATEWAY_TOKEN → CLOUDFLARE_AI_GATEWAY_TOKEN secret
-        resolve((env as any).AI_GATEWAY_TOKEN),
-        // Wrangler binds CF_BROWSER_RENDER_TOKEN → CLOUDFLARE_BROWSER_RENDER_TOKEN secret
-        resolve((env as any).CF_BROWSER_RENDER_TOKEN),
-        resolve((env as any).CLOUDFLARE_WORKER_ADMIN_TOKEN),
-        resolve((env as any).CLOUDFLARE_OBSERVABILITY_TOKEN),
-        resolve((env as any).CLOUDFLARE_AI_SEARCH_TOKEN),
-        resolve((env as any).CLOUDFLARE_API_TOKEN),
+        resolve('CLOUDFLARE_ACCOUNT_ID'),
+        resolve('AI_GATEWAY_TOKEN'),
+        resolve('CF_BROWSER_RENDER_TOKEN'),
+        resolve('CLOUDFLARE_WORKER_ADMIN_TOKEN'),
+        resolve('CLOUDFLARE_OBSERVABILITY_TOKEN'),
+        resolve('CLOUDFLARE_AI_SEARCH_TOKEN'),
+        resolve('CLOUDFLARE_API_TOKEN'),
     ]);
 
     return {
