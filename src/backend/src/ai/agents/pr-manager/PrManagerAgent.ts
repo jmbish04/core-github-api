@@ -5,6 +5,20 @@ import { createAgent, routeToAgent } from '../honi';
 import { Agent, run } from '@openai/agents';
 import { setupOpenAIAgentClient, getJulesClient } from '../../providers';
 import { Octokit } from '@octokit/rest';
+import { getAgentByName } from 'agents';
+
+function safeParseJson(output: string) {
+  let clean = output.trim();
+  if (clean.startsWith('```json')) {
+    clean = clean.slice(7);
+  } else if (clean.startsWith('```')) {
+    clean = clean.slice(3);
+  }
+  if (clean.endsWith('```')) {
+    clean = clean.slice(0, -3);
+  }
+  return JSON.parse(clean.trim());
+}
 
 const PrManagerTaskSchema = z.object({
   owner: z.string(),
@@ -75,7 +89,7 @@ Output a JSON object with:
       model: "workers-ai/@cf/openai/gpt-oss-120b",
     });
 
-    const octokit = new Octokit({ auth: this.env.GITHUB_TOKEN });
+    const octokit = new Octokit({ auth: this.env.GITHUB_PERSONAL_ACCESS_TOKEN });
 
     try {
       const pullsResponse = await octokit.rest.pulls.list({ owner, repo, state: 'open' });
@@ -93,65 +107,110 @@ Output a JSON object with:
           const headRef = prDetails.data.head.ref;
 
           let allResolved = true;
-          let newTreeItems: any[] = [];
 
-          for (const file of filesResponse.data) {
-            // Simplified: we'll only try to resolve files if they are potentially conflicted
-            if (file.status !== 'modified') continue;
+          // Perform resolution using SandboxAgent
+          const sessionId = `pr-${pr.number}-${Date.now()}`;
+          const sandboxAgent = await getAgentByName(this.env.SANDBOX_AGENT as any, sessionId);
 
-            const baseContentRes = await octokit.rest.repos.getContent({ owner, repo, path: file.filename, ref: baseSha }).catch(() => null);
-            const headContentRes = await octokit.rest.repos.getContent({ owner, repo, path: file.filename, ref: headSha }).catch(() => null);
+          const execInSandbox = async (command: string) => {
+             const res = await sandboxAgent.fetch(new Request('http://do/task', {
+                 method: 'POST',
+                 body: JSON.stringify({
+                     name: 'exec_command',
+                     args: { command, sessionId }
+                 })
+             }));
+             const data = await res.json() as any;
+             if (!data.success) throw new Error(`Command failed: ${data.error}`);
+             return data;
+          };
 
-            if (!baseContentRes || !headContentRes || !('content' in baseContentRes.data) || !('content' in headContentRes.data)) continue;
+          try {
+            await execInSandbox(`git clone https://x-access-token:${this.env.GITHUB_PERSONAL_ACCESS_TOKEN}@github.com/${owner}/${repo}.git .`);
+            await execInSandbox(`git checkout ${headRef}`);
+            await execInSandbox('git config user.email "ai@cloudflare.com" && git config user.name "PR Manager Agent"');
 
-            const baseContent = Buffer.from(baseContentRes.data.content, 'base64').toString('utf-8');
-            const headContent = Buffer.from(headContentRes.data.content, 'base64').toString('utf-8');
-
-            const resolutionAttempt = await run(conflictResolver, `Analyze conflicts for ${file.filename}.\n\nBase Branch Content:\n${baseContent}\n\nPR Branch Content:\n${headContent}`);
-
-            let confidence = 0;
-            let resolvedContent = "";
+            // This merge will likely fail due to conflicts
+            let mergeFailed = false;
             try {
-              const outputString = typeof resolutionAttempt.finalOutput === 'string' ? resolutionAttempt.finalOutput : JSON.stringify(resolutionAttempt.finalOutput);
-              const jsonMatch = outputString.match(/\{[\s\S]*\}/);
-              if (jsonMatch) {
-                const parsed = JSON.parse(jsonMatch[0]);
-                confidence = parsed.confidence || 0;
-                resolvedContent = parsed.resolvedContent || "";
+               await execInSandbox(`git merge origin/${prDetails.data.base.ref}`);
+            } catch (e: any) {
+               if (e.message.includes('Automatic merge failed') || e.message.includes('Command failed')) {
+                   mergeFailed = true;
+               } else {
+                   throw e;
+               }
+            }
+
+            if (mergeFailed) {
+              for (const file of filesResponse.data) {
+                if (file.status === 'added' || file.status === 'removed' || file.status === 'renamed') {
+                  allResolved = false;
+                  break;
+                }
+                if (file.status !== 'modified') continue;
+
+                const baseContentRes = await octokit.rest.repos.getContent({ owner, repo, path: file.filename, ref: baseSha }).catch(() => null);
+                const headContentRes = await octokit.rest.repos.getContent({ owner, repo, path: file.filename, ref: headSha }).catch(() => null);
+
+                if (!baseContentRes || !headContentRes || !('content' in baseContentRes.data) || !('content' in headContentRes.data)) continue;
+
+                const baseContent = Buffer.from(baseContentRes.data.content, 'base64').toString('utf-8');
+                const headContent = Buffer.from(headContentRes.data.content, 'base64').toString('utf-8');
+
+                const resolutionAttempt = await run(conflictResolver, `Analyze conflicts for ${file.filename}.\n\nBase Branch Content:\n${baseContent}\n\nPR Branch Content:\n${headContent}`);
+
+                let confidence = 0;
+                let resolvedContent = "";
+                try {
+                  const outputString = typeof resolutionAttempt.finalOutput === 'string' ? resolutionAttempt.finalOutput : JSON.stringify(resolutionAttempt.finalOutput);
+                  const parsed = safeParseJson(outputString);
+                  confidence = parsed.confidence || 0;
+                  resolvedContent = parsed.resolvedContent || "";
+                } catch (e) {
+                  console.warn(`[PrManagerAgent] Failed to parse conflict resolution for ${file.filename}`);
+                }
+
+                if (confidence < 0.8) {
+                  allResolved = false;
+                  break;
+                }
+
+                // Write resolved content directly to the file in the sandbox
+                const writeRes = await sandboxAgent.fetch(new Request('http://do/task', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        name: 'write_file',
+                        args: { path: file.filename, content: resolvedContent, sessionId }
+                    })
+                }));
+                const writeData = await writeRes.json() as any;
+                if (!writeData.success) throw new Error(`Write failed: ${writeData.error}`);
               }
-            } catch (e) {
-              console.warn(`[PrManagerAgent] Failed to parse conflict resolution for ${file.filename}`);
+
+              if (!allResolved) {
+                console.log(`[PrManagerAgent] Low confidence in resolving PR #${pr.number}. Adding comment.`);
+                await octokit.rest.issues.createComment({ owner, repo, issue_number: pr.number, body: "I am unable to confidently resolve these conflicts automatically. Manual intervention is required." });
+                this.sql.prepare('INSERT INTO pr_manager_jobs (owner, repo, pull_number, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)').bind(owner, repo, pr.number, 'conflict_commented', Date.now(), Date.now()).run();
+                await execInSandbox('git merge --abort');
+              } else {
+                 console.log(`[PrManagerAgent] High confidence in resolving PR #${pr.number}. Pushing merge commit...`);
+                 await execInSandbox('git add .');
+                 await execInSandbox('git commit -m "Auto-resolved merge conflicts"');
+                 await execInSandbox(`git push origin ${headRef}`);
+                 this.sql.prepare('INSERT INTO pr_manager_jobs (owner, repo, pull_number, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)').bind(owner, repo, pr.number, 'conflict_resolved', Date.now(), Date.now()).run();
+              }
+            } else {
+               // Merge succeeded cleanly? Should not happen if mergeable_state === 'dirty', but handle just in case
+               console.log(`[PrManagerAgent] Merge surprisingly succeeded without conflicts for PR #${pr.number}`);
+               await execInSandbox(`git push origin ${headRef}`);
+               this.sql.prepare('INSERT INTO pr_manager_jobs (owner, repo, pull_number, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)').bind(owner, repo, pr.number, 'conflict_resolved', Date.now(), Date.now()).run();
             }
-
-            if (confidence < 0.8) {
-              allResolved = false;
-              break; // Abort if any file has low confidence
-            }
-
-            // Create blob for the resolved file
-            const blobRes = await octokit.rest.git.createBlob({ owner, repo, content: resolvedContent, encoding: 'utf-8' });
-            newTreeItems.push({
-              path: file.filename,
-              mode: '100644',
-              type: 'blob',
-              sha: blobRes.data.sha
-            });
-          }
-
-          if (!allResolved || newTreeItems.length === 0) {
-            console.log(`[PrManagerAgent] Low confidence in resolving PR #${pr.number}. Adding comment.`);
-            await octokit.rest.issues.createComment({ owner, repo, issue_number: pr.number, body: "I am unable to confidently resolve these conflicts automatically. Manual intervention is required." });
-            this.sql.prepare('INSERT INTO pr_manager_jobs (owner, repo, pull_number, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)').bind(owner, repo, pr.number, 'conflict_commented', Date.now(), Date.now()).run();
-          } else {
-             console.log(`[PrManagerAgent] High confidence in resolving PR #${pr.number}. Attempting multi-parent merge commit...`);
-             try {
-                const treeRes = await octokit.rest.git.createTree({ owner, repo, base_tree: headSha, tree: newTreeItems });
-                const commitRes = await octokit.rest.git.createCommit({ owner, repo, message: "Auto-resolved merge conflicts", tree: treeRes.data.sha, parents: [headSha, baseSha] });
-                await octokit.rest.git.updateRef({ owner, repo, ref: `heads/${headRef}`, sha: commitRes.data.sha });
-                this.sql.prepare('INSERT INTO pr_manager_jobs (owner, repo, pull_number, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)').bind(owner, repo, pr.number, 'conflict_resolved', Date.now(), Date.now()).run();
-             } catch (err) {
-                console.error(`[PrManagerAgent] Failed to merge PR #${pr.number}:`, err);
-             }
+          } catch (err) {
+             console.error(`[PrManagerAgent] Failed to merge PR #${pr.number}:`, err);
+             this.sql.prepare('INSERT INTO pr_manager_jobs (owner, repo, pull_number, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)').bind(owner, repo, pr.number, 'conflict_failed', Date.now(), Date.now()).run();
+          } finally {
+             // Let Sandbox terminate normally, no explicit cleanup needed here unless requested.
           }
         }
       }
