@@ -34,12 +34,20 @@ export class SecretSync {
       };
     }
 
-    await syncRepoSecrets(env, owner, repo, secretsToSync, octokit);
+    const results = await syncRepoSecrets(env, owner, repo, secretsToSync, octokit);
+    const syncedSecretNames = results
+      .filter((r) => r.status === 'updated')
+      .map((r) => r.name);
+    const failed = results.filter((r) => r.status === 'error');
 
     return {
-      status: 'synced',
-      syncedSecretNames: secretsToSync.map((secret) => secret.name),
+      status: syncedSecretNames.length > 0 ? 'synced' : 'skipped',
+      syncedSecretNames,
       missingSecretNames: plan.missingSecretNames,
+      reason:
+        failed.length > 0
+          ? `Failed to sync: ${failed.map((f) => `${f.name} (${f.error})`).join(', ')}`
+          : undefined,
     };
   }
 }

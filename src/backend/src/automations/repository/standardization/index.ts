@@ -93,6 +93,19 @@ export class RepoStandardization extends BaseAutomation<
     authPolicy: 'app',
   };
 
+  protected override get repoFullName(): string {
+    if (this.eventName === 'installation_repositories') {
+      const payload = this.payload as InstallationRepositoriesPayload;
+      const firstRepo = payload.repositories_added?.[0];
+      if (firstRepo) {
+        return payload.repositories_added.length > 1
+          ? `${firstRepo.full_name} (+${payload.repositories_added.length - 1} more)`
+          : firstRepo.full_name;
+      }
+    }
+    return super.repoFullName;
+  }
+
   async shouldRun(): Promise<boolean> {
     if (this.eventName === 'repository') {
       return isRepositoryEventPayload(this.payload);
@@ -140,27 +153,34 @@ export class RepoStandardization extends BaseAutomation<
 
       if (this.eventName === 'installation_repositories') {
         const payload = InstallationRepositoriesPayloadSchema.parse(this.payload);
-        const results = await Promise.allSettled(
-          payload.repositories_added.map(async (repository) => {
-            const parsed = parseRepositoryFullName(repository.full_name);
-            if (!parsed) {
-              return `skipped:${repository.full_name}:invalid_full_name`;
-            }
+        const results: PromiseSettledResult<string>[] = [];
+        const concurrencyLimit = 5;
 
-            const secretProvisioning = await enforceRepositoryStandardization(
-              this.env,
-              {
-                owner: { login: parsed.owner },
-                name: parsed.name,
-              },
-              octokit,
-            );
+        for (let i = 0; i < payload.repositories_added.length; i += concurrencyLimit) {
+          const chunk = payload.repositories_added.slice(i, i + concurrencyLimit);
+          const chunkResults = await Promise.allSettled(
+            chunk.map(async (repository) => {
+              const parsed = parseRepositoryFullName(repository.full_name);
+              if (!parsed) {
+                return `skipped:${repository.full_name}:invalid_full_name`;
+              }
 
-            return `${repository.full_name}:${secretProvisioning.status}${
-              secretProvisioning.reason ? ` (${secretProvisioning.reason})` : ''
-            }`;
-          }),
-        );
+              const secretProvisioning = await enforceRepositoryStandardization(
+                this.env,
+                {
+                  owner: { login: parsed.owner },
+                  name: parsed.name,
+                },
+                octokit,
+              );
+
+              return `${repository.full_name}:${secretProvisioning.status}${
+                secretProvisioning.reason ? ` (${secretProvisioning.reason})` : ''
+              }`;
+            }),
+          );
+          results.push(...chunkResults);
+        }
 
         const failures: string[] = [];
         for (const result of results) {
