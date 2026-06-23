@@ -4,7 +4,7 @@
 declare namespace Cloudflare {
 	interface GlobalProps {
 		mainModule: typeof import("./src/backend/src/index");
-		durableNamespaces: "OrchestratorAgent" | "RetrofitAgent" | "RoomDO" | "GeminiAgent" | "PlannerAgent" | "RepoAgent" | "Supervisor" | "DeepReasoningAgent" | "Sandbox" | "OwnerAgent" | "ResearchAgent" | "DiscordResearchAgent" | "JulesOverseer" | "TopicOrchestratorAgent" | "WebSearchAgent" | "JudgeAgent" | "ReportingAgent" | "LandingPageAgent" | "CloudflareDocsAgent" | "DeepResearchChatAgent" | "HealthDiagnostician" | "JulesWebhookBroadcaster" | "PlanningMonitor" | "ReverseEngineeringMonitor" | "PlanningSupervisorAgent" | "PlanningOrchestratorAgent" | "HoniOrchestrator" | "HoniConsultant" | "WorkshopAgent" | "CfWorkshop_AgentsSdk" | "StandardizationAgent" | "JulesPrReviewer" | "UxResearcher" | "AgentSessionDO" | "SandboxAgent";
+		durableNamespaces: "OrchestratorAgent" | "RetrofitAgent" | "RoomDO" | "GeminiAgent" | "PlannerAgent" | "RepoAgent" | "Supervisor" | "DeepReasoningAgent" | "Sandbox" | "OwnerAgent" | "ResearchAgent" | "DiscordResearchAgent" | "JulesOverseer" | "TopicOrchestratorAgent" | "WebSearchAgent" | "JudgeAgent" | "ReportingAgent" | "LandingPageAgent" | "CloudflareDocsAgent" | "DeepResearchChatAgent" | "HealthDiagnostician" | "JulesWebhookBroadcaster" | "PlanningMonitor" | "ReverseEngineeringMonitor" | "PlanningSupervisorAgent" | "PlanningOrchestratorAgent" | "HoniOrchestrator" | "HoniConsultant" | "WorkshopAgent" | "CfWorkshop_AgentsSdk" | "StandardizationAgent" | "JulesPrReviewer" | "UxResearcher" | "AgentSessionDO" | "SandboxAgent" | "PrManagerAgent";
 	}
 	interface Env {
 		ETAG_KV: KVNamespace;
@@ -12,6 +12,7 @@ declare namespace Cloudflare {
 		AGENT_CACHE: KVNamespace;
 		KV_CONFIGS: KVNamespace;
 		LOG_LEVEL: "debug";
+		GITHUB_TOKEN: string;
 		AI_DEFAULT_PROVIDER: "worker-ai";
 		AI_DEFAULT_MODEL: "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 		GEMINI_MODEL: "gemini-3-pro-preview";
@@ -77,6 +78,7 @@ declare namespace Cloudflare {
 		STANDARDIZATION_AGENT: DurableObjectNamespace /* StandardizationAgent */;
 		UX_RESEARCHER: DurableObjectNamespace /* UxResearcher */;
 		SANDBOX_AGENT: DurableObjectNamespace /* SandboxAgent */;
+		PR_MANAGER_AGENT: DurableObjectNamespace /* PrManagerAgent */;
 		PLAN_ARTIFACTS: R2Bucket;
 		ARTIFACT_STORE: R2Bucket;
 		DB: D1Database;
@@ -10271,7 +10273,7 @@ declare namespace Cloudflare {
     //
     //       // Declares which of the main module's exports are configured with durable storage, and
     //       // thus should behave as Durable Object namsepace bindings.
-    //       durableNamespaces: "MyDurableObject" | "AnotherDurableObject";
+    //       durableNamespaces: "MyDurableObject" | "AnotherDurableObject" | "PrManagerAgent";
     //     }
     //
     // You can use `wrangler types` to generate `GlobalProps` automatically.

@@ -34,3 +34,4 @@ export { JulesPrReviewer } from './pr-reviewer/JulesPrReviewer';
 export { UxResearcher } from './workshop/UxResearcher';
 export { SandboxAgent } from './SandboxAgent';
 export { LearningAgent } from './LearningAgent';
+export { PrManagerAgent } from './pr-manager/PrManagerAgent';

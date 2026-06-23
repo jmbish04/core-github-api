@@ -1,8 +1,11 @@
 import { defineConfig } from "astro/config";
 import react from "@astrojs/react";
+import cloudflare from "@astrojs/cloudflare";
 import path from "node:path";
 
 export default defineConfig({
+  output: "server",
+  adapter: cloudflare(),
   integrations: [react()],
   outDir: "../../public",
   vite: {

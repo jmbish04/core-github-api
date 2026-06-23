@@ -112,7 +112,21 @@ app.notFound(async (c) => {
   return c.json({ error: 'Not found', path: c.req.url }, 404);
 });
 
-export default app;
+import { getAgentByName } from 'agents';
+
+export default {
+  fetch: app.fetch,
+  async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
+    console.log('[Worker] Scheduled event triggered');
+    try {
+      // Use getAgentByName from Agents SDK per boilerplate requirements
+      const agent = await getAgentByName(env.PR_MANAGER_AGENT as any, 'singleton');
+      await agent.fetch(new Request('http://do/scheduled'));
+    } catch (e) {
+      console.error('[Worker] Error executing PR_MANAGER_AGENT:', e);
+    }
+  }
+};
 
 // ---------------------------------------------------------------------------
 // DO / Workflow / Sandbox re-exports (required by wrangler)
