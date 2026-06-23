@@ -30,7 +30,7 @@ const availableRoute = createRoute({
       content: {
         "application/json": {
           schema: z.object({
-            tasks: z.array(z.any()),
+            tasks: z.array(z.record(z.string(), z.any())),
           }),
         },
       },
@@ -46,7 +46,7 @@ app.openapi(availableRoute, async (c) => {
     .where(isNull(tasks.assignee))
     .orderBy(desc(tasks.createdAt))
     .limit(50);
-  return c.json({ tasks: available });
+  return c.json({ tasks: available }, 200);
 });
 
 // ─── POST /tasks/:id/claim ──────────────────────────────────────────────────
@@ -94,7 +94,7 @@ app.openapi(claimRoute, async (c) => {
     timestamp: new Date().toISOString(),
   });
 
-  return c.json({ ok: true });
+  return c.json({ ok: true }, 200);
 });
 
 // ─── PATCH /tasks/:id ───────────────────────────────────────────────────────
@@ -137,7 +137,7 @@ app.openapi(updateRoute, async (c) => {
     .set({ ...updates, updatedAt: new Date().toISOString() })
     .where(eq(tasks.id, id));
 
-  return c.json({ ok: true });
+  return c.json({ ok: true }, 200);
 });
 
 // ─── POST /tasks/:id/submit ────────────────────────────────────────────────
@@ -209,7 +209,7 @@ app.openapi(submitRoute, async (c) => {
     console.error("[Sentinel] Failed to dispatch to JUDGE_AGENT:", err);
   }
 
-  return c.json({ ok: true });
+  return c.json({ ok: true }, 200);
 });
 
 export default app;

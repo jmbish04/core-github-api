@@ -8,7 +8,7 @@ import { z } from "zod";
 import {
   resolveDefaultAiModel,
   resolveDefaultAiProvider,
-} from "@/ai/agents/support/agent-ai";
+} from "@/ai/providers/ai-gateway/config";
 import { buildCodingAgentInstructions } from "@/services/golden-path-config";
 import { generateStructuredResponse } from "@/ai/providers";
 const CodeGeneratorResponseSchema = z.object({

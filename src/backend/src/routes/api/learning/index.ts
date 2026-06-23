@@ -22,7 +22,7 @@ import {
   learningMessages,
 } from '@db/schemas/github/learning';
 import { eq, desc, and, gte, sql } from 'drizzle-orm';
-import { JulesService } from '@services/jules';
+import { JulesService } from '@/services/jules/service';
 
 export const learningRouter = new OpenAPIHono<{ Bindings: Env }>();
 

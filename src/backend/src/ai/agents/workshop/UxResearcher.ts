@@ -306,13 +306,13 @@ export class UxResearcher extends baseUxAgent.Agent {
 
         const stitch = await StitchService.getInstance(this.env);
         const github = new GitHubCommitService(this.env.GITHUB_PERSONAL_ACCESS_TOKEN as unknown as string);
-        const project = await stitch.createProject(`UX Run ${params.runId.slice(0, 8)}`);
+        const project = (await stitch.createProject({ name: `UX Run ${params.runId.slice(0, 8)}` })) as any;
         
-        await this.store.patch({ stitchProjectId: project.projectId } as Partial<UxRunState>);
-        await db.update(workshopUxRuns).set({ stitchProjectId: project.projectId, phase: 'stitch_loop' }).where(eq(workshopUxRuns.id, params.runId));
+        await this.store.patch({ stitchProjectId: project.projectId ?? project.id } as Partial<UxRunState>);
+        await db.update(workshopUxRuns).set({ stitchProjectId: project.projectId ?? project.id, phase: 'stitch_loop' }).where(eq(workshopUxRuns.id, params.runId));
 
         for (const page of this.store.state.pages) {
-            await this.runStitchPageLoop(page, project.projectId, params, stitch, github, db);
+            await this.runStitchPageLoop(page, project.projectId ?? project.id ?? '', params, stitch, github, db);
         }
 
         // ── Phase 3: Building (Jules Fleet) ─────────────────────────────────────
@@ -349,8 +349,8 @@ export class UxResearcher extends baseUxAgent.Agent {
 
     let screenId: string;
     try {
-      const screen = await stitch.generateScreen(projectId, page.stagePrompt ?? page.pageTitle);
-      screenId = screen.screenId;
+      const screen = await stitch.generateScreen({ projectId, prompt: page.stagePrompt ?? page.pageTitle, deviceType: 'DESKTOP' });
+      screenId = screen.screenId ?? (screen as any).id ?? '';
     } catch (err: any) {
       await this.updatePage(page.pageName, { status: 'error', error: err.message });
       return;
@@ -366,10 +366,10 @@ export class UxResearcher extends baseUxAgent.Agent {
             iteration++;
             await this.updatePage(page.pageName, { status: 'review', reviewIterations: iteration });
 
-            const screenDetails = await stitch.getScreen(projectId, screenId);
+            const screenDetails = (await stitch.getScreen({ projectId, screenId })) as any;
             const review = await this.evaluateStitchMockup({
                 pageName: page.pageTitle,
-                html: screenDetails.html ?? '',
+                html: screenDetails.html ?? screenDetails.htmlCode ?? '',
             });
 
             score = review.score;
@@ -378,7 +378,7 @@ export class UxResearcher extends baseUxAgent.Agent {
             if (score >= PASS_SCORE) {
                 approved = true;
             } else if (iteration < MAX_ITERATIONS) {
-                await stitch.editScreen(projectId, [screenId], review.improvements.join('. '));
+                await stitch.editScreens({ projectId, screenIds: [screenId], editPrompt: review.improvements.join('. ') });
             }
         }
     } else {
@@ -387,7 +387,7 @@ export class UxResearcher extends baseUxAgent.Agent {
 
     // Persist to CF Images & GitHub
     try {
-      const screenDetails = await stitch.getScreen(projectId, screenId);
+      const screenDetails = (await stitch.getScreen({ projectId, screenId })) as any;
       
       let cfImageUrl = screenDetails.screenshotUrl;
       if (cfImageUrl) {
@@ -415,7 +415,7 @@ export class UxResearcher extends baseUxAgent.Agent {
         repo: params.repoName,
         stitchProjectId: projectId,
         pageName: page.pageName,
-        html: screenDetails.html ?? '<html><body></body></html>',
+        html: screenDetails.html ?? screenDetails.htmlCode ?? '<html><body></body></html>',
         screenshotUrl: cfImageUrl ?? screenDetails.screenshotUrl,
       });
 
@@ -440,7 +440,7 @@ export class UxResearcher extends baseUxAgent.Agent {
           pagePrompt: page.stagePrompt,
           status: 'done',
           stitchScreenId: screenId,
-          stitchHtml: screenDetails.html,
+          stitchHtml: screenDetails.html ?? screenDetails.htmlCode,
           stitchScreenshotUrl: cfImageUrl,
           githubHtmlPath: htmlPath,
       });
@@ -473,9 +473,9 @@ export class UxResearcher extends baseUxAgent.Agent {
       this.broadcast('phase_update', { message: `Iterating ${pageName} based on feedback...` });
 
       const stitch = await StitchService.getInstance(this.env);
-      await stitch.editScreen(stitchProjectId, [screenId], feedback);
+      await stitch.editScreens({ projectId: stitchProjectId, screenIds: [screenId], editPrompt: feedback });
       
-      const screenDetails = await stitch.getScreen(stitchProjectId, screenId);
+      const screenDetails = (await stitch.getScreen({ projectId: stitchProjectId, screenId })) as any;
       
       const cfImageUrl = screenDetails.screenshotUrl;
       const db = getDb(this.env.DB);
