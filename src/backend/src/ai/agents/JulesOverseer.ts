@@ -4,29 +4,29 @@
  *
  * ## Monitoring Loop
  * Every scheduled check calls `checkJulesStatus()`, which:
- *  1. Loads all active jules_jobs from D1
- *  2. Calls `session.info()` to get the current state
- *  3. Takes a snapshot of recent activities via `getSessionSnapshot()`
- *  4. Routes to one of the conditional handlers:
+ * 1. Loads all active jules_jobs from D1
+ * 2. Calls `session.info()` to get the current state
+ * 3. Takes a snapshot of recent activities via `getSessionSnapshot()`
+ * 4. Routes to one of the conditional handlers:
  *
  * ## Snapshot-Based Conditional Handlers
- *  | Jules State              | Handler                       |
- *  |--------------------------|-------------------------------|
- *  | AWAITING_PLAN_APPROVAL   | `handlePlanApproval()`        |
- *  | AWAITING_USER_FEEDBACK   | `handleUserFeedback()`        |
- *  | PAUSED / FAILED          | `handleBlockedSession()`      |
- *  | COMPLETED / ready_for_pr | `handleCompletion()`          |
- *  | IN_PROGRESS (CI failure) | `handleCIFailure()`           |
+ * | Jules State              | Handler                       |
+ * |--------------------------|-------------------------------|
+ * | AWAITING_PLAN_APPROVAL   | `handlePlanApproval()`        |
+ * | AWAITING_USER_FEEDBACK   | `handleUserFeedback()`        |
+ * | PAUSED / FAILED          | `handleBlockedSession()`      |
+ * | COMPLETED / ready_for_pr | `handleCompletion()`          |
+ * | IN_PROGRESS (CI failure) | `handleCIFailure()`           |
  *
  * ## CI Failure Handler
  * When the snapshot contains "CI failure" or "Workers Builds" language, the
  * JulesOverseer automatically:
- *  1. Identifies the PR number from session state
- *  2. Lists GitHub Check Runs for the PR HEAD commit
- *  3. Finds the failed "Workers Builds" check run
- *  4. Fetches raw Cloudflare build logs via CILogService
- *  5. Searches Cloudflare Docs (MCP) for relevant fix guidance
- *  6. Sends Jules a targeted remediation prompt with the full log context
+ * 1. Identifies the PR number from session state
+ * 2. Lists GitHub Check Runs for the PR HEAD commit
+ * 3. Finds the failed "Workers Builds" check run
+ * 4. Fetches raw Cloudflare build logs via CILogService
+ * 5. Searches Cloudflare Docs (MCP) for relevant fix guidance
+ * 6. Sends Jules a targeted remediation prompt with the full log context
  */
 
 import { z } from 'zod';
@@ -184,12 +184,13 @@ export class JulesOverseer extends JulesOverseerDurableObject {
           const db = getDb(this.env.DB);
           await db.insert(learningAiInsights).values({
             id: crypto.randomUUID(),
-            sessionId: payload.sessionId ?? null,
-            patternType: payload.patternType ?? 'unknown',
+            sessionId: payload.sessionId,
+            patternType: payload.patternType || 'anti_pattern',
+            title: payload.title || 'Ingested Insight',
+            description: payload.description || '',
             severity: payload.severity ?? 1,
-            description: payload.description ?? '',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
+            createdAt: new Date(),
+            updatedAt: new Date(),
           });
         } else if (payload.type === 'agent_event') {
           this.store.logger.info('Agent event ingested:', payload);
@@ -211,6 +212,10 @@ export class JulesOverseer extends JulesOverseerDurableObject {
       .sort((a, b) => (a.timestamp ?? '') < (b.timestamp ?? '') ? 1 : -1)
       .slice(0, 10);
 
+    if (messages[0]?.message?.startsWith('[SYSTEM OVERRIDE]')) {
+      return false;
+    }
+
     let matchCount = 0;
     for (const msg of messages) {
       if (msg.message && APOLOGY_PATTERNS.some(re => re.test(msg.message!))) {
@@ -227,10 +232,11 @@ export class JulesOverseer extends JulesOverseerDurableObject {
         id: crypto.randomUUID(),
         sessionId,
         patternType: 'doom_loop',
+        title: 'Doom Loop Detected',
         severity: 4,
         description: 'Circular apology loop detected',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
       });
 
       // Broadcast via JULES_WEBHOOK_BROADCASTER
@@ -447,10 +453,10 @@ export class JulesOverseer extends JulesOverseerDurableObject {
 
   /**
    * CI failure detected in snapshot. Orchestration:
-   *  1. Identify the failed Workers Build check run via GitHub API
-   *  2. Fetch raw Cloudflare build logs
-   *  3. Query Cloudflare Docs MCP for fix guidance
-   *  4. Send Jules a targeted remediation prompt with full context
+   * 1. Identify the failed Workers Build check run via GitHub API
+   * 2. Fetch raw Cloudflare build logs
+   * 3. Query Cloudflare Docs MCP for fix guidance
+   * 4. Send Jules a targeted remediation prompt with full context
    */
   private async handleCIFailure(
     job: any,
