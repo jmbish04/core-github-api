@@ -1,4 +1,25 @@
-import type { MemoryConfig } from 'honidev';
+export type MemoryConfig = {
+  enabled: boolean;
+  episodic?: {
+    enabled: boolean;
+    binding: string;
+    limit: number;
+  };
+  semantic?: {
+    enabled: boolean;
+    binding: string;
+    aiBinding: string;
+    topK: number;
+  };
+  graph?: {
+    enabled: boolean;
+    graphId: string;
+    binding: string;
+    apiKeyEnvVar: string;
+    contextDepth: number;
+    maxContextEntities: number;
+  };
+};
 
 export interface AgentMemoryOptions {
   agentName: string;

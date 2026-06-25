@@ -53,7 +53,7 @@ app.openapi(listInsightsRoute, async (c) => {
   const conditions: any[] = [];
   if (repo) conditions.push(eq(learningAiInsights.repo, repo));
   if (status) conditions.push(eq(learningAiInsights.status, status));
-  if (patternType) conditions.push(eq(learningAiInsights.patternType, patternType));
+  if (patternType) conditions.push(eq(learningAiInsights.patternType, patternType as any));
 
   let query = db.select().from(learningAiInsights);
   for (const cond of conditions) {
@@ -89,9 +89,9 @@ const globalStatsRoute = createRoute({
         "application/json": {
           schema: z.object({
             totalInsights: z.number(),
-            byStatus: z.record(z.number()),
-            byPatternType: z.record(z.number()),
-            bySeverity: z.record(z.number()),
+            byStatus: z.record(z.string(), z.number()),
+            byPatternType: z.record(z.string(), z.number()),
+            bySeverity: z.record(z.string(), z.number()),
             proposed: z.number(),
             open: z.number(),
           }),
