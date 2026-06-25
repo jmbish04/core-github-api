@@ -18,9 +18,9 @@
  *
  * ## D1 Persistence
  * Sessions are tracked in `jules_sessions` so that:
- *   - The `JulesOverseer` can monitor and unblock stuck sessions
- *   - Webhook handlers can look up the originating agent + project context
- *   - The frontend can display all active/historical sessions
+ * - The `JulesOverseer` can monitor and unblock stuck sessions
+ * - Webhook handlers can look up the originating agent + project context
+ * - The frontend can display all active/historical sessions
  *
  * @module Services/Jules
  */
@@ -37,7 +37,7 @@ import type { StartSessionParams } from "./types";
  * Parses Jules SDK `changeSet` patch format into structured file records.
  *
  * The format Jules uses is:
- *   `## File: path/to/file.ts\n<file content>`
+ * `## File: path/to/file.ts\n<file content>`
  *
  * @param text - Raw patch text from a Jules `changeSet` output.
  * @returns Array of `{ filename, content }` pairs extracted from the patch.
@@ -274,9 +274,9 @@ export class JulesService {
    * Starts a new Jules coding session.
    *
    * This method:
-   *   1. Appends the mandatory webhook instruction to the prompt
-   *   2. Creates a Jules SDK session (with retry on SourceNotFound)
-   *   3. Persists the session to `jules_sessions` in D1
+   * 1. Appends the mandatory webhook instruction to the prompt
+   * 2. Creates a Jules SDK session (with retry on SourceNotFound)
+   * 3. Persists the session to `jules_sessions` in D1
    *
    * @param params - Session configuration (prompt, repo, agentId, projectId, etc.)
    * @returns The initialized Jules session object from the SDK.
@@ -427,7 +427,7 @@ export class JulesService {
           try {
             const doId = this.env.JULES_OVERSEER.idFromName('singleton');
             const doStub = this.env.JULES_OVERSEER.get(doId);
-            await doStub.fetch('http://do/ingest', {
+            doStub.fetch('http://do/ingest', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -436,7 +436,7 @@ export class JulesService {
                 event: activity,
                 monitoringAgentId,
               }),
-            });
+            }).catch(e => console.warn('[JulesService] Failed to push stream event', e));
           } catch (e) {
             console.warn('[JulesService] Failed to push stream event to Overseer', e);
           }
@@ -557,9 +557,9 @@ export class JulesService {
    * Waits for the Jules session to complete and parses the structured output.
    *
    * Parsed outputs include:
-   *   - `pullRequests` — PR metadata (title, number, URL)
-   *   - `changeSets`   — files modified by Jules
-   *   - `generatedFiles` — new files created by Jules
+   * - `pullRequests` — PR metadata (title, number, URL)
+   * - `changeSets`   — files modified by Jules
+   * - `generatedFiles` — new files created by Jules
    *
    * @param sessionId - The Jules session ID.
    * @returns Parsed session result with structured output categories.
