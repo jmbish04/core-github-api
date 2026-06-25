@@ -41,3 +41,5 @@ Thumbs.db
 /scripts/github/ai_conversation_patterns/conversations*.json
 /scripts/github/ai_conversation_patterns/conversations.db
 /scripts/github/ai_conversation_patterns/tmp_scan_paginated.json
+agent/
+.agents/
