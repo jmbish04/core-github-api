@@ -27,6 +27,7 @@ export { default as settingsApi } from './frontend/settings';
 export { default as tasksApi } from './frontend/planner/tasks';
 export { default as timelineApi } from './frontend/planner/timeline';
 export { default as healthApi } from './ops/health';
+export { learningHealthApi } from './ops/health';
 export { standardizationRouter } from './standardization';
 export { default as cloudflareApi } from './cloudflare/index';
 export { default as uxApi } from './ux/index';

@@ -4,29 +4,29 @@
  *
  * ## Monitoring Loop
  * Every scheduled check calls `checkJulesStatus()`, which:
- *  1. Loads all active jules_jobs from D1
- *  2. Calls `session.info()` to get the current state
- *  3. Takes a snapshot of recent activities via `getSessionSnapshot()`
- *  4. Routes to one of the conditional handlers:
+ * 1. Loads all active jules_jobs from D1
+ * 2. Calls `session.info()` to get the current state
+ * 3. Takes a snapshot of recent activities via `getSessionSnapshot()`
+ * 4. Routes to one of the conditional handlers:
  *
  * ## Snapshot-Based Conditional Handlers
- *  | Jules State              | Handler                       |
- *  |--------------------------|-------------------------------|
- *  | AWAITING_PLAN_APPROVAL   | `handlePlanApproval()`        |
- *  | AWAITING_USER_FEEDBACK   | `handleUserFeedback()`        |
- *  | PAUSED / FAILED          | `handleBlockedSession()`      |
- *  | COMPLETED / ready_for_pr | `handleCompletion()`          |
- *  | IN_PROGRESS (CI failure) | `handleCIFailure()`           |
+ * | Jules State              | Handler                       |
+ * |--------------------------|-------------------------------|
+ * | AWAITING_PLAN_APPROVAL   | `handlePlanApproval()`        |
+ * | AWAITING_USER_FEEDBACK   | `handleUserFeedback()`        |
+ * | PAUSED / FAILED          | `handleBlockedSession()`      |
+ * | COMPLETED / ready_for_pr | `handleCompletion()`          |
+ * | IN_PROGRESS (CI failure) | `handleCIFailure()`           |
  *
  * ## CI Failure Handler
  * When the snapshot contains "CI failure" or "Workers Builds" language, the
  * JulesOverseer automatically:
- *  1. Identifies the PR number from session state
- *  2. Lists GitHub Check Runs for the PR HEAD commit
- *  3. Finds the failed "Workers Builds" check run
- *  4. Fetches raw Cloudflare build logs via CILogService
- *  5. Searches Cloudflare Docs (MCP) for relevant fix guidance
- *  6. Sends Jules a targeted remediation prompt with the full log context
+ * 1. Identifies the PR number from session state
+ * 2. Lists GitHub Check Runs for the PR HEAD commit
+ * 3. Finds the failed "Workers Builds" check run
+ * 4. Fetches raw Cloudflare build logs via CILogService
+ * 5. Searches Cloudflare Docs (MCP) for relevant fix guidance
+ * 6. Sends Jules a targeted remediation prompt with the full log context
  */
 
 import { z } from 'zod';
@@ -39,9 +39,35 @@ import type { AgentTool, PersistentAgentState } from '@/ai/agents/support/types'
 import { getDb } from '@db';
 import { julesSessions, julesJobs } from '@db/schemas/jules';
 import { alerts } from '@/db/schemas/app/alerts';
+import { learningAiInsights } from '@db/schemas/github/learning';
 import { JulesService } from '@/services/jules/service';
 import { CILogService } from '@/services/cloudflare/worker_cicd_build_logs';
 import { dispatchUIFrameworkPlan as _dispatchUIFrameworkPlan } from '@/ai/agents/LandingPageAgent';
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const APOLOGY_PATTERNS = [
+  /i('m| am) sorry/i,
+  /i apologize/i,
+  /my (mistake|bad|fault)/i,
+  /let me try (again|a different)/i,
+  /i keep (making|repeating)/i,
+  /my oversight/i,
+  /same error/i,
+  /i was wrong/i,
+  /i missed that/i,
+];
+const LOOP_THRESHOLD = 3;
+
+const OVERRIDE_MESSAGE = `[SYSTEM OVERRIDE]: You are stuck in a circular apology loop.
+
+MANDATORY STEPS BEFORE YOUR NEXT PROPOSAL:
+1. Call contemplationGateCheck with the pattern you are trying to fix.
+2. Query learning_ai_pr_reflections for prior attempts on this insight.
+3. If a prior fix was FAILED or REVERTED: Do NOT repeat the local patch. Flag for template-level immunization.
+4. If this is a NEW pattern: Proceed with the local patch.
+
+Continuing the same approach without checking history is prohibited.`;
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -150,10 +176,89 @@ export class JulesOverseer extends JulesOverseerDurableObject {
     if (url.pathname === '/schedule/check') {
       return Response.json(await this.checkJulesStatus());
     }
+
+    if (url.pathname === '/ingest' && request.method === 'POST') {
+      try {
+        const payload = await request.json<any>();
+        if (payload.type === 'insight') {
+          const db = getDb(this.env.DB);
+          await db.insert(learningAiInsights).values({
+          await db.insert(learningAiInsights).values({
+            id: crypto.randomUUID(),
+            sessionId: payload.sessionId,
+            patternType: payload.patternType || 'anti_pattern',
+            title: payload.title || 'Ingested Insight',
+            description: payload.description || '',
+            severity: payload.severity ?? 1,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          });
+        } else if (payload.type === 'agent_event') {
+          this.store.logger.info('Agent event ingested:', payload);
+        }
+        return Response.json({ ok: true });
+      } catch (e: any) {
+        return Response.json({ error: e.message }, { status: 400 });
+      }
+    }
+
     return super.fetch(request);
   }
 
   // ─── Main Monitoring Loop ──────────────────────────────────────────────────
+
+  async detectAndIntervene(sessionId: string, snapshot: SnapshotActivity[], julesService: JulesService, db: any): Promise<boolean> {
+    const messages = snapshot
+      .filter((a) => a.type === 'agentMessaged' && a.message)
+      .sort((a, b) => (a.timestamp ?? '') < (b.timestamp ?? '') ? 1 : -1)
+      .slice(0, 10);
+
+    if (messages[0]?.message?.startsWith('[SYSTEM OVERRIDE]')) {
+      return false;
+    }
+
+    let matchCount = 0;
+    for (const msg of messages) {
+      if (msg.message && APOLOGY_PATTERNS.some(re => re.test(msg.message!))) {
+        matchCount++;
+      }
+    }
+
+    if (matchCount >= LOOP_THRESHOLD) {
+      this.store.logger.warn(`Doom loop detected for session ${sessionId}. Intervening.`);
+
+      await julesService.sendMessage(sessionId, OVERRIDE_MESSAGE);
+
+      await db.insert(learningAiInsights).values({
+      await db.insert(learningAiInsights).values({
+        id: crypto.randomUUID(),
+        sessionId,
+        patternType: 'doom_loop',
+        title: 'Doom Loop Detected',
+        severity: 4,
+        description: 'Circular apology loop detected',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      // Broadcast via JULES_WEBHOOK_BROADCASTER
+      if ((this.env as any).JULES_WEBHOOK_BROADCASTER) {
+        try {
+          await (this.env as any).JULES_WEBHOOK_BROADCASTER.fetch('http://broadcaster/broadcast', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'system_override', sessionId, reason: 'doom_loop_detected' }),
+          });
+        } catch (e) {
+          this.store.logger.warn(`Failed to broadcast doom loop detection: ${(e as Error).message}`);
+        }
+      }
+
+      return true; // Intervened
+    }
+
+    return false; // Did not intervene
+  }
 
   async checkJulesStatus(): Promise<SessionCheckResult[]> {
     const db = getDb(this.env.DB);
@@ -192,6 +297,12 @@ export class JulesOverseer extends JulesOverseerDurableObject {
           snapshot = (raw as any)?.activities ?? [];
         } catch {
           // Non-fatal; snapshot may not always be available
+        }
+
+        const intervened = await this.detectAndIntervene(job.sessionId, snapshot, julesService, db);
+        if (intervened) {
+          results.push({ sessionId: job.sessionId, status: 'intervened', actionTaken: 'doom_loop_intervention' });
+          continue; // Skip normal routing if we intervened
         }
 
         const result = await this.routeSessionState(job, status, info, snapshot, julesService);
@@ -344,10 +455,10 @@ export class JulesOverseer extends JulesOverseerDurableObject {
 
   /**
    * CI failure detected in snapshot. Orchestration:
-   *  1. Identify the failed Workers Build check run via GitHub API
-   *  2. Fetch raw Cloudflare build logs
-   *  3. Query Cloudflare Docs MCP for fix guidance
-   *  4. Send Jules a targeted remediation prompt with full context
+   * 1. Identify the failed Workers Build check run via GitHub API
+   * 2. Fetch raw Cloudflare build logs
+   * 3. Query Cloudflare Docs MCP for fix guidance
+   * 4. Send Jules a targeted remediation prompt with full context
    */
   private async handleCIFailure(
     job: any,
