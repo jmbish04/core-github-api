@@ -8,7 +8,7 @@
  * @module AI/Config
  */
 
-import { AIGateway } from "@/ai/utils/ai-gateway";
+import { AIGateway } from "@/ai/providers/ai-gateway";
 
 /**
  * Union of supported AI provider identifiers.
@@ -148,22 +148,6 @@ export async function getAiBaseUrl(
  *  - input: User prompt or task.
  * @returns The final text response from the agent.
  */
-export async function streamTextAgent(options: {
-  env: Env;
-  provider?: SupportedProvider;
-  model?: string;
-  name: string;
-  instructions: string;
-  input: string;
-}) {
-  const text = await runTextAgent(options);
-  return {
-    async *toTextStream() {
-      yield text;
-    },
-  };
-}
-
 export async function runTextAgent(options: {
   env: Env;
   provider?: SupportedProvider;
@@ -172,10 +156,16 @@ export async function runTextAgent(options: {
   instructions: string;
   input: string;
 }): Promise<string> {
+  const { generateText } = await import("@/ai/providers");
   const provider = options.provider || resolveDefaultAiProvider(options.env);
   const model = options.model || resolveDefaultAiModel(options.env, provider);
-  const { AIGateway } = await import("@/ai/utils/ai-gateway");
-  return await AIGateway.runTextWithFallback(options.env, provider, model, options.instructions, options.input);
+  return await generateText(
+    options.env,
+    options.input,
+    options.instructions,
+    { model },
+    provider
+  );
 }
 
 /**
@@ -192,10 +182,16 @@ export async function streamTextAgent(options: {
 }): Promise<{ toTextStream(): AsyncIterable<string> }> {
   const provider = options.provider || resolveDefaultAiProvider(options.env);
   const model = options.model || resolveDefaultAiModel(options.env, provider);
-  const { runTextWithModelFallback } = await import("@/ai/utils/gateway-client");
+  const { generateText } = await import("@/ai/providers");
 
   // Eagerly run and return a streaming wrapper around the full response
-  const fullText = await runTextWithModelFallback(options.env, provider, model, options.instructions, options.input);
+  const fullText = await generateText(
+    options.env,
+    options.input,
+    options.instructions,
+    { model },
+    provider
+  );
 
   return {
     toTextStream(): AsyncIterable<string> {
@@ -215,12 +211,12 @@ export async function createRunner(env: Env, provider?: SupportedProvider, model
 }> {
   const resolvedProvider = provider || resolveDefaultAiProvider(env);
   const resolvedModel = model || resolveDefaultAiModel(env, resolvedProvider);
-  const { runTextWithModelFallback } = await import("@/ai/utils/gateway-client");
+  const { generateText } = await import("@/ai/providers");
 
   return {
     async run(agent: any, prompt: string): Promise<{ finalOutput: string | null }> {
       const instructions: string = agent?.instructions ?? '';
-      const text = await runTextWithModelFallback(env, resolvedProvider, resolvedModel, instructions, prompt);
+      const text = await generateText(env, prompt, instructions, { model: resolvedModel }, resolvedProvider);
       return { finalOutput: text || null };
     }
   };

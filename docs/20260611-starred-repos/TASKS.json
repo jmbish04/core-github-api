@@ -1,0 +1,109 @@
+{
+  "project_name": "github-starred-repos-tracker",
+  "generated_date": "2026-06-11",
+  "total_phases": 4,
+  "phases": [
+    {
+      "phase_number": 1,
+      "name": "Database Schema & D1 Configuration",
+      "tasks": [
+        {
+          "id": "1.1",
+          "title": "Define Drizzle Schema",
+          "description": "Create the Drizzle schema files for starred_repo, github_stars, starred_repo_map, starred_repo_tag, and starred_repo_tag_map.",
+          "status": "not_started"
+        },
+        {
+          "id": "1.2",
+          "title": "Configure D1 Migrations",
+          "description": "Generate D1 migrations into the ./drizzle directory and add the 'migrate:db' script to package.json.",
+          "status": "not_started"
+        },
+        {
+          "id": "1.3",
+          "title": "Implement D1 Insert-Select Utility",
+          "description": "Create a database utility wrapper to handle D1's auto-increment limitation, ensuring it performs an INSERT followed by a SELECT to safely return IDs.",
+          "status": "not_started"
+        }
+      ]
+    },
+    {
+      "phase_number": 2,
+      "name": "Hono OpenAPI & Webhooks",
+      "tasks": [
+        {
+          "id": "2.1",
+          "title": "Scaffold OpenAPI Boilerplate",
+          "description": "Set up the Hono router with @hono/zod-openapi. Implement mandatory endpoints: /openapi.json, /swagger, /scalar, /health, /context, and /docs.",
+          "status": "not_started"
+        },
+        {
+          "id": "2.2",
+          "title": "GitHub Webhook Ingestion Route",
+          "description": "Create a secure, Zod-validated webhook endpoint to ingest star and unstar events from GitHub.",
+          "status": "not_started"
+        },
+        {
+          "id": "2.3",
+          "title": "Implement SCD Mapping Logic",
+          "description": "Write the logic for handling Star List renames/merges, utilizing the fk_replacing_star strategy defined in the implementation plan.",
+          "status": "not_started"
+        }
+      ]
+    },
+    {
+      "phase_number": 3,
+      "name": "AI Gateway & Vectorize Pipeline",
+      "tasks": [
+        {
+          "id": "3.1",
+          "title": "AI Gateway Integration",
+          "description": "Set up the Cloudflare Agents SDK to route through AI Gateway using the GEMINI_API_KEY for all LLM calls.",
+          "status": "not_started"
+        },
+        {
+          "id": "3.2",
+          "title": "Repository Analysis Queue",
+          "description": "Build the background job/queue to fetch new repo data, prompt the AI for tags, descriptions, and the mindmap config.",
+          "status": "not_started"
+        },
+        {
+          "id": "3.3",
+          "title": "Vectorize Ingestion",
+          "description": "Fetch the README.md for new repos, generate embeddings, push to Cloudflare Vectorize, and update the rag_uuid in D1.",
+          "status": "not_started"
+        }
+      ]
+    },
+    {
+      "phase_number": 4,
+      "name": "Astro & Shadcn Frontend",
+      "tasks": [
+        {
+          "id": "4.1",
+          "title": "Scaffold Astro + React Islands",
+          "description": "Initialize the Astro frontend with React integration. Configure Tailwind and set up the Shadcn CLI to force the Default Dark Theme.",
+          "status": "not_started"
+        },
+        {
+          "id": "4.2",
+          "title": "Build Main Landing Page",
+          "description": "Fetch grouped D1 data. Implement Shadcn Accordion for star lists, Badges for tags, and the 'New Repos' highlighted alert section.",
+          "status": "not_started"
+        },
+        {
+          "id": "4.3",
+          "title": "Implement Reactive Sheet Sidebar",
+          "description": "Implement the Shadcn Sheet component. Ensure clicking different repository rows dynamically updates the Sheet's AI analysis and mindmap state without closing it.",
+          "status": "not_started"
+        },
+        {
+          "id": "4.4",
+          "title": "Build Audit Workspace",
+          "description": "Create the interactive chat UI for auditing and merging star lists using the AI Assistant.",
+          "status": "not_started"
+        }
+      ]
+    }
+  ]
+}

@@ -35,11 +35,7 @@ import {
 } from "@db/schemas/github/learning";
 import { eq, desc, isNotNull } from "drizzle-orm";
 
-/** Typed env bindings used by this agent (subset of full Env). */
-interface LearningEnv extends Env {
-  AI: { run(model: string, input: { text: string }): Promise<{ data: number[][] }> };
-  VECTORIZE_INDEX: VectorizeIndex;
-}
+
 
 // ---------------------------------------------------------------------------
 // Types
@@ -295,11 +291,11 @@ export class LearningAgent extends DurableObject<Env> {
 
   async contemplationGateCheck(patternDescription: string): Promise<GateDecision> {
     try {
-      const env = this.env as LearningEnv;
-      const embeddingResult = await env.AI.run(
+      const env = this.env;
+      const embeddingResult = (await env.AI.run(
         '@cf/baai/bge-large-en-v1.5',
         { text: patternDescription }
-      );
+      )) as any;
 
       const embedding = embeddingResult?.data?.[0];
       if (!embedding) {
@@ -512,11 +508,11 @@ export class LearningAgent extends DurableObject<Env> {
 
   private async vectorizeInsight(insightId: string, text: string): Promise<void> {
     try {
-      const env = this.env as LearningEnv;
-      const embeddingResult = await env.AI.run(
+      const env = this.env;
+      const embeddingResult = (await env.AI.run(
         '@cf/baai/bge-large-en-v1.5',
         { text }
-      );
+      )) as any;
       const vectors = embeddingResult?.data?.[0];
       if (vectors) {
         await env.VECTORIZE_INDEX.upsert([

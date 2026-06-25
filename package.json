@@ -27,7 +27,7 @@
     "install:all": "pnpm install",
     "frontend:add": "pnpm --filter frontend add",
     "frontend:dev": "pnpm --filter frontend dev",
-    "db:generate": "pnpm run db:generate:all",
+    "db:generate": "drizzle-kit generate",
     "db:push": "pnpm --filter frontend drizzle-kit push",
     "tail": "rm -f wrangler.log && pnpm dlx wrangler@latest tail --format pretty | tee wrangler.log",
     "check": "tsc --noEmit",
@@ -52,7 +52,9 @@
     "db:seed:prep": "python3 scripts/db/seed_prep.py",
     "db:seed:run": "python3 scripts/db/seed_run.py",
     "secrets:audit": "node scripts/secrets/audit-secrets.mjs",
-    "db:auto": "pnpm run db:generate:all && pnpm run migrate:local:all && pnpm dlx wrangler@latest types"
+    "db:auto": "pnpm run db:generate:all && pnpm run migrate:remote:all && pnpm dlx wrangler@latest types",
+    "migrate:local": "pnpm run db:generate && wrangler d1 migrations apply DB --local",
+    "migrate:remote": "pnpm run db:generate && pnpm dlx wrangler@latest d1 migrations apply DB --remote"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.58",

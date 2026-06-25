@@ -12,7 +12,7 @@ import { z } from "zod";
 import {
   BaseAutomation,
   type AutomationMetadata,
-} from "@/core/BaseAutomation";
+} from "@/automations/core/BaseAutomation";
 import { getDb } from "@db";
 import { learningAiInsightPrs } from "@db/schemas/github/learning";
 

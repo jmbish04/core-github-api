@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
-import { buildRepositorySyncSecretPlan } from "@/services/repository-secret-defaults";
+import { buildRepositorySyncSecretPlanReport } from "@/services/repository-secret-defaults";
 import { syncRepoSecrets } from "@services/github/secrets-manager";
 import { getGithubToken } from "@utils/secrets";
 
@@ -21,15 +21,19 @@ app.post("/sync", zValidator("json", syncSecretsSchema), async (c) => {
   const { owner, repo, secrets, force } = c.req.valid("json");
   
   let secretsToSync = secrets || [];
+  let missingSecretNames: string[] = [];
 
   if (!secrets || secrets.length === 0) {
-    secretsToSync = await buildRepositorySyncSecretPlan(c.env);
+    const plan = await buildRepositorySyncSecretPlanReport(c.env);
+    secretsToSync = plan.secrets;
+    missingSecretNames = plan.missingSecretNames;
   }
 
   if (secretsToSync.length === 0) {
     return c.json({ 
       success: false, 
-      error: "No repository secret defaults resolved to values in the Worker environment." 
+      error: "No repository secret defaults resolved to values in the Worker environment.",
+      missingDefaultSecrets: missingSecretNames,
     }, 400);
   }
 
