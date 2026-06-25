@@ -230,6 +230,7 @@ export class JulesOverseer extends JulesOverseerDurableObject {
       await julesService.sendMessage(sessionId, OVERRIDE_MESSAGE);
 
       await db.insert(learningAiInsights).values({
+      await db.insert(learningAiInsights).values({
         id: crypto.randomUUID(),
         sessionId,
         patternType: 'doom_loop',
