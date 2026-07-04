@@ -24,6 +24,10 @@ function cString(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined;
 }
 
+function hasDbBinding(env: unknown): env is { DB: unknown } {
+  return typeof env === 'object' && env !== null && 'DB' in env;
+}
+
 function resolveResearchQueueRepo(env: Env) {
   const configuredRepo = cString(env.RESEARCH_QUEUE_REPO_NAME) || 'jmbish04/core-github-research';
   const [owner, repo] = configuredRepo.includes('/')
@@ -41,8 +45,25 @@ function resolveResearchQueueRepo(env: Env) {
   };
 }
 
-function buildResearchCallbackUrl(c: ResearchRouteContext): string {
-  return `${cString(c.env.BASE_URL) || new URL(c.req.url).origin}/api/research/callback`;
+export function buildResearchCallbackUrl(c: ResearchRouteContext): string {
+  const baseUrl = cString(c.env.BASE_URL);
+  if (baseUrl) {
+    return `${baseUrl.replace(/\/+$/, '')}/api/research/callback`;
+  }
+
+  try {
+    return `${new URL(c.req.url).origin}/api/research/callback`;
+  } catch {
+    const host = c.req.header('host') || 'localhost';
+    const forwardedProto = c.req.header('x-forwarded-proto');
+    const protocol =
+      forwardedProto === 'https' || forwardedProto === 'http'
+        ? forwardedProto
+        : typeof c.req.url === 'string' && c.req.url.startsWith('https://')
+          ? 'https'
+          : 'http';
+    return `${protocol}://${host}/api/research/callback`;
+  }
 }
 
 function normalizeStringList(value: unknown): string[] {
@@ -84,11 +105,24 @@ async function dispatchResearchWorkflow(
 }
 
 async function handleResearchWorkflowCallback(c: ResearchRouteContext, routeProjectId?: string) {
-  const db = getDb(c.env.DB);
   const logger = new Logger(c.env, 'ResearchPipeline');
+  let rawPayload: Record<string, unknown> | null | undefined;
 
   try {
-    const rawPayload = (await c.req.json()) as Record<string, unknown>;
+    rawPayload = await c.req.json<Record<string, unknown>>();
+  } catch (error) {
+    logger.warn('Invalid JSON payload in research callback', {
+      routeProjectId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    if (hasDbBinding(c.env)) {
+      await logger.flush();
+    }
+    return c.json({ error: 'Invalid JSON payload' }, 400);
+  }
+
+  try {
+    const db = getDb(c.env.DB);
     const callback = normalizeResearchWorkflowCallback(rawPayload, routeProjectId);
 
     logger.info('Received research workflow callback', {

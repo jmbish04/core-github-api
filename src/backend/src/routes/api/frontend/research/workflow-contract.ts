@@ -54,12 +54,17 @@ const KEYWORD_RESULTS_FILE = 'cloudflare-worker-search-results.json';
 const GITHUB_REPO_PATTERN =
   /^(?:https?:\/\/github\.com\/)?([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+?)(?:\.git)?\/?$/i;
 
-function uniqueNonEmpty(values: Array<string | null | undefined>): string[] {
+function uniqueNonEmpty(values: readonly unknown[] | null | undefined): string[] {
   const seen = new Set<string>();
   const normalized: string[] = [];
 
-  for (const value of values) {
-    const trimmed = value?.trim();
+  const safeValues = Array.isArray(values) ? values : [];
+  for (const value of safeValues) {
+    if (typeof value !== 'string') {
+      continue;
+    }
+
+    const trimmed = value.trim();
     if (!trimmed) {
       continue;
     }
@@ -98,8 +103,13 @@ export function splitResearchTargets(terms?: string[] | null): {
   const targetedRepos: string[] = [];
   const keywordTerms: string[] = [];
 
-  for (const rawTerm of terms ?? []) {
-    const trimmed = rawTerm?.trim();
+  const safeTerms = Array.isArray(terms) ? terms : [];
+  for (const rawTerm of safeTerms) {
+    if (typeof rawTerm !== 'string') {
+      continue;
+    }
+
+    const trimmed = rawTerm.trim();
     if (!trimmed) {
       continue;
     }
@@ -274,22 +284,23 @@ function inferResultsFile(raw: Record<string, unknown>, taskId: string): string 
 }
 
 export function normalizeResearchWorkflowCallback(
-  raw: Record<string, unknown>,
+  raw: Record<string, unknown> | null | undefined,
   routeProjectId?: string,
 ): NormalizedResearchWorkflowCallback {
+  const safeRaw = raw && typeof raw === 'object' ? raw : {};
   const taskId = String(
-    raw.task_id ??
-      raw.taskId ??
-      raw.project_id ??
-      raw.projectId ??
+    safeRaw.task_id ??
+      safeRaw.taskId ??
+      safeRaw.project_id ??
+      safeRaw.projectId ??
       routeProjectId ??
       'unknown-task',
   );
-  const projectId = String(raw.project_id ?? raw.projectId ?? routeProjectId ?? taskId);
-  const resultsFile = inferResultsFile(raw, taskId);
-  const event = inferCallbackEvent(raw.event ?? raw.event_type, raw.mode);
-  const mode = inferCallbackMode(raw.mode, event, resultsFile);
-  const path = String(raw.path ?? raw.task_path ?? resultsFile ?? `daily-research/${taskId}`);
+  const projectId = String(safeRaw.project_id ?? safeRaw.projectId ?? routeProjectId ?? taskId);
+  const resultsFile = inferResultsFile(safeRaw, taskId);
+  const event = inferCallbackEvent(safeRaw.event ?? safeRaw.event_type, safeRaw.mode);
+  const mode = inferCallbackMode(safeRaw.mode, event, resultsFile);
+  const path = String(safeRaw.path ?? safeRaw.task_path ?? resultsFile ?? `daily-research/${taskId}`);
   const orchestratorPath =
     resultsFile ??
     (mode === 'research-targeted'
@@ -305,11 +316,11 @@ export function normalizeResearchWorkflowCallback(
     path,
     projectId,
     resultsFile,
-    status: String(raw.status ?? 'ready'),
+    status: String(safeRaw.status ?? 'ready'),
     taskId,
-    clonedRepos: parseCount(raw.cloned_repos ?? raw.clonedRepos),
-    discoveredRepos: parseCount(raw.discovered_repos ?? raw.discoveredRepos),
-    newDiscoveredRepos: parseCount(raw.new_discovered_repos ?? raw.newDiscoveredRepos),
+    clonedRepos: parseCount(safeRaw.cloned_repos ?? safeRaw.clonedRepos),
+    discoveredRepos: parseCount(safeRaw.discovered_repos ?? safeRaw.discoveredRepos),
+    newDiscoveredRepos: parseCount(safeRaw.new_discovered_repos ?? safeRaw.newDiscoveredRepos),
   };
 }
 

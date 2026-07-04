@@ -4,7 +4,11 @@ import {
   buildResearchDispatchPlan,
   buildResearchOrchestrationPrompt,
   normalizeResearchWorkflowCallback,
+  splitResearchTargets,
 } from '@/routes/api/frontend/research/workflow-contract';
+import researchOneTimeApi, {
+  buildResearchCallbackUrl,
+} from '@/routes/api/frontend/research/one-time';
 
 describe('research workflow contract', () => {
   it('builds explicit targeted dispatch payloads for repo refs and urls', () => {
@@ -118,5 +122,66 @@ describe('research workflow contract', () => {
       'daily-research/legacy-task/targeted-repo-research-results.json',
     );
     expect(callback.clonedRepos).toBe(2);
+  });
+
+  it('ignores non-string keyword and repo targets at runtime', () => {
+    const targets = splitResearchTargets([
+      'cloudflare/workers-sdk',
+      42,
+      null,
+      'workers ai',
+      { repo: 'bad' },
+    ] as unknown as string[]);
+
+    expect(targets).toEqual({
+      targetedRepos: ['cloudflare/workers-sdk'],
+      keywordTerms: ['workers ai'],
+    });
+  });
+
+  it('handles null callback payloads without crashing', () => {
+    const callback = normalizeResearchWorkflowCallback(null, 'proj-null');
+
+    expect(callback).toEqual({
+      taskId: 'proj-null',
+      projectId: 'proj-null',
+      status: 'ready',
+      event: 'research-keywords',
+      mode: 'research-keywords',
+      path: 'daily-research/proj-null',
+      orchestratorPath: 'daily-research/proj-null/cloudflare-worker-search-results.json',
+      resultsFile: undefined,
+      clonedRepos: 0,
+      discoveredRepos: 0,
+      newDiscoveredRepos: 0,
+    });
+  });
+});
+
+describe('research one-time route robustness', () => {
+  it('builds a callback URL from relative request data safely', () => {
+    const callbackUrl = buildResearchCallbackUrl({
+      env: {} as Env,
+      req: {
+        url: '/api/research/test-dispatch',
+        header: (name: string) => (name.toLowerCase() === 'host' ? 'example.test' : undefined),
+      },
+    } as never);
+
+    expect(callbackUrl).toBe('http://example.test/api/research/callback');
+  });
+
+  it('returns 400 for invalid callback JSON', async () => {
+    const response = await researchOneTimeApi.request('/callback', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        host: 'example.test',
+      },
+      body: '{',
+    });
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: 'Invalid JSON payload' });
   });
 });
