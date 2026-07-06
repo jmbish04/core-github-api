@@ -76,6 +76,7 @@ def main():
             # Look for standard Cloudflare Worker / Hono context bindings
             uses_db1 = 'env.DB' in content or 'c.env.DB' in content
             uses_db2 = 'env.DB_WEBHOOKS' in content or 'c.env.DB_WEBHOOKS' in content
+            uses_do = 'ctx.storage' in content or 'ctx.blockConcurrencyWhile' in content or 'DurableObject' in content or 'drizzle-orm/durable-sqlite' in content
             
             imported_tables = set()
             
@@ -90,6 +91,9 @@ def main():
                         db1_map[t['table_name']].add(rel_path)
                     if uses_db2:
                         db2_map[t['table_name']].add(rel_path)
+                    if uses_do:
+                        # DO tables aren't mapped to D1, they count as mapped to avoid being flagged as orphaned.
+                        db1_map[t['table_name']].add(rel_path)
                         
             if imported_tables:
                 file_interactions[rel_path] = imported_tables
