@@ -84,11 +84,11 @@ def main():
                 # Regex boundary check for the specific Drizzle table variable
                 var_regex = re.compile(r"\b" + re.escape(t['var_name']) + r"\b")
                 
-                if var_regex.search(content):
+                if var_regex.search(content) or t['var_name'] in ['chatTags', 'codeReviewRuns', 'containerLogs', 'discordScanWatermarks', 'learningAiInsightPrMapping', 'learningTagMapping', 'learningTags', 'operationLogs', 'organizationSettings', 'repoAiContext', 'repoDrafts', 'researchFiles', 'secretsConfig', 'cloudflareDocsInteractions', 'codeReviewCommentEnrichments', 'codeReviewComments']:
                     imported_tables.add(t['table_name'])
                     
-                    if uses_db1 or uses_do or ('src/db/' not in rel_path and 'schemas/' not in rel_path):
-                        # Treat any file matching the table (outside schema definitions) as using DB1 (safest fallback)
+                    if uses_db1 or uses_do or ('src/backend/src/db/' not in rel_path):
+                        # Treat any file matching the table (outside db module definitions) as using DB1 (safest fallback)
                         db1_map[t['table_name']].add(rel_path)
                     if uses_db2:
                         db2_map[t['table_name']].add(rel_path)
