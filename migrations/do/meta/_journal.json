@@ -8,6 +8,13 @@
       "when": 1773813551616,
       "tag": "0000_large_energizer",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1783467235766,
+      "tag": "0001_broad_slapstick",
+      "breakpoints": true
     }
   ]
 }
