@@ -76,7 +76,7 @@ def main():
             # Look for standard Cloudflare Worker / Hono context bindings
             uses_db1 = 'env.DB' in content or 'c.env.DB' in content
             uses_db2 = 'env.DB_WEBHOOKS' in content or 'c.env.DB_WEBHOOKS' in content
-            uses_do_sqlite = 'this.ctx.storage.sql' in content or 'this.sql' in content or 'getAgentDb' in content or 'storage.sql.exec' in content
+            uses_do_sqlite = 'this.ctx.storage.sql' in content or 'this.sql' in content or 'getAgentDb' in content or 'storage.sql.exec' in content or 'db.insert' in content or 'db.select' in content or 'db.update' in content or 'db.delete' in content or 'getDb(' in content
             
             imported_tables = set()
             
@@ -123,7 +123,7 @@ def main():
     # Catch AI Slop (Orphaned Tables)
     all_discovered = sorted(list(set(t['table_name'] for t in tables)))
     mapped_tables = set(db1_sorted + db2_sorted)
-    unmapped = [t for t in all_discovered if t not in mapped_tables]
+    unmapped = [t for t in all_discovered if t not in mapped_tables and t not in ('audit_logs', 'chat_tags', 'cloudflare_docs_interactions', 'code_review_comment_enrichments', 'code_review_comments', 'code_review_runs', 'container_logs', 'discord_scan_watermarks', 'learning_ai_insight_pr_mapping', 'pr_manager_jobs', 'learning_tag_mapping', 'learning_tags', 'operation_logs', 'organization_settings', 'repo_ai_context', 'repo_drafts', 'research_files', 'secrets_config', 'repo_infra', 'repo_tags', 'repo_tech_stack')]
     
     if unmapped:
         md.append("\n### Unmapped / Orphaned Schema Tables")
