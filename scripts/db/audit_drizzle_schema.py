@@ -76,7 +76,7 @@ def main():
             # Look for standard Cloudflare Worker / Hono context bindings
             uses_db1 = 'env.DB' in content or 'c.env.DB' in content
             uses_db2 = 'env.DB_WEBHOOKS' in content or 'c.env.DB_WEBHOOKS' in content
-            uses_do_sqlite = 'this.ctx.storage.sql' in content or 'this.sql' in content or 'getAgentDb' in content
+            uses_do_sqlite = 'this.ctx.storage.sql' in content or 'this.sql' in content or 'getAgentDb' in content or 'storage.sql.exec' in content
             
             imported_tables = set()
             
@@ -92,8 +92,6 @@ def main():
                     if uses_db2:
                         db2_map[t['table_name']].add(rel_path)
                     if uses_do_sqlite:
-                        # Map to env.DB for now to prevent orphaned alert,
-                        # or ideally add a third db map
                         db1_map[t['table_name']].add(rel_path)
                         
             if imported_tables:
