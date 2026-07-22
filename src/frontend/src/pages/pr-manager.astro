@@ -30,27 +30,19 @@ try {
   <meta charset="UTF-8">
   <title>PR Manager Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    body {
-      background-color: #09090b;
-      color: #fafafa;
-      font-family: system-ui, -apple-system, sans-serif;
-      padding: 2rem;
-    }
-  </style>
 </head>
-<body>
+<body class="bg-background text-foreground font-sans p-8">
   <div class="max-w-4xl mx-auto">
     <h1 class="text-3xl font-bold mb-6">PR Manager Agent Jobs</h1>
 
     {error && (
-      <div class="bg-red-900/50 border border-red-500 text-red-200 p-4 rounded mb-6">
+      <div class="bg-destructive/50 border border-destructive text-destructive-foreground p-4 rounded mb-6">
         {error}
       </div>
     )}
 
     {jobs.length === 0 && !error && (
-      <p class="text-gray-400">No PR jobs found.</p>
+      <p class="text-muted-foreground">No PR jobs found.</p>
     )}
 
     <div class="grid gap-4">
@@ -61,8 +53,8 @@ try {
           </CardHeader>
           <CardContent>
             <div class="flex justify-between items-center text-sm">
-              <span class="text-gray-400">Status: <strong class="text-white">{job.status}</strong></span>
-              <span class="text-gray-500">{new Date(job.created_at).toLocaleString()}</span>
+              <span class="text-muted-foreground">Status: <strong class="text-foreground">{job.status}</strong></span>
+              <span class="text-muted-foreground">{new Date(job.createdAt).toLocaleString()}</span>
             </div>
           </CardContent>
         </Card>
