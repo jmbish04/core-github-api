@@ -77,7 +77,7 @@ def main():
             # Look for standard Cloudflare Worker / Hono context bindings
             uses_db1 = 'env.DB' in content or 'c.env.DB' in content
             uses_db2 = 'env.DB_WEBHOOKS' in content or 'c.env.DB_WEBHOOKS' in content
-            uses_do = 'this.ctx.storage' in content or 'getAgentDb' in content
+            uses_do = 'this.ctx.storage' in content or 'getAgentDb' in content or 'this.sql' in content
             
             imported_tables = set()
             
