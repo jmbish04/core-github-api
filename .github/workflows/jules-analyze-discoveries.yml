@@ -1,0 +1,45 @@
+name: Jules — Analyze Discoveries
+
+# Analysis runs on Jules (Google infra), NOT Workers AI — so this adds zero
+# Workers AI cost. Jules reads the newest dated discovery finds, curates them,
+# and writes analysis.json (dashboard schema) + analysis.md back into the same
+# folder. The dashboard-sync-analysis workflow then pushes analysis.json to the
+# dashboard when it lands.
+
+on:
+  schedule:
+    - cron: "0 12 * * *" # Noon UTC — a few hours after discovery (08:00)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: google-labs-code/jules-invoke@v1
+        with:
+          prompt: |
+            You are the discovery analyst for this repository.
+
+            1. Find the NEWEST dated folder under `discoveries/` (format YYYY-MM-DD)
+               and read its `trends-raw.json` (a list of newly discovered GitHub repos).
+            2. Curate the finds: pick the top 5 most innovative/interesting repos and
+               write a short summary of today's trends.
+            3. Write TWO files INTO that same dated folder:
+               - `analysis.json` — EXACTLY this schema, nothing else:
+                 {
+                   "date": "<ISO timestamp>",
+                   "stage": "analyzed",
+                   "trend_summary": "<2-3 sentence summary>",
+                   "top_picks": [
+                     { "name": "owner/repo", "url": "...", "category": "...",
+                       "why_its_interesting": "...", "innovation_score": <1-10> }
+                   ]
+                 }
+               - `analysis.md` — a human-readable brief of the same content.
+            4. Open a pull request with both files.
+
+            Do not call any external paid AI API — use your own capabilities only.

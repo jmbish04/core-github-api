@@ -1,7 +1,9 @@
 name: Sync Repos to D1 Cache
 on:
-  schedule:
-    - cron: "0 2 * * *" # Run daily at 2am
+  # Schedule disabled: this job looped over repos calling Workers AI (gpt-oss)
+  # daily. Analysis now runs on Jules (jules-analyze-discoveries.yml).
+  # schedule:
+  #   - cron: "0 2 * * *"
   workflow_dispatch: # Manual trigger
 
 jobs:
