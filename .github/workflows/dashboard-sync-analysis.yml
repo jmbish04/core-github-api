@@ -1,0 +1,37 @@
+name: Dashboard Sync — Analysis
+
+# Deterministic, NO AI. When Jules's analysis.json lands under discoveries/,
+# push it to the dashboard so the dashboard shows the curated analysis. Keeps the
+# dashboard populated without any Workers AI call.
+
+on:
+  push:
+    paths:
+      - "discoveries/**/analysis.json"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Post newest analysis to the dashboard
+        env:
+          WORKER_API_URL: ${{ secrets.WORKER_API_URL_BASE }}/upsert/daily-trends
+          WORKER_API_KEY: ${{ secrets.WORKER_API_KEY }}
+        run: |
+          set -euo pipefail
+          latest="$(ls -1d discoveries/*/analysis.json 2>/dev/null | sort | tail -1 || true)"
+          if [ -z "$latest" ]; then echo "no analysis.json found"; exit 0; fi
+          echo "Posting $latest to dashboard"
+          curl -sS -X POST "$WORKER_API_URL" \
+            -H "Content-Type: application/json" \
+            -H "X-API-Key: $WORKER_API_KEY" \
+            -H "User-Agent: github-actions/dashboard-sync" \
+            --data-binary "@$latest" \
+            --fail-with-body
+          echo "dashboard updated"
