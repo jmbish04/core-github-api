@@ -7,6 +7,7 @@ import { setupOpenAIAgentClient } from '../../providers';
 import { Octokit } from '@octokit/rest';
 import { getAgentByName } from 'agents';
 import { migrateAgentDb } from '../../../db/schemas/agents/stateful';
+import { prManagerJobs } from '../../../db/schemas/agents/events';
 
 function safeParseJson(output: string) {
   let clean = output.trim();
