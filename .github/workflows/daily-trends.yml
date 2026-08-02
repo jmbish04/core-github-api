@@ -1,7 +1,12 @@
 name: Daily Trend Hunter
 on:
-  schedule:
-    - cron: "0 8 * * *" # Runs at 8:00 AM UTC daily
+  # Scheduled execution disabled: the workflow completes a high-reasoning
+  # GPT-OSS-120B inference before the Worker API upload fails with HTTP 404.
+  # The current method therefore creates high Workers AI usage while discarding
+  # the generated result. Keep this manual-only until the API route is fixed and
+  # the inference workload has explicit usage controls.
+  # schedule:
+  #   - cron: "0 8 * * *" # Previously ran at 8:00 AM UTC daily
   workflow_dispatch:
 
 jobs:
