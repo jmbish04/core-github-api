@@ -6,6 +6,7 @@ import { Agent, run } from '@openai/agents';
 import { setupOpenAIAgentClient, getJulesClient } from '../../providers';
 import { Octokit } from '@octokit/rest';
 import { getAgentByName } from 'agents';
+import { migrateAgentDb } from '../../../db/schemas/agents/stateful';
 
 function safeParseJson(output: string) {
   let clean = output.trim();
@@ -56,18 +57,10 @@ export class PrManagerAgent extends runtime.Agent {
   }
 
   async onStart() {
-    // DO SQLite state management init
-    this.sql.prepare(`
-      CREATE TABLE IF NOT EXISTS pr_manager_jobs (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        owner TEXT NOT NULL,
-        repo TEXT NOT NULL,
-        pull_number INTEGER NOT NULL,
-        status TEXT NOT NULL,
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
-      )
-    `).run();
+    // DO SQLite state management init inside blockConcurrencyWhile per Cloudflare best practices
+    await this.ctx.blockConcurrencyWhile(async () => {
+      migrateAgentDb(this.ctx.storage);
+    });
   }
 
   async scheduled() {
