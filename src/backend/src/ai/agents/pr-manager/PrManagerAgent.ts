@@ -6,7 +6,9 @@ import { Agent, run } from '@openai/agents';
 import { setupOpenAIAgentClient, getJulesClient } from '../../providers';
 import { Octokit } from '@octokit/rest';
 import { getAgentByName } from 'agents';
-import { migrateAgentDb } from '../../../db/schemas/agents/stateful';
+import { migrateAgentDb, getAgentDb } from '../../../db/schemas/agents/stateful';
+import { prManagerJobs } from '../../../db/schemas/agents/events';
+import { desc } from 'drizzle-orm';
 
 function safeParseJson(output: string) {
   let clean = output.trim();
@@ -48,7 +50,8 @@ export class PrManagerAgent extends runtime.Agent {
     }
     if (url.pathname === '/api/jobs') {
       await this.onStart();
-      const results = this.sql.prepare("SELECT * FROM pr_manager_jobs ORDER BY created_at DESC LIMIT 50").all();
+      const db = getAgentDb(this.ctx.storage); // env.DB hint for schema script
+      const results = await db.select().from(prManagerJobs).orderBy(desc(prManagerJobs.createdAt)).limit(50);
       return new Response(JSON.stringify(results), {
         headers: { 'Content-Type': 'application/json' }
       });
@@ -184,24 +187,28 @@ Output a JSON object with:
               if (!allResolved) {
                 console.log(`[PrManagerAgent] Low confidence in resolving PR #${pr.number}. Adding comment.`);
                 await octokit.rest.issues.createComment({ owner, repo, issue_number: pr.number, body: "I am unable to confidently resolve these conflicts automatically. Manual intervention is required." });
-                this.sql.prepare('INSERT INTO pr_manager_jobs (owner, repo, pull_number, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)').bind(owner, repo, pr.number, 'conflict_commented', Date.now(), Date.now()).run();
+                const db = getAgentDb(this.ctx.storage);
+                await db.insert(prManagerJobs).values({ owner, repo, pullNumber: pr.number, status: 'conflict_commented', createdAt: Date.now(), updatedAt: Date.now() });
                 await execInSandbox('git merge --abort');
               } else {
                  console.log(`[PrManagerAgent] High confidence in resolving PR #${pr.number}. Pushing merge commit...`);
                  await execInSandbox('git add .');
                  await execInSandbox('git commit -m "Auto-resolved merge conflicts"');
                  await execInSandbox(`git push origin ${headRef}`);
-                 this.sql.prepare('INSERT INTO pr_manager_jobs (owner, repo, pull_number, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)').bind(owner, repo, pr.number, 'conflict_resolved', Date.now(), Date.now()).run();
+                 const db = getAgentDb(this.ctx.storage);
+                 await db.insert(prManagerJobs).values({ owner, repo, pullNumber: pr.number, status: 'conflict_resolved', createdAt: Date.now(), updatedAt: Date.now() });
               }
             } else {
                // Merge succeeded cleanly? Should not happen if mergeable_state === 'dirty', but handle just in case
                console.log(`[PrManagerAgent] Merge surprisingly succeeded without conflicts for PR #${pr.number}`);
                await execInSandbox(`git push origin ${headRef}`);
-               this.sql.prepare('INSERT INTO pr_manager_jobs (owner, repo, pull_number, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)').bind(owner, repo, pr.number, 'conflict_resolved', Date.now(), Date.now()).run();
+               const db = getAgentDb(this.ctx.storage);
+               await db.insert(prManagerJobs).values({ owner, repo, pullNumber: pr.number, status: 'conflict_resolved', createdAt: Date.now(), updatedAt: Date.now() });
             }
           } catch (err) {
              console.error(`[PrManagerAgent] Failed to merge PR #${pr.number}:`, err);
-             this.sql.prepare('INSERT INTO pr_manager_jobs (owner, repo, pull_number, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)').bind(owner, repo, pr.number, 'conflict_failed', Date.now(), Date.now()).run();
+             const db = getAgentDb(this.ctx.storage);
+             await db.insert(prManagerJobs).values({ owner, repo, pullNumber: pr.number, status: 'conflict_failed', createdAt: Date.now(), updatedAt: Date.now() });
           } finally {
              // Let Sandbox terminate normally, no explicit cleanup needed here unless requested.
           }

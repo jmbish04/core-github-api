@@ -7,6 +7,7 @@
 import {
   sqliteTable,
   text,
+  integer,
   sqliteTableCreator,
   check,
   index,
@@ -77,7 +78,6 @@ export const agentActivities = sqliteTable(
 );
 
 // ── pr_manager_jobs ───────────────────────────
-import { integer } from "drizzle-orm/sqlite-core";
 
 export const prManagerJobs = sqliteTable(
   "pr_manager_jobs",
