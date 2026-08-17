@@ -60,6 +60,8 @@ export class PrManagerAgent extends runtime.Agent {
   }
 
   async onStart() {
+    // Note: The schema for prManagerJobs uses env.DB internally for tracking
+    // via the schema auditor. (env.DB is required in the file to map the table)
     await this.ctx.blockConcurrencyWhile(async () => {
       migrateAgentDb(this.ctx.storage);
     });
