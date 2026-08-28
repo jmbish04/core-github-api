@@ -22,6 +22,7 @@ export class PrManagerAgent extends Agent<Env> {
   }
 
   async processPendingPrs() {
+    // env.DB
     this.logger.info("Starting processPendingPrs cron job");
 
     try {

@@ -5,13 +5,13 @@ export const prerender = false;
 let jobs: any[] = [];
 let error: string | null = null;
 
-import { getAgentByName } from "agents";
+// import { getAgentByName } from "agents";
 
 try {
   const env = Astro.locals.runtime?.env;
   if (env && env.PR_MANAGER_AGENT) {
-    const agent = await getAgentByName(env.PR_MANAGER_AGENT as any, 'singleton');
-    const response = await agent.fetch(new Request('http://do/api/jobs'));
+    // const agent = await getAgentByName(env.PR_MANAGER_AGENT as any, 'singleton');
+    const id = env.PR_MANAGER_AGENT.idFromName('singleton'); const agent = env.PR_MANAGER_AGENT.get(id); const response = await agent.fetch(new Request('http://do/api/jobs'));
     if (response.ok) {
       jobs = await response.json();
     } else {
