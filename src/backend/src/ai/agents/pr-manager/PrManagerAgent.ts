@@ -1,225 +1,177 @@
-import { Hono } from 'hono';
-import { z } from 'zod';
-import { zValidator } from '@hono/zod-validator';
-import { createAgent, routeToAgent } from '../honi';
-import { Agent, run } from '@openai/agents';
-import { setupOpenAIAgentClient, getJulesClient } from '../../providers';
-import { Octokit } from '@octokit/rest';
-import { getAgentByName } from 'agents';
+import { Agent } from "agents";
+import { Octokit } from "@octokit/rest";
+import { getAgentDb, migrateAgentDb } from "@/db/schemas/agents/stateful";
+import { prManagerJobs } from "@/db/schemas/agents/events";
+import { Logger } from "@/lib/logger";
+import { setupOpenAIAgentClient, getJulesClient } from "../../providers";
 
-function safeParseJson(output: string) {
-  let clean = output.trim();
-  if (clean.startsWith('```json')) {
-    clean = clean.slice(7);
-  } else if (clean.startsWith('```')) {
-    clean = clean.slice(3);
-  }
-  if (clean.endsWith('```')) {
-    clean = clean.slice(0, -3);
-  }
-  return JSON.parse(clean.trim());
-}
+export class PrManagerAgent extends Agent<Env> {
+  private logger: Logger;
 
-const PrManagerTaskSchema = z.object({
-  owner: z.string(),
-  repo: z.string(),
-  pullNumber: z.number().optional(),
-});
-
-const runtime = createAgent<Env>({
-  name: "PrManagerAgent",
-  description: "Autonomous agent for managing and resolving PR conflicts.",
-
-  async onTask(task: z.infer<typeof PrManagerTaskSchema>, { env, ctx: _ctx }: { env: Env, ctx: any }) {
-    return {
-      status: "success",
-      message: "PR Manager task executed."
-    };
-  }
-});
-
-export class PrManagerAgent extends runtime.Agent {
-  async fetch(request: Request) {
-    const url = new URL(request.url);
-    if (url.pathname === '/scheduled') {
-      await this.scheduled();
-      return new Response('OK');
-    }
-    if (url.pathname === '/api/jobs') {
-      await this.onStart();
-      const results = this.sql.prepare("SELECT * FROM pr_manager_jobs ORDER BY created_at DESC LIMIT 50").all();
-      return new Response(JSON.stringify(results), {
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
-    return super.fetch(request);
+  constructor(ctx: DurableObjectState, env: Env) {
+    super(ctx, env);
+    this.logger = new Logger(env, "pr_manager_agent");
   }
 
   async onStart() {
-    // DO SQLite state management init
-    this.sql.prepare(`
-      CREATE TABLE IF NOT EXISTS pr_manager_jobs (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        owner TEXT NOT NULL,
-        repo TEXT NOT NULL,
-        pull_number INTEGER NOT NULL,
-        status TEXT NOT NULL,
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
-      )
-    `).run();
-  }
-
-  async scheduled() {
-    console.log('[PrManagerAgent] Running scheduled PR scan...');
-    // Ensure agent state is initialized
-    await this.onStart();
-    const owner = this.env.TEST_REPO_OWNER || 'cloudflare';
-    const repo = this.env.TEST_REPO_NAME || 'core-github-api';
-
-    await setupOpenAIAgentClient(this.env, "workers-ai");
-
-    const conflictResolver = new Agent({
-      name: "ConflictResolver",
-      instructions: `You are an expert developer resolving Git merge conflicts.
-You will be provided with the base branch file content and the PR branch file content for a conflicted file.
-Output a JSON object with:
-- "confidence": A number from 0 to 1 indicating your confidence in resolving the conflict safely.
-- "resolvedContent": The full raw text of the file with the conflict correctly resolved. Do not wrap in markdown code blocks.`,
-      model: "workers-ai/@cf/openai/gpt-oss-120b",
+    await this.ctx.blockConcurrencyWhile(async () => {
+      migrateAgentDb(this.ctx.storage);
     });
 
-    const octokit = new Octokit({ auth: this.env.GITHUB_PERSONAL_ACCESS_TOKEN });
+    await this.schedule("*/15 * * * *", "processPendingPrs", undefined, { idempotent: true });
+  }
+
+  async processPendingPrs() {
+    this.logger.info("Starting processPendingPrs cron job");
 
     try {
-      const pullsResponse = await octokit.rest.pulls.list({ owner, repo, state: 'open' });
+      const token = typeof this.env.GITHUB_TOKEN === 'string'
+        ? this.env.GITHUB_TOKEN
+        : await (this.env as any).GITHUB_TOKEN?.get?.();
 
-      for (const pr of pullsResponse.data) {
-        console.log(`[PrManagerAgent] Checking PR #${pr.number}`);
-        const prDetails = await octokit.rest.pulls.get({ owner, repo, pull_number: pr.number });
+      if (!token) {
+        throw new Error("GITHUB_TOKEN is not set");
+      }
 
-        if (prDetails.data.mergeable_state === 'dirty') {
-          console.log(`[PrManagerAgent] Found conflict in PR #${pr.number}`);
+      const octokit = new Octokit({ auth: token });
+      const db = getAgentDb(this.ctx.storage);
 
-          const filesResponse = await octokit.rest.pulls.listFiles({ owner, repo, pull_number: pr.number });
-          const baseSha = prDetails.data.base.sha;
-          const headSha = prDetails.data.head.sha;
-          const headRef = prDetails.data.head.ref;
+      const owner = "jmbish04";
+      const repo = "testing-oktokit-commands";
 
-          let allResolved = true;
+      const { data: prs } = await octokit.rest.pulls.list({
+        owner,
+        repo,
+        state: "open"
+      });
 
-          // Perform resolution using SandboxAgent
-          const sessionId = `pr-${pr.number}-${Date.now()}`;
-          const sandboxAgent = await getAgentByName(this.env.SANDBOX_AGENT as any, sessionId);
+      for (const pr of prs) {
+        const { data: detailedPr } = await octokit.rest.pulls.get({
+          owner,
+          repo,
+          pull_number: pr.number
+        });
 
-          const execInSandbox = async (command: string) => {
-             const res = await sandboxAgent.fetch(new Request('http://do/task', {
-                 method: 'POST',
-                 body: JSON.stringify({
-                     name: 'exec_command',
-                     args: { command, sessionId }
-                 })
-             }));
-             const data = await res.json() as any;
-             if (!data.success) throw new Error(`Command failed: ${data.error}`);
-             return data;
-          };
+        if (detailedPr.mergeable === false) {
+          this.logger.info(`Merge conflict detected for PR #${pr.number}`);
 
+          // Attempt resolution with Jules
+          let resolved = false;
           try {
-            await execInSandbox(`git clone https://x-access-token:${this.env.GITHUB_PERSONAL_ACCESS_TOKEN}@github.com/${owner}/${repo}.git .`);
-            await execInSandbox(`git checkout ${headRef}`);
-            await execInSandbox('git config user.email "ai@cloudflare.com" && git config user.name "PR Manager Agent"');
+            const julesClient = await getJulesClient(this.env);
+            await setupOpenAIAgentClient(this.env, "workers-ai");
 
-            // This merge will likely fail due to conflicts
-            let mergeFailed = false;
-            try {
-               await execInSandbox(`git merge origin/${prDetails.data.base.ref}`);
-            } catch (e: any) {
-               if (e.message.includes('Automatic merge failed') || e.message.includes('Command failed')) {
-                   mergeFailed = true;
-               } else {
-                   throw e;
-               }
+            const session = await julesClient.session({
+              title: `Resolve Conflict: ${owner}/${repo}#${pr.number}`,
+              prompt: `Resolve the merge conflicts in pull request #${pr.number} in ${owner}/${repo}. Create a plan, apply diffs to resolve conflicts, and commit. Do not merge yet.`,
+              source: { github: `${owner}/${repo}`, baseBranch: pr.head.ref },
+              requireApproval: false,
+              autoPr: false
+            });
+
+            let isTerminal = false;
+            let finalOutcome: any | null = null;
+            while (!isTerminal) {
+                const info = await session.info();
+                if (info.state === 'completed' || info.state === 'failed') {
+                    finalOutcome = info.outcome!;
+                    isTerminal = true;
+                    if(info.state === 'completed') resolved = true;
+                    break;
+                }
+                if (info.state === 'awaitingPlanApproval') {
+                    await session.approve();
+                }
+                await new Promise(resolve => setTimeout(resolve, 10000));
             }
+          } catch(e) {
+              this.logger.error("Jules resolution failed", {error: e});
+          }
 
-            if (mergeFailed) {
-              for (const file of filesResponse.data) {
-                if (file.status === 'added' || file.status === 'removed' || file.status === 'renamed') {
-                  allResolved = false;
-                  break;
-                }
-                if (file.status !== 'modified') continue;
+          if (!resolved) {
+            await octokit.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: pr.number,
+              body: "I am unable to confidently resolve these conflicts automatically. Manual intervention is required."
+            });
 
-                const baseContentRes = await octokit.rest.repos.getContent({ owner, repo, path: file.filename, ref: baseSha }).catch(() => null);
-                const headContentRes = await octokit.rest.repos.getContent({ owner, repo, path: file.filename, ref: headSha }).catch(() => null);
+            await db.insert(prManagerJobs).values({
+              id: crypto.randomUUID(),
+              owner,
+              repo,
+              pullNumber: pr.number.toString(),
+              status: "conflict_reported"
+            }).onConflictDoUpdate({
+              target: [prManagerJobs.id],
+              set: { status: "conflict_reported" }
+            });
+          } else {
+             await db.insert(prManagerJobs).values({
+              id: crypto.randomUUID(),
+              owner,
+              repo,
+              pullNumber: pr.number.toString(),
+              status: "conflict_resolved"
+            }).onConflictDoUpdate({
+              target: [prManagerJobs.id],
+              set: { status: "conflict_resolved" }
+            });
+          }
 
-                if (!baseContentRes || !headContentRes || !('content' in baseContentRes.data) || !('content' in headContentRes.data)) continue;
-
-                const baseContent = Buffer.from(baseContentRes.data.content, 'base64').toString('utf-8');
-                const headContent = Buffer.from(headContentRes.data.content, 'base64').toString('utf-8');
-
-                const resolutionAttempt = await run(conflictResolver, `Analyze conflicts for ${file.filename}.\n\nBase Branch Content:\n${baseContent}\n\nPR Branch Content:\n${headContent}`);
-
-                let confidence = 0;
-                let resolvedContent = "";
-                try {
-                  const outputString = typeof resolutionAttempt.finalOutput === 'string' ? resolutionAttempt.finalOutput : JSON.stringify(resolutionAttempt.finalOutput);
-                  const parsed = safeParseJson(outputString);
-                  confidence = parsed.confidence || 0;
-                  resolvedContent = parsed.resolvedContent || "";
-                } catch (e) {
-                  console.warn(`[PrManagerAgent] Failed to parse conflict resolution for ${file.filename}`);
-                }
-
-                if (confidence < 0.8) {
-                  allResolved = false;
-                  break;
-                }
-
-                // Write resolved content directly to the file in the sandbox
-                const writeRes = await sandboxAgent.fetch(new Request('http://do/task', {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        name: 'write_file',
-                        args: { path: file.filename, content: resolvedContent, sessionId }
-                    })
-                }));
-                const writeData = await writeRes.json() as any;
-                if (!writeData.success) throw new Error(`Write failed: ${writeData.error}`);
-              }
-
-              if (!allResolved) {
-                console.log(`[PrManagerAgent] Low confidence in resolving PR #${pr.number}. Adding comment.`);
-                await octokit.rest.issues.createComment({ owner, repo, issue_number: pr.number, body: "I am unable to confidently resolve these conflicts automatically. Manual intervention is required." });
-                this.sql.prepare('INSERT INTO pr_manager_jobs (owner, repo, pull_number, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)').bind(owner, repo, pr.number, 'conflict_commented', Date.now(), Date.now()).run();
-                await execInSandbox('git merge --abort');
-              } else {
-                 console.log(`[PrManagerAgent] High confidence in resolving PR #${pr.number}. Pushing merge commit...`);
-                 await execInSandbox('git add .');
-                 await execInSandbox('git commit -m "Auto-resolved merge conflicts"');
-                 await execInSandbox(`git push origin ${headRef}`);
-                 this.sql.prepare('INSERT INTO pr_manager_jobs (owner, repo, pull_number, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)').bind(owner, repo, pr.number, 'conflict_resolved', Date.now(), Date.now()).run();
-              }
-            } else {
-               // Merge succeeded cleanly? Should not happen if mergeable_state === 'dirty', but handle just in case
-               console.log(`[PrManagerAgent] Merge surprisingly succeeded without conflicts for PR #${pr.number}`);
-               await execInSandbox(`git push origin ${headRef}`);
-               this.sql.prepare('INSERT INTO pr_manager_jobs (owner, repo, pull_number, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)').bind(owner, repo, pr.number, 'conflict_resolved', Date.now(), Date.now()).run();
-            }
-          } catch (err) {
-             console.error(`[PrManagerAgent] Failed to merge PR #${pr.number}:`, err);
-             this.sql.prepare('INSERT INTO pr_manager_jobs (owner, repo, pull_number, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)').bind(owner, repo, pr.number, 'conflict_failed', Date.now(), Date.now()).run();
-          } finally {
-             // Let Sandbox terminate normally, no explicit cleanup needed here unless requested.
+        } else if (detailedPr.mergeable === true) {
+          this.logger.info(`PR #${pr.number} is mergeable, attempting merge...`);
+          try {
+            await octokit.rest.pulls.merge({
+              owner,
+              repo,
+              pull_number: pr.number
+            });
+            await db.insert(prManagerJobs).values({
+              id: crypto.randomUUID(),
+              owner,
+              repo,
+              pullNumber: pr.number.toString(),
+              status: "merged"
+            }).onConflictDoUpdate({
+              target: [prManagerJobs.id],
+              set: { status: "merged" }
+            });
+          } catch (mergeError: any) {
+            this.logger.error(`Merge failed for PR #${pr.number}`, { error: mergeError.message });
+            await db.insert(prManagerJobs).values({
+              id: crypto.randomUUID(),
+              owner,
+              repo,
+              pullNumber: pr.number.toString(),
+              status: "merge_failed"
+            }).onConflictDoUpdate({
+              target: [prManagerJobs.id],
+              set: { status: "merge_failed" }
+            });
           }
         }
       }
-    } catch (e) {
-      console.error('[PrManagerAgent] Error scanning PRs:', e);
+    } catch (error: any) {
+      this.logger.error("Error in processPendingPrs", { error: error.message });
+    } finally {
+      await this.logger.flush();
     }
   }
+
+  async fetch(request: Request) {
+    const url = new URL(request.url);
+    if (url.pathname === '/api/jobs') {
+      const db = getAgentDb(this.ctx.storage);
+      const jobs = await db.select().from(prManagerJobs);
+      return new Response(JSON.stringify(jobs), {
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    if (url.pathname === '/scheduled') {
+      await this.processPendingPrs();
+      return new Response('Scheduled task triggered');
+    }
+    return super.fetch(request);
+  }
 }
-
-const app = new Hono<{ Bindings: Env }>();
-
-export default app;
