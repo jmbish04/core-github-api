@@ -7,7 +7,7 @@
       "OpenAI"
     ],
     "config_file": "wrangler.jsonc",
-    "discovered_at": "2026-08-29T00:04:04.403033+00:00"
+    "discovered_at": "2026-08-30T00:04:54.605292+00:00"
   },
   {
     "name": "davila7/claude-code-templates",
@@ -17,7 +17,7 @@
       "Standard Worker"
     ],
     "config_file": "wrangler.toml",
-    "discovered_at": "2026-08-29T00:04:05.616035+00:00"
+    "discovered_at": "2026-08-30T00:04:55.848790+00:00"
   },
   {
     "name": "DIYgod/RSSHub",
@@ -27,7 +27,7 @@
       "Hono"
     ],
     "config_file": "wrangler.toml",
-    "discovered_at": "2026-08-29T00:04:06.897768+00:00"
+    "discovered_at": "2026-08-30T00:04:57.048672+00:00"
   },
   {
     "name": "marktext/marktext",
@@ -37,7 +37,7 @@
       "Standard Worker"
     ],
     "config_file": "wrangler.toml",
-    "discovered_at": "2026-08-29T00:04:08.128289+00:00"
+    "discovered_at": "2026-08-30T00:04:58.205976+00:00"
   },
   {
     "name": "koala73/worldmonitor",
@@ -47,7 +47,7 @@
       "Next.js"
     ],
     "config_file": "wrangler.toml",
-    "discovered_at": "2026-08-29T00:04:09.365615+00:00"
+    "discovered_at": "2026-08-30T00:04:59.340635+00:00"
   },
   {
     "name": "dreamhunter2333/cloudflare_temp_email",
@@ -57,7 +57,7 @@
       "Standard Worker"
     ],
     "config_file": "wrangler.toml.template",
-    "discovered_at": "2026-08-29T00:04:10.573255+00:00"
+    "discovered_at": "2026-08-30T00:05:00.477606+00:00"
   },
   {
     "name": "emdash-cms/emdash",
@@ -67,141 +67,7 @@
       "Astro"
     ],
     "config_file": "wrangler.jsonc",
-    "discovered_at": "2026-08-29T00:04:11.749649+00:00"
-  },
-  {
-    "name": "gnachman/iTerm2",
-    "url": "https://github.com/gnachman/iTerm2",
-    "description": "iTerm2 is a terminal emulator for Mac OS X that does amazing things.",
-    "detected_stack": [
-      "Standard Worker"
-    ],
-    "config_file": "wrangler.toml",
-    "discovered_at": "2026-08-29T00:04:12.961578+00:00"
-  },
-  {
-    "name": "1jehuang/jcode",
-    "url": "https://github.com/1jehuang/jcode",
-    "description": "The most RAM efficient harness",
-    "detected_stack": [
-      "Standard Worker"
-    ],
-    "config_file": "wrangler.toml",
-    "discovered_at": "2026-08-29T00:04:14.145788+00:00"
-  },
-  {
-    "name": "tauri-apps/tauri",
-    "url": "https://github.com/tauri-apps/tauri",
-    "description": "Build smaller, faster, and more secure desktop and mobile applications with a web frontend.",
-    "detected_stack": [
-      "Standard Worker"
-    ],
-    "config_file": "wrangler.toml",
-    "discovered_at": "2026-08-29T00:04:15.419046+00:00"
-  },
-  {
-    "name": "OpenCut-app/OpenCut",
-    "url": "https://github.com/OpenCut-app/OpenCut",
-    "description": "The open-source CapCut alternative",
-    "detected_stack": [
-      "Standard Worker"
-    ],
-    "config_file": "wrangler.jsonc",
-    "discovered_at": "2026-08-29T00:04:16.657090+00:00"
-  },
-  {
-    "name": "kortix-ai/suna",
-    "url": "https://github.com/kortix-ai/suna",
-    "description": "The open-source AI Management System",
-    "detected_stack": [
-      "Next.js",
-      "Postgres",
-      "Tailwind"
-    ],
-    "config_file": "wrangler.toml",
-    "discovered_at": "2026-08-29T00:04:17.876736+00:00"
-  },
-  {
-    "name": "thedotmack/claude-mem",
-    "url": "https://github.com/thedotmack/claude-mem",
-    "description": "Persistent Context Across Sessions for Every Agent \u2013  Captures everything your agent does during sessions, compresses it with AI, and injects relevant context back into future sessions. Works with Claude Code, OpenClaw, Codex, Gemini, Hermes, Copilot, OpenCode + More",
-    "detected_stack": [
-      "Postgres"
-    ],
-    "config_file": "wrangler.jsonc",
-    "discovered_at": "2026-08-29T00:04:19.111507+00:00"
-  },
-  {
-    "name": "kriasoft/react-starter-kit",
-    "url": "https://github.com/kriasoft/react-starter-kit",
-    "description": "Modern React starter kit with Bun, TypeScript, Tailwind CSS, tRPC, Stripe, and Cloudflare Workers. Production-ready monorepo for building fast web apps.",
-    "detected_stack": [
-      "Standard Worker"
-    ],
-    "config_file": "wrangler.jsonc",
-    "discovered_at": "2026-08-29T00:04:20.364894+00:00"
-  },
-  {
-    "name": "lockfale/OSINT-Framework",
-    "url": "https://github.com/lockfale/OSINT-Framework",
-    "description": "OSINT Framework",
-    "detected_stack": [
-      "Standard Worker"
-    ],
-    "config_file": "wrangler.jsonc",
-    "discovered_at": "2026-08-29T00:04:21.617824+00:00"
-  },
-  {
-    "name": "cloudflare/cloudflare-docs",
-    "url": "https://github.com/cloudflare/cloudflare-docs",
-    "description": "Cloudflare\u2019s documentation",
-    "detected_stack": [
-      "Astro",
-      "Workers AI",
-      "Tailwind"
-    ],
-    "config_file": "wrangler.jsonc",
-    "discovered_at": "2026-08-29T00:04:22.853065+00:00"
-  },
-  {
-    "name": "headroomlabs-ai/headroom",
-    "url": "https://github.com/headroomlabs-ai/headroom",
-    "description": "Compress tool outputs, logs, files, and RAG chunks before they reach the LLM. 20% fewer tokens for coding agents, 60-95% fewer tokens for JSON, same answers. Library, proxy, MCP server.",
-    "detected_stack": [
-      "Standard Worker"
-    ],
-    "config_file": "wrangler.toml",
-    "discovered_at": "2026-08-29T00:04:24.059355+00:00"
-  },
-  {
-    "name": "fmhy/edit",
-    "url": "https://github.com/fmhy/edit",
-    "description": "Make changes to FMHY",
-    "detected_stack": [
-      "Tailwind"
-    ],
-    "config_file": "wrangler.toml",
-    "discovered_at": "2026-08-29T00:04:25.274081+00:00"
-  },
-  {
-    "name": "penpot/penpot",
-    "url": "https://github.com/penpot/penpot",
-    "description": "Penpot: The open-source design platform for Product teams that need scalable collaboration.",
-    "detected_stack": [
-      "Standard Worker"
-    ],
-    "config_file": "wrangler.toml",
-    "discovered_at": "2026-08-29T00:04:26.487453+00:00"
-  },
-  {
-    "name": "ltaoo/wx_channels_download",
-    "url": "https://github.com/ltaoo/wx_channels_download",
-    "description": "\u5fae\u4fe1\u89c6\u9891\u53f7\u4e0b\u8f7d\u5668",
-    "detected_stack": [
-      "Standard Worker"
-    ],
-    "config_file": "wrangler.toml",
-    "discovered_at": "2026-08-29T00:04:27.799934+00:00"
+    "discovered_at": "2026-08-30T00:05:01.614635+00:00"
   },
   {
     "name": "tldraw/tldraw",
@@ -211,7 +77,151 @@
       "Standard Worker"
     ],
     "config_file": "wrangler.toml",
-    "discovered_at": "2026-08-29T00:04:29.032466+00:00"
+    "discovered_at": "2026-08-30T00:05:02.758675+00:00"
+  },
+  {
+    "name": "gnachman/iTerm2",
+    "url": "https://github.com/gnachman/iTerm2",
+    "description": "iTerm2 is a terminal emulator for Mac OS X that does amazing things.",
+    "detected_stack": [
+      "Standard Worker"
+    ],
+    "config_file": "wrangler.toml",
+    "discovered_at": "2026-08-30T00:05:03.888281+00:00"
+  },
+  {
+    "name": "1jehuang/jcode",
+    "url": "https://github.com/1jehuang/jcode",
+    "description": "The most RAM efficient harness",
+    "detected_stack": [
+      "Standard Worker"
+    ],
+    "config_file": "wrangler.toml",
+    "discovered_at": "2026-08-30T00:05:05.009057+00:00"
+  },
+  {
+    "name": "tauri-apps/tauri",
+    "url": "https://github.com/tauri-apps/tauri",
+    "description": "Build smaller, faster, and more secure desktop and mobile applications with a web frontend.",
+    "detected_stack": [
+      "Standard Worker"
+    ],
+    "config_file": "wrangler.toml",
+    "discovered_at": "2026-08-30T00:05:06.167684+00:00"
+  },
+  {
+    "name": "screenpipe/screenpipe",
+    "url": "https://github.com/screenpipe/screenpipe",
+    "description": "YC (S26) | Open Computer History | Record your screen continuously locally and provide context to your agents (Claude, Codex, Openclaw, Hermes, Runner...)",
+    "detected_stack": [
+      "Standard Worker"
+    ],
+    "config_file": "wrangler.toml",
+    "discovered_at": "2026-08-30T00:05:07.291684+00:00"
+  },
+  {
+    "name": "OpenCut-app/OpenCut",
+    "url": "https://github.com/OpenCut-app/OpenCut",
+    "description": "The open-source CapCut alternative",
+    "detected_stack": [
+      "Standard Worker"
+    ],
+    "config_file": "wrangler.jsonc",
+    "discovered_at": "2026-08-30T00:05:08.424275+00:00"
+  },
+  {
+    "name": "kortix-ai/suna",
+    "url": "https://github.com/kortix-ai/suna",
+    "description": "The open-source AI Management System",
+    "detected_stack": [
+      "Postgres",
+      "Tailwind",
+      "Next.js"
+    ],
+    "config_file": "wrangler.toml",
+    "discovered_at": "2026-08-30T00:05:09.570987+00:00"
+  },
+  {
+    "name": "thedotmack/claude-mem",
+    "url": "https://github.com/thedotmack/claude-mem",
+    "description": "Persistent Context Across Sessions for Every Agent \u2013  Captures everything your agent does during sessions, compresses it with AI, and injects relevant context back into future sessions. Works with Claude Code, OpenClaw, Codex, Gemini, Hermes, Copilot, OpenCode + More",
+    "detected_stack": [
+      "Postgres"
+    ],
+    "config_file": "wrangler.jsonc",
+    "discovered_at": "2026-08-30T00:05:10.674689+00:00"
+  },
+  {
+    "name": "kriasoft/react-starter-kit",
+    "url": "https://github.com/kriasoft/react-starter-kit",
+    "description": "Modern React starter kit with Bun, TypeScript, Tailwind CSS, tRPC, Stripe, and Cloudflare Workers. Production-ready monorepo for building fast web apps.",
+    "detected_stack": [
+      "Standard Worker"
+    ],
+    "config_file": "wrangler.jsonc",
+    "discovered_at": "2026-08-30T00:05:11.823806+00:00"
+  },
+  {
+    "name": "lockfale/OSINT-Framework",
+    "url": "https://github.com/lockfale/OSINT-Framework",
+    "description": "OSINT Framework",
+    "detected_stack": [
+      "Standard Worker"
+    ],
+    "config_file": "wrangler.jsonc",
+    "discovered_at": "2026-08-30T00:05:12.983066+00:00"
+  },
+  {
+    "name": "cloudflare/cloudflare-docs",
+    "url": "https://github.com/cloudflare/cloudflare-docs",
+    "description": "Cloudflare\u2019s documentation",
+    "detected_stack": [
+      "Workers AI",
+      "Tailwind",
+      "Astro"
+    ],
+    "config_file": "wrangler.jsonc",
+    "discovered_at": "2026-08-30T00:05:14.120427+00:00"
+  },
+  {
+    "name": "headroomlabs-ai/headroom",
+    "url": "https://github.com/headroomlabs-ai/headroom",
+    "description": "Compress tool outputs, logs, files, and RAG chunks before they reach the LLM. 20% fewer tokens for coding agents, 60-95% fewer tokens for JSON, same answers. Library, proxy, MCP server.",
+    "detected_stack": [
+      "Standard Worker"
+    ],
+    "config_file": "wrangler.toml",
+    "discovered_at": "2026-08-30T00:05:15.252808+00:00"
+  },
+  {
+    "name": "fmhy/edit",
+    "url": "https://github.com/fmhy/edit",
+    "description": "Make changes to FMHY",
+    "detected_stack": [
+      "Tailwind"
+    ],
+    "config_file": "wrangler.toml",
+    "discovered_at": "2026-08-30T00:05:16.384255+00:00"
+  },
+  {
+    "name": "penpot/penpot",
+    "url": "https://github.com/penpot/penpot",
+    "description": "Penpot: The open-source design platform for Product teams that need scalable collaboration.",
+    "detected_stack": [
+      "Standard Worker"
+    ],
+    "config_file": "wrangler.toml",
+    "discovered_at": "2026-08-30T00:05:17.487909+00:00"
+  },
+  {
+    "name": "ltaoo/wx_channels_download",
+    "url": "https://github.com/ltaoo/wx_channels_download",
+    "description": "\u5fae\u4fe1\u89c6\u9891\u53f7\u4e0b\u8f7d\u5668",
+    "detected_stack": [
+      "Standard Worker"
+    ],
+    "config_file": "wrangler.toml",
+    "discovered_at": "2026-08-30T00:05:18.605903+00:00"
   },
   {
     "name": "cloudflare/cloudflare-os",
@@ -221,7 +231,7 @@
       "Standard Worker"
     ],
     "config_file": "wrangler.jsonc",
-    "discovered_at": "2026-08-29T00:04:30.343801+00:00"
+    "discovered_at": "2026-08-30T00:05:19.732246+00:00"
   },
   {
     "name": "esengine/DeepSeek-Reasonix",
@@ -231,19 +241,39 @@
       "Standard Worker"
     ],
     "config_file": "wrangler.toml",
-    "discovered_at": "2026-08-29T00:04:31.723344+00:00"
+    "discovered_at": "2026-08-30T00:05:20.846827+00:00"
+  },
+  {
+    "name": "backnotprop/plannotator",
+    "url": "https://github.com/backnotprop/plannotator",
+    "description": "Annotate and review coding agent plans and code diffs visually, share with your team, send feedback to agents with one click.",
+    "detected_stack": [
+      "Standard Worker"
+    ],
+    "config_file": "wrangler.toml",
+    "discovered_at": "2026-08-30T00:05:21.945510+00:00"
   },
   {
     "name": "miantiao-me/Sink",
     "url": "https://github.com/miantiao-me/Sink",
     "description": "\u26a1 A Simple / Speedy / Secure Link Shortener with Analytics, 100% run on Cloudflare.",
     "detected_stack": [
-      "Drizzle",
       "Tailwind",
-      "Shadcn"
+      "Shadcn",
+      "Drizzle"
     ],
     "config_file": "wrangler.jsonc",
-    "discovered_at": "2026-08-29T00:04:32.918192+00:00"
+    "discovered_at": "2026-08-30T00:05:23.071966+00:00"
+  },
+  {
+    "name": "novuhq/novu",
+    "url": "https://github.com/novuhq/novu",
+    "description": "The open-source communication infrastructure for agents and products",
+    "detected_stack": [
+      "Standard Worker"
+    ],
+    "config_file": "wrangler.jsonc",
+    "discovered_at": "2026-08-30T00:05:24.166969+00:00"
   },
   {
     "name": "colbymchenry/codegraph",
@@ -253,7 +283,7 @@
       "Standard Worker"
     ],
     "config_file": "wrangler.jsonc",
-    "discovered_at": "2026-08-29T00:04:34.144603+00:00"
+    "discovered_at": "2026-08-30T00:05:25.302032+00:00"
   },
   {
     "name": "harvard-edge/cs249r_book",
@@ -263,7 +293,7 @@
       "Standard Worker"
     ],
     "config_file": "wrangler.toml",
-    "discovered_at": "2026-08-29T00:04:35.378683+00:00"
+    "discovered_at": "2026-08-30T00:05:26.437236+00:00"
   },
   {
     "name": "cabinpkg/cabin",
@@ -273,7 +303,7 @@
       "Standard Worker"
     ],
     "config_file": "wrangler.jsonc",
-    "discovered_at": "2026-08-29T00:04:36.587000+00:00"
+    "discovered_at": "2026-08-30T00:05:27.533270+00:00"
   },
   {
     "name": "elizaOS/eliza",
@@ -281,13 +311,13 @@
     "description": "Open source agentic operating system",
     "detected_stack": [
       "OpenAI",
+      "Postgres",
       "Tailwind",
       "Radix",
-      "Hono",
-      "Postgres"
+      "Hono"
     ],
     "config_file": "wrangler.toml",
-    "discovered_at": "2026-08-29T00:04:37.856897+00:00"
+    "discovered_at": "2026-08-30T00:05:28.647638+00:00"
   },
   {
     "name": "readest/readest",
@@ -297,7 +327,17 @@
       "Standard Worker"
     ],
     "config_file": "wrangler.toml",
-    "discovered_at": "2026-08-29T00:04:39.084661+00:00"
+    "discovered_at": "2026-08-30T00:05:29.809961+00:00"
+  },
+  {
+    "name": "GitbookIO/gitbook",
+    "url": "https://github.com/GitbookIO/gitbook",
+    "description": "The open source frontend for GitBook doc sites",
+    "detected_stack": [
+      "Standard Worker"
+    ],
+    "config_file": "defaultWrangler.jsonc",
+    "discovered_at": "2026-08-30T00:05:31.001747+00:00"
   },
   {
     "name": "lobehub/lobehub",
@@ -305,13 +345,13 @@
     "description": "\ud83e\udd2f LobeHub is your Chief Agent Operator, organizing your agents into 7\u00d724 operations by hiring, scheduling, and reporting on your entire AI team.",
     "detected_stack": [
       "OpenAI",
-      "Next.js",
-      "Hono",
       "Postgres",
-      "Drizzle"
+      "Next.js",
+      "Drizzle",
+      "Hono"
     ],
     "config_file": "wrangler.jsonc",
-    "discovered_at": "2026-08-29T00:04:40.556042+00:00"
+    "discovered_at": "2026-08-30T00:05:32.174205+00:00"
   },
   {
     "name": "cloudflare/computer",
@@ -321,7 +361,7 @@
       "Standard Worker"
     ],
     "config_file": "wrangler.jsonc",
-    "discovered_at": "2026-08-29T00:04:41.753654+00:00"
+    "discovered_at": "2026-08-30T00:05:33.323760+00:00"
   },
   {
     "name": "aaif-goose/goose",
@@ -331,7 +371,7 @@
       "Standard Worker"
     ],
     "config_file": "wrangler.toml",
-    "discovered_at": "2026-08-29T00:04:42.961833+00:00"
+    "discovered_at": "2026-08-30T00:05:34.441561+00:00"
   },
   {
     "name": "aaddrick/claude-desktop-debian",
@@ -341,7 +381,7 @@
       "Standard Worker"
     ],
     "config_file": "wrangler.toml",
-    "discovered_at": "2026-08-29T00:04:44.163189+00:00"
+    "discovered_at": "2026-08-30T00:05:35.551587+00:00"
   },
   {
     "name": "cloudflare/agents",
@@ -351,7 +391,7 @@
       "OpenAI"
     ],
     "config_file": "wrangler.jsonc",
-    "discovered_at": "2026-08-29T00:04:45.379050+00:00"
+    "discovered_at": "2026-08-30T00:05:36.685939+00:00"
   },
   {
     "name": "UsefulSoftwareCo/executor",
@@ -361,7 +401,7 @@
       "Standard Worker"
     ],
     "config_file": "wrangler.jsonc",
-    "discovered_at": "2026-08-29T00:04:46.579793+00:00"
+    "discovered_at": "2026-08-30T00:05:37.843098+00:00"
   },
   {
     "name": "Helicone/helicone",
@@ -371,18 +411,18 @@
       "Standard Worker"
     ],
     "config_file": "wrangler.toml",
-    "discovered_at": "2026-08-29T00:04:47.866232+00:00"
+    "discovered_at": "2026-08-30T00:05:38.944169+00:00"
   },
   {
     "name": "alam00000/bentopdf",
     "url": "https://github.com/alam00000/bentopdf",
     "description": "The Privacy First PDF Toolkit",
     "detected_stack": [
-      "Next.js",
-      "Tailwind"
+      "Tailwind",
+      "Next.js"
     ],
     "config_file": "wrangler.toml",
-    "discovered_at": "2026-08-29T00:04:49.105432+00:00"
+    "discovered_at": "2026-08-30T00:05:40.087382+00:00"
   },
   {
     "name": "PostHog/posthog",
@@ -392,17 +432,7 @@
       "Tailwind"
     ],
     "config_file": "wrangler.jsonc",
-    "discovered_at": "2026-08-29T00:04:50.353131+00:00"
-  },
-  {
-    "name": "slint-ui/slint",
-    "url": "https://github.com/slint-ui/slint",
-    "description": "Slint is an open-source declarative GUI toolkit to build native user interfaces for Rust, C++, JavaScript, or Python apps.",
-    "detected_stack": [
-      "Standard Worker"
-    ],
-    "config_file": "wrangler.toml",
-    "discovered_at": "2026-08-29T00:04:51.588861+00:00"
+    "discovered_at": "2026-08-30T00:05:41.229498+00:00"
   },
   {
     "name": "macro-inc/macro",
@@ -412,7 +442,17 @@
       "Standard Worker"
     ],
     "config_file": "wrangler.jsonc",
-    "discovered_at": "2026-08-29T00:04:52.952448+00:00"
+    "discovered_at": "2026-08-30T00:05:42.332363+00:00"
+  },
+  {
+    "name": "slint-ui/slint",
+    "url": "https://github.com/slint-ui/slint",
+    "description": "Slint is an open-source declarative GUI toolkit to build native user interfaces for Rust, C++, JavaScript, or Python apps.",
+    "detected_stack": [
+      "Standard Worker"
+    ],
+    "config_file": "wrangler.toml",
+    "discovered_at": "2026-08-30T00:05:43.468221+00:00"
   },
   {
     "name": "Hmbown/CodeWhale",
@@ -422,7 +462,17 @@
       "Standard Worker"
     ],
     "config_file": "wrangler.jsonc",
-    "discovered_at": "2026-08-29T00:04:54.150771+00:00"
+    "discovered_at": "2026-08-30T00:05:44.602977+00:00"
+  },
+  {
+    "name": "anthropics/claude-cookbooks",
+    "url": "https://github.com/anthropics/claude-cookbooks",
+    "description": "A collection of notebooks/recipes showcasing some fun and effective ways of using Claude.",
+    "detected_stack": [
+      "Standard Worker"
+    ],
+    "config_file": "wrangler.toml",
+    "discovered_at": "2026-08-30T00:05:45.727043+00:00"
   },
   {
     "name": "pollinations/pollinations",
@@ -432,7 +482,7 @@
       "Standard Worker"
     ],
     "config_file": "wrangler.jsonc",
-    "discovered_at": "2026-08-29T00:04:55.358607+00:00"
+    "discovered_at": "2026-08-30T00:05:46.850452+00:00"
   },
   {
     "name": "timothymiller/t4-app",
@@ -442,7 +492,37 @@
       "Standard Worker"
     ],
     "config_file": "wrangler.toml",
-    "discovered_at": "2026-08-29T00:04:56.593164+00:00"
+    "discovered_at": "2026-08-30T00:05:48.033532+00:00"
+  },
+  {
+    "name": "cloudflare/mcp-server-cloudflare",
+    "url": "https://github.com/cloudflare/mcp-server-cloudflare",
+    "description": "No description",
+    "detected_stack": [
+      "Standard Worker"
+    ],
+    "config_file": "wrangler.jsonc",
+    "discovered_at": "2026-08-30T00:05:49.133310+00:00"
+  },
+  {
+    "name": "FreedomIntelligence/OpenClaw-Medical-Skills",
+    "url": "https://github.com/FreedomIntelligence/OpenClaw-Medical-Skills",
+    "description": "The largest open-source medical AI skills library for OpenClaw\ud83e\udd9e.",
+    "detected_stack": [
+      "Standard Worker"
+    ],
+    "config_file": "wrangler.toml",
+    "discovered_at": "2026-08-30T00:05:50.282875+00:00"
+  },
+  {
+    "name": "prisma/prisma-examples",
+    "url": "https://github.com/prisma/prisma-examples",
+    "description": " \ud83d\ude80 Ready-to-run Prisma example projects",
+    "detected_stack": [
+      "Prisma"
+    ],
+    "config_file": "wrangler.jsonc",
+    "discovered_at": "2026-08-30T00:05:51.396801+00:00"
   },
   {
     "name": "cloudflare/workers-sdk",
@@ -452,7 +532,17 @@
       "Standard Worker"
     ],
     "config_file": "wrangler.jsonc",
-    "discovered_at": "2026-08-29T00:04:57.809878+00:00"
+    "discovered_at": "2026-08-30T00:05:52.540739+00:00"
+  },
+  {
+    "name": "mosch/react-avatar-editor",
+    "url": "https://github.com/mosch/react-avatar-editor",
+    "description": "Small avatar & profile picture component. Resize and crop uploaded images using a intuitive user interface.",
+    "detected_stack": [
+      "Standard Worker"
+    ],
+    "config_file": "wrangler.jsonc",
+    "discovered_at": "2026-08-30T00:05:53.700283+00:00"
   },
   {
     "name": "medusajs/medusa",
@@ -463,7 +553,21 @@
       "Tailwind"
     ],
     "config_file": "wrangler.jsonc",
-    "discovered_at": "2026-08-29T00:04:58.997450+00:00"
+    "discovered_at": "2026-08-30T00:05:54.888356+00:00"
+  },
+  {
+    "name": "cloudflare/vibesdk",
+    "url": "https://github.com/cloudflare/vibesdk",
+    "description": "An open-source vibe coding platform that helps you build your own vibe-coding platform, built entirely on Cloudflare stack ",
+    "detected_stack": [
+      "OpenAI",
+      "Tailwind",
+      "Drizzle",
+      "Radix",
+      "Hono"
+    ],
+    "config_file": "wrangler.jsonc",
+    "discovered_at": "2026-08-30T00:05:56.030545+00:00"
   },
   {
     "name": "Fission-AI/OpenSpec",
@@ -473,7 +577,7 @@
       "Standard Worker"
     ],
     "config_file": "wrangler.jsonc",
-    "discovered_at": "2026-08-29T00:05:00.208254+00:00"
+    "discovered_at": "2026-08-30T00:05:57.144990+00:00"
   },
   {
     "name": "opengeos/GeoLibre",
@@ -483,7 +587,7 @@
       "Standard Worker"
     ],
     "config_file": "wrangler.toml",
-    "discovered_at": "2026-08-29T00:05:01.413368+00:00"
+    "discovered_at": "2026-08-30T00:05:58.249487+00:00"
   },
   {
     "name": "Micrurus-Ai/Corvid-lang",
@@ -493,7 +597,7 @@
       "Standard Worker"
     ],
     "config_file": "wrangler.toml",
-    "discovered_at": "2026-08-29T00:05:02.585930+00:00"
+    "discovered_at": "2026-08-30T00:05:59.364539+00:00"
   },
   {
     "name": "SukiSU-Ultra/SukiSU-Ultra",
@@ -503,66 +607,6 @@
       "Standard Worker"
     ],
     "config_file": "wrangler.toml",
-    "discovered_at": "2026-08-29T00:05:03.797808+00:00"
-  },
-  {
-    "name": "Agenta-AI/agenta",
-    "url": "https://github.com/Agenta-AI/agenta",
-    "description": "Agenta is a workspace where you and your team build agents and automations.",
-    "detected_stack": [
-      "Standard Worker"
-    ],
-    "config_file": "wrangler.jsonc",
-    "discovered_at": "2026-08-29T00:05:05.013843+00:00"
-  },
-  {
-    "name": "omnigent-ai/omnigent",
-    "url": "https://github.com/omnigent-ai/omnigent",
-    "description": "Omnigent is an open-source AI agent framework and meta-harness: orchestrate Claude Code, Codex, Cursor, Pi, and custom agents \u2014 swap harnesses without rewriting, enforce policies and sandboxing, and collaborate in real time from any device.",
-    "detected_stack": [
-      "Standard Worker"
-    ],
-    "config_file": "wrangler.toml",
-    "discovered_at": "2026-08-29T00:05:06.349832+00:00"
-  },
-  {
-    "name": "MarSeventh/CloudFlare-ImgBed",
-    "url": "https://github.com/MarSeventh/CloudFlare-ImgBed",
-    "description": "\ud83c\udfd6\ufe0f A serverless, open-source file hosting solution built on Cloudflare. Supports image hosting, secure file storage, and personal cloud drive capabilities.",
-    "detected_stack": [
-      "Standard Worker"
-    ],
-    "config_file": "wrangler.toml",
-    "discovered_at": "2026-08-29T00:05:07.577060+00:00"
-  },
-  {
-    "name": "AstrBotDevs/AstrBot",
-    "url": "https://github.com/AstrBotDevs/AstrBot",
-    "description": "AI Agent Assistant & development framework that integrates lots of IM platforms, LLMs, plugins and AI feature, and can be your openclaw alternative. \u2728",
-    "detected_stack": [
-      "Standard Worker"
-    ],
-    "config_file": "wrangler.toml",
-    "discovered_at": "2026-08-29T00:05:08.806106+00:00"
-  },
-  {
-    "name": "CopilotKit/CopilotKit",
-    "url": "https://github.com/CopilotKit/CopilotKit",
-    "description": "The Frontend Stack for Agents & Generative UI. React, Angular, Mobile, Slack, and more.  Makers of the AG-UI Protocol",
-    "detected_stack": [
-      "Standard Worker"
-    ],
-    "config_file": "wrangler.toml",
-    "discovered_at": "2026-08-29T00:05:10.042490+00:00"
-  },
-  {
-    "name": "nexu-io/open-design",
-    "url": "https://github.com/nexu-io/open-design",
-    "description": "\ud83c\udfa8 Best DeepSeek Harness Design Plugin. The open-source Claude Design alternative. \ud83d\udda5\ufe0f Local-first desktop app. \ud83d\uddbc\ufe0f Your coding agent becomes the design engine: prototypes, landing pages, dashboards, slides, images & video \u2014 real files, HTML/PDF/PPTX/MP4 export. \ud83e\udd16 Claude Code / Codex / Cursor / DeepSeek Harness / OpenCode & 20+ CLIs via BYOK.",
-    "detected_stack": [
-      "Standard Worker"
-    ],
-    "config_file": "wrangler.toml",
-    "discovered_at": "2026-08-29T00:05:11.340415+00:00"
+    "discovered_at": "2026-08-30T00:06:00.505123+00:00"
   }
 ]
