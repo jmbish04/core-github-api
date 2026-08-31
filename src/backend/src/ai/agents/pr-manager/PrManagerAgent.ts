@@ -6,6 +6,8 @@ import { Agent, run } from '@openai/agents';
 import { setupOpenAIAgentClient, getJulesClient } from '../../providers';
 import { Octokit } from '@octokit/rest';
 import { getAgentByName } from 'agents';
+import { desc } from 'drizzle-orm';
+import { getAgentDb, agentSchema, migrateAgentDb, type AgentDb } from '@/db/schemas/agents/stateful';
 
 function safeParseJson(output: string) {
   let clean = output.trim();
@@ -39,6 +41,13 @@ const runtime = createAgent<Env>({
 });
 
 export class PrManagerAgent extends runtime.Agent {
+  db: AgentDb;
+
+  constructor(ctx: DurableObjectState, env: Env) {
+    super(ctx, env);
+    this.db = getAgentDb(this.ctx.storage);
+  }
+
   async fetch(request: Request) {
     const url = new URL(request.url);
     if (url.pathname === '/scheduled') {
@@ -47,8 +56,24 @@ export class PrManagerAgent extends runtime.Agent {
     }
     if (url.pathname === '/api/jobs') {
       await this.onStart();
-      const results = this.sql.prepare("SELECT * FROM pr_manager_jobs ORDER BY created_at DESC LIMIT 50").all();
-      return new Response(JSON.stringify(results), {
+      const results = this.db
+        .select()
+        .from(agentSchema.prManagerJobs)
+        .orderBy(desc(agentSchema.prManagerJobs.createdAt))
+        .limit(50)
+        .all();
+
+      const mapped = results.map(r => ({
+        id: r.id,
+        owner: r.owner,
+        repo: r.repo,
+        pull_number: r.pullNumber,
+        status: r.status,
+        created_at: r.createdAt,
+        updated_at: r.updatedAt
+      }));
+
+      return new Response(JSON.stringify(mapped), {
         headers: { 'Content-Type': 'application/json' }
       });
     }
@@ -56,26 +81,16 @@ export class PrManagerAgent extends runtime.Agent {
   }
 
   async onStart() {
-    // DO SQLite state management init
-    this.sql.prepare(`
-      CREATE TABLE IF NOT EXISTS pr_manager_jobs (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        owner TEXT NOT NULL,
-        repo TEXT NOT NULL,
-        pull_number INTEGER NOT NULL,
-        status TEXT NOT NULL,
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
-      )
-    `).run();
+    // DO SQLite state management init via schema definitions
+    migrateAgentDb(this.ctx.storage);
   }
 
   async scheduled() {
     console.log('[PrManagerAgent] Running scheduled PR scan...');
     // Ensure agent state is initialized
     await this.onStart();
-    const owner = this.env.TEST_REPO_OWNER || 'cloudflare';
-    const repo = this.env.TEST_REPO_NAME || 'core-github-api';
+    const owner = (this.env as any).TEST_REPO_OWNER || 'cloudflare';
+    const repo = (this.env as any).TEST_REPO_NAME || 'core-github-api';
 
     await setupOpenAIAgentClient(this.env, "workers-ai");
 
@@ -191,24 +206,24 @@ Output a JSON object with:
               if (!allResolved) {
                 console.log(`[PrManagerAgent] Low confidence in resolving PR #${pr.number}. Adding comment.`);
                 await octokit.rest.issues.createComment({ owner, repo, issue_number: pr.number, body: "I am unable to confidently resolve these conflicts automatically. Manual intervention is required." });
-                this.sql.prepare('INSERT INTO pr_manager_jobs (owner, repo, pull_number, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)').bind(owner, repo, pr.number, 'conflict_commented', Date.now(), Date.now()).run();
+                this.db.insert(agentSchema.prManagerJobs).values({ owner, repo, pullNumber: pr.number, status: 'conflict_commented', createdAt: Date.now(), updatedAt: Date.now() }).run();
                 await execInSandbox('git merge --abort');
               } else {
                  console.log(`[PrManagerAgent] High confidence in resolving PR #${pr.number}. Pushing merge commit...`);
                  await execInSandbox('git add .');
                  await execInSandbox('git commit -m "Auto-resolved merge conflicts"');
                  await execInSandbox(`git push origin ${headRef}`);
-                 this.sql.prepare('INSERT INTO pr_manager_jobs (owner, repo, pull_number, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)').bind(owner, repo, pr.number, 'conflict_resolved', Date.now(), Date.now()).run();
+                 this.db.insert(agentSchema.prManagerJobs).values({ owner, repo, pullNumber: pr.number, status: 'conflict_resolved', createdAt: Date.now(), updatedAt: Date.now() }).run();
               }
             } else {
                // Merge succeeded cleanly? Should not happen if mergeable_state === 'dirty', but handle just in case
                console.log(`[PrManagerAgent] Merge surprisingly succeeded without conflicts for PR #${pr.number}`);
                await execInSandbox(`git push origin ${headRef}`);
-               this.sql.prepare('INSERT INTO pr_manager_jobs (owner, repo, pull_number, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)').bind(owner, repo, pr.number, 'conflict_resolved', Date.now(), Date.now()).run();
+               this.db.insert(agentSchema.prManagerJobs).values({ owner, repo, pullNumber: pr.number, status: 'conflict_resolved', createdAt: Date.now(), updatedAt: Date.now() }).run();
             }
           } catch (err) {
              console.error(`[PrManagerAgent] Failed to merge PR #${pr.number}:`, err);
-             this.sql.prepare('INSERT INTO pr_manager_jobs (owner, repo, pull_number, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)').bind(owner, repo, pr.number, 'conflict_failed', Date.now(), Date.now()).run();
+             this.db.insert(agentSchema.prManagerJobs).values({ owner, repo, pullNumber: pr.number, status: 'conflict_failed', createdAt: Date.now(), updatedAt: Date.now() }).run();
           } finally {
              // Let Sandbox terminate normally, no explicit cleanup needed here unless requested.
           }

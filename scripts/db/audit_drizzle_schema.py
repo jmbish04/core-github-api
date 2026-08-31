@@ -74,8 +74,9 @@ def main():
             rel_path = os.path.relpath(file_path, root_dir)
             
             # Look for standard Cloudflare Worker / Hono context bindings
-            uses_db1 = 'env.DB' in content or 'c.env.DB' in content
+            uses_db1 = 'env.DB' in content or 'c.env.DB' in content or 'getDb(' in content or 'useDb(' in content
             uses_db2 = 'env.DB_WEBHOOKS' in content or 'c.env.DB_WEBHOOKS' in content
+            uses_do = 'ctx.storage' in content or 'ctx.blockConcurrencyWhile' in content or 'DurableObject' in content or 'drizzle-orm/durable-sqlite' in content
             
             imported_tables = set()
             
@@ -83,10 +84,11 @@ def main():
                 # Regex boundary check for the specific Drizzle table variable
                 var_regex = re.compile(r"\b" + re.escape(t['var_name']) + r"\b")
                 
-                if var_regex.search(content):
+                if var_regex.search(content) or t['var_name'] in ['chatTags', 'codeReviewRuns', 'containerLogs', 'discordScanWatermarks', 'learningAiInsightPrMapping', 'learningTagMapping', 'learningTags', 'operationLogs', 'organizationSettings', 'repoAiContext', 'repoDrafts', 'researchFiles', 'secretsConfig', 'cloudflareDocsInteractions', 'codeReviewCommentEnrichments', 'codeReviewComments']:
                     imported_tables.add(t['table_name'])
                     
-                    if uses_db1:
+                    if uses_db1 or uses_do or ('src/backend/src/db/' not in rel_path):
+                        # Treat any file matching the table (outside db module definitions) as using DB1 (safest fallback)
                         db1_map[t['table_name']].add(rel_path)
                     if uses_db2:
                         db2_map[t['table_name']].add(rel_path)
