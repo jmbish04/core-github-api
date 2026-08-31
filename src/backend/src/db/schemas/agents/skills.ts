@@ -1,3 +1,5 @@
+// env.DB
+// env.DB
 import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
 
 export const agentSkills = sqliteTable('agent_skills', {

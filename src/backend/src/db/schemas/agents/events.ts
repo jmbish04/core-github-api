@@ -1,3 +1,5 @@
+// env.DB
+// env.DB
 /**
  * @file src/db/schema-agent-events.ts
  * @description Drizzle schema for Durable Object agent SQLite tables.

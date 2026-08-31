@@ -1,3 +1,4 @@
+// env.DB
 /**
  * @file backend/src/db/schemas/jules/index.ts
  * @description Barrel export for all Jules-related D1 Drizzle schemas.

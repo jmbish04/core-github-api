@@ -1,3 +1,4 @@
+// env.DB
 /**
  * @file schemas/workshop/index.ts
  * Barrel for all Workshop module schemas.

@@ -1,3 +1,5 @@
+// env.DB
+// env.DB
 /**
  * @file src/db/schemas/agents/stateful.ts
  * @description Drizzle ORM wrapper for Durable Object agent SQLite stateful storage.
