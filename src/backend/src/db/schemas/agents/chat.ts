@@ -1,3 +1,5 @@
+// env.DB
+// env.DB
 import { sqliteTable, text, integer, primaryKey } from "drizzle-orm/sqlite-core";
 import { repositories } from "@db/schemas/github/repos";
 

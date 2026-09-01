@@ -1,3 +1,4 @@
+// env.DB
 /**
  * @file schemas/webhooks/index.ts
  * Barrel for all webhook-adjacent event schemas.

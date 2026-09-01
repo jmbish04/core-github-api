@@ -1,3 +1,5 @@
+// env.DB
+// env.DB
 /**
  * @file backend/src/db/schema-pricing.ts
  * @description Database schema for AI model pricing snapshots

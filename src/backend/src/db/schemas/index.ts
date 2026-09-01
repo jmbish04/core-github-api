@@ -1,3 +1,4 @@
+// env.DB
 /**
  * @file db/schemas/index.ts
  * Master schema barrel — re-exports every table in the database.
