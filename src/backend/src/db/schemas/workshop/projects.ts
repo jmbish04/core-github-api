@@ -1,3 +1,4 @@
+// env.DB
 /**
  * @file schemas/workshop/projects.ts
  * Workshop module root entity — a user-initiated project that the

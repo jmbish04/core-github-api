@@ -1,3 +1,4 @@
+// env.DB
 /**
  * @file db/schemas/app/cloudflare_changelog.ts
  * @description Drizzle ORM schema for Cloudflare Changelog RSS ingestion.
