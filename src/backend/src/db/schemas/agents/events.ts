@@ -56,6 +56,21 @@ export const automationRuns = sqliteTable(
   })
 );
 
+// ── pr_manager_jobs (PrManagerAgent only) ───────────────────────
+// env.DB
+export const prManagerJobs = sqliteTable(
+  "pr_manager_jobs_v2",
+  {
+    id: text("id").primaryKey(),
+    owner: text("owner").notNull(),
+    repo: text("repo").notNull(),
+    pullNumber: text("pull_number").notNull(),
+    status: text("status").notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  }
+);
+
 // Agent activities timeline table
 // ── agent_activities ───────────────────────────
 export const agentActivities = sqliteTable(
