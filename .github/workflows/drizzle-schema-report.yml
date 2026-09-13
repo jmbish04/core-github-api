@@ -34,11 +34,24 @@ jobs:
           path: drizzle-schema-report.md
           retention-days: 14
 
-      # Optional: Fail the PR if unmapped/orphaned tables (AI slop) are detected. 
-      # Remove or comment out if you just want the report without blocking the PR.
-      - name: Check for AI Slop
+      # Fails on NEW dead schema only. The pre-existing orphans are listed in
+      # scripts/db/known-orphan-tables.txt: failing on those blocked every
+      # unrelated pull request on debt that predates it, which is how a check
+      # like this ends up deleted instead of obeyed.
+      - name: Check for new orphaned tables
         run: |
-          if grep -q "### Unmapped / Orphaned Schema Tables" drizzle-schema-report.md; then
-            echo "::error::Orphaned Drizzle tables detected! Please review the schema for AI slop."
+          if grep -q "### New Orphaned Tables" drizzle-schema-report.md; then
+            echo "::error::New orphaned Drizzle tables. Wire them up or delete them - do not add them to scripts/db/known-orphan-tables.txt to get this green."
+            sed -n '/### New Orphaned Tables/,/^$/p' drizzle-schema-report.md
             exit 1
+          fi
+
+      # Not a failure: an allowlisted table that is now wired up is good news,
+      # and the only thing to do about it is delete the line.
+      - name: Report allowlist entries that can be removed
+        if: always()
+        run: |
+          if grep -q "### Allowlisted Tables That Are No Longer Orphaned" drizzle-schema-report.md; then
+            echo "::notice::Some allowlisted tables are no longer orphaned. Remove them from scripts/db/known-orphan-tables.txt."
+            sed -n '/### Allowlisted Tables That Are No Longer Orphaned/,/^$/p' drizzle-schema-report.md
           fi

@@ -20,6 +20,33 @@ def get_ts_files(root_dir):
                 
     return ts_files
 
+def _is_schema_barrel(rel_path):
+    """A file that only re-exports schema is not a USE of a table."""
+    name = os.path.basename(rel_path)
+    return name in {"index.ts", "schema.ts"} and (
+        "/schema" in rel_path.replace(os.sep, "/") or "/db/" in rel_path.replace(os.sep, "/")
+    )
+
+
+def _known_orphans(root_dir):
+    """Tables already known to be orphaned, from `scripts/db/known-orphan-tables.txt`.
+
+    The allowlist exists so this check can FAIL on new dead schema without
+    blocking every unrelated pull request on debt that predates it. Entries are
+    meant to leave the list, never to accumulate: the report names any entry
+    that is no longer orphaned so it can be deleted.
+    """
+    path = os.path.join(root_dir, "scripts", "db", "known-orphan-tables.txt")
+    if not os.path.exists(path):
+        return set()
+    with open(path, "r", encoding="utf-8") as handle:
+        return {
+            line.strip()
+            for line in handle
+            if line.strip() and not line.lstrip().startswith("#")
+        }
+
+
 def main():
     # Generate timestamp in yyyy-mm-dd 12h time format (e.g., 2026-03-13-06-44pm)
     now_str = datetime.now().strftime("%Y-%m-%d-%I-%M%p").lower()
@@ -64,7 +91,12 @@ def main():
     file_interactions = defaultdict(set)
     db1_map = defaultdict(set) # For env.DB
     db2_map = defaultdict(set) # For env.DB_WEBHOOKS
-    
+    # Every NON-schema file that references a table variable, whether or not the
+    # same file also mentions a binding. This is what decides "orphaned"; the
+    # binding maps below stay informational. See the note at `unmapped`.
+    referenced = defaultdict(set)
+    schema_of = {t['table_name']: t['file'] for t in tables}
+
     # 2. Scan files for table imports and D1 database interactions
     for file_path in files:
         try:
@@ -85,7 +117,12 @@ def main():
                 
                 if var_regex.search(content):
                     imported_tables.add(t['table_name'])
-                    
+
+                    # A table's own schema file does not count as a use, and
+                    # neither does a barrel that only re-exports it.
+                    if rel_path != schema_of.get(t['table_name']) and not _is_schema_barrel(rel_path):
+                        referenced[t['table_name']].add(rel_path)
+
                     if uses_db1:
                         db1_map[t['table_name']].add(rel_path)
                     if uses_db2:
@@ -118,14 +155,38 @@ def main():
         md.append("- *No tables definitively mapped to env.DB_WEBHOOKS yet*")
 
     # Catch AI Slop (Orphaned Tables)
+    #
+    # "Orphaned" means NOTHING OUTSIDE ITS OWN SCHEMA FILE references the table.
+    # It used to mean "no file that references it also contains the literal
+    # `env.DB`", which called eight live tables dead: everything reached through
+    # a repository module (`src/backend/src/db/ops/repos.ts`), a service class
+    # holding its own handle, or a Durable Object never mentions that string in
+    # the same file. A check that cries wolf on a third of its findings is a
+    # check the next person disables, so the binding maps below stay as
+    # information and reachability decides the failure.
     all_discovered = sorted(list(set(t['table_name'] for t in tables)))
-    mapped_tables = set(db1_sorted + db2_sorted)
-    unmapped = [t for t in all_discovered if t not in mapped_tables]
-    
+    unmapped = [t for t in all_discovered if not referenced.get(t)]
+    known = _known_orphans(root_dir)
+    unexpected = [t for t in unmapped if t not in known]
+    stale_allowlist = sorted(known - set(unmapped))
+
     if unmapped:
         md.append("\n### Unmapped / Orphaned Schema Tables")
-        md.append("*(Suspicious AI Slop: Defined in code but no CRUD operations with a known D1 env var detected)*")
+        md.append("*(Defined in code and referenced from nowhere else - dead schema, or a table whose code was deleted without it.)*")
         for t in unmapped:
+            suffix = "  _(known, allowlisted)_" if t in known else ""
+            md.append(f"- {t}{suffix}")
+
+    if unexpected:
+        md.append("\n### New Orphaned Tables")
+        md.append("*(Not in `scripts/db/known-orphan-tables.txt`. These fail the build.)*")
+        for t in unexpected:
+            md.append(f"- {t}")
+
+    if stale_allowlist:
+        md.append("\n### Allowlisted Tables That Are No Longer Orphaned")
+        md.append("*(Cleaned up or wired in - remove them from `scripts/db/known-orphan-tables.txt`.)*")
+        for t in stale_allowlist:
             md.append(f"- {t}")
 
     md.append("\n---\n\n## Code Files Interacting with D1 Tables\n")
