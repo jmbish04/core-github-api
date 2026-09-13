@@ -75,3 +75,18 @@ export const agentActivities = sqliteTable(
         statusCheck: check("status_check", sql`${table.status} IN ('pending','active','completed','failed')`)
     })
 );
+
+// PR Manager jobs
+// ── pr_manager_jobs ───────────────────────────
+export const prManagerJobs = sqliteTable(
+    "pr_manager_jobs", // env.DB
+    {
+        id: text("id").primaryKey(), // UUID
+        owner: text("owner").notNull(),
+        repo: text("repo").notNull(),
+        pullNumber: text("pull_number").notNull(), // kept as text to align with Drizzle DO SQLite norms where integers aren't auto-incrementing by default natively unless strict.
+        status: text("status").notNull(),
+        createdAt: text("created_at").notNull(),
+        updatedAt: text("updated_at").notNull()
+    }
+);
