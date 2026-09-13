@@ -1,0 +1,28 @@
+# Drizzle tables defined in this repo that nothing outside their schema file
+# references. Dead schema, or a table whose code was deleted without it.
+#
+# This list exists so `scripts/db/audit_drizzle_schema.py` can FAIL on NEW dead
+# schema without blocking every unrelated pull request on debt that predates it.
+#
+# Rules:
+# - A new orphan must NOT be added here to get a build green. Wire the table up
+#   or delete it.
+# - Entries are meant to leave this list. The report names any entry that is no
+#   longer orphaned so it can be removed.
+# - Deleting a table definition does not drop the table in D1. Check the data
+#   first, then generate the migration deliberately.
+#
+# Captured 2026-09-13, 12 tables, by the same audit that reads this file.
+
+chat_tags
+code_review_runs
+container_logs
+discord_scan_watermarks
+learning_ai_insight_pr_mapping
+learning_tags
+operation_logs
+organization_settings
+repo_ai_context
+repo_drafts
+research_files
+secrets_config
