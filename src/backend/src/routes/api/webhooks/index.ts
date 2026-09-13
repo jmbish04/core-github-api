@@ -70,6 +70,7 @@ import { getSandbox } from '@cloudflare/sandbox';
 import { sanitizeRepoName } from '@/ai/mcp/tools/sandbox-sdk';
 import { AutomationRegistry } from '@/automations/core/AutomationRegistry';
 import { JulesService } from '@/services/jules/service';
+import { forwardPullRequestToMaestro } from '@/utils/maestro-fanout';
 
 const webhooksApi = new Hono<{ Bindings: Env }>();
 
@@ -169,6 +170,16 @@ export async function webhookHandler(c: Context<{ Bindings: Env }>): Promise<Res
         })()
       );
     }
+  }
+
+  // Task tracking (colby-maestro). Pull requests only, trimmed, and
+  // fire-and-forget: colby-maestro links a PR to the tasks it finishes and
+  // drops anything that maps to no task, so this Worker's whole event stream
+  // never lands in its D1.
+  if (eventName === 'pull_request') {
+    c.executionCtx.waitUntil(
+      forwardPullRequestToMaestro(c.env as never, deliveryId ?? '', payload as never)
+    );
   }
 
   // PR Reviewer (Sandbox + AI Gateway)

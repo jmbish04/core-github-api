@@ -604,6 +604,14 @@
       "binding": "CLAUDE_AGENT",
       "service": "claude-agent-worker",
       "entrypoint": "ClaudeAgentRPC"
+    },
+    {
+      // Task tracking. This Worker holds the GitHub App registration and sees
+      // every webhook for the account; colby-maestro wants the pull-request
+      // ones, trimmed, so it can link a PR to the task it finishes. It drops
+      // events that map to no task rather than storing the whole stream.
+      "binding": "MAESTRO",
+      "service": "colby-maestro"
     }
   ]
 }
