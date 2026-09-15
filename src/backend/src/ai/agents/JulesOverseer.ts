@@ -183,8 +183,6 @@ export class JulesOverseer extends JulesOverseerDurableObject {
         if (payload.type === 'insight') {
           const db = getDb(this.env.DB);
           await db.insert(learningAiInsights).values({
-          await db.insert(learningAiInsights).values({
-            id: crypto.randomUUID(),
             sessionId: payload.sessionId,
             patternType: payload.patternType || 'anti_pattern',
             title: payload.title || 'Ingested Insight',
