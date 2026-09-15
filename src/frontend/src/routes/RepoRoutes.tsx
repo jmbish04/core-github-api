@@ -25,6 +25,7 @@ import RepoLayout from "@/layouts/RepoLayout";
 // Repo-scoped views (dedicated per-repo implementations)
 
 import RepoDashboard from "@/views/repos/Dashboard";
+import { NewTaskPage } from "@/views/control/global/jules/NewTaskPage";
 import RepoStats from "@/views/repos/Stats";
 import RepoExplorer from "@/views/repos/Explorer";
 import RepoPlan from "@/views/repos/Plan";
@@ -44,6 +45,20 @@ import TrackerLayoutBeta from "@/views/repos/TrackerLayoutBeta";
 import TrackerListViewBeta from "@/views/repos/TrackerListViewBeta";
 import TrackerBoardViewBeta from "@/views/repos/TrackerBoardViewBeta";
 import TrackerReportsViewBeta from "@/views/repos/TrackerReportsViewBeta";
+
+// Jules control views (reused for repo scope)
+import {
+  JulesHomePage,
+  TasksListPage,
+  TaskDetailPage,
+  NewTaskPage,
+  JulesActivityPage,
+  SettingsPage as JulesSettingsPage,
+  DesignLabPage,
+  BacklogPage,
+  VelocityPage,
+  ChatPage as JulesChatPage
+} from "@/views/control/global/jules";
 
 // Global views reused in repo context (scoped by RepoLayout context provider)
 // Retained for routes that haven't yet been given dedicated repo-scoped variants.
@@ -161,6 +176,9 @@ export function RepoRoutes() {
       {/* ── Repo Utilities ───────────────────────────────────────── */}
       {/* cloudflare-docs BEFORE :tool_name to prevent shadowing */}
       <Route path="tools/cloudflare-docs" element={<RepoCloudfareDocs source="project-tools" />} />
+
+      {/* ── Jules Tasks (repo-scoped) ───────────────────────────── */}
+      <Route path="jules/tasks/new" element={guard(<NewTaskPage />)} />
       <Route path="tools/cloudflare-chat" element={guard(<CloudflareChat />)} />
       <Route path="tools/docs/cloudflare-agent" element={<CloudflareDocsInfo />} />
       <Route path="tools/:tool_name" element={<RepoTools />} />
@@ -171,6 +189,18 @@ export function RepoRoutes() {
       <Route path="workshop" element={guard(<AgentWorkshop />)} />
       <Route path="workshop/command-center" element={guard(<GlobalCommandCenter />)} />
       <Route path="workshop/takeover" element={guard(<WorkshopTakeover />)} />
+
+      {/* ── Jules Repo Routes ─────────────────────────────────────── */}
+      <Route path="jules" element={guard(<JulesHomePage />)} />
+      <Route path="jules/tasks" element={guard(<TasksListPage />)} />
+      <Route path="jules/tasks/new" element={guard(<NewTaskPage />)} />
+      <Route path="jules/tasks/:sessionId" element={guard(<TaskDetailPage />)} />
+      <Route path="jules/activity" element={guard(<JulesActivityPage />)} />
+      <Route path="jules/backlog" element={guard(<BacklogPage />)} />
+      <Route path="jules/velocity" element={guard(<VelocityPage />)} />
+      <Route path="jules/design" element={guard(<DesignLabPage />)} />
+      <Route path="jules/settings" element={guard(<JulesSettingsPage />)} />
+      <Route path="jules/chat" element={guard(<JulesChatPage />)} />
 
       {/* ── Repo scope catch-all → redirect to dashboard ─────────── */}
       <Route path="*" element={<Navigate to="dashboard" replace />} />

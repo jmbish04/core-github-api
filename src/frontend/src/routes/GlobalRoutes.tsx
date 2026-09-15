@@ -46,6 +46,7 @@ import AppStore from "@/views/control/global/AppStore";
 import CloudflareChat from "@/views/control/global/CloudflareChat";
 import Workflows from "@/views/control/global/Workflows";
 import { PRCommandCenter } from "@/views/control/global/PRCommandCenter";
+import DesignLabPage from "@/views/control/global/jules/DesignLabPage";
 
 // Global planning & project management views
 // These have cross-repo purview — they call /api/projects, /api/tasks, etc.
@@ -63,15 +64,40 @@ import ProjectPlanPage from "@/views/repos/Plan"; // reused; global plan has bro
 import ReverseEngineering from "@/views/control/global/ReverseEngineering";
 import ReverseEngineeringSnapshot from "@/views/control/global/ReverseEngineeringSnapshot";
 
+// Jules Velocity
+import { VelocityPage } from "@/views/control/global/jules/VelocityPage";
+
 // Beta Tracker (global)
 import { TrackerBeta } from "@/views/control/global/TrackerBeta";
 import SentinelDashboard from "@/views/control/global/SentinelDashboard";
 import SentinelKanban from "@/views/control/global/SentinelKanban";
 
+// Jules Agent Insights
+import { AgentInsightsPage } from "@/views/control/global/jules/AgentInsightsPage";
+
 // Workshop / Agent agentic module (global)
 import AgentWorkshop from "@/views/control/global/AgentWorkshop";
 import { GlobalCommandCenter } from "@/components/workshop/GlobalCommandCenter";
 import { WorkshopTakeover } from "@/components/workshop/WorkshopTakeover";
+
+// Jules control views
+import {
+  JulesHomePage,
+  TasksListPage,
+  TaskDetailPage,
+  NewTaskPage,
+  JulesActivityPage,
+  SettingsPage as JulesSettingsPage,
+  MCPSettingsPage,
+  SkillsPage,
+  CategoriesPage,
+  DesignLabPage,
+  GitHubPage,
+  BacklogPage,
+  VelocityPage,
+  AgentInsightsPage,
+  ChatPage as JulesChatPage
+} from "@/views/control/global/jules";
 
 // Research module
 import DeepResearchChatPage from "@/views/research/DeepResearchChatPage";
@@ -115,12 +141,16 @@ export function GlobalRoutes() {
         {/* ── Tools (global tool catalogue) ───────────────────────── */}
         <Route path="/tools/:tool_name?" element={guard(<ToolsPage />)} />
 
+        {/* ── Jules Chat ────────────────────────────────────────────── */}
+        <Route path="/jules" element={guard(<JulesChatPage />)} />
+
         {/* ── Settings ─────────────────────────────────────────────── */}
         <Route path="/settings" element={<Navigate to="/settings/general" replace />} />
         <Route path="/settings/:tab" element={guard(<Settings />)} />
 
         {/* ── Dashboard ────────────────────────────────────────────── */}
         <Route path="/dashboard" element={guard(<Dashboard />)} />
+        <Route path="/design-lab" element={guard(<DesignLabPage />)} />
 
         {/* ── GLOBAL PLANNING & PROJECTS ───────────────────────────────
             Scope: cross-repo purview. Calls /api/projects, /api/tasks, etc.
@@ -204,14 +234,37 @@ export function GlobalRoutes() {
         <Route path="/beta/tracker" element={guard(<TrackerBeta />)} />
         <Route path="/beta/tracker/:view" element={guard(<TrackerBeta />)} />
 
+        {/* ── Jules Tasks (global) ──────────────────────────────── */}
+        <Route path="/jules/tasks/new" element={guard(<NewTaskPage />)} />
+
         {/* ── Sentinel Learning Engine (global) ──────────────────────── */}
         <Route path="/sentinel" element={guard(<SentinelDashboard />)} />
         <Route path="/sentinel/kanban" element={guard(<SentinelKanban />)} />
+
+        {/* ── Jules Agent Insights ─────────────────────────────────── */}
+        <Route path="/jules/insights" element={guard(<AgentInsightsPage />)} />
 
         {/* ── Workshop / Agent studio (global) ─────────────────────── */}
         <Route path="/workshop" element={guard(<AgentWorkshop />)} />
         <Route path="/workshop/command-center" element={guard(<GlobalCommandCenter />)} />
         <Route path="/workshop/takeover" element={guard(<WorkshopTakeover />)} />
+
+        {/* ── Jules Control Hub ────────────────────────────────────── */}
+        <Route path="/jules" element={guard(<JulesHomePage />)} />
+        <Route path="/jules/tasks" element={guard(<TasksListPage />)} />
+        <Route path="/jules/tasks/new" element={guard(<NewTaskPage />)} />
+        <Route path="/jules/tasks/:sessionId" element={guard(<TaskDetailPage />)} />
+        <Route path="/jules/activity" element={guard(<JulesActivityPage />)} />
+        <Route path="/jules/settings" element={guard(<JulesSettingsPage />)} />
+        <Route path="/jules/settings/mcp" element={guard(<MCPSettingsPage />)} />
+        <Route path="/jules/skills" element={guard(<SkillsPage />)} />
+        <Route path="/jules/categories" element={guard(<CategoriesPage />)} />
+        <Route path="/jules/design" element={guard(<DesignLabPage />)} />
+        <Route path="/jules/github" element={guard(<GitHubPage />)} />
+        <Route path="/jules/backlog" element={guard(<BacklogPage />)} />
+        <Route path="/jules/velocity" element={guard(<VelocityPage />)} />
+        <Route path="/jules/insights" element={guard(<AgentInsightsPage />)} />
+        <Route path="/jules/chat" element={guard(<JulesChatPage />)} />
 
         {/* ── Legacy redirect ──────────────────────────────────────── */}
         <Route path="/control-center" element={guard(<Navigate to="/dashboard" replace />)} />
