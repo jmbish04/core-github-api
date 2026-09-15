@@ -57,12 +57,12 @@ try {
       {jobs.map((job) => (
         <Card client:load>
           <CardHeader>
-            <CardTitle>{job.owner}/{job.repo}</CardTitle>
+            <CardTitle>{job.owner}/{job.repo} #{job.pullNumber}</CardTitle>
           </CardHeader>
           <CardContent>
             <div class="flex justify-between items-center text-sm">
               <span class="text-gray-400">Status: <strong class="text-white">{job.status}</strong></span>
-              <span class="text-gray-500">{new Date(job.created_at).toLocaleString()}</span>
+              <span class="text-gray-500">{new Date(job.createdAt).toLocaleString()}</span>
             </div>
           </CardContent>
         </Card>

@@ -1,3 +1,4 @@
+// env.DB
 /**
  * @file src/db/schema-todos.ts
  * @description Drizzle schema for General Todos (Post-it notes), Tags, Links, AI Insights,
