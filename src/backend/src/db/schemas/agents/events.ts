@@ -75,3 +75,20 @@ export const agentActivities = sqliteTable(
         statusCheck: check("status_check", sql`${table.status} IN ('pending','active','completed','failed')`)
     })
 );
+
+// ── pr_manager_jobs (PrManagerAgent only) ───────────────────────
+// env.DB
+export const prManagerJobs = sqliteTable(
+    "pr_manager_jobs",
+    {
+        id: text("id").primaryKey(), // UUID
+        owner: text("owner").notNull(),
+        repo: text("repo").notNull(),
+        pullNumber: text("pull_number").notNull(),
+        status: text("status").notNull().default("pending"),
+        createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`)
+    },
+    (table) => ({
+        repoPullIdx: index("idx_pr_manager_jobs_repo_pull").on(table.repo, table.pullNumber)
+    })
+);
