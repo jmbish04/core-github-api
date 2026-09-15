@@ -1,3 +1,4 @@
+// env.DB
 /**
  * @file src/db/schema-stars.ts
  * @description Drizzle schema for User Starred Repositories (Awesome Stars).

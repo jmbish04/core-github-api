@@ -1,3 +1,4 @@
+// env.DB
 import { text, integer, sqliteTable, index } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 

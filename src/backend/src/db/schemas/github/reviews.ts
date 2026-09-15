@@ -1,3 +1,4 @@
+// env.DB
 /**
  * @file src/db/schema-reviews.ts
  * @description Drizzle schema for Code Review Comments and Enrichments.
