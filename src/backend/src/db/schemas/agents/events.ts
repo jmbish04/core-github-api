@@ -75,3 +75,17 @@ export const agentActivities = sqliteTable(
         statusCheck: check("status_check", sql`${table.status} IN ('pending','active','completed','failed')`)
     })
 );
+
+// ── pr_manager_jobs ───────────────────────────
+export const prManagerJobs = sqliteTable(
+  "pr_manager_jobs",
+  {
+    id: text("id").primaryKey(),
+    owner: text("owner").notNull(),
+    repo: text("repo").notNull(),
+    pullNumber: text("pull_number").notNull(),
+    status: text("status").notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  }
+);
