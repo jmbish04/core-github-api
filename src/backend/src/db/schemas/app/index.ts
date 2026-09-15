@@ -15,3 +15,4 @@ export * from './action_logs';
 export * from './unified_action_logs';
 export * from './research_judgments';
 export * from './research';
+export * from './pr_manager';
