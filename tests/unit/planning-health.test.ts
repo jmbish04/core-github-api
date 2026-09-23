@@ -19,7 +19,7 @@ vi.mock("@db", () => ({
   projectPlanningRequests: { id: "planning_requests" },
 }));
 
-vi.mock("@/ai/agents/runtime/agents", () => ({
+vi.mock("agents", () => ({
   getAgentByName: mocks.getAgentByNameMock,
 }));
 
