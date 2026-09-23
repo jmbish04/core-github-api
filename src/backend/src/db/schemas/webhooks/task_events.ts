@@ -1,3 +1,4 @@
+// env.DB
 /**
  * @file schemas/workshop/task_events.ts
  * Audit event log for Workshop project & task actions.
