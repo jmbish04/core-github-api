@@ -6,6 +6,8 @@ import { Agent, run } from '@openai/agents';
 import { setupOpenAIAgentClient, getJulesClient } from '../../providers';
 import { Octokit } from '@octokit/rest';
 import { getAgentByName } from 'agents';
+import { migrateAgentDb } from "@/db/schemas/agents/stateful";
+import { Logger } from "@/lib/logger";
 
 function safeParseJson(output: string) {
   let clean = output.trim();
@@ -57,21 +59,14 @@ export class PrManagerAgent extends runtime.Agent {
 
   async onStart() {
     // DO SQLite state management init
-    this.sql.prepare(`
-      CREATE TABLE IF NOT EXISTS pr_manager_jobs (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        owner TEXT NOT NULL,
-        repo TEXT NOT NULL,
-        pull_number INTEGER NOT NULL,
-        status TEXT NOT NULL,
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
-      )
-    `).run();
+    await this.ctx.blockConcurrencyWhile(async () => {
+      migrateAgentDb(this.ctx.storage);
+    });
   }
 
   async scheduled() {
-    console.log('[PrManagerAgent] Running scheduled PR scan...');
+    const logger = new Logger(this.env, 'PrManagerAgent');
+    logger.info('[PrManagerAgent] Running scheduled PR scan...');
     // Ensure agent state is initialized
     await this.onStart();
     const owner = this.env.TEST_REPO_OWNER || 'cloudflare';
@@ -95,11 +90,11 @@ Output a JSON object with:
       const pullsResponse = await octokit.rest.pulls.list({ owner, repo, state: 'open' });
 
       for (const pr of pullsResponse.data) {
-        console.log(`[PrManagerAgent] Checking PR #${pr.number}`);
+        logger.info(`[PrManagerAgent] Checking PR #${pr.number}`);
         const prDetails = await octokit.rest.pulls.get({ owner, repo, pull_number: pr.number });
 
         if (prDetails.data.mergeable_state === 'dirty') {
-          console.log(`[PrManagerAgent] Found conflict in PR #${pr.number}`);
+          logger.info(`[PrManagerAgent] Found conflict in PR #${pr.number}`);
 
           const filesResponse = await octokit.rest.pulls.listFiles({ owner, repo, pull_number: pr.number });
           const baseSha = prDetails.data.base.sha;
@@ -168,7 +163,7 @@ Output a JSON object with:
                   confidence = parsed.confidence || 0;
                   resolvedContent = parsed.resolvedContent || "";
                 } catch (e) {
-                  console.warn(`[PrManagerAgent] Failed to parse conflict resolution for ${file.filename}`);
+                  logger.warn(`[PrManagerAgent] Failed to parse conflict resolution for ${file.filename}`);
                 }
 
                 if (confidence < 0.8) {
@@ -189,12 +184,12 @@ Output a JSON object with:
               }
 
               if (!allResolved) {
-                console.log(`[PrManagerAgent] Low confidence in resolving PR #${pr.number}. Adding comment.`);
+                logger.info(`[PrManagerAgent] Low confidence in resolving PR #${pr.number}. Adding comment.`);
                 await octokit.rest.issues.createComment({ owner, repo, issue_number: pr.number, body: "I am unable to confidently resolve these conflicts automatically. Manual intervention is required." });
                 this.sql.prepare('INSERT INTO pr_manager_jobs (owner, repo, pull_number, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)').bind(owner, repo, pr.number, 'conflict_commented', Date.now(), Date.now()).run();
                 await execInSandbox('git merge --abort');
               } else {
-                 console.log(`[PrManagerAgent] High confidence in resolving PR #${pr.number}. Pushing merge commit...`);
+                 logger.info(`[PrManagerAgent] High confidence in resolving PR #${pr.number}. Pushing merge commit...`);
                  await execInSandbox('git add .');
                  await execInSandbox('git commit -m "Auto-resolved merge conflicts"');
                  await execInSandbox(`git push origin ${headRef}`);
@@ -202,20 +197,22 @@ Output a JSON object with:
               }
             } else {
                // Merge succeeded cleanly? Should not happen if mergeable_state === 'dirty', but handle just in case
-               console.log(`[PrManagerAgent] Merge surprisingly succeeded without conflicts for PR #${pr.number}`);
+               logger.info(`[PrManagerAgent] Merge surprisingly succeeded without conflicts for PR #${pr.number}`);
                await execInSandbox(`git push origin ${headRef}`);
                this.sql.prepare('INSERT INTO pr_manager_jobs (owner, repo, pull_number, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)').bind(owner, repo, pr.number, 'conflict_resolved', Date.now(), Date.now()).run();
             }
-          } catch (err) {
-             console.error(`[PrManagerAgent] Failed to merge PR #${pr.number}:`, err);
+          } catch (err: any) {
+             logger.error(`[PrManagerAgent] Failed to merge PR #${pr.number}: ${err.message}`);
              this.sql.prepare('INSERT INTO pr_manager_jobs (owner, repo, pull_number, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)').bind(owner, repo, pr.number, 'conflict_failed', Date.now(), Date.now()).run();
           } finally {
              // Let Sandbox terminate normally, no explicit cleanup needed here unless requested.
           }
         }
       }
-    } catch (e) {
-      console.error('[PrManagerAgent] Error scanning PRs:', e);
+    } catch (e: any) {
+      logger.error(`[PrManagerAgent] Error scanning PRs: ${e.message}`);
+    } finally {
+      await logger.flush();
     }
   }
 }
