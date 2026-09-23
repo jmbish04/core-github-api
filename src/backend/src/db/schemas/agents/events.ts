@@ -7,6 +7,7 @@
 import {
   sqliteTable,
   text,
+  integer,
   sqliteTableCreator,
   check,
   index,
@@ -74,4 +75,19 @@ export const agentActivities = sqliteTable(
         opIdx: index("idx_agent_activities_op").on(table.operationId),
         statusCheck: check("status_check", sql`${table.status} IN ('pending','active','completed','failed')`)
     })
+);
+
+// ── pr_manager_jobs ───────────────────────────
+// env.DB
+export const prManagerJobs = sqliteTable(
+  "pr_manager_jobs",
+  {
+    id: integer("id", { mode: "number" }).primaryKey({ autoIncrement: true }),
+    owner: text("owner").notNull(),
+    repo: text("repo").notNull(),
+    pullNumber: integer("pull_number", { mode: "number" }).notNull(),
+    status: text("status").notNull(),
+    createdAt: integer("created_at", { mode: "number" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "number" }).notNull(),
+  }
 );
