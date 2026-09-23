@@ -1,3 +1,4 @@
+// env.DB
 /**
  * @file src/db/schema-webhooks.ts
  * @description Drizzle ORM schema for GitHub Webhooks database

@@ -1,3 +1,4 @@
+// env.DB
 /**
  * @file src/backend/src/db/schemas/docs/agents.ts
  * @description D1 schema for the Colony agent registry.
