@@ -1,0 +1,6 @@
+Implement PR Manager Agent database initialization and Drizzle schemas
+
+- Adds `pr_manager_jobs` Drizzle ORM schema to map SQLite definitions correctly.
+- Updates `migrateAgentDb()` in `stateful.ts` to idempotently deploy the `pr_manager_jobs` DDL table during Durable Object startup.
+- Updates `PrManagerAgent.ts` to execute schema initialization properly using `this.ctx.blockConcurrencyWhile` and leverages the correct `this.ctx.storage.sql.prepare().bind().run()` pattern exposed by Cloudflare Workers Durable Objects.
+- Resolves syntax duplicate insertion code bug in `JulesOverseer.ts`.
