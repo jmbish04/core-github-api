@@ -70,7 +70,7 @@ import { getSandbox } from '@cloudflare/sandbox';
 import { sanitizeRepoName } from '@/ai/mcp/tools/sandbox-sdk';
 import { AutomationRegistry } from '@/automations/core/AutomationRegistry';
 import { JulesService } from '@/services/jules/service';
-import { forwardPullRequestToMaestro } from '@/utils/maestro-fanout';
+import { forwardPullRequestToMaestro, forwardRawEventToMaestro } from '@/utils/maestro-fanout';
 
 const webhooksApi = new Hono<{ Bindings: Env }>();
 
@@ -181,6 +181,12 @@ export async function webhookHandler(c: Context<{ Bindings: Env }>): Promise<Res
       forwardPullRequestToMaestro(c.env as never, deliveryId ?? '', payload as never)
     );
   }
+  // Repo lifecycle (repository / installation_repositories / push): forwarded
+  // raw and signed, because colby-maestro verifies the signature itself. The
+  // helper ignores every other event.
+  c.executionCtx.waitUntil(
+    forwardRawEventToMaestro(c.env as never, { event: eventName, deliveryId, signature }, rawBody)
+  );
 
   // PR Reviewer (Sandbox + AI Gateway)
   if (eventName === 'pull_request' && (action === 'opened' || action === 'reopened')) {
