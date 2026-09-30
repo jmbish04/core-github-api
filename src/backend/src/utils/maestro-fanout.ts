@@ -130,3 +130,48 @@ export async function forwardPullRequestToMaestro(
     console.error("[maestro-fanout] forward failed:", error);
   }
 }
+
+/**
+ * Repository lifecycle events colby-maestro acts on itself: a new repo, a repo
+ * added to the App installation, a push (Maestro filters to the default branch).
+ *
+ * Unlike the pull-request forward, these go through UNCHANGED - raw body plus
+ * GitHub's signature headers - because colby-maestro's `/api/github/webhook`
+ * verifies `x-hub-signature-256` itself. Re-serialising the body would break
+ * that signature.
+ */
+export const MAESTRO_RAW_EVENTS = new Set(["repository", "installation_repositories", "push"]);
+
+export async function forwardRawEventToMaestro(
+  env: MaestroEnv,
+  headers: { event: string; deliveryId: string; signature: string },
+  rawBody: string,
+): Promise<void> {
+  if (!MAESTRO_RAW_EVENTS.has(headers.event)) return;
+  if (!env.MAESTRO) {
+    console.log(`[maestro-fanout] no MAESTRO binding; ${headers.event} not forwarded`);
+    return;
+  }
+  try {
+    const response = await env.MAESTRO.fetch(
+      new Request("https://colby-maestro/api/github/webhook", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-github-event": headers.event,
+          "x-github-delivery": headers.deliveryId,
+          "x-hub-signature-256": headers.signature,
+        },
+        body: rawBody,
+      }),
+    );
+    if (!response.ok) {
+      console.error(
+        `[maestro-fanout] ${headers.event} ${headers.deliveryId} -> ${response.status}: ${(await response.text()).slice(0, 200)}`,
+      );
+    }
+  } catch (error) {
+    // Same rule as above: logged, never thrown.
+    console.error(`[maestro-fanout] ${headers.event} forward failed:`, error);
+  }
+}
