@@ -44,7 +44,7 @@ env:
 jobs:
   detect-changes:
     name: "📡 Detect Skill Changes"
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.event.pull_request.head.repo.full_name && github.event.pull_request.head.repo.full_name != github.repository && 'ubuntu-latest' || fromJSON('["self-hosted","Linux","X64","proxmox-actions"]') }}
     outputs:
       changed_skills: ${{ steps.scan.outputs.changed_skills }}
       has_changes: ${{ steps.scan.outputs.has_changes }}
@@ -133,7 +133,7 @@ jobs:
     name: "📋 Copy Updated Skills"
     needs: detect-changes
     if: needs.detect-changes.outputs.has_changes == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.event.pull_request.head.repo.full_name && github.event.pull_request.head.repo.full_name != github.repository && 'ubuntu-latest' || fromJSON('["self-hosted","Linux","X64","proxmox-actions"]') }}
     permissions:
       contents: write
       pull-requests: write
@@ -196,7 +196,7 @@ jobs:
       needs.detect-changes.outputs.has_changes == 'true' &&
       (github.event_name == 'workflow_dispatch' && github.event.inputs.dispatch_jules == 'true' ||
        github.event_name == 'pull_request')
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.event.pull_request.head.repo.full_name && github.event.pull_request.head.repo.full_name != github.repository && 'ubuntu-latest' || fromJSON('["self-hosted","Linux","X64","proxmox-actions"]') }}
     steps:
       - name: Set up Node.js
         uses: actions/setup-node@v4
