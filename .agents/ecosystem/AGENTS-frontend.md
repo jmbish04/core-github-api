@@ -303,6 +303,20 @@ two screens in one app at different densities. Every one of those is a
 to interface" section is the fix, and it is mandatory reading before building any
 screen backed by a table.**
 
+**Two more layers sit under those two — code quality and the phone.** Neither one
+picks a component or a colour; both carry a "house overrides" block at the top
+that maps them onto this stack, so read that block before the upstream text.
+
+| Skill | Owns | Does not own |
+|---|---|---|
+| `react-best-practices` | how island code is written: no request waterfalls, small bundles (import by path, `client:visible`/`client:idle` before `client:load`), no wasted re-renders | components, layout, theme — and its Next.js/RSC rules, which are translated to Astro + Worker in its overrides |
+| `mobile-design` | the phone surface's reasoning: thumb zone, 44pt / 48dp targets, loading / error-with-retry / offline on every screen; and the whole job for a native RN / Flutter / SwiftUI app | palette, type and shell on web — ReUI tokens win; and its "ask the platform first" step, which does not apply to web work |
+
+The order on any UI change: Better Design (what and why) → ReUI (which blocks) →
+`react-best-practices` (the island code) → `mobile-design` + `mobile-native` (the
+phone) → review (`review-animations`, `better-interface`,
+`design:accessibility-review`) → `scripts/ui-guard.mjs`.
+
 **The app shell is a ReUI block — which one is a decision you make per app.**
 There is no default shell, and there never should be: pick the shell that fits
 what this app actually is, from the app-shell block page. What is fixed is that

@@ -559,6 +559,7 @@ query the control plane?". Just use them and report what you did.
 | **Cloudflare API MCP** (`mcp__cloudflare-api*`, the self-hosted proxy) | `search` / `execute` / `docs` and the Workers CI/CD tools — including **writes**: creating bindings, configuring builds, reading logs |
 | **Cloudflare docs search** | Read-only documentation lookup |
 | **Deploying a Cloudflare Worker** | See "Deploying" in `~/AGENTS-cloudflare-workers.md` — standing authorization, rollback is the safety net |
+| **Commenting on a pull request** | Any PR, yours or another session's, on any repo. Reversible, visible and attributable. Justin, 2026-10-17: "these agents NEVER need to ask permission to comment on PRs, ever". Merging, pushing, closing and reopening are NOT covered. |
 
 **If a permission prompt still appears for one of these, that is a configuration
 bug, not a signal to stop.** Two known causes, both worth reporting rather than
