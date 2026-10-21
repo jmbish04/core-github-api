@@ -389,6 +389,7 @@ session.
 4. Pick the app shell from the block catalogue; strip what the app has no use for.
 5. Wire `/docs`, `/openapi.json`, `/scalar`, `/swagger` into the nav — these are
    already in "What every app ships"; the shell contract is what enforces them.
+   `/docs` is a Nimbus site (`pnpm exec nimbus-docs init`, `base: "/docs"`).
 
 ## An existing repo that has not adopted it — ask once, then respect the answer
 
@@ -750,8 +751,32 @@ Carried forward — these are still non-negotiable on every UI:
 - **Passcode** in front of it (see "Authentication" below)
 - **Landing page** (`/`) — what this is, links to everything
 - **`/health`** — real checks against live dependencies, polled. Never `{ok:true}`
-- **`/openapi.json` + `/swagger` + `/scalar`** — generated, linked from the header
-- **`/docs`** overview + `/docs/{page}` subpages
+- **`/openapi.json` + `/swagger` + `/scalar`** — generated, linked from the header.
+  `/openapi.json` is built at request time from the Hono routes with
+  `@hono/zod-openapi` and Zod. `/scalar` and `/swagger` render that live document.
+  Never a hand-written or committed spec file.
+- **`/docs`** overview + `/docs/{page}` subpages — **built with
+  [Nimbus](https://github.com/cloudflare/nimbus), always** (see below)
+
+### `/docs` is a Nimbus site. No exceptions. (Justin, 2026-10-21)
+
+Technical docs under `/docs` are built with `cloudflare/nimbus`. Do not hand-roll
+docs pages in the app's own Astro routes, and do not use Starlight, Docusaurus,
+VitePress or MkDocs.
+
+- **New docs:** `npx @cloudflare/create-nimbus-docs@latest`. **An existing Astro
+  app:** `pnpm exec nimbus-docs init` adopts it in place.
+- **Serve under `/docs`:** set Astro `base: "/docs"`. With the Cloudflare adapter,
+  Nimbus places the agent discovery files for you. The app's other routes stay where
+  they are.
+- **Mermaid** (required on data, schema and integration pages, see the repo-root
+  `AGENTS.md`) and **API reference** pages come from the Nimbus registry:
+  `pnpm dlx @cloudflare/nimbus-docs add mermaid` / `add api-reference`. Point the API
+  reference at the app's live `/openapi.json`, not a copy.
+- **Pin the version.** Nimbus is pre-1.0 and its own README says the public surface
+  changes between minor releases. Read the changelog before you upgrade.
+- Nimbus ships `/llms.txt`, `/llms-full.txt` and a Markdown copy of each page by
+  default. Do not remove them; agents read the docs through them.
 - **Settings** (`/settings`) — persisted to D1 or SQLite, never localStorage
 - **Tags** (`/settings/tags`) — a real `tags` + `tag_mappings` vocabulary, never a
   comma-separated column: it cannot be indexed, coloured, or deduped

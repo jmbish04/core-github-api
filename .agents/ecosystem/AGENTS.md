@@ -168,11 +168,15 @@ runner, or another person's checkout cannot see them.** A repo that carries no
 copy is a repo where the rules silently do not apply — and "the agent did not
 have the briefing" reads identically to "the agent ignored the briefing".
 
-So every repo Justin works in gets a **sync Action**: on every merge to the
-default branch, on a weekly schedule, and on demand, it pulls the briefings this
-repo actually needs from `github.com/jmbish04/colby-ecosystem` into
-`.agents/ecosystem/` and commits them. Because they are committed, a plain
-`git clone` already has them.
+So every repo Justin works in gets a **sync Action**: on every pull request, and
+on demand, it pulls the briefings this repo actually needs from
+`github.com/jmbish04/colby-ecosystem` into `.agents/ecosystem/` and commits them
+**to the PR branch**. They reach the default branch inside a merge that was going
+to build anyway. Because they are committed, a plain `git clone` already has them.
+
+**Never add a `push` or `schedule` trigger back.** Those committed straight to
+`main` in every repo, so one change here became an Actions run and a Workers Build
+in every repo. Record: `decisions/2026-10-21-agents-sync-fanout.md`.
 
 **Right-sized is the point.** A Python repo gets `AGENTS.md` +
 `AGENTS-python.md`, not the 79KB Cloudflare chapter. The selection is derived from
