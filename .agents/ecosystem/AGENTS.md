@@ -525,6 +525,15 @@ machine-wide `AGENTS*.md` briefings, the agent skills and the templates; it is
 cloned at `/Volumes/Projects/colby-ecosystem` and synced with `sync-agents`.
 Neither of them tracks work — that is colby-maestro.
 
+**The versioned copy is [`jmbish04/core-reuse-library`](https://github.com/jmbish04/core-reuse-library)
+(private, since 2026-10-21).** `~/.colby-ecosystem/` is on one Mac, outside
+any git repo, so a cloud session, a CI runner or another clone cannot see it.
+Its `workers/` and `python/` code was copied there, alongside `standards/` (one
+page per stack: Workers backend and frontend, Python, GAS) and `references/`
+(pinned links to core-guardian, core-bridge, core-pve and the two templates).
+Colby Maestro indexes it for `GET /api/reuse/search`. Prefer it when the session
+may not be on this Mac, and change shared code there, by PR.
+
 - `workers/` — `wrangler.jsonc` (full observability, **no `ai` binding**, Secret
   Store bindings, `run_worker_first`), `utils/secrets.ts`, `utils/ai.ts`,
   `devOps/tokens.mjs`, `devOps/fix-d1-migrations.mjs`, `.vscode/settings.json`
