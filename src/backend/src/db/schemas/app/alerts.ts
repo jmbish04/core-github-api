@@ -1,3 +1,4 @@
+// env.DB
 /**
  * @file backend/src/db/schemas/app/alerts.ts
  * @description Drizzle schema for System & Security Alerts
