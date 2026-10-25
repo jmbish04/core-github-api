@@ -1,3 +1,5 @@
+// env.DB
+// env.DB
 /** @file schemas/agents/index.ts — Barrel for all agent-related schemas */
 export * from './budget';
 export * from './chat';

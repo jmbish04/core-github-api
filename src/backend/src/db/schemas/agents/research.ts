@@ -1,3 +1,5 @@
+// env.DB
+// env.DB
 /**
  * @file backend/src/db/schema-research-orchestrator.ts
  * @description D1 schema for Research Orchestrator workflow

@@ -1,3 +1,4 @@
+// env.DB
 import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
 import { createSelectSchema, createInsertSchema } from "drizzle-zod";
 import { learningAiInsights } from "./aiInsights";

@@ -1,3 +1,4 @@
+// env.DB
 /**
  * @file backend/src/db/schemas/logs/audit.ts
  * @description Drizzle ORM schema for Webhook Audit Logs.

@@ -1,3 +1,4 @@
+// env.DB
 /** @file schemas/github/index.ts — Barrel for all GitHub-related schemas */
 export * from './drafts';
 export * from './favorites';

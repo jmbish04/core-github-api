@@ -1,3 +1,4 @@
+// env.DB
 /**
  * @file src/db/schema-drafts.ts
  * @description Drizzle schema for Repo Drafts (HIL Project Settings).

@@ -1,3 +1,5 @@
+// env.DB
+// env.DB
 /**
  * @file src/db/schemas/agents/stateful.ts
  * @description Drizzle ORM wrapper for Durable Object agent SQLite stateful storage.
@@ -71,6 +73,16 @@ export function migrateAgentDb(storage: DurableObjectStorage): void {
       CONSTRAINT status_check CHECK(status IN ('pending','active','completed','failed'))
     );
     CREATE INDEX IF NOT EXISTS idx_agent_activities_op ON agent_activities (operation_id);
+
+    CREATE TABLE IF NOT EXISTS pr_manager_jobs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      owner TEXT NOT NULL,
+      repo TEXT NOT NULL,
+      pull_number INTEGER NOT NULL,
+      status TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
   `);
 }
 

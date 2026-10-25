@@ -1,3 +1,4 @@
+// env.DB
 /**
  * @file schemas/projects/index.ts — Barrel for all project management schemas.
  *
