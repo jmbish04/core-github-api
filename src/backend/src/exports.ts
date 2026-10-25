@@ -19,3 +19,4 @@ export { AgentSessionDO } from '@/do/AgentSessionDO';
 
 // ── External ──────────────────────────────────────────────────────────────
 export { Sandbox } from '@cloudflare/sandbox';
+export * from '@/ai/agents/pr-manager/index';
