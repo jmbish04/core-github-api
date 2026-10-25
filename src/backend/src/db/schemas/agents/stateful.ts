@@ -71,6 +71,16 @@ export function migrateAgentDb(storage: DurableObjectStorage): void {
       CONSTRAINT status_check CHECK(status IN ('pending','active','completed','failed'))
     );
     CREATE INDEX IF NOT EXISTS idx_agent_activities_op ON agent_activities (operation_id);
+
+    CREATE TABLE IF NOT EXISTS pr_manager_jobs (
+      id TEXT PRIMARY KEY,
+      owner TEXT NOT NULL,
+      repo TEXT NOT NULL,
+      pull_number TEXT NOT NULL,
+      status TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
   `);
 }
 
