@@ -1,3 +1,4 @@
+// env.DB
 /**
  * @file schemas/workshop/agent_memory.ts
  * Stores memory chunks/contexts for the Workshop AI agents.

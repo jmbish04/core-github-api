@@ -1,3 +1,4 @@
+// env.DB
 import {
     sqliteTable,
     text,

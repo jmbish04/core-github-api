@@ -1,3 +1,4 @@
+// env.DB
 /**
  * @file backend/src/db/schemas/jules/webhook-events.ts
  * @description D1 (SQLite/Drizzle) schema for inbound Jules webhook events.

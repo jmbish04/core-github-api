@@ -1,3 +1,4 @@
+// env.DB
 import { sqliteTable, text, integer, index, real } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
 import { createId } from "@paralleldrive/cuid2";

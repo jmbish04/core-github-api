@@ -1,3 +1,4 @@
+// env.DB
 /**
  * @file src/db/schema-daily-research.ts
  * @description Drizzle ORM schema for Daily Research snapshots

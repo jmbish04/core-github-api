@@ -1,3 +1,4 @@
+// env.DB
 /**
  * @file backend/src/db/schemas/ops/secrets.ts
  * @description Drizzle D1 schema for the Cloudflare Secrets Store reference table.

@@ -1,3 +1,4 @@
+// env.DB
 /**
  * @file backend/src/db/schemas/jules/jobs.ts
  * @description D1 (SQLite/Drizzle) schema for Jules job records.

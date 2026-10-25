@@ -1,3 +1,4 @@
+// env.DB
 /**
  * @file src/db/schemas/workshop/ux_design_runs.ts
  * @description Tracks a full UX Design Agent pipeline run from prompt to Jules fleet.
