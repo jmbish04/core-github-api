@@ -311,11 +311,12 @@ that maps them onto this stack, so read that block before the upstream text.
 |---|---|---|
 | `react-best-practices` | how island code is written: no request waterfalls, small bundles (import by path, `client:visible`/`client:idle` before `client:load`), no wasted re-renders | components, layout, theme — and its Next.js/RSC rules, which are translated to Astro + Worker in its overrides |
 | `mobile-design` | the phone surface's reasoning: thumb zone, 44pt / 48dp targets, loading / error-with-retry / offline on every screen; and the whole job for a native RN / Flutter / SwiftUI app | palette, type and shell on web — ReUI tokens win; and its "ask the platform first" step, which does not apply to web work |
+| `kill-ai-slop` | the machine-default look and copy: indigo→violet gradients, glows, emoji, decorative pills, "not just X — it's Y". 35 tells, a read-only scanner (`node scripts/scan.mjs <root>`), triage, then fix | ReUI components and blocks (always `--exclude=.claude/,components/ui,components/reui,components/blocks`), status `Badge`s, the dark theme and the theme's fonts — its overrides say which tells yield |
 
 The order on any UI change: Better Design (what and why) → ReUI (which blocks) →
 `react-best-practices` (the island code) → `mobile-design` + `mobile-native` (the
 phone) → review (`review-animations`, `better-interface`,
-`design:accessibility-review`) → `scripts/ui-guard.mjs`.
+`design:accessibility-review`, `kill-ai-slop`) → `scripts/ui-guard.mjs`.
 
 **The app shell is a ReUI block — which one is a decision you make per app.**
 There is no default shell, and there never should be: pick the shell that fits
