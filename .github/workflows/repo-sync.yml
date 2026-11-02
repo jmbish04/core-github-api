@@ -7,7 +7,7 @@ on:
 jobs:
   sync-to-d1:
     name: Analyze & Upsert Repos
-    runs-on: ${{ vars.CI_RUNNER && fromJSON(vars.CI_RUNNER) || 'ubuntu-latest' }}
+    runs-on: ${{ startsWith(vars.CI_RUNNER, '[') && endsWith(vars.CI_RUNNER, ']') && fromJSON(vars.CI_RUNNER) || 'ubuntu-latest' }}
     permissions:
       contents: read
 
