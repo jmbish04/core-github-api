@@ -1,3 +1,4 @@
+// env.DB
 /** @file schemas/github/learning/index.ts — Barrel for all Learning-related schemas */
 export * from './sessions';
 export * from './threads';
