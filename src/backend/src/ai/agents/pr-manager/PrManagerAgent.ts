@@ -6,6 +6,10 @@ import { Agent, run } from '@openai/agents';
 import { setupOpenAIAgentClient, getJulesClient } from '../../providers';
 import { Octokit } from '@octokit/rest';
 import { getAgentByName } from 'agents';
+import { getAgentDb, migrateAgentDb } from '@/db/schemas/agents/stateful';
+import { prManagerJobs } from '@/db/schemas/agents/events';
+import { Logger } from '@/lib/logger';
+import { desc } from 'drizzle-orm';
 
 function safeParseJson(output: string) {
   let clean = output.trim();
@@ -39,6 +43,13 @@ const runtime = createAgent<Env>({
 });
 
 export class PrManagerAgent extends runtime.Agent {
+  private db: ReturnType<typeof getAgentDb>;
+
+  constructor(ctx: any, env: Env) {
+    super(ctx, env);
+    this.db = getAgentDb(this.ctx.storage);
+  }
+
   async fetch(request: Request) {
     const url = new URL(request.url);
     if (url.pathname === '/scheduled') {
@@ -47,7 +58,7 @@ export class PrManagerAgent extends runtime.Agent {
     }
     if (url.pathname === '/api/jobs') {
       await this.onStart();
-      const results = this.sql.prepare("SELECT * FROM pr_manager_jobs ORDER BY created_at DESC LIMIT 50").all();
+      const results = await this.db.select().from(prManagerJobs).orderBy(desc(prManagerJobs.createdAt)).limit(50);
       return new Response(JSON.stringify(results), {
         headers: { 'Content-Type': 'application/json' }
       });
@@ -56,26 +67,19 @@ export class PrManagerAgent extends runtime.Agent {
   }
 
   async onStart() {
-    // DO SQLite state management init
-    this.sql.prepare(`
-      CREATE TABLE IF NOT EXISTS pr_manager_jobs (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        owner TEXT NOT NULL,
-        repo TEXT NOT NULL,
-        pull_number INTEGER NOT NULL,
-        status TEXT NOT NULL,
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
-      )
-    `).run();
+    await this.ctx.blockConcurrencyWhile(async () => {
+      migrateAgentDb(this.ctx.storage);
+    });
   }
 
   async scheduled() {
-    console.log('[PrManagerAgent] Running scheduled PR scan...');
+    const logger = new Logger(this.env as any, 'pr-manager');
+    logger.info('[PrManagerAgent] Running scheduled PR scan...');
+    await logger.flush();
     // Ensure agent state is initialized
     await this.onStart();
-    const owner = this.env.TEST_REPO_OWNER || 'cloudflare';
-    const repo = this.env.TEST_REPO_NAME || 'core-github-api';
+    const owner = (this.env as any).TEST_REPO_OWNER || 'cloudflare';
+    const repo = (this.env as any).TEST_REPO_NAME || 'core-github-api';
 
     await setupOpenAIAgentClient(this.env, "workers-ai");
 
@@ -95,11 +99,13 @@ Output a JSON object with:
       const pullsResponse = await octokit.rest.pulls.list({ owner, repo, state: 'open' });
 
       for (const pr of pullsResponse.data) {
-        console.log(`[PrManagerAgent] Checking PR #${pr.number}`);
+        logger.info(`[PrManagerAgent] Checking PR #${pr.number}`);
+        await logger.flush();
         const prDetails = await octokit.rest.pulls.get({ owner, repo, pull_number: pr.number });
 
         if (prDetails.data.mergeable_state === 'dirty') {
-          console.log(`[PrManagerAgent] Found conflict in PR #${pr.number}`);
+          logger.info(`[PrManagerAgent] Found conflict in PR #${pr.number}`);
+          await logger.flush();
 
           const filesResponse = await octokit.rest.pulls.listFiles({ owner, repo, pull_number: pr.number });
           const baseSha = prDetails.data.base.sha;
@@ -189,33 +195,50 @@ Output a JSON object with:
               }
 
               if (!allResolved) {
-                console.log(`[PrManagerAgent] Low confidence in resolving PR #${pr.number}. Adding comment.`);
+                logger.info(`[PrManagerAgent] Low confidence in resolving PR #${pr.number}. Adding comment.`);
+                await logger.flush();
                 await octokit.rest.issues.createComment({ owner, repo, issue_number: pr.number, body: "I am unable to confidently resolve these conflicts automatically. Manual intervention is required." });
-                this.sql.prepare('INSERT INTO pr_manager_jobs (owner, repo, pull_number, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)').bind(owner, repo, pr.number, 'conflict_commented', Date.now(), Date.now()).run();
+                await this.db.insert(prManagerJobs).values({
+                    id: crypto.randomUUID(),
+                    owner, repo, pullNumber: pr.number, status: 'conflict_commented', createdAt: Date.now(), updatedAt: Date.now()
+                });
                 await execInSandbox('git merge --abort');
               } else {
-                 console.log(`[PrManagerAgent] High confidence in resolving PR #${pr.number}. Pushing merge commit...`);
+                 logger.info(`[PrManagerAgent] High confidence in resolving PR #${pr.number}. Pushing merge commit...`);
+                 await logger.flush();
                  await execInSandbox('git add .');
                  await execInSandbox('git commit -m "Auto-resolved merge conflicts"');
                  await execInSandbox(`git push origin ${headRef}`);
-                 this.sql.prepare('INSERT INTO pr_manager_jobs (owner, repo, pull_number, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)').bind(owner, repo, pr.number, 'conflict_resolved', Date.now(), Date.now()).run();
+                 await this.db.insert(prManagerJobs).values({
+                     id: crypto.randomUUID(),
+                     owner, repo, pullNumber: pr.number, status: 'conflict_resolved', createdAt: Date.now(), updatedAt: Date.now()
+                 });
               }
             } else {
                // Merge succeeded cleanly? Should not happen if mergeable_state === 'dirty', but handle just in case
-               console.log(`[PrManagerAgent] Merge surprisingly succeeded without conflicts for PR #${pr.number}`);
+               logger.info(`[PrManagerAgent] Merge surprisingly succeeded without conflicts for PR #${pr.number}`);
+               await logger.flush();
                await execInSandbox(`git push origin ${headRef}`);
-               this.sql.prepare('INSERT INTO pr_manager_jobs (owner, repo, pull_number, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)').bind(owner, repo, pr.number, 'conflict_resolved', Date.now(), Date.now()).run();
+               await this.db.insert(prManagerJobs).values({
+                   id: crypto.randomUUID(),
+                   owner, repo, pullNumber: pr.number, status: 'conflict_resolved', createdAt: Date.now(), updatedAt: Date.now()
+               });
             }
-          } catch (err) {
-             console.error(`[PrManagerAgent] Failed to merge PR #${pr.number}:`, err);
-             this.sql.prepare('INSERT INTO pr_manager_jobs (owner, repo, pull_number, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)').bind(owner, repo, pr.number, 'conflict_failed', Date.now(), Date.now()).run();
+          } catch (err: any) {
+             logger.error(`[PrManagerAgent] Failed to merge PR #${pr.number}:`, { body: err.message });
+             await logger.flush();
+             await this.db.insert(prManagerJobs).values({
+                 id: crypto.randomUUID(),
+                 owner, repo, pullNumber: pr.number, status: 'conflict_failed', createdAt: Date.now(), updatedAt: Date.now()
+             });
           } finally {
              // Let Sandbox terminate normally, no explicit cleanup needed here unless requested.
           }
         }
       }
-    } catch (e) {
-      console.error('[PrManagerAgent] Error scanning PRs:', e);
+    } catch (e: any) {
+      logger.error('[PrManagerAgent] Error scanning PRs:', { body: e.message });
+      await logger.flush();
     }
   }
 }
