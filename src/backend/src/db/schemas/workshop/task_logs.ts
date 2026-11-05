@@ -1,3 +1,4 @@
+// env.DB
 /**
  * @file schemas/workshop/task_logs.ts
  * Detailed execution logs for a specific UX run/task.
