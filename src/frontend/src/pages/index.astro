@@ -1,17 +1,73 @@
 ---
-import ClientApp from "@/components/client-app";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+export const prerender = false;
+
+let jobs: any[] = [];
+let error: string | null = null;
+
+// import { getAgentByName } from "agents";
+
+try {
+  const env = Astro.locals.runtime?.env;
+  if (env && env.PR_MANAGER_AGENT) {
+    // const agent = await getAgentByName(env.PR_MANAGER_AGENT as any, 'singleton');
+    const id = env.PR_MANAGER_AGENT.idFromName('singleton'); const agent = env.PR_MANAGER_AGENT.get(id); const response = await agent.fetch(new Request('http://do/api/jobs'));
+    if (response.ok) {
+      jobs = await response.json();
+    } else {
+      error = "Failed to fetch jobs from PR Manager Agent: " + response.status;
+    }
+  } else {
+    error = "PR_MANAGER_AGENT binding not found. Are you running in Wrangler?";
+  }
+} catch (e: any) {
+  error = e.message;
+}
 ---
 
-<!doctype html>
 <html lang="en" class="dark">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="shortcut icon" href="/favicon.svg" />
-    <title>Core GitHub API</title>
-  </head>
-  <body>
-    <ClientApp client:only="react" />
-  </body>
+<head>
+  <meta charset="UTF-8">
+  <title>PR Manager Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      background-color: #09090b;
+      color: #fafafa;
+      font-family: system-ui, -apple-system, sans-serif;
+      padding: 2rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="max-w-4xl mx-auto">
+    <h1 class="text-3xl font-bold mb-6">PR Manager Agent Jobs</h1>
+
+    {error && (
+      <div class="bg-red-900/50 border border-red-500 text-red-200 p-4 rounded mb-6">
+        {error}
+      </div>
+    )}
+
+    {jobs.length === 0 && !error && (
+      <p class="text-gray-400">No PR jobs found.</p>
+    )}
+
+    <div class="grid gap-4">
+      {jobs.map((job) => (
+        <Card client:load>
+          <CardHeader>
+            <CardTitle>{job.owner}/{job.repo}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div class="flex justify-between items-center text-sm">
+              <span class="text-gray-400">Status: <strong class="text-white">{job.status}</strong></span>
+              <span class="text-gray-500">{new Date(job.created_at).toLocaleString()}</span>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  </div>
+</body>
 </html>
