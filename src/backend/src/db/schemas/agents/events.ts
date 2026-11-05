@@ -7,6 +7,7 @@
 import {
   sqliteTable,
   text,
+  integer,
   sqliteTableCreator,
   check,
   index,
@@ -55,6 +56,25 @@ export const automationRuns = sqliteTable(
     eventIdx: index("idx_automation_runs_event").on(table.eventId),
   })
 );
+
+// env.DB
+// ── pr_manager_jobs ─────────────────────────────────────────────
+export const prManagerJobs = sqliteTable(
+  "pr_manager_jobs",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    owner: text("owner").notNull(),
+    repo: text("repo").notNull(),
+    pullNumber: integer("pull_number").notNull(),
+    status: text("status").notNull(),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (table) => ({
+    createdAtIdx: index("idx_pr_manager_jobs_created_at").on(table.createdAt),
+  })
+);
+
 
 // Agent activities timeline table
 // ── agent_activities ───────────────────────────
