@@ -1,3 +1,4 @@
+// env.DB
 /**
  * @file src/db/schema-repos.ts
  * @description Drizzle schema for Repositories and AI Metadata.

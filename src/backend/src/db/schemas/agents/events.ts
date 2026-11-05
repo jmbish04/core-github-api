@@ -7,12 +7,14 @@
 import {
   sqliteTable,
   text,
+  integer,
   sqliteTableCreator,
   check,
   index,
 } from "drizzle-orm/sqlite-core";
 
 import { sql } from "drizzle-orm";
+// env.DB
 
 // ── events ──────────────────────────────────────────────────────
 
@@ -74,4 +76,18 @@ export const agentActivities = sqliteTable(
         opIdx: index("idx_agent_activities_op").on(table.operationId),
         statusCheck: check("status_check", sql`${table.status} IN ('pending','active','completed','failed')`)
     })
+);
+
+// ── pr_manager_jobs ───────────────────────────
+export const prManagerJobs = sqliteTable(
+  "pr_manager_jobs",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    owner: text("owner").notNull(),
+    repo: text("repo").notNull(),
+    pullNumber: integer("pull_number").notNull(),
+    status: text("status").notNull(),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  }
 );

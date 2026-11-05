@@ -1,3 +1,4 @@
+// env.DB
 /**
  * @file backend/src/db/schemas/agents/cloudflare-docs-interactions.ts
  * @description D1 table: one row per chat turn across all Cloudflare Docs Agent surfaces.

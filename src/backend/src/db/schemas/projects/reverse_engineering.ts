@@ -1,3 +1,4 @@
+// env.DB
 import { sql } from 'drizzle-orm';
 import { check, index, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 import { repositories } from '../github/repos';

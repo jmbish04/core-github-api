@@ -1,3 +1,4 @@
+// env.DB
 /**
  * @file src/db/schemas/workshop/ux_pages.ts
  * @description Tracks the per-page state within a UX Design Agent run.
