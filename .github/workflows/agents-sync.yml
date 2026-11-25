@@ -17,6 +17,26 @@
 # `tokens show GH_TOKEN --value-only`. A fine-grained PAT with contents:read on
 # colby-ecosystem alone is better; it belongs in the tokens CLI only, since no Worker
 # reads it and the Cloudflare Secret Store has a hard 100-secret ceiling.
+#
+# PREFERRED — the colby-ecosystem GitHub App (decided 2026-11-18, option 3 of
+# decisions/2026-11-18-agents-sync-off-the-runners.md). A PAT draws on jmbish04's personal
+# 5,000/hour REST budget, the SAME pool `gh`, gh-tools, agents-audit/-rollout and every
+# interactive agent session spend from. 64 repos fetching 5-8 files per PR exhaust it, and
+# the fetch then returns 403 — the real cause of the agents-sync failures. An App
+# installation token draws on the installation's OWN budget instead, so the fleet's fetches
+# stop competing with that interactive work. The ceiling rises too: 5,000/hour, +50/hour
+# per repo over 20, capped at 12,500. It is still ONE pool shared by all 64 repos, so the
+# head-SHA change gate in pull-agents (reuse on-disk files when colby-ecosystem has not
+# moved; a 304 conditional request is NOT free, measured 2026-11-18) stacks on top of this
+# and cuts the request count. Both are now built.
+#
+#   Repo VARIABLE (App id is public, not sensitive):
+#     gh variable set COLBY_ECOSYSTEM_APP_ID  --repo <owner>/<repo> --body <app-id>
+#   Repo SECRET (the App private key, PEM):
+#     gh secret   set COLBY_ECOSYSTEM_APP_KEY --repo <owner>/<repo> < app-private-key.pem
+# The App needs contents:read on colby-ecosystem and must be installed on jmbish04 with
+# access to colby-ecosystem. A repo with the variable UNSET skips the mint step and uses
+# COLBY_ECOSYSTEM_TOKEN, so the App can roll out one repo at a time with nothing breaking.
 
 name: agents-sync
 
@@ -109,9 +129,33 @@ jobs:
         with:
           ref: ${{ github.head_ref || github.ref_name }}
 
+      # Mint a short-lived token from the colby-ecosystem GitHub App when this repo carries
+      # its App id. See the "PREFERRED" note in the header for why this exists: the App's own
+      # rate-limit budget is separate from jmbish04's personal 5,000/hour pool. The `owner` +
+      # `repositories` inputs are required because the App is installed on colby-ecosystem,
+      # which is NOT the repo this workflow runs in; without them the action scopes the token
+      # to the current repo and the fetch below 404s.
+      #
+      # v3 is the floating major, matching actions/checkout@v4 above; v3.3.0 was latest on
+      # 2026-11-18. The step is gated on the variable, so a repo without the App skips it.
+      - name: Mint a colby-ecosystem App token
+        id: app-token
+        if: ${{ vars.COLBY_ECOSYSTEM_APP_ID != '' }}
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.COLBY_ECOSYSTEM_APP_ID }}
+          private-key: ${{ secrets.COLBY_ECOSYSTEM_APP_KEY }}
+          owner: jmbish04
+          repositories: colby-ecosystem
+
       - name: Pull the right-sized briefings
         env:
-          GH_TOKEN: ${{ secrets.COLBY_ECOSYSTEM_TOKEN }}
+          # The minted App token when the step above ran; the PAT otherwise. A skipped step's
+          # output is the empty string, and GitHub's `'' || secrets.X` resolves to the PAT, so
+          # a repo with no COLBY_ECOSYSTEM_APP_ID set keeps working exactly as it did before.
+          # Dropping this fallback would empty GH_TOKEN in every un-migrated repo and break
+          # the whole fleet's sync at once — scripts/test-agents-sync-workflow plants that.
+          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.COLBY_ECOSYSTEM_TOKEN }}
         run: |
           set -euo pipefail
           if [ -z "${GH_TOKEN:-}" ]; then
